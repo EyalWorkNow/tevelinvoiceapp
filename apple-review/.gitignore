@@ -1,0 +1,6 @@
+/build/
+/screenshots/*.png
+/screenshots/*.jpg
+/screenshots/*.jpeg
+/video/*.mov
+/video/*.mp4

@@ -1,0 +1,338 @@
+// The Composer's primary button, end to end (SPEC-v2 §6.C API, §8.2, F7).
+// Owner: squad B. Quote → POST /quotes (or PUT when editing, BE-06) →
+// POST /quotes/:id/share-link (BE-06: the quote page + PDF) → WhatsApp /
+// share → status SENT → D. Without BE-06 the text lists the lines (P0).
+// Document → runIssue (evaluate, finalize, signature, payment) →
+// share-link → wa.me → D with "הופק ✓ · נשלח ל… בווטסאפ".
+
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import '../../api/commerce_api.dart';
+import '../../state/caps.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../../api/client.dart';
+import '../../api/issue_api.dart';
+import '../../api/quotes_api.dart';
+import '../../router.dart' show openDocument, openQuote;
+import '../../state/business_context.dart';
+import '../../util/allowed_urls.dart';
+import '../../util/composer_config.dart';
+import '../../util/intent_resolver.dart';
+import '../../util/labels/labels.dart';
+import '../../util/phone.dart';
+import '../../util/vat.dart';
+import '../document/sheets/s6_share.dart';
+import 'compose_dialogs.dart';
+import 'compose_memory.dart';
+import 'compose_state.dart';
+import 'signing_unlock.dart';
+
+/// System share sheet for text (quote to a customer without a phone). Tests replace it.
+Future<void> Function(String text) shareText = (text) =>
+    SharePlus.instance.share(ShareParams(text: text));
+
+/// D after issuing (replaces C) and the auto-opened S6. Tests replace them
+/// so the Composer is tested without squad C's screens.
+Future<void> Function(BuildContext context, String id) openIssuedDocument =
+    (c, id) => openDocument(c, id, replace: true);
+Future<void> Function(BuildContext context, String id) openIssuedQuote =
+    (c, id) => openQuote(c, id, replace: true);
+Future<void> Function(BuildContext context, String id) openShareAfterIssue =
+    (c, id) => showShareSheet(c, documentId: id);
+
+/// What the screen needs to run the button.
+class ComposeRun {
+  ComposeRun({
+    required this.state,
+    required this.action,
+    required this.needsApproval,
+    this.existingDraftId,
+    this.existingDraftType,
+    this.cloneFrom,
+    this.cloneTotal,
+  });
+
+  final ComposeState state;
+  ComposerAction action;
+  bool needsApproval;
+
+  /// Continue this server draft (draftId / converted quote) instead of creating one.
+  final String? existingDraftId;
+  final String? existingDraftType;
+
+  /// BE-08 linked conversion source (see PendingIssue.cloneFrom).
+  final String? cloneFrom;
+  final String? cloneTotal;
+
+  /// A quote already created by an earlier tap (the sending failed after it),
+  /// or the quote this Composer edits.
+  String? quoteId;
+
+  /// [quoteId] is edited in place: PUT /quotes/:id before sending (BE-06).
+  bool editQuote = false;
+
+  /// The issue of an earlier tap (or the saved one this Composer resumes):
+  /// a retry continues it with the same keys — nothing is created twice.
+  PendingIssue? pending;
+}
+
+PendingIssue _pendingFor(ComposeRun run) {
+  final s = run.state;
+  final c = s.config;
+  final body = c.receiptOnly
+      ? <String, dynamic>{
+          'documentType': c.serverType,
+          'customerId': s.customer!.id,
+        }
+      : s.requestBody();
+  final old = run.pending;
+  if (old != null && !old.editable) {
+    return old; // numbered: finish what was issued
+  }
+  final p =
+      old ??
+      PendingIssue(
+        businessId: currentBusinessId,
+        body: body,
+        form: const {},
+        totalMinor: s.totalMinor,
+        needsApproval: run.needsApproval,
+        receiptOnly: c.receiptOnly,
+        draftId: run.existingDraftId,
+        draftType: run.existingDraftType,
+        stage: run.existingDraftId == null
+            ? IssueStage.start
+            : IssueStage.draft,
+        cloneFrom: run.existingDraftId == null ? run.cloneFrom : null,
+        cloneTotal: run.cloneTotal,
+      );
+  p
+    ..body = body
+    ..form = s.toJson()
+    ..payment = s.payment
+    ..totalMinor = s.totalMinor
+    ..needsApproval = run.needsApproval
+    ..evaluate =
+        s.showVat &&
+        (c.kind == DocKind.taxInvoice || c.kind == DocKind.taxInvoiceReceipt)
+    ..requestAllocation = s.requestAllocation;
+  return run.pending = p;
+}
+
+/// Runs the button. [onStep] gets the loading text ("מפיק…", "חותם…").
+/// Errors are shown as a toast; the pending issue stays for "נסה שוב".
+Future<void> runCompose(
+  BuildContext context,
+  ComposeRun run, {
+  required void Function(String? step) onStep,
+}) async {
+  final s = run.state;
+  final messenger = ScaffoldMessenger.of(context);
+  final nav = Navigator.of(context);
+  if (run.action != ComposerAction.submit &&
+      !s.config.isQuote &&
+      s.totalMinor >= bigAmountConfirmMinor &&
+      !await confirmBigAmount(context, s.totalMinor)) {
+    return;
+  }
+  onStep(ComposeHe.stepIssuing);
+  try {
+    if (s.config.isQuote) {
+      await _sendQuote(run, messenger);
+      if (context.mounted) {
+        unawaited(
+          openIssuedQuote(context, run.quoteId!),
+        ); // completes when D closes
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    final result = await _issue(context, run, onStep);
+    await clearLocalDraft();
+    final id = result.document.id;
+    if (result.outcome == IssueOutcome.issued) {
+      await rememberDescription(s.customer?.id, s.mainDescription);
+      if (s.config.paid) await rememberPaymentMethod(s.method);
+    }
+    var sentByWhatsApp = false;
+    var needsRecipient = false;
+    String? deliveryMessage;
+    if (result.outcome == IssueOutcome.issued &&
+        businessContext.can(Cap.docSend)) {
+      onStep(ComposeHe.stepSending);
+      try {
+        final dispatch = await dispatchDocument(id);
+        sentByWhatsApp = dispatch.delivered;
+        needsRecipient = dispatch.needsRecipient;
+        deliveryMessage = dispatch.message;
+      } on ApiException catch (e) {
+        if (e.status != 404) {
+          deliveryMessage = 'המסמך הופק. המשלוח לא הושלם: ${e.messageHe}';
+        }
+      }
+    }
+    if (result.outcome == IssueOutcome.issued &&
+        run.action == ComposerAction.issueAndWhatsApp &&
+        deliveryMessage == null) {
+      onStep(ComposeHe.stepSending);
+      final link = await createIssueShareLink(id);
+      final text = issueWhatsAppText(
+        customerName: s.customer!.name,
+        typeLabel: docTypeLabel(result.document.documentType),
+        number: result.document.documentNumber,
+        totalMinor: result.document.totalMinor,
+        link: link,
+        businessName: businessContext.displayName,
+      );
+      final opened = await launchAllowed(
+        whatsAppUri(phone: waPhone(s.customer!.phone), text: text),
+      );
+      if (opened) deliveryMessage = 'המסמך הופק. WhatsApp נפתח לשיתוף.';
+    }
+    final first =
+        result.outcome == IssueOutcome.issued && await takeFirstIssueFlag();
+    if (!context.mounted) return;
+    unawaited(openIssuedDocument(context, id)); // completes when D closes
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          deliveryMessage ?? _toast(result.outcome, sentByWhatsApp, s),
+        ),
+      ),
+    );
+    if (first) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text(ComposeHe.firstIssueNote)),
+      );
+    }
+    if (result.outcome == IssueOutcome.issued &&
+        (needsRecipient ||
+            (run.action == ComposerAction.issue && deliveryMessage == null))) {
+      // "הפק" → D, where S6 opens by itself (§6.C step 4).
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (nav.mounted) openShareAfterIssue(nav.context, id);
+      });
+    }
+  } on IssueCancelled {
+    // The user closed a dialog; nothing to say.
+  } on ApiException catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(e.messageHe)));
+  } finally {
+    onStep(null);
+  }
+}
+
+String _toast(IssueOutcome outcome, bool sent, ComposeState s) =>
+    switch (outcome) {
+      IssueOutcome.issued =>
+        sent ? ComposeHe.issuedSentTo(s.customer!.name) : ComposeHe.issued,
+      IssueOutcome.submittedForApproval => ComposeHe.submitted,
+      IssueOutcome.waitingForAllocation => ComposeHe.waitingAllocation,
+      IssueOutcome.signingLocked => ComposeHe.waitingSignature,
+    };
+
+Future<IssueResult> _issue(
+  BuildContext context,
+  ComposeRun run,
+  void Function(String? step) onStep,
+) async {
+  final s = run.state;
+  final c = s.config;
+  final customer = s.customer!;
+  if (c.counterparty == Counterparty.donor && (customer.taxId ?? '').isEmpty) {
+    await ApiClient.instance.patch('/customers/${customer.id}', {
+      'taxId': s.donorTaxId.trim(),
+    });
+  }
+  final p = _pendingFor(run);
+  return runIssue(
+    p,
+    onStage: (stage) => onStep(switch (stage) {
+      IssueStage.draft =>
+        p.evaluate ? ComposeHe.stepAuthority : ComposeHe.stepIssuing,
+      IssueStage.finalized => ComposeHe.stepSigning,
+      IssueStage.artifact =>
+        p.payment != null ? ComposeHe.stepPayment : ComposeHe.stepPdf,
+      _ => ComposeHe.stepIssuing,
+    }),
+    unlockSigning: () => ensureSigningUnlocked(context),
+    askVatStatus: (reason) => askVatDealer(
+      context,
+      customerName: customer.name,
+      needsNumber:
+          reason == 'CUSTOMER_VAT_NUMBER_MISSING' ||
+          (customer.taxId ?? '').isEmpty,
+    ),
+  );
+}
+
+Future<void> _sendQuote(
+  ComposeRun run,
+  ScaffoldMessengerState messenger,
+) async {
+  final s = run.state;
+  final customer = s.customer!;
+  if (run.quoteId == null) {
+    run.quoteId = await createQuote(
+      customerId: customer.id,
+      lines: s.quoteLines,
+      validUntil: s.validUntil,
+      notes: s.notes,
+    );
+  } else if (run.editQuote) {
+    await updateQuote(
+      run.quoteId!,
+      customerId: customer.id,
+      lines: s.quoteLines,
+      validUntil: s.validUntil,
+      notes: s.notes,
+    );
+  }
+  String? link;
+  try {
+    link = await createQuoteShareLink(run.quoteId!);
+  } on ApiException catch (e) {
+    if (e.isNetwork) rethrow;
+    link = null; // a server without BE-06: the P0 text with the lines
+  }
+  final text = link != null
+      ? quoteLinkWhatsAppText(
+          customerName: customer.name,
+          totalMinor: s.totalMinor,
+          validUntil: formatDateHe(s.validUntil),
+          link: link,
+          businessName: businessContext.displayName,
+        )
+      : quoteWhatsAppText(
+          customerName: customer.name,
+          lines: [
+            for (final l in s.requestLines)
+              (
+                l['description'] as String,
+                calculateLine(
+                  quantityMicros: BigInt.parse(l['quantityMicros'] as String),
+                  unitPriceMinor: BigInt.parse(l['unitPriceMinor'] as String),
+                  discountMinor: BigInt.tryParse(
+                    l['discountMinor'] as String? ?? '',
+                  ),
+                  taxRateBasisPoints: l['taxRateBasisPoints'] as int,
+                ).totalMinor,
+              ),
+          ],
+          totalMinor: s.totalMinor,
+          validUntil: formatDateHe(s.validUntil),
+          businessName: businessContext.displayName,
+        );
+  var sent = true;
+  if (run.action == ComposerAction.sendQuoteWhatsApp) {
+    sent = await launchAllowed(
+      whatsAppUri(phone: waPhone(customer.phone), text: text),
+    );
+  } else {
+    await shareText(text);
+  }
+  if (sent) await setQuoteStatus(run.quoteId!, 'SENT');
+  messenger.showSnackBar(const SnackBar(content: Text(ComposeHe.quoteSent)));
+}
