@@ -19,7 +19,7 @@
 | מחיקת חשבון בודק | חסום | ליצור חשבון בדיקה שני שאפשר למחוק בלי להסיר את חשבון ההדגמה הראשי. |
 | צילומי מסך | חסרים ב־ASC | מסך App Store Connect מציג 0/10. יש להפיק צילומי מסך נקיים מתוך Release בגודל נתמך (למשל 1206×2622) ולוודא שאין פרטי לקוח אמיתיים. |
 | סרטון הדגמה | תסריט קיים, צילום חסר | תסריט ב־`DEMO_VIDEO_SCRIPT-he.md`. לצלם עם חשבון ה־production demo לאחר יצירתו; לא להציג יצירת עסק באפליקציה. סרטון לא מחליף חשבון בודק ואינו נדרש אוטומטית. |
-| App Store Connect | הרשומה אומתה; מטא־דאטה ראשונית נשמרה | ברשומה `6831079441` מאומתים `תבל עסקים`, Bundle ID ‏`space.tevel.invoice`, SKU ‏`tevel-invoice-ios`, שפה עברית, קטגוריית Business ודירוג 4+. נשמרו כותרת משנה, תיאור, טקסט קידום, מילות מפתח, Support URL, Marketing URL וזכויות יוצרים `2026 Tevel`. ההתחברות פעילה; לא הועלה build ולא נשלחה גרסה לבדיקה. |
+| App Store Connect | הרשומה אומתה; מטא־דאטה ראשונית נשמרה | ברשומה `6831079441` מאומתים `תבל עסקים`, Bundle ID ‏`space.tevel.invoice`, SKU ‏`tevel-invoice-ios`, שפה עברית, קטגוריית Business ודירוג 4+. נשמרו כותרת משנה, תיאור, טקסט קידום, מילות מפתח, Support URL, Marketing URL וזכויות יוצרים `2026 Tevel`. ההתחברות פעילה; build ‏1.0.0 (1) הועלה ב־Transporter וממתין לעיבוד. לא נשלחה גרסה לבדיקה. |
 | קבוצת מינויים | נוצרה; מוצרים נשמרו | נוצרה הקבוצה `Tevel Monthly Plans`, מזהה `22549611`, ושלושה מוצרים עם תמחור ולוקליזציה בעברית. Apple מציינת שהקבוצה הראשונה מוגשת יחד עם גרסת האפליקציה. |
 | App Privacy | חסום לתיקון הצהרה | App Store Connect עדיין מציג `Data Not Collected`, שאינו נכון לאפליקציה שמקבלת ושומרת חשבונות, פרטי לקוחות, מסמכים והוצאות בשרת. מדיניות הפרטיות הקיימת ב־`/legal/privacy` מתארת בעיקר פניות לאתר/CRM ולא את האפליקציה; יש לפרסם מדיניות ייעודית ומדויקת ולהצהיר על סוגי המידע לפי הזרימות וה־SDKs לפני Publish. |
 | Content Rights ו־DSA | ממתין לפרטים אמיתיים | הצהרת זכויות לתוכן של לקוחות לא נבחרה. רשומת DSA מציגה כרגע Non-Trader; אם המפתח מציע שירות מסחרי באזורי האיחוד, יש לעדכן פרטי סוחר/איש קשר אמיתיים דרך בעל החשבון. אין להצהיר בשם העסק ללא אימות הנתונים. |
@@ -32,7 +32,7 @@
 - אחרי פתיחת `ios/Runner.xcworkspace` הנכון, `flutter build ipa --release --export-options-plist=apple-review/ExportOptions.plist --build-name=1.0 --build-number=1` הצליח.
 - נוצר `build/ios/ipa/תבל.ipa` (24.9MB), גרסה `1.0.0`, build ‏`1`, Bundle ID ‏`space.tevel.invoice`.
 - `codesign -dv --verbose=2` אימת חתימה `Apple Distribution: Eyal Atiya (ARFSXMWT96)`; בדיקת entitlements אישרה `com.apple.developer.applesignin = Default` ו־`get-task-allow = false`.
-- לא בוצעה העלאה ל־App Store Connect. להעלאה נוספת יש להעלות את Build Number.
+- ה־IPA הועלה ב־Transporter; בזמן הבדיקה הוא עדיין בעיבוד. לא נשלחה גרסה ל־App Review. להעלאה חוזרת יש להעלות את Build Number.
 
 ## בדיקות תשלום קריטיות
 

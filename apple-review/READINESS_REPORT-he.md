@@ -1,10 +1,10 @@
 # דוח מוכנות ל־App Store — Tevel Invoice
 
-נבדק: 5 בנובמבר 2026. לא בוצעה העלאה או הגשה ל־Apple.
+נבדק: 5 בנובמבר 2026. IPA הועלה ל־App Store Connect דרך Transporter; גרסה לא הוגשה ל־Review.
 
 | נושא | סטטוס | ממצא / פעולה שנותרה |
 |---|---|---|
-| App Store Connect | הרשומה אומתה; מטא־דאטה ראשונית נשמרה | ברשומה `6831079441` מאומתים `תבל עסקים`, Bundle ID ‏`space.tevel.invoice`, SKU ‏`tevel-invoice-ios`, עברית, קטגוריית Business ודירוג 4+. נשמרו כותרת משנה, תיאור, טקסט קידום, מילות מפתח, Support URL, Marketing URL וזכויות יוצרים `2026 Tevel`. לא הועלה build ולא נשלחה גרסה לבדיקה. |
+| App Store Connect | הרשומה אומתה; מטא־דאטה ראשונית נשמרה | ברשומה `6831079441` מאומתים `תבל עסקים`, Bundle ID ‏`space.tevel.invoice`, SKU ‏`tevel-invoice-ios`, עברית, קטגוריית Business ודירוג 4+. נשמרו כותרת משנה, תיאור, טקסט קידום, מילות מפתח, Support URL, Marketing URL וזכויות יוצרים `2026 Tevel`. build ‏1.0.0 (1) הועלה וממתין לעיבוד; לא נשלחה גרסה לבדיקה. |
 | Bundle ID ו־Team ID | חתימת IPA הצליחה | `space.tevel.invoice` / `ARFSXMWT96`; יעד iOS 15.0; גרסה `1.0.0 (1)`. ה־IPA נחתם ב־Apple Distribution של הצוות וכולל Sign in with Apple entitlement. |
 | Sign in with Apple | חתום ב־IPA | כפתור וזרימת Apple קיימים בקוד. בדיקת IPA אישרה `com.apple.developer.applesignin = Default`; נדרשת בדיקת התחברות מול סביבת Production עם משתמש בדיקה. |
 | מינוי iOS ומדיניות תשלום | שלושה מוצרים ומחירים נשמרו ב־ASC; אינטגרציית production חסרה | בקבוצה `Tevel Monthly Plans` (ID ‏`22549611`) נוצרו המוצרים החודשיים עם לוקליזציות בעברית: עד 21 מסמכים ב־₪7.90, עד 30 ב־₪9.90, וללא הגבלה ב־₪14.90. אלו מדרגות Apple הקרובות למחירים 8/10/15 ₪ שנקבעו, מאחר שלא היו נקודות מחיר מדויקות. שלושת המוצרים במצב `Prepare for Submission`; סדר הרמות הנוכחי בסיסי→צמיחה→ללא הגבלה ואינו תואם להמלצת ASC לסדר יורד לפי רמת השירות. פתיחת העריכה דרך חיבור הדפדפן לא פעלה. נותרו אימות זמינות ישראל לכל מוצר, Server Notifications, `APPLE_APP_ID` ובדיקות Sandbox בשרת. חיבור Cardcom לא בוצע. |
@@ -17,7 +17,7 @@
 | מטא־דאטה עברית/אנגלית | עברית הוזנה; צילומי מסך חסרים | העברית נשמרה ונבדקה בעמוד הגרסה. אין צילומי מסך ב־App Store Connect (0/10 ל־iPhone), ואין קובצי Preview בתיקיית `apple-review/screenshots/` מעבר להנחיות. יש לצלם מתוך Release עדכני. |
 | צילומי מסך | חסרים להעלאה | ASC מציג 0/10 צילומי מסך למכשיר iPhone עם Dynamic Island. דורש רזולוציה נתמכת כגון 1206×2622 או 1179×2556. |
 | Archive | נוצר בחתימה אוטומטית | `build/ios/archive/Runner.xcarchive` נוצר ב־5.11 מה־workspace הנכון כחלק מבניית IPA חתום. |
-| IPA | **נוצר ונבדק מקומית** | `build/ios/ipa/תבל.ipa`, ‏24.9MB, גרסה `1.0.0 (1)`. `codesign` אימת Apple Distribution של `ARFSXMWT96`, Bundle ID נכון ו־Sign in with Apple entitlement. לא הועלה ל־App Store Connect. |
+| IPA | **נוצר ונבדק מקומית** | `build/ios/ipa/תבל.ipa`, ‏24.9MB, גרסה `1.0.0 (1)`. `codesign` אימת Apple Distribution של `ARFSXMWT96`, Bundle ID נכון ו־Sign in with Apple entitlement. הועלה ב־Transporter; המצב שנצפה הוא Processing. טרם אומת עיבוד מלא ב־App Store Connect. |
 | גישת App Store Connect | פעילה | הרשומה וקבוצת המינויים נפתחו בחשבון המחובר; copyright נשמר כ־`2026 Tevel`. |
 
 ## אימותים שבוצעו
