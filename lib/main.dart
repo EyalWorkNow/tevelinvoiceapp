@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'api/settings_api.dart' show hideAmounts, loadHideAmounts;
+import 'push/push_service.dart';
 import 'router.dart';
 import 'screens/auth/app_lock.dart';
 import 'screens/auth/splash_screen.dart';
@@ -83,7 +84,12 @@ class _TevelAppState extends State<TevelApp> {
   void _onSession() {
     final now = session.status;
     if (_last == SessionStatus.signedIn && now == SessionStatus.signedOut) {
+      PushService.instance.reset();
       resetToLogin(expired: session.expired);
+    }
+    // PUSH-001: register for notifications (no prompt here) and open a tapped one.
+    if (_last != SessionStatus.signedIn && now == SessionStatus.signedIn) {
+      unawaited(PushService.instance.start());
     }
     _last = now;
   }

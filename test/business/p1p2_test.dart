@@ -389,7 +389,7 @@ void main() {
     testWidgets('sole-owner delete warning offers "העבר בעלות" when the server has it', (tester) async {
       serveTransfer(backend);
       await pumpAs(tester, backend, Preset.owner, const BusinessScreen(section: 'account'));
-      await tester.ensureVisible(find.byKey(const Key('account-delete')));
+      await tester.scrollUntilVisible(find.byKey(const Key('account-delete')), 200, scrollable: find.byType(Scrollable).first);
       await tester.tap(find.byKey(const Key('account-delete')));
       await settle(tester);
       expect(find.byType(SoleOwnerWarning), findsOneWidget);

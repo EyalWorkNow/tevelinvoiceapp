@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../../api/auth_api.dart';
 import '../../api/client.dart';
+import '../../push/push_service.dart';
 import '../../router.dart';
 import '../../state/business_context.dart';
 import '../../state/caps.dart';
@@ -98,6 +99,7 @@ Future<void> routeSignedIn(BuildContext context) async {
     return;
   }
   resetToHome();
+  PushService.instance.shellReady(); // a tap that launched the app opens now, above home
 }
 
 void _resetTo(Widget screen, String name) => navigatorKey.currentState?.pushAndRemoveUntil(

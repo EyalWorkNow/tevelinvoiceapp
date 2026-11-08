@@ -8,6 +8,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../push/push_service.dart';
 import '../../api/commerce_api.dart';
 import '../../state/caps.dart';
 import 'package:share_plus/share_plus.dart';
@@ -206,6 +208,21 @@ Future<void> runCompose(
       messenger.showSnackBar(
         const SnackBar(content: Text(ComposeHe.firstIssueNote)),
       );
+    }
+    // PUSH-001: the moment notifications make sense — ask once (our sheet first, then iOS).
+    if (first || result.outcome == IssueOutcome.waitingForAllocation) {
+      final askFrom = nav.context;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (askFrom.mounted) {
+          unawaited(
+            PushService.instance.maybeAskAfterIssue(
+              askFrom,
+              waitingForTaxAuthority:
+                  result.outcome == IssueOutcome.waitingForAllocation,
+            ),
+          );
+        }
+      });
     }
     if (result.outcome == IssueOutcome.issued &&
         (needsRecipient ||

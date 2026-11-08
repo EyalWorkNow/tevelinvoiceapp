@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import '../../api/models/models.dart';
 import '../../api/settings_api.dart';
 import '../../api/team_api.dart';
+import '../profile/notification_settings_screen.dart';
 import '../../router.dart';
 import '../../state/business_context.dart';
 import '../../state/cache.dart';
@@ -161,6 +162,14 @@ class _AccountPageState extends State<AccountPage> {
             title: const Text(BusinessHe.hideAmounts, style: AppText.body),
             value: hidden,
             onChanged: setHideAmounts,
+          ),
+        ),
+        BusinessRow(
+          key: const Key('account-notifications'),
+          label: PushHe.settingsRow,
+          icon: Iconsax.notification,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const NotificationSettingsScreen()),
           ),
         ),
         BusinessRow(
