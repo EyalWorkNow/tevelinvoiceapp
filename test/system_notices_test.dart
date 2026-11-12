@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:invoice/api/client.dart';
 import 'package:invoice/state/system_notices.dart';
 import 'package:invoice/ui/widgets/notch_notice.dart';
 
@@ -24,4 +25,17 @@ void main() {
       expect(systemNoticePresentation('arbitrary-remote-event'), isNull);
     },
   );
+
+  test('push refused for a device token without MFA gets its own clear code', () {
+    final mapped = SystemNotices.pushRegistrationError(ApiException(
+      400,
+      'VALIDATION',
+      'x',
+      serverMessage: 'a current device credential is required',
+    ));
+    expect(mapped.code, 'PUSH_MFA_REQUIRED');
+    expect(mapped.messageHe, contains('אימות דו-שלבי'));
+    final other = ApiException(503, 'SERVICE_UNAVAILABLE', 'x');
+    expect(SystemNotices.pushRegistrationError(other), same(other));
+  });
 }

@@ -55,6 +55,17 @@ class SessionController extends ChangeNotifier {
   DateTime? meFetchedAt;
   static const Duration maxCapsAge = Duration(hours: 24);
 
+  /// True when this cold start opened from the cache and the server check
+  /// still runs in the background ([revalidation]).
+  bool restoredFromCache = false;
+
+  /// The background server check after a cache start (null otherwise).
+  Future<void>? revalidation;
+
+  /// Runs before the device token is revoked on an explicit sign-out (e.g.
+  /// unregister push tokens while the bearer is still valid). Best effort.
+  final List<Future<void> Function()> beforeSignOut = [];
+
   /// [me] when it is fresh enough to derive capabilities from.
   Me? get freshMe {
     final at = meFetchedAt;
@@ -74,10 +85,14 @@ class SessionController extends ChangeNotifier {
   /// needs X-Business-Id, so onboarding always runs inside a business).
   bool get needsOnboarding => me != null && !me!.onboardingCompleted;
 
-  /// Cold start. Reads the Keychain token; validates it with GET /mobile/session.
-  /// Only a 401 signs out; offline / 5xx / 429 → stays signed in from the
-  /// cached account (the token is kept).
+  /// Cold start. Reads the Keychain token. With a complete, fresh cache the
+  /// app is signed in at once and GET /mobile/session + /me + profile run in
+  /// the background (F9: home never waits for the network). Otherwise they
+  /// run first. Only a 401 signs out; offline / 5xx / 429 → stays signed in
+  /// from the cached account (the token is kept).
   Future<void> restore() async {
+    restoredFromCache = false;
+    revalidation = null;
     if (await AppCache.isFirstLaunch()) await _forgetTokenFromPreviousInstall();
     final token = await _storage.read(key: _kToken);
     if (token == null) {
@@ -87,24 +102,34 @@ class SessionController extends ChangeNotifier {
     }
     _client.deviceToken = token;
     final storedBusiness = await _storage.read(key: _kBusiness);
+    if (await _restoreFromCache(storedBusiness)) {
+      restoredFromCache = true;
+      status = SessionStatus.signedIn;
+      notifyListeners();
+      revalidation = _revalidate();
+      return;
+    }
     try {
       await _loadAccount(preferredBusinessId: storedBusiness);
       offline = false;
-    } on ApiException catch (e) {
-      if (e.status == 401) {
+    } on Object catch (e) {
+      if (e is ApiException && e.status == 401) {
         await _signOutLocally(expired: true);
         return;
       }
+      // Offline / 5xx / an unreadable answer: the cached account, never a
+      // splash that waits forever.
       offline = true;
       final cached = await AppCache.read(_kAccountCache);
-      if (cached is! Map<String, dynamic>) {
+      final restored = cached is Map<String, dynamic> ? _accountOrNull(cached) : null;
+      if (restored == null) {
         // Never been online with this token — nothing to show; keep the token
         // and let the UI offer a retry from the login screen.
         status = SessionStatus.signedOut;
         notifyListeners();
         return;
       }
-      account = MobileAccount.fromJson(cached);
+      _setAccount(restored);
       _selectFromAccount(storedBusiness);
       await _readCachedBusiness();
     }
@@ -113,8 +138,14 @@ class SessionController extends ChangeNotifier {
     if (business != null && !offline) {
       try {
         await refreshBusiness();
-      } on ApiException catch (e) {
-        if (e.isNetwork) {
+      } on Object catch (e) {
+        if (e is ApiException && e.status == 401) {
+          // Revoked between the two calls: the event is ignored while the
+          // status is still unknown, so sign out here.
+          await _signOutLocally(expired: true);
+          return;
+        }
+        if (e is! ApiException || e.isNetwork) {
           offline = true;
           await _readCachedBusiness();
         }
@@ -122,6 +153,67 @@ class SessionController extends ChangeNotifier {
     }
     status = SessionStatus.signedIn;
     notifyListeners();
+  }
+
+  /// Signed in from the Keychain token + the last successful refresh, when
+  /// that cache is complete (account, chosen business, fresh /me, set up).
+  Future<bool> _restoreFromCache(String? storedBusiness) async {
+    final cached = await AppCache.read(_kAccountCache);
+    final restored = cached is Map<String, dynamic> ? _accountOrNull(cached) : null;
+    if (restored == null) return false;
+    _setAccount(restored);
+    _selectFromAccount(storedBusiness);
+    if (business != null) await _readCachedBusiness();
+    final ready = business != null &&
+        freshMe != null &&
+        profile != null &&
+        me!.onboardingCompleted;
+    if (ready) return true;
+    account = null;
+    business = null;
+    me = null;
+    profile = null;
+    meFetchedAt = null;
+    _client.businessId = null;
+    AppCache.userScope = null;
+    return false;
+  }
+
+  /// The server check after a cache start. 401 / MFA_REQUIRED sign out (the
+  /// app returns to S1); a network failure only marks the session offline.
+  Future<void> _revalidate() async {
+    final requested = business?.businessId;
+    try {
+      await _loadAccount(preferredBusinessId: requested);
+      if (status != SessionStatus.signedIn) return;
+      await refreshBusiness();
+      offline = false;
+      notifyListeners();
+    } on Object catch (e) {
+      if (status != SessionStatus.signedIn) return;
+      if (e is ApiException &&
+          (e.status == 401 || e.code == 'MFA_REQUIRED')) {
+        await _signOutLocally(expired: true);
+        return;
+      }
+      if (e is! ApiException || e.isNetwork || e.status >= 500) {
+        offline = true;
+        notifyListeners();
+      }
+    }
+  }
+
+  MobileAccount? _accountOrNull(Map<String, dynamic> json) {
+    try {
+      return MobileAccount.fromJson(json);
+    } on Object {
+      return null;
+    }
+  }
+
+  void _setAccount(MobileAccount value) {
+    account = value;
+    AppCache.userScope = value.userId;
   }
 
   /// After the cookie login (+ MFA if required) succeeded: get a device token,
@@ -204,6 +296,13 @@ class SessionController extends ChangeNotifier {
   /// wipe Keychain + cache, including pending operations (the caller warns
   /// first when [AppCache.hasPending]).
   Future<void> signOut() async {
+    for (final hook in List.of(beforeSignOut)) {
+      try {
+        await hook().timeout(const Duration(seconds: 5));
+      } on Object {
+        // Offline: the server also drops push rows bound to a revoked token.
+      }
+    }
     if (_client.hasDeviceToken) {
       try {
         await _client.post('/mobile/logout');
@@ -233,6 +332,8 @@ class SessionController extends ChangeNotifier {
     } on Object {
       // Cache wipe failure must not keep the user signed in.
     }
+    AppCache.userScope = null;
+    restoredFromCache = false;
     status = SessionStatus.signedOut;
     notifyListeners();
   }
@@ -258,7 +359,7 @@ class SessionController extends ChangeNotifier {
 
   Future<void> _loadAccount({String? preferredBusinessId}) async {
     final json = await _client.get('/mobile/session');
-    account = MobileAccount.fromJson(json);
+    _setAccount(MobileAccount.fromJson(json));
     await AppCache.write(_kAccountCache, account!.toJson());
     _selectFromAccount(preferredBusinessId);
   }
