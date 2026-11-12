@@ -7,6 +7,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/inbox_api.dart';
 import 'package:invoice/api/models/models.dart';
+import 'package:invoice/screens/document/sheets/s6_share.dart'
+    show sendPaymentReminder;
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/util/labels/inbox_he.dart';
@@ -675,15 +677,14 @@ void main() {
           }
           return FakeResponse(201, {'url': 'https://invoice.test/d/tok'});
         });
-        await remindOnWhatsApp(
-          ReminderTarget(
-            documentId: 'late-nomail',
-            customerName: 'רון',
-            phone: '053-2222222',
-            documentNumber: '3',
-            openMinor: BigInt.from(30000),
-          ),
-          businessName: 'סטודיו תבל',
+        await sendPaymentReminder(
+          documentId: 'late-nomail',
+          documentType: 'TAX_INVOICE',
+          customerName: 'רון',
+          phone: '053-2222222',
+          documentNumber: '3',
+          openMinor: BigInt.from(30000),
+          link: () => shareLinkFor('late-nomail'),
         );
         expect(backend.calls('POST', '/documents/:id/artifact'), hasLength(1));
         final url = l.last.toString();

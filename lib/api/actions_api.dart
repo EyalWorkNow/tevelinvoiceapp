@@ -655,19 +655,3 @@ String quoteWhatsAppMessage({
   return 'שלום${name.isEmpty ? '' : ' $name'}, הצעת מחיר על סך '
       '${formatMoney(totalMinor, trimZeroAgorot: true)}$until$view. תודה, $businessName';
 }
-
-/// "שלח תזכורת" (§6.D row 10): the same link, a reminder wording.
-String reminderWhatsAppMessage({
-  String? customerName,
-  required String documentType,
-  String? documentNumber,
-  required BigInt openMinor,
-  required String businessName,
-  required String link,
-}) {
-  final name = customerName?.trim() ?? '';
-  final number = documentNumber == null ? '' : " מס' $documentNumber";
-  return 'שלום${name.isEmpty ? '' : ' $name'}, תזכורת: ${docTypeLabel(documentType)}$number '
-      'ממתינה לתשלום של ${formatMoney(openMinor, trimZeroAgorot: true)}. '
-      'לצפייה ולתשלום: $link. תודה, $businessName';
-}

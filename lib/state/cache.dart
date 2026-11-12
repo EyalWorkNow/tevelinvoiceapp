@@ -42,8 +42,11 @@ abstract final class AppCache {
   static const Set<String> _unscoped = {'account'};
 
   /// Typed by the user and not on the server yet: never in Library/Caches.
+  /// `wa_reminded_`: device-only "last WhatsApp reminder" per document (R1).
   static bool isUserEntered(String name) =>
-      name.startsWith('nd_local_draft_') || name.startsWith('team_grants_');
+      name.startsWith('nd_local_draft_') ||
+      name.startsWith('team_grants_') ||
+      name.startsWith('wa_reminded_');
 
   static String _safe(String name) =>
       name.replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_');

@@ -66,6 +66,17 @@ const Set<String> _voidableNonTax = {
 bool isCollectionType(String documentType) =>
     _collectionTypes.contains(documentType);
 
+/// The due date the server reminds by: [dueDate], else issue date + 30
+/// calendar days ('YYYY-MM-DD'); null without either.
+String? effectiveDueDate({String? dueDate, String? issueDate}) {
+  if (DateTime.tryParse(dueDate ?? '') != null) return dueDate;
+  final issued = DateTime.tryParse(issueDate ?? '');
+  if (issued == null) return null;
+  final d = DateTime(issued.year, issued.month, issued.day + 30);
+  return '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
 /// Due date passed: [dueDate] if known, otherwise issue date + 30 days (until BE-07).
 bool isOverdue({String? dueDate, String? issueDate, required DateTime today}) {
   var due = DateTime.tryParse(dueDate ?? '');
