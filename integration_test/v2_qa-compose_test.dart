@@ -66,7 +66,9 @@ void main() {
 
   /// S2 page 1: the recent circle of [customerId] (1 tap, auto-advance).
   Future<void> pickRecent(WidgetTester tester, TapCounter t, String customerId) async {
-    final circle = find.byKey(Key('s2-recent-$customerId'));
+    // "קיבלתי תשלום" shows the customers who paid you (s2-recent-payment-…).
+    final circle = find.byWidgetPredicate((w) =>
+        w.key == Key('s2-recent-$customerId') || w.key == Key('s2-recent-payment-$customerId'));
     final end = DateTime.now().add(const Duration(seconds: 15));
     while (circle.evaluate().isEmpty && DateTime.now().isBefore(end)) {
       await tester.pump(const Duration(milliseconds: 200));
@@ -207,7 +209,9 @@ void main() {
 
       expect(t.taps, lessThanOrEqualTo(5), reason: 'J1-לקוח-חדש budget');
       await expectWhatsAppLink(tester, '/d/');
-      final customers = (await owner.must('GET', '/customers'))['customers'] as List;
+      // The dev business has hundreds of QA customers: search, not the first page.
+      final customers =
+          (await owner.must('GET', '/customers?q=${Uri.encodeQueryComponent(name)}'))['customers'] as List;
       final created = customers.cast<Map<String, dynamic>>().where((c) => c['name'] == name).toList();
       expect(created, hasLength(1), reason: 'the new customer exists once');
       final doc = await newestDoc(owner, created.single['id'] as String);

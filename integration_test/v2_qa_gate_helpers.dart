@@ -28,6 +28,7 @@ import 'package:invoice/ui/money_text.dart' show ltrIsolate;
 import 'package:invoice/util/biometric.dart';
 import 'package:invoice/util/errors_he.dart';
 import 'package:invoice/util/labels/labels.dart';
+import 'qa_plans_guard.dart';
 
 const String apiBase = String.fromEnvironment('API_BASE', defaultValue: 'http://127.0.0.1:3031');
 const String mailDir = String.fromEnvironment('MAILDIR');
@@ -365,6 +366,7 @@ class TapCounter {
     await pumpUntil(tester, finder);
     await tester.ensureVisible(finder.first);
     await tester.pump(const Duration(milliseconds: 100));
+    await uncover(tester, finder.first);
     await tester.tap(finder.first);
     count++;
     await tester.pump(const Duration(milliseconds: 300));

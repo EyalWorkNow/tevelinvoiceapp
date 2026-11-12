@@ -23,6 +23,7 @@ import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/theme.dart';
 import 'package:invoice/util/biometric.dart';
+import 'qa_plans_guard.dart';
 
 const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'http://127.0.0.1:3031');
 const _mailDirDefine = String.fromEnvironment('MAILDIR');
@@ -452,6 +453,7 @@ class TapCounter {
     taps++;
     await tester.ensureVisible(f);
     await tester.pump();
+    await uncover(tester, f);
     await tester.tap(f);
     await settleNetwork(tester, d: settle);
   }

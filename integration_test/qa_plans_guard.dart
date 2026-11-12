@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/router.dart' show navigatorKey;
 import 'package:invoice/screens/billing/billing_screen.dart';
+import 'package:invoice/ui/widgets/notch_notice.dart' show notchNoticeKey;
 
 Timer? _guard;
 final _closed = Expando<bool>();
@@ -34,4 +35,13 @@ void dismissPlansDuringTests() {
       nav.popUntil((r) => r.settings.name != '/demo/customer-payment');
     }
   });
+}
+
+/// A notch notice (5 s or more) can sit over a target that ensureVisible
+/// scrolled to the top edge; a user would wait or swipe it away. Clears the
+/// notices only when they cover [f].
+Future<void> uncover(WidgetTester tester, Finder f) async {
+  if (f.evaluate().isEmpty || f.hitTestable().evaluate().isNotEmpty) return;
+  notchNoticeKey.currentState?.clear();
+  await tester.pump(const Duration(milliseconds: 100));
 }
