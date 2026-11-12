@@ -1,10 +1,12 @@
 // S1 (＋) and S3 (פרטים נוספים) widget tests (§6 sheets, §4.4, §4.7).
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:invoice/api/models/models.dart';
 import 'package:invoice/screens/compose/compose_state.dart';
 import 'package:invoice/screens/compose/sheets/s1_create.dart';
 import 'package:invoice/screens/compose/sheets/s3_more.dart';
@@ -200,6 +202,65 @@ void main() {
       expect(backend.last('POST', '/items')!.body['defaultUnitPriceMinor'], '10000');
       expect(s.extraLines.single.itemId, 'i9');
       expect(find.text(ComposeHe.savedAsItem), findsOneWidget);
+    });
+
+    testWidgets('H1: removing row 1 of 2 leaves row 2 showing its own values', (tester) async {
+      await tester.runAsync(() => signInAs(backend, Preset.owner));
+      final s = st(DocKind.taxInvoice, 'OSEK_MURSHE')
+        ..extraLines.addAll([
+          ComposeLine(description: 'ראשונה', priceText: '10', quantityText: '1'),
+          ComposeLine(description: 'שנייה', priceText: '20', quantityText: '2'),
+        ]);
+      await host(tester, MoreDetailsSheet(state: s));
+      await tester.tap(find.byTooltip(ComposeHe.removeLine).first);
+      await tester.pump();
+      expect(s.extraLines.single.description, 'שנייה');
+      String shown(String key) =>
+          tester.widget<EditableText>(find.descendant(of: find.byKey(Key(key)), matching: find.byType(EditableText))).controller.text;
+      expect(shown('s3-line-0-description'), 'שנייה');
+      expect(shown('s3-line-0-price'), '20');
+      expect(shown('s3-line-0-quantity'), '2');
+    });
+
+    testWidgets('"לשמור כפריט?" tapped twice while saving → one POST /items', (tester) async {
+      final release = Completer<void>();
+      backend
+        ..json('GET', '/items', {'items': []})
+        ..on('POST', '/items', (_) async {
+          await release.future;
+          return const FakeResponse(201, {'id': 'i9'});
+        });
+      await tester.runAsync(() => signInAs(backend, Preset.owner));
+      final s = st(DocKind.taxInvoice, 'OSEK_MURSHE')
+        ..extraLines.add(ComposeLine(description: 'התקנה', priceText: '118'));
+      await host(tester, MoreDetailsSheet(state: s));
+      await tester.tap(find.byKey(const Key('s3-line-0-save-item')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('s3-line-0-save-item')));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+      release.complete();
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+      expect(backend.calls('POST', '/items'), hasLength(1));
+      expect(s.extraLines.single.itemId, 'i9');
+    });
+
+    testWidgets('a discount above the main line is flagged and blocks the button', (tester) async {
+      await tester.runAsync(() => signInAs(backend, Preset.owner));
+      final s = st(DocKind.taxInvoice, 'OSEK_MURSHE')
+        ..customer = const Customer(id: 'c1', name: 'דנה')
+        ..description = 'שירותים';
+      await host(tester, MoreDetailsSheet(state: s));
+      expect(s.ready, isTrue);
+      await tester.enterText(find.byKey(const Key('s3-discount')), '150');
+      await tester.pump();
+      expect(s.discountValid, isFalse);
+      expect(s.ready, isFalse, reason: 'no negative main line');
+      expect(find.text(ComposeHe.discountTooBig), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('s3-discount')), '50');
+      await tester.pump();
+      expect(s.ready, isTrue);
+      expect(find.text(ComposeHe.discountTooBig), findsNothing);
     });
 
     testWidgets('quote: valid-until row, no type row', (tester) async {

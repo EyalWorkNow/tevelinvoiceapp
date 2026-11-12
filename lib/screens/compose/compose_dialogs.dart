@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../api/issue_api.dart' show VatStatusAnswer;
 import '../../util/labels/labels.dart';
+import '../../util/money.dart';
 
 /// ≥ ₪50,000 → one confirmation (§6.C edge). True = continue.
 Future<bool> confirmBigAmount(BuildContext context, BigInt totalMinor) async {
@@ -17,6 +18,58 @@ Future<bool> confirmBigAmount(BuildContext context, BigInt totalMinor) async {
       actions: [
         TextButton(onPressed: () => Navigator.pop(c, false), child: const Text(CommonHe.cancel)),
         TextButton(onPressed: () => Navigator.pop(c, true), child: const Text(CommonHe.issue)),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
+/// ✕ with an amount: true = keep a draft, false = discard, null = stay.
+Future<bool?> askSaveDraft(BuildContext context) => showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        key: const Key('save-draft-dialog'),
+        title: const Text(ComposeHe.saveDraftTitle),
+        content: const Text(ComposeHe.saveDraftBody),
+        actions: [
+          TextButton(
+            key: const Key('save-draft-discard'),
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text(ComposeHe.discardDraft),
+          ),
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text(CommonHe.cancel)),
+          TextButton(
+            key: const Key('save-draft-save'),
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text(ComposeHe.saveDraft),
+          ),
+        ],
+      ),
+    );
+
+/// What was left in the Composer last time: true = continue it, false =
+/// start a new one.
+Future<bool> askResumeDraft(BuildContext context,
+    {String? customerName, required BigInt amountMinor}) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (c) => AlertDialog(
+      key: const Key('resume-draft-dialog'),
+      title: const Text(ComposeHe.resumeDraftTitle),
+      content: Text(ComposeHe.resumeDraftBody(
+          customerName, formatMoney(amountMinor, trimZeroAgorot: true))),
+      actions: [
+        TextButton(
+          key: const Key('resume-draft-new'),
+          onPressed: () => Navigator.pop(c, false),
+          child: const Text(ComposeHe.startNew),
+        ),
+        TextButton(
+          key: const Key('resume-draft-continue'),
+          onPressed: () => Navigator.pop(c, true),
+          child: const Text(ComposeHe.resumeDraft),
+        ),
       ],
     ),
   );

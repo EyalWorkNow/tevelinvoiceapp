@@ -173,6 +173,11 @@ class ComposeState extends ChangeNotifier {
 
   BigInt get totalMinor => totals.totalMinor;
 
+  /// The total discount comes off the main line: more than that line would
+  /// make it negative (and the extra lines would silently pay for it).
+  bool get discountValid =>
+      discountInput <= BigInt.zero || _net(discountInput) <= _net(amountMinor);
+
   bool get checkValid =>
       method != 'CHECK' ||
       [bankNumber, branchNumber, accountNumber, checkNumber].every((v) => v.trim().isNotEmpty);
@@ -188,6 +193,7 @@ class ComposeState extends ChangeNotifier {
       customer != null &&
       mainDescription.isNotEmpty &&
       usedExtraLines.every((l) => l.isValid) &&
+      discountValid &&
       (!config.paid || checkValid) &&
       donorValid;
 

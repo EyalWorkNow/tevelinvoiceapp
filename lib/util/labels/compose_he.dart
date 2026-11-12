@@ -55,6 +55,19 @@ abstract final class ComposeHe {
   static const notAvailable = 'סוג המסמך הזה לא זמין לעסק';
   static const fixAndResend = 'תקן ושלח שוב';
 
+  // Leaving / coming back (U0, U5).
+  static const saveDraftTitle = 'לשמור טיוטה?';
+  static const saveDraftBody = 'אפשר להמשיך אותה בפעם הבאה.';
+  static const saveDraft = 'שמור טיוטה';
+  static const discardDraft = 'מחק';
+  static const resumeDraftTitle = 'יש טיוטה שלא הסתיימה';
+  static String resumeDraftBody(String? customer, String amount) =>
+      customer == null || customer.isEmpty
+          ? '\u2066$amount\u2069'
+          : '$customer · \u2066$amount\u2069';
+  static const resumeDraft = 'המשך טיוטה';
+  static const startNew = 'התחל חדש';
+
   // Dialogs.
   static String bigAmountTitle(BigInt total) =>
       'להפיק מסמך על ${formatMoney(total, trimZeroAgorot: true)}?';
@@ -77,6 +90,11 @@ abstract final class ComposeHe {
   static const waitingAllocation = 'ממתין למספר הקצאה מרשות המסים';
   static const waitingSignature = 'ממתין לחתימה';
   static const quoteSent = 'ההצעה נשלחה ✓';
+  static const quoteNotSent = 'ההצעה נשמרה ולא נשלחה. אפשר לשלוח אותה מההצעה.';
+  static const issuedShareFailed = 'המסמך הופק. השיתוף נכשל – אפשר לשתף מהמסמך.';
+  static const issuedWhatsAppOpened = 'המסמך הופק. WhatsApp נפתח לשיתוף.';
+  static String issuedDeliveryFailed(String reason) =>
+      'המסמך הופק. המשלוח לא הושלם: $reason';
 
   // S1.
   static const s1Title = 'מה ליצור?';
@@ -95,6 +113,7 @@ abstract final class ComposeHe {
   static const linePrice = 'מחיר';
   static const removeLine = 'הסר שורה';
   static const discount = 'הנחה כוללת';
+  static const discountTooBig = 'ההנחה גדולה מסכום השורה הראשית';
   static const vat = 'מע״מ';
   static const vatRegular = 'רגיל';
   static const vatNone = 'ללא';
@@ -136,10 +155,13 @@ String actionLabel(ComposerAction a) => switch (a) {
 String approvalNote(BigInt thresholdMinor) =>
     'מסמך מ-${formatMoney(thresholdMinor, trimZeroAgorot: true)} כולל מע״מ דורש אישור';
 
-/// "₪1,000 + מע״מ ₪180 = ₪1,180" (VatBreakdownLine).
+/// "₪1,000 + ₪180 מע״מ = ₪1,180" (VatBreakdownLine), laid out LTR like a sum.
+/// The Hebrew word sits in its own RTL isolate: bare, it pulled the amounts
+/// after it into one RTL run ("₪12.71 + ₪15 = ₪2.29 מע״מ"). Wrap the result
+/// in an LTR isolate when it is shown.
 String vatBreakdown(BigInt net, BigInt vat, BigInt total) =>
-    '${formatMoney(net, trimZeroAgorot: true)} + מע״מ ${formatMoney(vat, trimZeroAgorot: true)}'
-    ' = ${formatMoney(total, trimZeroAgorot: true)}';
+    '${formatMoney(net, trimZeroAgorot: true)} + ${formatMoney(vat, trimZeroAgorot: true)}'
+    ' \u2067מע״מ\u2069 = ${formatMoney(total, trimZeroAgorot: true)}';
 
 String vatModeLabel(bool inclusive) => inclusive ? 'כולל מע״מ' : 'לפני מע״מ';
 

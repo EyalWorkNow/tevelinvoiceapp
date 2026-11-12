@@ -14,6 +14,7 @@ import 'package:invoice/api/models/models.dart';
 import 'package:invoice/api/signing_api.dart' as signing;
 import 'package:invoice/router.dart';
 import 'package:invoice/screens/compose/compose_screen.dart';
+import 'package:invoice/screens/compose/compose_memory.dart';
 import 'package:invoice/screens/compose/compose_submit.dart';
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
@@ -104,6 +105,8 @@ void main() {
       );
       await tester.pump();
     }
+    // The primary ignores taps for 400ms after it appears (U1).
+    await tester.pump(const Duration(milliseconds: 450));
   }
 
   Future<void> open(
@@ -505,6 +508,12 @@ void main() {
         ),
       );
       await flush(tester);
+      // Opening converts nothing: backing out leaves the quote as it was.
+      expect(backend.calls('POST', '/quotes/:id/status'), isEmpty);
+      expect(backend.calls('POST', '/quotes/:id/convert'), isEmpty);
+      await type(tester, '1000');
+      expect(primaryLabel(tester), ComposeHe.issueAndWhatsApp);
+      await tap(tester, primary());
       expect(backend.last('POST', '/quotes/:id/status')!.body, {
         'to': 'ACCEPTED',
       });
@@ -512,8 +521,6 @@ void main() {
         'documentType': 'TAX_INVOICE',
         'taxRateBasisPoints': 1800,
       });
-      expect(primaryLabel(tester), ComposeHe.issueAndWhatsApp);
-      await tap(tester, primary());
       expect(
         backend.calls('POST', '/documents'),
         isEmpty,
@@ -777,7 +784,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.byType(DesignBackButton), findsOneWidget);
+      expect(find.byKey(const Key('compose-close')), findsOneWidget);
     },
   );
 
@@ -795,6 +802,104 @@ void main() {
     await open(tester, intent: 'TYPE:305', businessType: 'OSEK_PATUR');
     expect(find.text(ComposeHe.notAvailable), findsOneWidget);
     expect(primary(), findsNothing);
+  });
+
+  group('QA 2026-11-12', () {
+    testWidgets('U0: ✕ with an amount → "לשמור טיוטה?" → מחק closes, no draft kept', (
+      tester,
+    ) async {
+      await open(tester, intent: 'PAID');
+      await type(tester, '50');
+      await tester.tap(find.byKey(const Key('compose-close')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('save-draft-dialog')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('save-draft-discard')));
+      await flush(tester);
+      await tester.pumpAndSettle();
+      expect(find.byType(ComposeScreen), findsNothing, reason: 'one tap out, no loop back to S2');
+      final draft = await tester.runAsync(() => loadLocalDraft('PAID'));
+      expect(draft, isNull);
+    });
+
+    testWidgets('U1: the primary ignores taps for 400ms after it appears', (
+      tester,
+    ) async {
+      await open(tester, intent: 'PAID');
+      await tester.tap(
+        find.descendant(of: find.byType(Keypad), matching: find.text('5')).first,
+      );
+      await tester.pump();
+      await tester.tap(primary()); // where the 0 key used to be
+      await flush(tester);
+      expect(backend.calls('POST', '/documents'), isEmpty);
+      await tester.pump(const Duration(milliseconds: 450));
+      await tap(tester, primary());
+      expect(backend.calls('POST', '/documents'), hasLength(1));
+    });
+
+    testWidgets('U1: the keypad does not move when the primary appears', (
+      tester,
+    ) async {
+      await open(tester, intent: 'PAID');
+      final zero = find.descendant(of: find.byType(Keypad), matching: find.text('0'));
+      final before = tester.getCenter(zero);
+      await type(tester, '1');
+      expect(primary(), findsOneWidget);
+      expect(tester.getCenter(zero), before);
+    });
+
+    testWidgets('1.3: share fails after issue → "הופק, השיתוף נכשל", D + S6 open', (
+      tester,
+    ) async {
+      backend.error('POST', '/documents/:id/share-link', 500, 'INTERNAL');
+      await open(tester, intent: 'PAID');
+      await type(tester, '100');
+      expect(primaryLabel(tester), ComposeHe.issueAndWhatsApp);
+      await tap(tester, primary());
+      expect(backend.calls('POST', '/documents/:id/finalize'), hasLength(1));
+      expect(routes, contains('/doc/d1'));
+      await tester.pump();
+      expect(routes, contains('S6 d1'));
+      expect(find.text(ComposeHe.issuedShareFailed), findsOneWidget);
+    });
+
+    testWidgets('1.3: quote share sheet dismissed → not marked SENT', (
+      tester,
+    ) async {
+      shareText = (_) async => throw const ShareDismissed();
+      await open(tester, intent: 'QUOTE', customer: walkIn);
+      await type(tester, '100');
+      await tap(tester, primary());
+      expect(backend.calls('POST', '/quotes'), hasLength(1));
+      expect(backend.calls('POST', '/quotes/:id/status'), isEmpty);
+      expect(find.text(ComposeHe.quoteNotSent), findsOneWidget);
+    });
+
+    testWidgets('U5: a local draft is offered ("המשך טיוטה"), not restored silently', (
+      tester,
+    ) async {
+      await tester.runAsync(() => signInAs(backend, Preset.owner));
+      await tester.runAsync(
+        () => saveLocalDraft('PAID', {
+          'kind': 'taxInvoiceReceipt',
+          'customer': dana.toJson(),
+          'amountText': '77',
+          'description': 'ייעוץ',
+        }),
+      );
+      await open(tester, intent: 'PAID', customer: null);
+      expect(find.byKey(const Key('resume-draft-dialog')), findsOneWidget);
+      expect(find.byType(Keypad), findsNothing);
+      await tester.tap(find.byKey(const Key('resume-draft-continue')));
+      await flush(tester);
+      expect(
+        find.descendant(of: find.byKey(const Key('compose-customer')), matching: find.text(dana.name)),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('compose-amount')), findsOneWidget);
+      final amount = tester.widget<AmountDisplay>(find.byKey(const Key('compose-amount')));
+      expect(amount.keypadText, '77');
+    });
   });
 }
 
