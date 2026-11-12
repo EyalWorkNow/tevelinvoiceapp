@@ -101,6 +101,26 @@ class DevApi {
     String? contentType,
     String? idem,
   }) async {
+    try {
+      return await _send(method, path, body, query, bytes, contentType, idem);
+    } on http.ClientException catch (e) {
+      // A pooled keep-alive socket the server closed while idle ("Connection
+      // closed before full header was received"): a GET is safe to repeat.
+      if (method != 'GET') rethrow;
+      debugPrint('QA-RETRY GET $path after $e');
+      return _send(method, path, body, query, bytes, contentType, idem);
+    }
+  }
+
+  Future<ApiResult> _send(
+    String method,
+    String path,
+    Object? body,
+    Map<String, String>? query,
+    Uint8List? bytes,
+    String? contentType,
+    String? idem,
+  ) async {
     final uri = Uri.parse('$apiBase$path').replace(queryParameters: query);
     final req = http.Request(method, uri)
       ..headers['authorization'] = 'Bearer $token'
