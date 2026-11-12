@@ -71,6 +71,7 @@ abstract final class BusinessHe {
   static const checkingPayment = 'בודקים את התשלום…';
   static const checkPaymentApproval = 'בדיקת אישור התשלום';
   static const backToBusiness = 'חוזרים לעסק';
+  static const planLater = 'אולי אחר כך';
   static const waitingForAppStore = 'ממתינים ל־App Store…';
   static const preparingCheckout = 'מכינים את דף התשלום…';
 
@@ -79,13 +80,18 @@ abstract final class BusinessHe {
   static const expenses = 'הוצאות';
   static const team = 'צוות והרשאות';
   static const profile = 'פרטי העסק';
-  static const branding = 'מיתוג';
+  static const branding = 'עיצוב מסמכים ומיתוג';
   static const approvals = 'אישורים';
   static const shaam = 'רשות המסים וחתימה';
   static const account = 'החשבון שלי';
   static const desktop = 'המשך במחשב';
   static const numbering = 'מספור ואישורים';
   static const switchBusiness = 'החלף';
+  // 06·U8: leaving a form with changes.
+  static const discardTitle = 'לצאת בלי לשמור?';
+  static const discardBody = 'השינויים שעשית לא יישמרו.';
+  static const discardAction = 'צא בלי לשמור';
+  static const keepEditing = 'המשך עריכה';
   static const switchTitle = 'החלפת עסק';
   static const searchBusiness = 'חיפוש עסק';
   static const active = 'פעיל';
@@ -430,4 +436,14 @@ abstract final class AuthHe {
   static const signInHelp = 'עזרה בכניסה';
   static const signInHelpBody = 'לאיפוס הסיסמה בחשבון זה פנו לתמיכה.';
   static const contactSupport = 'פנה לתמיכה';
+}
+
+/// L · מסמכים (activity list) filters (QA 2026-11-12 · 2.5).
+abstract final class ActivityHe {
+  static const filterType = 'סוג מסמך';
+  static const filterDate = 'תאריך';
+  static const allTypes = 'כל הסוגים';
+  static const clearFilters = 'נקה סינון';
+  static String range(DateTime from, DateTime to) =>
+      '${from.day}.${from.month}.${from.year % 100}–${to.day}.${to.month}.${to.year % 100}';
 }

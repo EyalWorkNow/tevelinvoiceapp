@@ -12,6 +12,7 @@ import '../../ui/app_page_route.dart';
 import '../../ui/ds.dart';
 import '../document/document_parts.dart' show pdfPreviewBuilder;
 import 'sheets/editor_configs.dart' show logoPicker;
+import 'sheets/s13_editor.dart' show UnsavedChangesGuard;
 
 const _templates = {
   'classic': 'קלאסית',
@@ -273,7 +274,12 @@ class _BrandingScreenState extends State<BrandingScreen> {
     ),
   );
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => UnsavedChangesGuard(
+    dirty: _dirty,
+    child: _page(context),
+  );
+
+  Widget _page(BuildContext context) => Scaffold(
     body: SafeArea(
       child: Column(
         children: [
