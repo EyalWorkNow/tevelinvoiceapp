@@ -68,4 +68,19 @@ void main() {
         'השדה "name" ארוך מדי (עד 80 תווים)');
     expect(errorMessageHe('VALIDATION', serverMessage: 'odd thing'), 'הנתונים לא תקינים: odd thing');
   });
+
+  test('report 04 · M1 codes are mapped, unknown codes fall back to Hebrew from the server', () {
+    for (final code in [
+      'CUSTOMER_PHONE_INVALID', 'WHATSAPP_SEND_FAILED', 'BILLING_CONSENT_REQUIRED', 'PLAN_INVALID',
+      'APPLE_TRANSACTION_ALREADY_LINKED', 'APPLE_ACCOUNT_MISMATCH', 'IDEMPOTENCY_KEY_INVALID',
+      'ACCOUNT_ALREADY_EXISTS', 'EMAIL_INVALID', 'BUSINESS_NAME_INVALID', 'TAX_RATE_MISSING',
+      'QUOTE_CHANGED', 'PUSH_MFA_REQUIRED', 'API_CONFIG_INVALID',
+    ]) {
+      expect(errorMessageHe(code), isNot(startsWith('שגיאה לא צפויה')), reason: code);
+    }
+    expect(errorMessageHe('PAYMENT_PROVIDER_UNAVAILABLE', serverMessage: 'ספק התשלום אינו זמין כרגע', status: 502),
+        'ספק התשלום אינו זמין כרגע');
+    expect(errorMessageHe('SOMETHING_NEW', serverMessage: 'internal detail', status: 500),
+        'שגיאה לא צפויה (SOMETHING_NEW)');
+  });
 }

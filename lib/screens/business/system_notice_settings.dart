@@ -87,11 +87,12 @@ class _SystemNoticeSettingsState extends State<SystemNoticeSettings> {
             const Text(SystemNoticesHe.explanation),
             if (systemNotices.syncError != null) ...[
               const SizedBox(height: Space.l),
-              const Text(SystemNoticesHe.connectionError),
-              TextButton(
-                onPressed: _busy ? null : () => _change(true),
-                child: const Text(CommonHe.retry),
-              ),
+              Text(systemNotices.problemHe ?? SystemNoticesHe.connectionError),
+              if (!systemNotices.mfaRequired)
+                TextButton(
+                  onPressed: _busy ? null : () => _change(true),
+                  child: const Text(CommonHe.retry),
+                ),
             ],
           ],
         ),

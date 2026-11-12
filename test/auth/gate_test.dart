@@ -1,5 +1,7 @@
 // A · gate: invitation states, MFA as a blocking step, setup routing (SPEC-v2 §6.A).
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/client.dart';
@@ -7,6 +9,8 @@ import 'package:invoice/screens/auth/auth_flow.dart';
 import 'package:invoice/screens/auth/invite_screen.dart';
 import 'package:invoice/screens/auth/mfa_sheet.dart';
 import 'package:invoice/screens/auth/onboarding_screen.dart';
+import 'package:invoice/screens/billing/billing_screen.dart';
+import 'package:invoice/app_shell.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/ds.dart';
@@ -187,5 +191,30 @@ void main() {
     expect(session.status, SessionStatus.signedOut);
     expect(ApiClient.instance.hasDeviceToken, isFalse);
     expect(find.text('פג תוקף ההתחברות — נא להיכנס שוב'), findsOneWidget);
+  });
+
+  testWidgets('cache start: home first, the subscription gate follows in the background', (tester) async {
+    phone(tester);
+    await tester.runAsync(() => signInAs(backend, Preset.owner));
+    final answer = Completer<FakeResponse>();
+    backend.on('GET', '/billing/subscription', (_) => answer.future);
+    session.restoredFromCache = true;
+    await tester.pumpWidget(
+      eApp(
+        Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(onPressed: () => routeSignedIn(context), child: const Text('go')),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('go'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(AppShell), findsOneWidget);
+    expect(session.restoredFromCache, isFalse);
+    answer.complete(FakeResponse(200, {'active': false, 'needsPlan': true, 'subscription': null}));
+    await settle(tester);
+    expect(find.byType(RequiredSubscriptionScreen), findsOneWidget);
   });
 }

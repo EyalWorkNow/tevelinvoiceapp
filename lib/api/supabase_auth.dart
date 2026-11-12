@@ -50,13 +50,7 @@ Future<String> supabasePasswordToken(
     throw ApiException(0, 'NETWORK', errorMessageHe('NETWORK'));
   }
   if (response.statusCode != 200) {
-    final code = response.statusCode == 429
-        ? 'RATE_LIMITED'
-        : response.statusCode == 400 ||
-              response.statusCode == 401 ||
-              response.statusCode == 422
-        ? 'INVALID_CREDENTIALS'
-        : 'SUPABASE_AUTH_UNAVAILABLE';
+    final code = supabaseErrorCode(response.statusCode, response.body);
     throw ApiException(response.statusCode, code, errorMessageHe(code));
   }
   try {
@@ -67,4 +61,33 @@ Future<String> supabasePasswordToken(
     // Do not expose raw authentication responses to the UI or logs.
   }
   throw ApiException(502, 'BAD_RESPONSE', errorMessageHe('BAD_RESPONSE'));
+}
+
+/// Supabase Auth refusal → app code. Only a real credentials answer says
+/// "wrong password"; an unconfirmed e-mail, a blocked user or bad input say so.
+String supabaseErrorCode(int status, String body) {
+  if (status == 429) return 'RATE_LIMITED';
+  if (status != 400 && status != 401 && status != 422) {
+    return 'SUPABASE_AUTH_UNAVAILABLE';
+  }
+  String? reason;
+  try {
+    final json = jsonDecode(body);
+    if (json is Map<String, dynamic>) {
+      final value = json['error_code'] ?? json['error'];
+      if (value is String) reason = value;
+    }
+  } on FormatException {
+    // Not JSON: decided by the status alone.
+  }
+  return switch (reason) {
+    'invalid_credentials' || 'invalid_grant' => 'INVALID_CREDENTIALS',
+    'email_not_confirmed' => 'SUPABASE_EMAIL_NOT_CONFIRMED',
+    'user_banned' => 'SUPABASE_USER_BANNED',
+    'email_address_invalid' => 'EMAIL_INVALID',
+    'over_request_rate_limit' || 'over_email_send_rate_limit' => 'RATE_LIMITED',
+    'validation_failed' => 'SUPABASE_LOGIN_INVALID_INPUT',
+    _ when status == 422 => 'SUPABASE_LOGIN_INVALID_INPUT',
+    _ => 'INVALID_CREDENTIALS',
+  };
 }

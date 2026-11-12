@@ -3,6 +3,8 @@
 //   no business → NoBusinessScreen · several → S14 (required) ·
 //   setup not done: owner → setup, others → SetupPendingScreen · else home.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../api/auth_api.dart';
@@ -110,37 +112,51 @@ Future<void> routeSignedIn(BuildContext context) async {
       return;
     }
     if (session.business != null && !session.offline) {
-      try {
-        final subscription = await fetchSubscription();
-        if (!subscription.active && context.mounted) {
-          final businessId = session.business?.businessId;
-          if (businessId != null && _subscriptionGateBusiness == businessId) {
-            return;
-          }
-          _subscriptionGateBusiness = businessId;
-          _resetTo(
-            RequiredSubscriptionScreen(
-              onSubscribed: _leaveSubscriptionGate,
-              onExit: _leaveSubscriptionGate,
-            ),
-            '/gate/subscription',
-          );
-          return;
-        }
-        _subscriptionGateBusiness = null;
-      } on ApiException catch (e) {
-        if (e.status == 401) {
-          return;
-        }
-        if (!e.isNetwork && context.mounted) showErrorSnack(context, e);
-      } on Object catch (e) {
-        if (context.mounted) showErrorSnack(context, e);
+      if (session.restoredFromCache) {
+        // F9: a cache start goes home at once; the gate follows if needed.
+        session.restoredFromCache = false;
+        resetToHome();
+        unawaited(_subscriptionGate(null));
+        return;
       }
+      if (await _subscriptionGate(context.mounted ? context : null)) return;
     }
     resetToHome();
   } finally {
     _routingSignedIn = false;
   }
+}
+
+/// True when the business has no active subscription and the required
+/// subscription screen was shown. [context] null = background check.
+Future<bool> _subscriptionGate(BuildContext? context) async {
+  try {
+    final subscription = await fetchSubscription();
+    if (!subscription.active && (context?.mounted ?? true)) {
+      final businessId = session.business?.businessId;
+      if (businessId != null && _subscriptionGateBusiness == businessId) {
+        return true;
+      }
+      _subscriptionGateBusiness = businessId;
+      _resetTo(
+        RequiredSubscriptionScreen(
+          onSubscribed: _leaveSubscriptionGate,
+          onExit: _leaveSubscriptionGate,
+        ),
+        '/gate/subscription',
+      );
+      return true;
+    }
+    _subscriptionGateBusiness = null;
+  } on ApiException catch (e) {
+    if (e.status == 401) return true;
+    if (!e.isNetwork && context != null && context.mounted) {
+      showErrorSnack(context, e);
+    }
+  } on Object catch (e) {
+    if (context != null && context.mounted) showErrorSnack(context, e);
+  }
+  return false;
 }
 
 void _leaveSubscriptionGate() {

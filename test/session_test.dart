@@ -131,4 +131,81 @@ void main() {
     await stale;
     expect(s.profile?.legalName, 'עסק ב');
   });
+
+  const meJson = {'userId': 'u1', 'role': 'OWNER', 'onboarding': {'completed': true}};
+  const profileJson = {
+    'profile': {'legalName': 'עסק א', 'businessType': 'OSEK_MURSHE'},
+  };
+
+  test('cold start: a 401 on /me during restore signs out instead of a signed-in shell', () async {
+    FlutterSecureStorage.setMockInitialValues({'device_token': 'inv_abc', 'business_id': 'b1'});
+    api.httpClient = MockClient((r) async => switch (r.url.path) {
+          '/mobile/session' => _json(200, _account),
+          _ => _json(401, {'error': 'UNAUTHENTICATED'}),
+        });
+    final s = SessionController(client: api);
+    await s.restore();
+    expect(s.status, SessionStatus.signedOut);
+    expect(s.expired, isTrue);
+    expect(await storage.read(key: 'device_token'), isNull);
+  });
+
+  test('cold start: an unreadable /mobile/session answer runs from cache, never throws', () async {
+    await AppCache.write('account', _account);
+    FlutterSecureStorage.setMockInitialValues({'device_token': 'inv_abc', 'business_id': 'b1'});
+    api.httpClient = MockClient((r) async => switch (r.url.path) {
+          '/mobile/session' => _json(200, {'userId': 7}),
+          _ => _json(503, {'error': 'X'}),
+        });
+    final s = SessionController(client: api);
+    await s.restore();
+    expect(s.status, SessionStatus.signedIn);
+    expect(s.offline, isTrue);
+  });
+
+  test('cold start from a complete cache is signed in before any request; 401 later signs out', () async {
+    final gate = Completer<void>();
+    final paths = <String>[];
+    FlutterSecureStorage.setMockInitialValues({'device_token': 'inv_abc', 'business_id': 'b1'});
+    api.httpClient = MockClient((r) async {
+      paths.add(r.url.path);
+      return switch (r.url.path) {
+        '/mobile/session' => _json(200, _account),
+        '/me' => _json(200, meJson),
+        '/business/profile' => _json(200, profileJson),
+        _ => _json(404, {'error': 'NOT_FOUND'}),
+      };
+    });
+    final first = SessionController(client: api);
+    await first.restore(); // online: fills the cache
+    expect(first.restoredFromCache, isFalse);
+    paths.clear();
+    api.httpClient = MockClient((r) async {
+      paths.add(r.url.path);
+      await gate.future;
+      return _json(401, {'error': 'UNAUTHENTICATED'});
+    });
+    final s = SessionController(client: api);
+    await s.restore();
+    expect(s.status, SessionStatus.signedIn);
+    expect(s.restoredFromCache, isTrue);
+    expect(s.profile?.legalName, 'עסק א');
+    gate.complete();
+    await s.revalidation;
+    expect(paths, contains('/mobile/session'));
+    expect(s.status, SessionStatus.signedOut);
+    expect(s.expired, isTrue);
+  });
+
+  test('explicit sign-out runs the push unregister hook before revoking the token', () async {
+    final order = <String>[];
+    final s = await restoreWith(200);
+    api.httpClient = MockClient((r) async {
+      order.add(r.url.path);
+      return _json(200, {'status': 'ok'});
+    });
+    s.beforeSignOut.add(() async => order.add('hook'));
+    await s.signOut();
+    expect(order, ['hook', '/mobile/logout']);
+  });
 }

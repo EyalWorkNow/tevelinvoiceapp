@@ -141,6 +141,7 @@ void main() {
   late Directory tmp;
 
   setUp(() {
+    resetScopeKeyCache();
     tmp = Directory.systemTemp.createTempSync('issue_api_test');
     AppCache.directoryProvider = () async => tmp;
     server = FakeServer();
@@ -153,6 +154,12 @@ void main() {
 
   tearDown(() async {
     await AppCache.clearAll();
+  });
+
+  test('GET /sequences runs once per business, not on every issue', () async {
+    await runIssue(newIssue());
+    await runIssue(newIssue());
+    expect(server.count('GET /sequences'), 1);
   });
 
   test('happy path: draft → finalize (key) → artifact → payment (key) → allocation', () async {

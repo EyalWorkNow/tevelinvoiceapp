@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../api/client.dart';
 import '../router.dart';
+import '../util/errors_he.dart';
 import '../ui/widgets/notch_notice.dart';
 import '../util/labels/inbox_he.dart';
 import 'session.dart';
@@ -58,6 +59,7 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     _installed = true;
     WidgetsBinding.instance.addObserver(this);
     session.addListener(_onSession);
+    session.beforeSignOut.add(unregisterForSignOut);
     _subscription = _events.receiveBroadcastStream().listen(
       _onEvent,
       onError: _failure,
@@ -88,6 +90,35 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     } else {
       unawaited(refresh().catchError(_failure));
     }
+  }
+
+  /// The push setting cannot work for this sign-in (no MFA on the device
+  /// token); retrying is pointless, the text says what to do.
+  bool get mfaRequired =>
+      syncError is ApiException &&
+      (syncError as ApiException).code == 'PUSH_MFA_REQUIRED';
+
+  /// Hebrew text for [syncError] when it is more specific than "connection".
+  String? get problemHe => mfaRequired ? (syncError as ApiException).messageHe : null;
+
+  /// Explicit sign-out: remove this device's push rows in every business it
+  /// registered for, while the bearer is still valid (SessionController hook).
+  Future<void> unregisterForSignOut() async {
+    if (!supported) return;
+    final user = session.account?.userId;
+    for (final business in session.businesses) {
+      final id = business.businessId;
+      try {
+        final opted =
+            await _storage.read(key: 'system_notices_${user}_$id') == '1';
+        if (opted) {
+          await ApiClient.instance.deleteForBusiness(id, '/mobile/push-tokens');
+        }
+      } on Object {
+        // Best effort per business; sign-out continues.
+      }
+    }
+    _uploaded.clear();
   }
 
   Future<void> refresh() async {
@@ -241,12 +272,17 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
       if (!optedIn) continue;
       final key = '$target:${token['tokenType']}:${token['token']}';
       if (_uploaded.contains(key)) continue;
-      final result = await ApiClient.instance
-          .postForBusiness(target, '/mobile/push-tokens', {
-            for (final entry in token.entries)
-              if (entry.key != 'businessId') entry.key: entry.value,
-            'liveActivities': liveActivities,
-          });
+      final Map<String, dynamic> result;
+      try {
+        result = await ApiClient.instance
+            .postForBusiness(target, '/mobile/push-tokens', {
+              for (final entry in token.entries)
+                if (entry.key != 'businessId') entry.key: entry.value,
+              'liveActivities': liveActivities,
+            });
+      } on ApiException catch (e) {
+        throw pushRegistrationError(e);
+      }
       if (generation != _generation) return;
       deliveryConfigured = result['deliveryConfigured'] == true;
       if (result['deliveryConfigured'] == false) {
@@ -256,6 +292,21 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     }
     syncError = null;
     notifyListeners();
+  }
+
+  /// The server refuses push for a device token without MFA with a plain
+  /// VALIDATION; that is not a connection problem and "retry" never helps.
+  static ApiException pushRegistrationError(ApiException e) {
+    if (e.code == 'VALIDATION' &&
+        (e.serverMessage ?? '').contains('device credential')) {
+      return ApiException(
+        e.status,
+        'PUSH_MFA_REQUIRED',
+        errorMessageHe('PUSH_MFA_REQUIRED'),
+        serverMessage: e.serverMessage,
+      );
+    }
+    return e;
   }
 
   Future<String?> preview() => _channel.invokeMethod<String>('preview');

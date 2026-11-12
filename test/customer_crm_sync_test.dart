@@ -9,6 +9,7 @@ class Remote implements CustomerCrmRemote {
   final Map<String, CrmRemoteRecord> records = {};
   final Map<String, CrmRemoteRecord> acknowledged = {};
   bool offline = false;
+  ApiException? Function(String customerId)? rejectWrite;
   @override
   bool get enabled => true;
   String? identity;
@@ -30,6 +31,8 @@ class Remote implements CustomerCrmRemote {
     bool importLocal = false,
   }) async {
     if (offline) throw ApiException(0, 'NETWORK', 'offline');
+    final rejected = rejectWrite?.call(customerId);
+    if (rejected != null) throw rejected;
     if (acknowledged.containsKey(mutationId)) return acknowledged[mutationId]!;
     final old = records[customerId];
     if (!importLocal && (old?.revision ?? 0) != expectedRevision) {
@@ -201,6 +204,126 @@ void main() {
       );
     },
   );
+
+  test('resume refresh updates records in place without clearing the screen', () async {
+    final store = fresh();
+    await store.loadForBusiness('a');
+    await store.addNote('c1', 'mine');
+    await store.sync();
+    remote.records['c2'] = const CrmRemoteRecord(
+      customerId: 'c2',
+      revision: 1,
+      record: {'stage': 'active', 'notes': [], 'jobs': [], 'reminders': []},
+    );
+    final loadedAtEachNotify = <bool>[];
+    store.addListener(() => loadedAtEachNotify.add(store.isLoadedFor('a')));
+    await store.refresh();
+    expect(loadedAtEachNotify, isNotEmpty);
+    expect(loadedAtEachNotify, everyElement(isTrue));
+    expect(store.entryFor('c2').stage, CustomerCrmStage.active);
+    expect(store.entryFor('c1').notes.single.text, 'mine');
+  });
+
+  test('an edit made while a refresh is loading is never dropped', () async {
+    final store = fresh();
+    await store.loadForBusiness('a');
+    final refreshing = store.refresh();
+    final editing = store.addNote('c1', 'typed during refresh');
+    await Future.wait([refreshing, editing]);
+    await store.sync();
+    expect(store.entryFor('c1').notes.single.text, 'typed during refresh');
+    expect(remote.records['c1']!.record['notes'], hasLength(1));
+  });
+
+  test(
+    'a change the server refuses (4xx) moves to a backup and unblocks the queue',
+    () async {
+      final store = fresh();
+      await store.loadForBusiness('a');
+      remote.rejectWrite = (id) =>
+          id == 'c1' ? ApiException(422, 'VALIDATION', 'bad') : null;
+      await store.addNote('c1', 'refused');
+      await store.addNote('c2', 'accepted');
+      await store.sync();
+      await store.sync();
+      expect(store.pendingCount, 0);
+      expect(store.rejectedCount, 1);
+      expect(remote.records['c2']!.record['notes'], hasLength(1));
+      expect(store.entryFor('c1').notes, isEmpty);
+      final backup = disk['customer_crm_a_rejected']! as Map;
+      expect((backup['items'] as List).single['code'], 'VALIDATION');
+      store.acknowledgeRejected();
+      expect(store.rejectedCount, 0);
+    },
+  );
+
+  test('409 and 429 stay queued instead of being discarded', () async {
+    final store = fresh();
+    await store.loadForBusiness('a');
+    remote.rejectWrite = (_) => ApiException(429, 'RATE_LIMITED', 'slow');
+    await store.addNote('c1', 'later');
+    await store.sync();
+    expect(store.pendingCount, 1);
+    expect(store.rejectedCount, 0);
+  });
+
+  test('one unreadable customer is quarantined, the rest still loads', () async {
+    remote.offline = true;
+    disk['customer_crm_a'] = {
+      'customers': {
+        'c1': {
+          'stage': 'active',
+          'notes': [],
+          'jobs': [],
+          'reminders': [],
+        },
+        'c2': {
+          'jobs': [
+            {'id': 'j1'},
+          ],
+        },
+      },
+      'pending': [
+        {'broken': true},
+      ],
+      'cloudInitialized': true,
+    };
+    final store = fresh();
+    await store.loadForBusiness('a');
+    expect(store.isLoadedFor('a'), isTrue);
+    expect(store.entryFor('c1').stage, CustomerCrmStage.active);
+    expect(store.isQuarantined('c2'), isTrue);
+    final quarantine = disk['customer_crm_a_quarantine']! as Map;
+    expect((quarantine['customers'] as Map).keys, ['c2']);
+    expect(quarantine['mutations'], hasLength(1));
+    await expectLater(store.addNote('c2', 'x'), throwsStateError);
+  });
+
+  test('the legacy device file is marked as migrated to the first user', () async {
+    remote.identity = 'user-one';
+    disk['customer_crm_a'] = {
+      'customers': {
+        'c1': {
+          'stage': 'lead',
+          'notes': [
+            {'id': 'n1', 'text': 'old', 'createdAt': '2026-01-01T00:00:00Z'},
+          ],
+          'jobs': [],
+          'reminders': [],
+        },
+      },
+    };
+    final store = fresh();
+    await store.loadForBusiness('a');
+    expect((disk['customer_crm_a']! as Map)['migratedToUser'], 'user-one');
+    expect(remote.records['c1']!.record['notes'], hasLength(1));
+    remote.identity = 'user-two';
+    remote.records.clear();
+    final other = fresh();
+    await other.loadForBusiness('a');
+    expect(other.entryFor('c1').notes, isEmpty);
+    expect(remote.records, isEmpty);
+  });
 }
 
 class _Unavailable extends Remote {

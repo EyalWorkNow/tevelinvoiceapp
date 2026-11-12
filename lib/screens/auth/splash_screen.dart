@@ -24,7 +24,8 @@ class _SplashScreenState extends State<SplashScreen>
   late final AnimationController _pulse;
   late final Stopwatch _visibleFor;
 
-  static const _minimumSplashTime = Duration(milliseconds: 1050);
+  // Long enough to read as intentional, short enough for a cache start (2.1).
+  static const _minimumSplashTime = Duration(milliseconds: 400);
 
   Biometric get _bio => Biometric.instance;
 

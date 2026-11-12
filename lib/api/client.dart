@@ -130,6 +130,9 @@ class ApiClient {
     Object body,
   ) => _json('PUT', path, body: body, businessOverride: business);
 
+  Future<Map<String, dynamic>> deleteForBusiness(String business, String path) =>
+      _json('DELETE', path, businessOverride: business);
+
   Future<Map<String, dynamic>> put(String path, Object? body) =>
       _json('PUT', path, body: body ?? const {});
 
@@ -255,10 +258,15 @@ class ApiClient {
         path.contains('#')) {
       throw ApiException(0, 'INVALID_ID', errorMessageHe('INVALID_ID'));
     }
-    final origin = kReleaseMode ? productionApiUri(baseUrl).toString() : baseUrl;
-    final uri = Uri.parse(
-      '$origin$path',
-    ).replace(queryParameters: (query == null || query.isEmpty) ? null : query);
+    final origin = apiOrigin(baseUrl);
+    final Uri uri;
+    try {
+      uri = Uri.parse('$origin$path').replace(
+        queryParameters: (query == null || query.isEmpty) ? null : query,
+      );
+    } on FormatException {
+      throw ApiException(0, 'INVALID_ID', errorMessageHe('INVALID_ID'));
+    }
     final request = http.Request(method, uri);
     final headers = request.headers..addAll(extraHeaders);
     headers['Accept'] = extraHeaders['Accept'] ?? 'application/json';
@@ -352,6 +360,21 @@ class ApiClient {
       code,
       errorMessageHe(code, serverMessage: message, status: status),
       serverMessage: message,
+    );
+  }
+}
+
+/// The API origin for [base] (the API_BASE define). A bad define in a release
+/// build is a config error shown in Hebrew, never a raw [FormatException].
+String apiOrigin(String base, {bool release = kReleaseMode}) {
+  if (!release) return base;
+  try {
+    return productionApiUri(base).toString();
+  } on FormatException {
+    throw ApiException(
+      0,
+      'API_CONFIG_INVALID',
+      errorMessageHe('API_CONFIG_INVALID'),
     );
   }
 }

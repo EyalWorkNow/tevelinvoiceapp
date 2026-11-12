@@ -94,6 +94,13 @@ void main() {
     expect(sent, isEmpty);
   });
 
+  test('a bad release API_BASE is an ApiException, never a raw FormatException', () {
+    expect(() => apiOrigin('http://10.0.0.5:3031', release: true),
+        throwsA(isA<ApiException>().having((e) => e.code, 'code', 'API_CONFIG_INVALID')));
+    expect(apiOrigin('https://invoice.crm.tevel.space', release: true),
+        'https://invoice.crm.tevel.space');
+  });
+
   test('idempotency key header and uuid v4 shape', () async {
     api.deviceToken = 'inv_tok';
     respond(200, {'status': 'FINALIZED'});
