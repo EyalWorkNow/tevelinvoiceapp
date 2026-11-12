@@ -155,6 +155,13 @@ void qaMoneySuite() {
       await openDocAs(tester, QaPreset.owner, id);
       final t = TapCounter();
       await pickMenu(tester, t, DocumentHe.share);
+      // QA 1.2 (A2): QR, mail, PDF copy and revoke sit under "עוד".
+      await pumpUntil(tester, find.byKey(const Key('s6-more')));
+      await t.tap(
+        tester,
+        find.byKey(const Key('s6-more')),
+        settle: const Duration(milliseconds: 500),
+      );
       await pumpUntil(tester, find.byKey(const Key('s6-qr')));
       for (final k in [
         's6-whatsapp',
@@ -166,7 +173,9 @@ void qaMoneySuite() {
       ]) {
         expect(find.byKey(Key(k)), findsOneWidget, reason: k);
       }
-      expect(find.text(DocumentHe.qrGeneral), findsOneWidget);
+      // The QR row label is BusinessHe.scanInvoiceAction (DocumentHe.qrGeneral
+      // is no longer used by S6).
+      expect(find.text(BusinessHe.scanInvoiceAction), findsOneWidget);
       expect(
         find.byKey(const Key('s6-revoke')),
         findsNothing,
@@ -218,6 +227,12 @@ void qaMoneySuite() {
       final since = DateTime.now().subtract(const Duration(seconds: 1));
       final t = TapCounter();
       await pickMenu(tester, t, DocumentHe.share);
+      await pumpUntil(tester, find.byKey(const Key('s6-more')));
+      await t.tap(
+        tester,
+        find.byKey(const Key('s6-more')),
+        settle: const Duration(milliseconds: 500),
+      );
       await pumpUntil(tester, find.byKey(const Key('s6-email')));
       await t.tap(
         tester,
@@ -288,7 +303,8 @@ void qaMoneySuite() {
       );
       expect(t.taps, lessThanOrEqualTo(3));
       await pumpUntil(tester, find.byKey(const Key('doc-banner')));
-      expect(find.text(PaymentHe.receiptIssued), findsOneWidget);
+      // iOS shows the same text in D's banner and in the notch toast.
+      expect(find.text(PaymentHe.receiptIssued), findsWidgets);
 
       final doc = await owner.document(id);
       expect(minor(doc['open_minor']), BigInt.zero);
