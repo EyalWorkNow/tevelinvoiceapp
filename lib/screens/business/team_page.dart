@@ -9,6 +9,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/models/models.dart';
 import '../../api/settings_api.dart' show serverHasPost;
 import '../../api/team_api.dart';
@@ -117,7 +118,7 @@ class _TeamPageState extends State<TeamPage> {
       final asRep = await migrateP0Accountant(m);
       if (mounted) {
         final text = asRep ? TeamHe.upgraded : TeamHe.upgradeUnsupported;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+        ScaffoldMessenger.of(context).showNotchNotice(SnackBar(content: Text(text)));
       }
       await _load();
     } on Object catch (e) {
@@ -129,7 +130,7 @@ class _TeamPageState extends State<TeamPage> {
     try {
       await action();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(done)));
+        ScaffoldMessenger.of(context).showNotchNotice(SnackBar(content: Text(done)));
       }
       await _load();
     } on Object catch (e) {

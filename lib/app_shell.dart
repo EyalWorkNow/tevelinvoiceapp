@@ -1,10 +1,5 @@
-// The tab shell (SPEC-v2 §5). Owner: INT.
-//
-//   עסק   ·   [ ＋ ]   ·   לקוחות   ·   בית        (RTL: בית on the right)
-//
-// The ＋ lives inside the tab bar and opens the default invoice Composer. It
-// disappears when the user cannot draft a document. The "בית"
-// tab shows R for the accountant presets, H for everyone else (§4.4).
+// The app shell owns root destinations and the floating glass navigation.
+// Invoice creation is available beside the navigation on the home screen only.
 
 import 'dart:async';
 import 'dart:ui' as ui;
@@ -22,12 +17,23 @@ import 'screens/people/people_screen.dart';
 import 'screens/profile/profile_settings_screen.dart';
 import 'screens/reports/reports_screen.dart';
 import 'state/business_context.dart';
-import 'ui/theme.dart';
 import 'ui/widgets/design_controls.dart' show DesignIcon;
-import 'util/labels/common_he.dart';
 import 'util/intent_resolver.dart' show invoiceIntentFor;
 
-/// App destinations. ＋ is an action, not a tab.
+const double _navigationDesignScale = 1.4;
+const double _navigationScaleReduction = .87;
+const double _navigationMaxScale =
+    _navigationDesignScale * _navigationScaleReduction;
+const double _navigationActionSize = 84;
+const double _shellBottomNavigationHeight =
+    _navigationActionSize * _navigationMaxScale;
+const double _navigationCapsuleWidth = 206;
+const double _navigationCapsuleHeight = 72;
+const double _navigationGap = 8;
+const double _navigationItemSize = 62.808;
+const double _navigationItemGap = 3.538;
+
+/// App destinations. Invoice creation is an action, not a destination.
 enum AppTab { home, people, business, profile }
 
 /// The visible tab. Written by router.dart (selectTab / go / reset).
@@ -40,21 +46,11 @@ class AppShell extends StatefulWidget {
   static bool get mounted => _mountedCount > 0;
   static int _mountedCount = 0;
 
-  /// Height of the tab bar (screens add it + 24 to their bottom padding, §6.H).
-  static const double barHeight = 88;
-
   @override
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _transition = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 260),
-    value: 1,
-  );
-
+class _AppShellState extends State<AppShell> {
   String? _billingBusiness;
   bool _checkingBilling = false;
   void _checkBilling() {
@@ -95,14 +91,24 @@ class _AppShellState extends State<AppShell>
       _lastTab = next;
     }
     if (MediaQuery.disableAnimationsOf(context)) {
-      _transition.value = 1;
-    } else {
-      _transition.forward(from: 0);
+      if (_pages.hasClients) _pages.jumpToPage(next.index);
+      return;
     }
+    if (!_pages.hasClients) return;
+    unawaited(
+      _pages.animateToPage(
+        next.index,
+        duration: const Duration(milliseconds: 340),
+        curve: Curves.easeInOutCubic,
+      ),
+    );
   }
 
-  AppTab _lastTab = AppTab.home;
-  AppTab _previousTab = AppTab.home;
+  AppTab _lastTab = currentTab.value;
+  AppTab _previousTab = currentTab.value;
+  late final PageController _pages = PageController(
+    initialPage: currentTab.value.index,
+  );
 
   @override
   void initState() {
@@ -117,7 +123,7 @@ class _AppShellState extends State<AppShell>
   void dispose() {
     currentTab.removeListener(_animateTab);
     businessContext.removeListener(_checkBilling);
-    _transition.dispose();
+    _pages.dispose();
     AppShell._mountedCount--;
     super.dispose();
   }
@@ -131,40 +137,19 @@ class _AppShellState extends State<AppShell>
   Widget _build(BuildContext context) {
     final caps = businessContext.caps;
     final tab = currentTab.value;
+    final media = MediaQuery.of(context);
+    final bottomContentInset = media.viewInsets.bottom > 0
+        ? media.padding.bottom
+        : _shellBottomNavigationHeight + media.viewPadding.bottom;
     return Scaffold(
       extendBody: true,
-      body: FadeTransition(
-        opacity: _transition.drive(CurveTween(curve: Curves.easeOutCubic)),
-        child: SlideTransition(
-          position: _transition.drive(
-            Tween<Offset>(
-              begin: const Offset(0, 0.025),
-              end: Offset.zero,
-            ).chain(CurveTween(curve: Curves.easeOutCubic)),
-          ),
-          child: IndexedStack(
-            index: tab.index,
-            children: [
-              caps.homeIsReports
-                  ? const ReportsScreen(embedded: true)
-                  : const HomeScreen(),
-              PeopleScreen(
-                chip: peopleChip.value,
-                onBack: () => currentTab.value = _previousTab,
-              ),
-              const BusinessScreen(),
-              const ProfileSettingsScreen(),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: TabBarWithCreate(
+      bottomNavigationBar: _ShellBottomNavigation(
         current: tab,
         showCreate:
             tab == AppTab.home && !caps.homeIsReports && caps.showCreateTab,
-        onTab: (t) {
+        onTab: (next) {
           HapticFeedback.selectionClick();
-          currentTab.value = t;
+          currentTab.value = next;
         },
         onCreate: () {
           HapticFeedback.mediumImpact();
@@ -176,14 +161,60 @@ class _AppShellState extends State<AppShell>
           );
         },
       ),
+      body: MediaQuery(
+        data: media.copyWith(
+          padding: media.padding.copyWith(bottom: bottomContentInset),
+        ),
+        child: PageView(
+          key: const Key('app-shell-pages'),
+          controller: _pages,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            _KeepAliveTab(
+              child: caps.homeIsReports
+                  ? const ReportsScreen(embedded: true)
+                  : HomeScreen(
+                      onOpenProfile: () => currentTab.value = AppTab.profile,
+                    ),
+            ),
+            _KeepAliveTab(
+              child: PeopleScreen(
+                chip: peopleChip.value,
+                onBack: () => currentTab.value = _previousTab,
+              ),
+            ),
+            const _KeepAliveTab(child: BusinessScreen()),
+            const _KeepAliveTab(child: ProfileSettingsScreen()),
+          ],
+        ),
+      ),
     );
   }
 }
 
-/// Three frosted-glass destinations; invoice creation is a separate home action.
-class TabBarWithCreate extends StatelessWidget {
-  const TabBarWithCreate({
-    super.key,
+class _KeepAliveTab extends StatefulWidget {
+  const _KeepAliveTab({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAliveTab> createState() => _KeepAliveTabState();
+}
+
+class _KeepAliveTabState extends State<_KeepAliveTab>
+    with AutomaticKeepAliveClientMixin<_KeepAliveTab> {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+}
+
+class _ShellBottomNavigation extends StatefulWidget {
+  const _ShellBottomNavigation({
     required this.current,
     required this.showCreate,
     required this.onTab,
@@ -196,132 +227,158 @@ class TabBarWithCreate extends StatelessWidget {
   final VoidCallback onCreate;
 
   @override
+  State<_ShellBottomNavigation> createState() => _ShellBottomNavigationState();
+}
+
+class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    final p = context.palette;
+    final selected = widget.current == AppTab.people
+        ? AppTab.business
+        : widget.current;
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final compact = screenWidth < 364;
-    final navigationWidth = (screenWidth * .58)
-        .clamp(compact ? 184.0 : 196.0, 252.0)
-        .toDouble();
+    final reducedMotion = MediaQuery.disableAnimationsOf(context);
+    final motionDuration = reducedMotion
+        ? Duration.zero
+        : const Duration(milliseconds: 360);
+    final scale =
+        (((screenWidth - 24) /
+                        (_navigationCapsuleWidth +
+                            _navigationActionSize +
+                            _navigationGap))
+                    .clamp(.7, _navigationDesignScale) *
+                _navigationScaleReduction)
+            .clamp(.7, _navigationMaxScale)
+            .toDouble();
+    final navWidth = _navigationCapsuleWidth * scale;
+    final actionSize = _navigationActionSize * scale;
+    const barHeight = _shellBottomNavigationHeight;
+
     return SizedBox(
-      width: double.infinity,
-      height: 88 + MediaQuery.viewPaddingOf(context).bottom,
+      height: barHeight + MediaQuery.viewPaddingOf(context).bottom,
       child: SafeArea(
         top: false,
-        minimum: EdgeInsets.symmetric(horizontal: showCreate ? 0 : 12),
-        child: AnimatedAlign(
-          alignment: showCreate ? Alignment.centerRight : Alignment.center,
-          duration: context.motion(380),
-          curve: Curves.easeInOutCubic,
+        minimum: const EdgeInsets.fromLTRB(12, 2, 12, 2),
+        child: Align(
+          alignment: Alignment.center,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
-            child: AnimatedSize(
-              duration: context.motion(380),
-              curve: Curves.easeInOutCubic,
-              alignment: AlignmentDirectional.centerStart,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                textDirection: TextDirection.rtl,
-                children: [
-                  AnimatedSwitcher(
-                    duration: context.motion(380),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(1, 0),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
-                      ),
-                    ),
-                    child: showCreate
-                        ? KeyedSubtree(
-                            key: const ValueKey('home-create-visible'),
-                            child: _createButton(context),
-                          )
-                        : const SizedBox(
-                            key: ValueKey('home-create-hidden'),
-                            width: 0,
-                            height: 0,
-                          ),
-                  ),
-                  AnimatedContainer(
-                    duration: context.motion(380),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              textDirection: TextDirection.rtl,
+              children: [
+                ClipRect(
+                  child: AnimatedContainer(
+                    duration: motionDuration,
                     curve: Curves.easeInOutCubic,
-                    width: showCreate ? 10 : 0,
-                  ),
-                  SizedBox(
-                    width: navigationWidth,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(40),
-                      child: BackdropFilter(
-                        filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.white.withValues(alpha: .29),
-                                (context.isDark
-                                        ? const Color(0xFF514951)
-                                        : p.surface)
-                                    .withValues(alpha: .82),
-                                Colors.white.withValues(alpha: .2),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(40),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: .48),
-                              width: 2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: .28),
-                                blurRadius: 20,
-                                offset: const Offset(0, 8),
+                    width: widget.showCreate ? actionSize : 0,
+                    height: actionSize,
+                    child: ClipRect(
+                      child: OverflowBox(
+                        alignment: Alignment.centerRight,
+                        minWidth: actionSize,
+                        maxWidth: actionSize,
+                        minHeight: actionSize,
+                        maxHeight: actionSize,
+                        child: AnimatedSlide(
+                          duration: motionDuration,
+                          curve: Curves.easeInOutCubic,
+                          offset: widget.showCreate
+                              ? Offset.zero
+                              : const Offset(1.15, 0),
+                          child: AnimatedOpacity(
+                            duration: motionDuration,
+                            curve: Curves.easeOutCubic,
+                            opacity: widget.showCreate ? 1 : 0,
+                            child: IgnorePointer(
+                              ignoring: !widget.showCreate,
+                              child: ExcludeSemantics(
+                                excluding: !widget.showCreate,
+                                child: _createButton(actionSize, scale),
                               ),
-                              BoxShadow(
-                                color: Colors.white.withValues(alpha: .09),
-                                blurRadius: 1,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(5),
-                            child: Row(
-                              children: [
-                                _item(
-                                  context,
-                                  AppTab.home,
-                                  CommonHe.tabHome,
-                                  'home',
-                                ),
-                                _item(
-                                  context,
-                                  AppTab.business,
-                                  'ניהול',
-                                  'manage',
-                                ),
-                                _item(
-                                  context,
-                                  AppTab.profile,
-                                  'פרופיל',
-                                  'profile',
-                                ),
-                              ],
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+                AnimatedContainer(
+                  duration: motionDuration,
+                  curve: Curves.easeInOutCubic,
+                  width: widget.showCreate ? _navigationGap * scale : 0,
+                ),
+                AnimatedContainer(
+                  duration: motionDuration,
+                  curve: Curves.easeInOutCubic,
+                  width: navWidth,
+                  height: _navigationCapsuleHeight * scale,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(34.5 * scale),
+                    child: BackdropFilter(
+                      filter: ui.ImageFilter.blur(
+                        sigmaX: 2 * scale,
+                        sigmaY: 2 * scale,
+                      ),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: const Color.fromRGBO(39, 27, 40, .68),
+                          borderRadius: BorderRadius.circular(34.5 * scale),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: .22),
+                            width: scale,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            4.423 * scale,
+                            2.654 * scale,
+                            4.423 * scale,
+                            3.538 * scale,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            textDirection: TextDirection.rtl,
+                            children: [
+                              _item(
+                                context,
+                                AppTab.home,
+                                'בית',
+                                'home',
+                                selected,
+                                motionDuration,
+                                scale,
+                              ),
+                              SizedBox(width: _navigationItemGap * scale),
+                              _item(
+                                context,
+                                AppTab.business,
+                                'ניהול',
+                                'manage',
+                                selected,
+                                motionDuration,
+                                scale,
+                              ),
+                              SizedBox(width: _navigationItemGap * scale),
+                              _item(
+                                context,
+                                AppTab.profile,
+                                'פרופיל',
+                                'profile',
+                                selected,
+                                motionDuration,
+                                scale,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -334,173 +391,129 @@ class TabBarWithCreate extends StatelessWidget {
     AppTab tab,
     String label,
     String iconName,
-  ) => Expanded(
-    child: Center(
-      child: _button(
-        context,
-        key: Key('tab-${tab.name}'),
-        label: label,
-        iconName: iconName,
-        active:
-            tab == current ||
-            (tab == AppTab.business && current == AppTab.people),
-        onTap: () {
-          if (tab != current) onTab(tab);
-        },
-      ),
-    ),
-  );
-
-  Widget _button(
-    BuildContext context, {
-    required Key key,
-    required String label,
-    required String iconName,
-    required VoidCallback onTap,
-    bool active = false,
-  }) {
-    final compact = MediaQuery.sizeOf(context).width < 364;
-    final diameter = compact ? 54.0 : 72.0;
-    final p = context.palette;
-    final color = active
-        ? const Color(0xFF382844)
-        : context.isDark
-        ? Colors.white
-        : p.ink;
-    return Semantics(
-      selected: active,
+    AppTab selected,
+    Duration duration,
+    double scale,
+  ) => SizedBox(
+    width: _navigationItemSize * scale,
+    height: _navigationItemSize * scale,
+    child: Semantics(
       button: true,
+      selected: selected == tab,
       label: label,
-      excludeSemantics: true,
-      child: AnimatedContainer(
-        width: diameter,
-        height: diameter,
-        duration: context.motion(300),
-        curve: Curves.easeOutCubic,
-        decoration: BoxDecoration(
-          color: active
-              ? const Color(0xFFD9BDF0)
-              : const Color(0xFF302832).withValues(alpha: .96),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white.withValues(alpha: active ? .22 : .13),
-            width: 1,
+      child: InkWell(
+        key: Key('tab-${tab.name}'),
+        borderRadius: BorderRadius.circular(31.404 * scale),
+        onTap: () {
+          if (selected != tab) widget.onTab(tab);
+        },
+        child: AnimatedContainer(
+          duration: duration,
+          curve: Curves.easeOutCubic,
+          width: _navigationItemSize * scale,
+          height: _navigationItemSize * scale,
+          decoration: BoxDecoration(
+            color: selected == tab
+                ? const Color(0xFFD6BDF1)
+                : const Color(0xFF322A35),
+            borderRadius: BorderRadius.circular(31.404 * scale),
           ),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                    color: Colors.white.withValues(alpha: .24),
-                    blurRadius: 14,
-                    spreadRadius: 1,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              8 * scale,
+              8 * scale,
+              8 * scale,
+              4 * scale,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ColorFiltered(
+                  colorFilter: ColorFilter.mode(
+                    selected == tab ? const Color(0xFF302138) : Colors.white,
+                    BlendMode.srcIn,
                   ),
-                ]
-              : null,
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            key: key,
-            customBorder: const CircleBorder(),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ColorFiltered(
-                      colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-                      child: DesignIcon(iconName, size: compact ? 27 : 36),
-                    ),
-                    const SizedBox(height: 0),
-                    Text(
-                      label,
-                      textScaler: TextScaler.noScaling,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: MediaQuery.textScalerOf(context)
-                            .scale(compact ? 11.5 : 13)
-                            .clamp(11.5, 15.0)
-                            .toDouble(),
-                        fontWeight: FontWeight.w600,
-                        color: color,
-                        height: 1.1,
-                      ),
-                    ),
-                  ],
+                  child: DesignIcon(iconName, size: 33 * scale),
                 ),
-              ),
+                SizedBox(height: 3 * scale),
+                Text(
+                  label,
+                  maxLines: 1,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: selected == tab
+                        ? const Color(0xFF302138)
+                        : Colors.white,
+                    fontFamily: 'SF Hebrew Rounded',
+                    fontSize: 12.5 * scale,
+                    fontWeight: FontWeight.w400,
+                    height: 1,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 
-  Widget _createButton(BuildContext context) {
-    final diameter = MediaQuery.sizeOf(context).width < 364 ? 80.0 : 86.0;
-    return SizedBox(
-      key: const Key('home-create-glass'),
-      width: diameter,
-      height: diameter,
-      child: ClipOval(
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Material(
-            color: const Color(0xFF442532).withValues(alpha: .96),
-            child: InkWell(
-              key: const Key('tab-create'),
-              onTap: onCreate,
-              customBorder: const CircleBorder(),
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [const Color(0xFF5A3749), const Color(0xFF321B27)],
-                  ),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: .78),
-                    width: 2.6,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.white.withValues(alpha: .34),
-                      blurRadius: 22,
-                      spreadRadius: 1.5,
-                    ),
-                  ],
-                ),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
+  Widget _createButton(double size, double scale) => AnimatedScale(
+    scale: _pressed ? .96 : 1,
+    duration: const Duration(milliseconds: 180),
+    curve: Curves.easeOutCubic,
+    child: ClipOval(
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 10 * scale, sigmaY: 10 * scale),
+        child: Container(
+          key: widget.showCreate
+              ? const Key('home-create-glass')
+              : const Key('home-create-hidden'),
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: const Color.fromRGBO(66, 34, 49, .24),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: .25),
+              width: 4 * scale,
+            ),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(4 * scale),
+            child: Material(
+              color: Colors.transparent,
+              shape: const CircleBorder(),
+              child: InkWell(
+                key: widget.showCreate ? const Key('tab-create') : null,
+                customBorder: const CircleBorder(),
+                onTap: widget.showCreate ? widget.onCreate : null,
+                onHighlightChanged: (pressed) {
+                  if (mounted && _pressed != pressed) {
+                    setState(() => _pressed = pressed);
+                  }
+                },
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: 4 * scale),
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      SizedBox(
-                        width: 48,
-                        height: 48,
-                        child: Icon(
-                          Iconsax.add_circle,
-                          color: Colors.white,
-                          size: 47,
-                        ),
+                      Icon(
+                        Iconsax.add_circle,
+                        color: Colors.white,
+                        size: 45.5 * scale,
                       ),
-                      const SizedBox(height: 3),
+                      SizedBox(height: 2 * scale),
                       Text(
-                        'חשבונית\nחדשה',
-                        textScaler: TextScaler.noScaling,
+                        'חשבונית',
+                        maxLines: 1,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: MediaQuery.textScalerOf(
-                            context,
-                          ).scale(12).clamp(12.0, 15.0).toDouble(),
-                          height: 1.05,
+                          fontFamily: 'SF Hebrew Rounded',
+                          fontSize: 12.5 * scale,
+                          fontWeight: FontWeight.w400,
+                          height: 1,
                         ),
                       ),
                     ],
@@ -511,6 +524,6 @@ class TabBarWithCreate extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }

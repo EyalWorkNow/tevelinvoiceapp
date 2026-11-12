@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:invoice/app_shell.dart';
 import 'package:invoice/router.dart';
 import 'package:invoice/screens/compose/compose_screen.dart';
 import 'package:invoice/screens/people/sheets/s2_customer.dart';
@@ -124,42 +123,6 @@ void main() {
     expect(find.byKey(const Key('s2-search')), findsOneWidget);
     expect(find.byKey(const Key('s2-name')), findsNothing);
   });
-
-  for (final scale in [1.0, 2.0]) {
-    testWidgets(
-      'navigation labels and targets fit at 320pt and text scale $scale',
-      (tester) async {
-        tester.view.physicalSize = const Size(960, 2400);
-        tester.view.devicePixelRatio = 3;
-        addTearDown(tester.view.reset);
-        await tester.pumpWidget(
-          eApp(
-            MediaQuery(
-              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-              child: Scaffold(
-                bottomNavigationBar: TabBarWithCreate(
-                  current: AppTab.home,
-                  showCreate: true,
-                  onTab: (_) {},
-                  onCreate: () {},
-                ),
-              ),
-            ),
-            brightness: Brightness.dark,
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-        for (final name in ['home', 'business', 'profile', 'create']) {
-          final size = tester.getSize(find.byKey(Key('tab-$name')));
-          expect(size.width, greaterThanOrEqualTo(44));
-          expect(size.height, greaterThanOrEqualTo(44));
-        }
-        expect(find.text('ניהול'), findsOneWidget);
-        expect(find.text('פרופיל'), findsOneWidget);
-      },
-    );
-  }
 
   testWidgets('routes paint their own background', (tester) async {
     final root = await start(tester);

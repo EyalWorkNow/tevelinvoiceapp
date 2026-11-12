@@ -13,9 +13,8 @@ enum UnlockResult {
   unavailable,
 }
 
-/// Face ID / device passcode gate (spec §11): on at cold start and after 5
-/// minutes in the background. Default ON; the settings toggle calls
-/// [setEnabled]. The preference is per device and survives sign-out.
+/// Optional Face ID / device passcode gate after 5 minutes in the background.
+/// It is opt-in in settings and the preference survives sign-out.
 class Biometric {
   Biometric._();
   static final Biometric instance = Biometric._();
@@ -53,9 +52,9 @@ class Biometric {
 
   Future<bool> isEnabled() async {
     try {
-      return await storage.read(key: _kEnabled) != '0';
+      return await storage.read(key: _kEnabled) == '1';
     } on Object {
-      return true;
+      return false;
     }
   }
 

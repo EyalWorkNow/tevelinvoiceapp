@@ -11,10 +11,31 @@ import 'package:invoice/screens/expense/expenses_screen.dart';
 import 'package:invoice/screens/people/person_screen.dart';
 import 'package:invoice/screens/reports/reports_screen.dart';
 import 'package:invoice/state/caps.dart';
+import 'package:invoice/state/session.dart';
 
 import 'fakes/fake_api.dart';
 
 void main() {
+  test(
+    'signed-out and restoring sessions cannot open protected routes',
+    () async {
+      final previous = session.status;
+      addTearDown(() => session.status = previous);
+      for (final status in [SessionStatus.signedOut, SessionStatus.unknown]) {
+        session.status = status;
+        for (final path in [
+          '/home',
+          '/people',
+          '/business',
+          '/setup',
+          '/business/account',
+          '/doc/1',
+        ]) {
+          expect(await go(path), isFalse, reason: '$status: $path');
+        }
+      }
+    },
+  );
   test('AT-93: the route list is exactly §5 and maps onto the 10 screens', () {
     expect(routeTable.keys.toList(), [
       '/gate',

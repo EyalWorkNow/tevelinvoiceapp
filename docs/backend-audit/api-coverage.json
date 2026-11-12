@@ -1,0 +1,2968 @@
+{
+  "generatedFor": "2026-11-09",
+  "scope": "source contracts only; not deployment or provider-delivery verification",
+  "backend": "/Users/eyalatiya/Projects/invoiceproject⁩",
+  "registeredRouteCount": 192,
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/documents/$id",
+      "template": "/documents/:dynamic",
+      "file": "lib/api/actions_api.dart",
+      "line": 45,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents/:id",
+        "GET /documents/:id"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/documents",
+      "template": "/documents",
+      "file": "lib/api/actions_api.dart",
+      "line": 62,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents",
+        "GET /documents"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/documents/$documentId/pdf",
+      "template": "/documents/:dynamic/pdf",
+      "file": "lib/api/actions_api.dart",
+      "line": 76,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents/:id/pdf"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/documents/$documentId/pdf",
+      "template": "/documents/:dynamic/pdf",
+      "file": "lib/api/actions_api.dart",
+      "line": 81,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents/:id/pdf"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/artifact?type=COPY",
+      "template": "/documents/:dynamic/artifact",
+      "file": "lib/api/actions_api.dart",
+      "line": 87,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/artifact"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/${doc.id}/share-link",
+      "template": "/documents/:dynamic/share-link",
+      "file": "lib/api/actions_api.dart",
+      "line": 105,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/share-link"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/${doc.id}/share-link",
+      "template": "/documents/:dynamic/share-link",
+      "file": "lib/api/actions_api.dart",
+      "line": 109,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/share-link"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/share-link/revoke",
+      "template": "/documents/:dynamic/share-link/revoke",
+      "file": "lib/api/actions_api.dart",
+      "line": 118,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/share-link/revoke"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/send",
+      "template": "/documents/:dynamic/send",
+      "file": "lib/api/actions_api.dart",
+      "line": 128,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/send"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/deliveries/$deliveryId/process",
+      "template": "/deliveries/:dynamic/process",
+      "file": "lib/api/actions_api.dart",
+      "line": 138,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /deliveries/:id/process"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/customers/$customerId/consent",
+      "template": "/customers/:dynamic/consent",
+      "file": "lib/api/actions_api.dart",
+      "line": 144,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /customers/:id/consent"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/${doc.id}/approve",
+      "template": "/documents/:dynamic/approve",
+      "file": "lib/api/actions_api.dart",
+      "line": 174,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/approve"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/reject",
+      "template": "/documents/:dynamic/reject",
+      "file": "lib/api/actions_api.dart",
+      "line": 200,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/reject"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/${doc.id}/credit",
+      "template": "/documents/:dynamic/credit",
+      "file": "lib/api/actions_api.dart",
+      "line": 276,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/credit"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/void",
+      "template": "/documents/:dynamic/void",
+      "file": "lib/api/actions_api.dart",
+      "line": 329,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/void"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/documents/$documentId/allocation",
+      "template": "/documents/:dynamic/allocation",
+      "file": "lib/api/actions_api.dart",
+      "line": 383,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents/:id/allocation"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/allocation/$action",
+      "template": "/documents/:dynamic/allocation/:dynamic",
+      "file": "lib/api/actions_api.dart",
+      "line": 393,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/allocation/cancel",
+        "POST /documents/:id/allocation/evaluate",
+        "POST /documents/:id/allocation/request",
+        "POST /documents/:id/allocation/reconcile",
+        "POST /documents/:id/allocation/decision",
+        "POST /documents/:id/allocation/manual"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/allocation/manual",
+      "template": "/documents/:dynamic/allocation/manual",
+      "file": "lib/api/actions_api.dart",
+      "line": 403,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/allocation/manual"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/allocation/decision",
+      "template": "/documents/:dynamic/allocation/decision",
+      "file": "lib/api/actions_api.dart",
+      "line": 409,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/allocation/decision"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/allocation/cancel",
+      "template": "/documents/:dynamic/allocation/cancel",
+      "file": "lib/api/actions_api.dart",
+      "line": 418,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/allocation/cancel"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/quotes/$quoteId/pdf",
+      "template": "/quotes/:dynamic/pdf",
+      "file": "lib/api/actions_api.dart",
+      "line": 439,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /quotes/:id/pdf"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/quotes/$quoteId/share-link",
+      "template": "/quotes/:dynamic/share-link",
+      "file": "lib/api/actions_api.dart",
+      "line": 444,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /quotes/:id/share-link"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/quotes/$quoteId/clone",
+      "template": "/quotes/:dynamic/clone",
+      "file": "lib/api/actions_api.dart",
+      "line": 450,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /quotes/:id/clone"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/${doc.id}/clone",
+      "template": "/documents/:dynamic/clone",
+      "file": "lib/api/actions_api.dart",
+      "line": 465,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/clone"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents",
+      "template": "/documents",
+      "file": "lib/api/actions_api.dart",
+      "line": 471,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents",
+        "POST /documents"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/clone",
+      "template": "/documents/:dynamic/clone",
+      "file": "lib/api/actions_api.dart",
+      "line": 497,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/clone"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "template": "/auth/login",
+      "file": "lib/api/auth_api.dart",
+      "line": 34,
+      "state": "DIRECT_HANDLER_REVIEW",
+      "serverRoutes": []
+    },
+    {
+      "method": "POST",
+      "path": "/auth/apple",
+      "template": "/auth/apple",
+      "file": "lib/api/auth_api.dart",
+      "line": 41,
+      "state": "DIRECT_HANDLER_REVIEW",
+      "serverRoutes": []
+    },
+    {
+      "method": "POST",
+      "path": "/auth/google",
+      "template": "/auth/google",
+      "file": "lib/api/auth_api.dart",
+      "line": 52,
+      "state": "DIRECT_HANDLER_REVIEW",
+      "serverRoutes": []
+    },
+    {
+      "method": "POST",
+      "path": "/auth/password/forgot",
+      "template": "/auth/password/forgot",
+      "file": "lib/api/auth_api.dart",
+      "line": 58,
+      "state": "DIRECT_HANDLER_REVIEW",
+      "serverRoutes": []
+    },
+    {
+      "method": "GET",
+      "path": "/auth/mfa/methods",
+      "template": "/auth/mfa/methods",
+      "file": "lib/api/auth_api.dart",
+      "line": 86,
+      "state": "DIRECT_HANDLER_REVIEW",
+      "serverRoutes": []
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mfa/email/send",
+      "template": "/auth/mfa/email/send",
+      "file": "lib/api/auth_api.dart",
+      "line": 107,
+      "state": "DIRECT_HANDLER_REVIEW",
+      "serverRoutes": []
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mfa/email/verify",
+      "template": "/auth/mfa/email/verify",
+      "file": "lib/api/auth_api.dart",
+      "line": 112,
+      "state": "DIRECT_HANDLER_REVIEW",
+      "serverRoutes": []
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mfa",
+      "template": "/auth/mfa",
+      "file": "lib/api/auth_api.dart",
+      "line": 122,
+      "state": "DIRECT_HANDLER_REVIEW",
+      "serverRoutes": []
+    },
+    {
+      "method": "GET",
+      "path": "/auth/invite/$token",
+      "template": "/auth/invite/:dynamic",
+      "file": "lib/api/auth_api.dart",
+      "line": 131,
+      "state": "DIRECT_HANDLER_REVIEW",
+      "serverRoutes": []
+    },
+    {
+      "method": "POST",
+      "path": "/auth/invite/$token/accept",
+      "template": "/auth/invite/:dynamic/accept",
+      "file": "lib/api/auth_api.dart",
+      "line": 140,
+      "state": "DIRECT_HANDLER_REVIEW",
+      "serverRoutes": []
+    },
+    {
+      "method": "PUT",
+      "path": "/business/profile",
+      "template": "/business/profile",
+      "file": "lib/api/auth_api.dart",
+      "line": 158,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /business/profile"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/business/onboarding",
+      "template": "/business/onboarding",
+      "file": "lib/api/auth_api.dart",
+      "line": 168,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /business/onboarding"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/mobile/businesses",
+      "template": "/mobile/businesses",
+      "file": "lib/api/auth_api.dart",
+      "line": 204,
+      "state": "DIRECT_HANDLER_REVIEW",
+      "serverRoutes": []
+    },
+    {
+      "method": "POST",
+      "path": "/businesses",
+      "template": "/businesses",
+      "file": "lib/api/auth_api.dart",
+      "line": 225,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /businesses"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/settings/branding",
+      "template": "/settings/branding",
+      "file": "lib/api/branding_api.dart",
+      "line": 62,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /settings/branding"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/settings/branding",
+      "template": "/settings/branding",
+      "file": "lib/api/branding_api.dart",
+      "line": 86,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /settings/branding"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/settings/branding/preview",
+      "template": "/settings/branding/preview",
+      "file": "lib/api/branding_api.dart",
+      "line": 112,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /settings/branding/preview"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/billing/plans",
+      "template": "/billing/plans",
+      "file": "lib/api/commerce_api.dart",
+      "line": 60,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /billing/plans"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/billing/subscription",
+      "template": "/billing/subscription",
+      "file": "lib/api/commerce_api.dart",
+      "line": 74,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /billing/subscription"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/billing/checkout",
+      "template": "/billing/checkout",
+      "file": "lib/api/commerce_api.dart",
+      "line": 80,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /billing/checkout"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/billing/checkouts/$id/verify",
+      "template": "/billing/checkouts/:dynamic/verify",
+      "file": "lib/api/commerce_api.dart",
+      "line": 96,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /billing/checkouts/:id/verify"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/billing/subscription/cancel",
+      "template": "/billing/subscription/cancel",
+      "file": "lib/api/commerce_api.dart",
+      "line": 101,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /billing/subscription/cancel"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/billing/apple/account",
+      "template": "/billing/apple/account",
+      "file": "lib/api/commerce_api.dart",
+      "line": 104,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /billing/apple/account"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/billing/apple/transactions/verify",
+      "template": "/billing/apple/transactions/verify",
+      "file": "lib/api/commerce_api.dart",
+      "line": 116,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /billing/apple/transactions/verify"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/overview",
+      "template": "/expenses/overview",
+      "file": "lib/api/commerce_api.dart",
+      "line": 152,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /expenses/overview"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/expenses/$id/recognition",
+      "template": "/expenses/:dynamic/recognition",
+      "file": "lib/api/commerce_api.dart",
+      "line": 164,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PATCH /expenses/:id/recognition"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$id/dispatch",
+      "template": "/documents/:dynamic/dispatch",
+      "file": "lib/api/commerce_api.dart",
+      "line": 199,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/dispatch"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/settings/cardcom",
+      "template": "/settings/cardcom",
+      "file": "lib/api/commerce_api.dart",
+      "line": 205,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /settings/cardcom"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/settings/cardcom",
+      "template": "/settings/cardcom",
+      "file": "lib/api/commerce_api.dart",
+      "line": 207,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /settings/cardcom"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/settings/cardcom/disconnect",
+      "template": "/settings/cardcom/disconnect",
+      "file": "lib/api/commerce_api.dart",
+      "line": 213,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /settings/cardcom/disconnect"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/payments/cardcom-checkouts",
+      "template": "/payments/cardcom-checkouts",
+      "file": "lib/api/commerce_api.dart",
+      "line": 215,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /payments/cardcom-checkouts"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/payments/cardcom-checkouts/$id/verify",
+      "template": "/payments/cardcom-checkouts/:dynamic/verify",
+      "file": "lib/api/commerce_api.dart",
+      "line": 223,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /payments/cardcom-checkouts/:id/verify"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/payment-link",
+      "template": "/documents/:dynamic/payment-link",
+      "file": "lib/api/commerce_api.dart",
+      "line": 231,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/payment-link"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/crm/customers",
+      "template": "/crm/customers",
+      "file": "lib/api/customer_crm_api.dart",
+      "line": 45,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /crm/customers"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/crm/customers/$customerId",
+      "template": "/crm/customers/:dynamic",
+      "file": "lib/api/customer_crm_api.dart",
+      "line": 74,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /crm/customers/:id"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/customers",
+      "template": "/customers",
+      "file": "lib/api/customers_api.dart",
+      "line": 73,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /customers",
+        "GET /customers"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/customers",
+      "template": "/customers",
+      "file": "lib/api/customers_api.dart",
+      "line": 88,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /customers",
+        "GET /customers"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/customers/$id",
+      "template": "/customers/:dynamic",
+      "file": "lib/api/customers_api.dart",
+      "line": 96,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /customers/:id"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/customers",
+      "template": "/customers",
+      "file": "lib/api/customers_api.dart",
+      "line": 123,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /customers"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/customers/$customerId/consent",
+      "template": "/customers/:dynamic/consent",
+      "file": "lib/api/customers_api.dart",
+      "line": 145,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /customers/:id/consent"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/customers/$id",
+      "template": "/customers/:dynamic",
+      "file": "lib/api/customers_api.dart",
+      "line": 150,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PATCH /customers/:id",
+        "PATCH /customers/:id"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/customers/$id/archive",
+      "template": "/customers/:dynamic/archive",
+      "file": "lib/api/customers_api.dart",
+      "line": 155,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /customers/:id/archive"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/documents",
+      "template": "/documents",
+      "file": "lib/api/customers_api.dart",
+      "line": 160,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents",
+        "GET /documents"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/documents",
+      "template": "/documents",
+      "file": "lib/api/customers_api.dart",
+      "line": 189,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents",
+        "GET /documents"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/documents",
+      "template": "/documents",
+      "file": "lib/api/customers_api.dart",
+      "line": 197,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents",
+        "GET /documents"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/customers/$customerId/statement",
+      "template": "/customers/:dynamic/statement",
+      "file": "lib/api/customers_api.dart",
+      "line": 232,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /customers/:id/statement"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/customers/$customerId/statement/send",
+      "template": "/customers/:dynamic/statement/send",
+      "file": "lib/api/customers_api.dart",
+      "line": 246,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /customers/:id/statement/send"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/customers/$customerId/statement.pdf",
+      "template": "/customers/:dynamic/statement.pdf",
+      "file": "lib/api/customers_api.dart",
+      "line": 253,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /customers/:id/statement.pdf"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard",
+      "template": "/dashboard",
+      "file": "lib/api/documents_api.dart",
+      "line": 35,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /dashboard",
+        "GET /dashboard"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/documents",
+      "template": "/documents",
+      "file": "lib/api/documents_api.dart",
+      "line": 40,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents",
+        "GET /documents"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/documents/$id",
+      "template": "/documents/:dynamic",
+      "file": "lib/api/documents_api.dart",
+      "line": 57,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents/:id",
+        "GET /documents/:id"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/customers",
+      "template": "/customers",
+      "file": "lib/api/documents_api.dart",
+      "line": 61,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /customers",
+        "GET /customers"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/documents/$id/pdf",
+      "template": "/documents/:dynamic/pdf",
+      "file": "lib/api/documents_api.dart",
+      "line": 73,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents/:id/pdf"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$id/artifact",
+      "template": "/documents/:dynamic/artifact",
+      "file": "lib/api/documents_api.dart",
+      "line": 76,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/artifact"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/documents/$id/pdf",
+      "template": "/documents/:dynamic/pdf",
+      "file": "lib/api/documents_api.dart",
+      "line": 78,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents/:id/pdf"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/documents/$id",
+      "template": "/documents/:dynamic",
+      "file": "lib/api/documents_api.dart",
+      "line": 84,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "DELETE /documents/:id"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/expenses/uploads/initiate",
+      "template": "/expenses/uploads/initiate",
+      "file": "lib/api/expenses_api.dart",
+      "line": 112,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /expenses/uploads/initiate"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/expenses/uploads/$uploadId/complete",
+      "template": "/expenses/uploads/:dynamic/complete",
+      "file": "lib/api/expenses_api.dart",
+      "line": 131,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /expenses/uploads/:id/complete"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/uploads/$uploadId",
+      "template": "/expenses/uploads/:dynamic",
+      "file": "lib/api/expenses_api.dart",
+      "line": 139,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /expenses/:id/extraction",
+        "GET /expenses/uploads/:id",
+        "GET /expenses/:id/extraction",
+        "GET /expenses/:id/source"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/inbox",
+      "template": "/expenses/inbox",
+      "file": "lib/api/expenses_api.dart",
+      "line": 173,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /expenses/inbox",
+        "GET /expenses/inbox"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/expense-categories",
+      "template": "/expense-categories",
+      "file": "lib/api/expenses_api.dart",
+      "line": 190,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /expense-categories"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/expenses/$id/extract",
+      "template": "/expenses/:dynamic/extract",
+      "file": "lib/api/expenses_api.dart",
+      "line": 212,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /expenses/:id/extract",
+        "POST /expenses/:id/extract"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/expenses/$id/draft",
+      "template": "/expenses/:dynamic/draft",
+      "file": "lib/api/expenses_api.dart",
+      "line": 233,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PATCH /expenses/:id/draft"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/expenses/$id/approve",
+      "template": "/expenses/:dynamic/approve",
+      "file": "lib/api/expenses_api.dart",
+      "line": 243,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /expenses/:id/approve"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/expenses/$id/reject",
+      "template": "/expenses/:dynamic/reject",
+      "file": "lib/api/expenses_api.dart",
+      "line": 247,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /expenses/:id/reject"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/expenses/$id/duplicate",
+      "template": "/expenses/:dynamic/duplicate",
+      "file": "lib/api/expenses_api.dart",
+      "line": 251,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /expenses/:id/duplicate"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/expenses/$id/undo-duplicate",
+      "template": "/expenses/:dynamic/undo-duplicate",
+      "file": "lib/api/expenses_api.dart",
+      "line": 254,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /expenses/:id/undo-duplicate"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/$id/source",
+      "template": "/expenses/:dynamic/source",
+      "file": "lib/api/expenses_api.dart",
+      "line": 257,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /expenses/uploads/:id",
+        "GET /expenses/:id/source"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/expenses",
+      "template": "/expenses",
+      "file": "lib/api/expenses_api.dart",
+      "line": 285,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /expenses"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/expenses/$id",
+      "template": "/expenses/:dynamic",
+      "file": "lib/api/expenses_api.dart",
+      "line": 302,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PATCH /expenses/:id"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/expenses/$id",
+      "template": "/expenses/:dynamic",
+      "file": "lib/api/expenses_api.dart",
+      "line": 305,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "DELETE /expenses/:id"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/mobile/inbox",
+      "template": "/mobile/inbox",
+      "file": "lib/api/inbox_api.dart",
+      "line": 60,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /mobile/inbox"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard",
+      "template": "/dashboard",
+      "file": "lib/api/inbox_api.dart",
+      "line": 137,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /dashboard",
+        "GET /dashboard"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/approvals",
+      "template": "/approvals",
+      "file": "lib/api/inbox_api.dart",
+      "line": 146,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /approvals"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/inbox",
+      "template": "/expenses/inbox",
+      "file": "lib/api/inbox_api.dart",
+      "line": 149,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /expenses/inbox",
+        "GET /expenses/inbox"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/settings/branding",
+      "template": "/settings/branding",
+      "file": "lib/api/inbox_api.dart",
+      "line": 177,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /settings/branding"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/documents/$id",
+      "template": "/documents/:dynamic",
+      "file": "lib/api/inbox_api.dart",
+      "line": 539,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents/:id",
+        "GET /documents/:id"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$id/allocation",
+      "template": "/documents/:dynamic/allocation",
+      "file": "lib/api/inbox_api.dart",
+      "line": 541,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/allocation"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/customers",
+      "template": "/customers",
+      "file": "lib/api/inbox_api.dart",
+      "line": 598,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /customers",
+        "GET /customers"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/${d.id}/send",
+      "template": "/documents/:dynamic/send",
+      "file": "lib/api/inbox_api.dart",
+      "line": 618,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/send"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/deliveries/${delivery['deliveryId']}/process",
+      "template": "/deliveries/:dynamic/process",
+      "file": "lib/api/inbox_api.dart",
+      "line": 622,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /deliveries/:id/process"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/share-link",
+      "template": "/documents/:dynamic/share-link",
+      "file": "lib/api/inbox_api.dart",
+      "line": 651,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/share-link"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/artifact",
+      "template": "/documents/:dynamic/artifact",
+      "file": "lib/api/inbox_api.dart",
+      "line": 654,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/artifact"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/share-link",
+      "template": "/documents/:dynamic/share-link",
+      "file": "lib/api/inbox_api.dart",
+      "line": 655,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/share-link"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/documents",
+      "template": "/documents",
+      "file": "lib/api/inbox_api.dart",
+      "line": 686,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents",
+        "GET /documents"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/customers",
+      "template": "/customers",
+      "file": "lib/api/inbox_api.dart",
+      "line": 758,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /customers",
+        "GET /customers"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/quotes",
+      "template": "/quotes",
+      "file": "lib/api/inbox_api.dart",
+      "line": 775,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /quotes"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/preview",
+      "template": "/documents/preview",
+      "file": "lib/api/issue_api.dart",
+      "line": 38,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/preview"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/sequences",
+      "template": "/sequences",
+      "file": "lib/api/issue_api.dart",
+      "line": 80,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /sequences"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$id/sign",
+      "template": "/documents/:dynamic/sign",
+      "file": "lib/api/issue_api.dart",
+      "line": 93,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/sign"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$id/allocation/evaluate",
+      "template": "/documents/:dynamic/allocation/evaluate",
+      "file": "lib/api/issue_api.dart",
+      "line": 101,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/allocation/evaluate"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$id/share-link",
+      "template": "/documents/:dynamic/share-link",
+      "file": "lib/api/issue_api.dart",
+      "line": 107,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/share-link"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$id/share-link",
+      "template": "/documents/:dynamic/share-link",
+      "file": "lib/api/issue_api.dart",
+      "line": 111,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/share-link"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$id/finalize",
+      "template": "/documents/:dynamic/finalize",
+      "file": "lib/api/issue_api.dart",
+      "line": 180,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/finalize"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$id/payments",
+      "template": "/documents/:dynamic/payments",
+      "file": "lib/api/issue_api.dart",
+      "line": 218,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/payments"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/receipts",
+      "template": "/receipts",
+      "file": "lib/api/issue_api.dart",
+      "line": 247,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /receipts"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/documents/$id/allocation",
+      "template": "/documents/:dynamic/allocation",
+      "file": "lib/api/issue_api.dart",
+      "line": 288,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents/:id/allocation"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$id/allocation/request",
+      "template": "/documents/:dynamic/allocation/request",
+      "file": "lib/api/issue_api.dart",
+      "line": 290,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/allocation/request"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$id/artifact",
+      "template": "/documents/:dynamic/artifact",
+      "file": "lib/api/issue_api.dart",
+      "line": 332,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/artifact"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/payments",
+      "template": "/payments",
+      "file": "lib/api/issue_api.dart",
+      "line": 346,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /payments",
+        "POST /payments"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/customers/$customerId",
+      "template": "/customers/:dynamic",
+      "file": "lib/api/issue_api.dart",
+      "line": 367,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PATCH /customers/:id",
+        "PATCH /customers/:id"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/${p.draftId}/submit",
+      "template": "/documents/:dynamic/submit",
+      "file": "lib/api/issue_api.dart",
+      "line": 389,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/submit"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/documents/${p.draftId}",
+      "template": "/documents/:dynamic",
+      "file": "lib/api/issue_api.dart",
+      "line": 407,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "DELETE /documents/:id"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents",
+      "template": "/documents",
+      "file": "lib/api/issue_api.dart",
+      "line": 452,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents",
+        "POST /documents"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/documents/${p.draftId}",
+      "template": "/documents/:dynamic",
+      "file": "lib/api/issue_api.dart",
+      "line": 461,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /documents/:id",
+        "PUT /documents/:id"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/${p.cloneFrom}/clone",
+      "template": "/documents/:dynamic/clone",
+      "file": "lib/api/issue_api.dart",
+      "line": 479,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/clone"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/documents",
+      "template": "/documents",
+      "file": "lib/api/issue_api.dart",
+      "line": 498,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /documents",
+        "GET /documents"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/documents/$draftId",
+      "template": "/documents/:dynamic",
+      "file": "lib/api/issue_api.dart",
+      "line": 521,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "DELETE /documents/:id"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/items",
+      "template": "/items",
+      "file": "lib/api/items_api.dart",
+      "line": 32,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /items",
+        "GET /items"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/items",
+      "template": "/items",
+      "file": "lib/api/items_api.dart",
+      "line": 53,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /items"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/items/$id",
+      "template": "/items/:dynamic",
+      "file": "lib/api/items_api.dart",
+      "line": 80,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PATCH /items/:id"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/items/$id/archive",
+      "template": "/items/:dynamic/archive",
+      "file": "lib/api/items_api.dart",
+      "line": 84,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /items/:id/archive"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/items/$id/restore",
+      "template": "/items/:dynamic/restore",
+      "file": "lib/api/items_api.dart",
+      "line": 87,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /items/:id/restore"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/payments",
+      "template": "/payments",
+      "file": "lib/api/payments_api.dart",
+      "line": 128,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /payments",
+        "POST /payments"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/payments",
+      "template": "/payments",
+      "file": "lib/api/payments_api.dart",
+      "line": 135,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /payments",
+        "POST /payments"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/${doc.id}/payments",
+      "template": "/documents/:dynamic/payments",
+      "file": "lib/api/payments_api.dart",
+      "line": 156,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/payments"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/receipts",
+      "template": "/receipts",
+      "file": "lib/api/payments_api.dart",
+      "line": 175,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /receipts"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/payments",
+      "template": "/payments",
+      "file": "lib/api/payments_api.dart",
+      "line": 231,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /payments"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/payments/$paymentId/void",
+      "template": "/payments/:dynamic/void",
+      "file": "lib/api/payments_api.dart",
+      "line": 256,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /payments/:id/void"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/quotes",
+      "template": "/quotes",
+      "file": "lib/api/quotes_api.dart",
+      "line": 21,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /quotes"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/quotes/$id",
+      "template": "/quotes/:dynamic",
+      "file": "lib/api/quotes_api.dart",
+      "line": 31,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /quotes/:id"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/quotes",
+      "template": "/quotes",
+      "file": "lib/api/quotes_api.dart",
+      "line": 48,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /quotes",
+        "POST /quotes"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/quotes/$id",
+      "template": "/quotes/:dynamic",
+      "file": "lib/api/quotes_api.dart",
+      "line": 68,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /quotes/:id"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/quotes/$id/clone",
+      "template": "/quotes/:dynamic/clone",
+      "file": "lib/api/quotes_api.dart",
+      "line": 81,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /quotes/:id/clone"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/quotes/$id/share-link",
+      "template": "/quotes/:dynamic/share-link",
+      "file": "lib/api/quotes_api.dart",
+      "line": 90,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /quotes/:id/share-link"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/quotes/$id/pdf",
+      "template": "/quotes/:dynamic/pdf",
+      "file": "lib/api/quotes_api.dart",
+      "line": 98,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /quotes/:id/pdf"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/quotes/$id/status",
+      "template": "/quotes/:dynamic/status",
+      "file": "lib/api/quotes_api.dart",
+      "line": 104,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /quotes/:id/status"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/quotes/$id/convert",
+      "template": "/quotes/:dynamic/convert",
+      "file": "lib/api/quotes_api.dart",
+      "line": 120,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /quotes/:id/convert",
+        "POST /quotes/:id/convert"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard",
+      "template": "/dashboard",
+      "file": "lib/api/reports_api.dart",
+      "line": 22,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /dashboard",
+        "GET /dashboard"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/reports/income",
+      "template": "/reports/income",
+      "file": "lib/api/reports_api.dart",
+      "line": 32,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /reports/:kind"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/reports/$kind",
+      "template": "/reports/:dynamic",
+      "file": "lib/api/reports_api.dart",
+      "line": 44,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /reports/:kind"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/reports/$kind",
+      "template": "/reports/:dynamic",
+      "file": "lib/api/reports_api.dart",
+      "line": 58,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /reports/:kind"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/exports/$kind",
+      "template": "/exports/:dynamic",
+      "file": "lib/api/reports_api.dart",
+      "line": 67,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /exports/excel",
+        "POST /exports/accountant",
+        "POST /exports/uniform-format"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/exports/download",
+      "template": "/exports/download",
+      "file": "lib/api/reports_api.dart",
+      "line": 69,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /exports/download"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/reports/$kind/send?from=${period.fromIso}&to=${period.toIso}",
+      "template": "/reports/:dynamic/send",
+      "file": "lib/api/reports_api.dart",
+      "line": 107,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /reports/:kind/send"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/payments",
+      "template": "/payments",
+      "file": "lib/api/reports_api.dart",
+      "line": 130,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /payments"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/mobile/inbox",
+      "template": "/mobile/inbox",
+      "file": "lib/api/reports_api.dart",
+      "line": 210,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /mobile/inbox"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/business/profile",
+      "template": "/business/profile",
+      "file": "lib/api/settings_api.dart",
+      "line": 26,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /business/profile"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/settings/approval",
+      "template": "/settings/approval",
+      "file": "lib/api/settings_api.dart",
+      "line": 63,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /settings/approval"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/sequences",
+      "template": "/sequences",
+      "file": "lib/api/settings_api.dart",
+      "line": 76,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /sequences"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/sequences/${row['numbering_scope_key']}/start",
+      "template": "/sequences/:dynamic/start",
+      "file": "lib/api/settings_api.dart",
+      "line": 81,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /sequences/:scopeKey/start"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/mobile/web-handoff",
+      "template": "/mobile/web-handoff",
+      "file": "lib/api/settings_api.dart",
+      "line": 93,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /mobile/web-handoff"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/mobile/logout-all",
+      "template": "/mobile/logout-all",
+      "file": "lib/api/settings_api.dart",
+      "line": 136,
+      "state": "DIRECT_HANDLER_REVIEW",
+      "serverRoutes": []
+    },
+    {
+      "method": "POST",
+      "path": "/mobile/account/delete",
+      "template": "/mobile/account/delete",
+      "file": "lib/api/settings_api.dart",
+      "line": 166,
+      "state": "DIRECT_HANDLER_REVIEW",
+      "serverRoutes": []
+    },
+    {
+      "method": "PUT",
+      "path": "/settings/document-email",
+      "template": "/settings/document-email",
+      "file": "lib/api/settings_api.dart",
+      "line": 248,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /settings/document-email"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/settings/reminders",
+      "template": "/settings/reminders",
+      "file": "lib/api/settings_api.dart",
+      "line": 260,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /settings/reminders"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/settings/accountant-automation",
+      "template": "/settings/accountant-automation",
+      "file": "lib/api/settings_api.dart",
+      "line": 272,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /settings/accountant-automation"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/business/type-change",
+      "template": "/business/type-change",
+      "file": "lib/api/settings_api.dart",
+      "line": 303,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /business/type-change"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/shaam/status",
+      "template": "/shaam/status",
+      "file": "lib/api/shaam_api.dart",
+      "line": 11,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /shaam/status"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/settings/signing",
+      "template": "/settings/signing",
+      "file": "lib/api/shaam_api.dart",
+      "line": 34,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /settings/signing"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/settings/signing/unlock",
+      "template": "/settings/signing/unlock",
+      "file": "lib/api/signing_api.dart",
+      "line": 70,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /settings/signing/unlock"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/artifact",
+      "template": "/documents/:dynamic/artifact",
+      "file": "lib/api/signing_api.dart",
+      "line": 112,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/artifact"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/documents/$documentId/sign",
+      "template": "/documents/:dynamic/sign",
+      "file": "lib/api/signing_api.dart",
+      "line": 120,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /documents/:id/sign"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/suppliers",
+      "template": "/suppliers",
+      "file": "lib/api/suppliers_api.dart",
+      "line": 33,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /suppliers",
+        "GET /suppliers"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/suppliers/$id",
+      "template": "/suppliers/:dynamic",
+      "file": "lib/api/suppliers_api.dart",
+      "line": 51,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /suppliers/:id"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/suppliers/$id",
+      "template": "/suppliers/:dynamic",
+      "file": "lib/api/suppliers_api.dart",
+      "line": 68,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PATCH /suppliers/:id"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/suppliers/$id/archive",
+      "template": "/suppliers/:dynamic/archive",
+      "file": "lib/api/suppliers_api.dart",
+      "line": 73,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /suppliers/:id/archive"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/suppliers",
+      "template": "/suppliers",
+      "file": "lib/api/suppliers_api.dart",
+      "line": 78,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /suppliers"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/business/members",
+      "template": "/business/members",
+      "file": "lib/api/team_api.dart",
+      "line": 23,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /business/members"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/business/members/invite",
+      "template": "/business/members/invite",
+      "file": "lib/api/team_api.dart",
+      "line": 51,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /business/members/invite",
+        "POST /business/members/invite"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/business/members/${m.userId}/permissions",
+      "template": "/business/members/:dynamic/permissions",
+      "file": "lib/api/team_api.dart",
+      "line": 105,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /business/members/:userId/permissions"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/business/members/${member.userId}/role",
+      "template": "/business/members/:dynamic/role",
+      "file": "lib/api/team_api.dart",
+      "line": 144,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /business/members/:userId/role"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/business/members/${member.userId}/permissions",
+      "template": "/business/members/:dynamic/permissions",
+      "file": "lib/api/team_api.dart",
+      "line": 145,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PUT /business/members/:userId/permissions"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/business/invitations/$invitationId/resend",
+      "template": "/business/invitations/:dynamic/resend",
+      "file": "lib/api/team_api.dart",
+      "line": 150,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /business/invitations/:id/resend"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/business/invitations/$invitationId/revoke",
+      "template": "/business/invitations/:dynamic/revoke",
+      "file": "lib/api/team_api.dart",
+      "line": 153,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /business/invitations/:id/revoke"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/business/ownership/transfer",
+      "template": "/business/ownership/transfer",
+      "file": "lib/api/team_api.dart",
+      "line": 203,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /business/ownership/transfer"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/business/ownership/transfer",
+      "template": "/business/ownership/transfer",
+      "file": "lib/api/team_api.dart",
+      "line": 210,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /business/ownership/transfer"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/business/members/$userId/revoke",
+      "template": "/business/members/:dynamic/revoke",
+      "file": "lib/api/team_api.dart",
+      "line": 216,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /business/members/:userId/revoke"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/integrations/status",
+      "template": "/integrations/status",
+      "file": "lib/screens/business/integrations_screen.dart",
+      "line": 28,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /integrations/status"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/tax-rates",
+      "template": "/tax-rates",
+      "file": "lib/screens/compose/compose_memory.dart",
+      "line": 34,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /tax-rates"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/customers",
+      "template": "/customers",
+      "file": "lib/screens/compose/compose_memory.dart",
+      "line": 62,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /customers",
+        "GET /customers"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/customers/${customer.id}",
+      "template": "/customers/:dynamic",
+      "file": "lib/screens/compose/compose_submit.dart",
+      "line": 269,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "PATCH /customers/:id",
+        "PATCH /customers/:id"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/mobile/push-status",
+      "template": "/mobile/push-status",
+      "file": "lib/state/system_notices.dart",
+      "line": 106,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "GET /mobile/push-status"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/mobile/push-tokens",
+      "template": "/mobile/push-tokens",
+      "file": "lib/state/system_notices.dart",
+      "line": 133,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "DELETE /mobile/push-tokens"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/mobile/push-tokens",
+      "template": "/mobile/push-tokens",
+      "file": "lib/state/system_notices.dart",
+      "line": 236,
+      "state": "ROUTE_PRESENT",
+      "serverRoutes": [
+        "POST /mobile/push-tokens"
+      ]
+    }
+  ],
+  "directHandlers": [
+    {
+      "path": "/auth/",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 194
+    },
+    {
+      "path": "/auth/login",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 219
+    },
+    {
+      "path": "/auth/google",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 258
+    },
+    {
+      "path": "/auth/apple",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 333
+    },
+    {
+      "path": "/auth/mfa",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 402
+    },
+    {
+      "path": "/auth/mfa/enroll",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 446
+    },
+    {
+      "path": "/auth/mfa/confirm",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 468
+    },
+    {
+      "path": "/auth/mfa/status",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 488
+    },
+    {
+      "path": "/auth/mfa/recovery-codes",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 495
+    },
+    {
+      "path": "/auth/mfa/methods",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 586
+    },
+    {
+      "path": "/auth/mfa/passkey/register-options",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 608
+    },
+    {
+      "path": "/auth/mfa/passkey/register-verify",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 625
+    },
+    {
+      "path": "/auth/mfa/passkey/auth-options",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 650
+    },
+    {
+      "path": "/auth/mfa/passkey/auth-verify",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 658
+    },
+    {
+      "path": "/auth/mfa/passkey/remove",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 678
+    },
+    {
+      "path": "/auth/mfa/email/send",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 695
+    },
+    {
+      "path": "/auth/mfa/email/verify",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 720
+    },
+    {
+      "path": "/auth/mfa/email/disable",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 750
+    },
+    {
+      "path": "/auth/device-token",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 767
+    },
+    {
+      "path": "/auth/logout",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 803
+    },
+    {
+      "path": "/auth/logout-all",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 811
+    },
+    {
+      "path": "/auth/whoami",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 823
+    },
+    {
+      "path": "/auth/my-businesses",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 832
+    },
+    {
+      "path": "/auth/sessions",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 871
+    },
+    {
+      "path": "/auth/sessions/",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 880
+    },
+    {
+      "path": "/auth/sessions/",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 883
+    },
+    {
+      "path": "/auth/password/change",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 889
+    },
+    {
+      "path": "/auth/password/forgot",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 913
+    },
+    {
+      "path": "/auth/password/reset",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 942
+    },
+    {
+      "path": "/mobile/",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 972
+    },
+    {
+      "path": "/mobile/session",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 988
+    },
+    {
+      "path": "/mobile/businesses",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 994
+    },
+    {
+      "path": "/mobile/logout",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 1003
+    },
+    {
+      "path": "/mobile/logout-all",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 1010
+    },
+    {
+      "path": "/mobile/account/delete",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 1020
+    },
+    {
+      "path": "/d/${escapeHtml(token)}/pdf",
+      "file": "apps/api/src/public-share-routes.ts",
+      "line": 74
+    },
+    {
+      "path": "/d/${escapeHtml(token)}/pdf",
+      "file": "apps/api/src/public-share-routes.ts",
+      "line": 100
+    },
+    {
+      "path": "/d/:token",
+      "file": "apps/api/src/public-share-routes.ts",
+      "line": 135
+    },
+    {
+      "path": "/d/:token/pdf",
+      "file": "apps/api/src/public-share-routes.ts",
+      "line": 135
+    },
+    {
+      "method": "GET",
+      "path": "/auth/invite/:token",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 516
+    },
+    {
+      "method": "POST",
+      "path": "/auth/invite/:token/accept",
+      "file": "apps/api/src/auth-routes.ts",
+      "line": 516
+    }
+  ],
+  "reviewMarkers": [
+    {
+      "file": "lib/api/actions_api.dart",
+      "line": 19,
+      "text": "import 'customers_api.dart' show fetchCustomerDetail, isMissingRoute;"
+    },
+    {
+      "file": "lib/api/actions_api.dart",
+      "line": 53,
+      "text": "if (e.isNetwork || (e.status != 404 && !isMissingRoute(e))) rethrow;"
+    },
+    {
+      "file": "lib/api/actions_api.dart",
+      "line": 367,
+      "text": "/// ADR-SHAAM-DEGRADATION: calm notice while the Tax Authority is unavailable (or the"
+    },
+    {
+      "file": "lib/api/actions_api.dart",
+      "line": 386,
+      "text": "/// While the Tax Authority is down the server fails fast (SHAAM_SERVICE_UNAVAILABLE) without"
+    },
+    {
+      "file": "lib/api/actions_api.dart",
+      "line": 395,
+      "text": "if (e.code != 'SHAAM_SERVICE_UNAVAILABLE') rethrow;"
+    },
+    {
+      "file": "lib/api/actions_api.dart",
+      "line": 427,
+      "text": "/// own rate; [vatRateBasisPoints] is the fallback for lines without one."
+    },
+    {
+      "file": "lib/api/actions_api.dart",
+      "line": 469,
+      "text": "if (!isMissingRoute(e)) rethrow; // the route itself is missing (before BE-08)"
+    },
+    {
+      "file": "lib/api/client.dart",
+      "line": 331,
+      "text": "code = 'SERVICE_UNAVAILABLE';"
+    },
+    {
+      "file": "lib/api/client.dart",
+      "line": 357,
+      "text": "'/mobile/web-handoff',"
+    },
+    {
+      "file": "lib/api/customers_api.dart",
+      "line": 29,
+      "text": "bool isMissingRoute(Object e) => e is ApiException && e.status == 404 && e.code == 'NOT_FOUND';"
+    },
+    {
+      "file": "lib/api/customers_api.dart",
+      "line": 98,
+      "text": "if (!isMissingRoute(e)) rethrow;"
+    },
+    {
+      "file": "lib/api/customers_api.dart",
+      "line": 236,
+      "text": "return _statementSupport[bid] = !isMissingRoute(e);"
+    },
+    {
+      "file": "lib/api/expenses_api.dart",
+      "line": 208,
+      "text": "/// (503 EXTRACTION_UNAVAILABLE) or the expense is not reviewable: the card"
+    },
+    {
+      "file": "lib/api/expenses_api.dart",
+      "line": 307,
+      "text": "/// Local search for the inbox fallback: supplier name, document number,"
+    },
+    {
+      "file": "lib/api/inbox_api.dart",
+      "line": 5,
+      "text": "// * P0 fallback (route missing → 404 NOT_FOUND): compose the cards on the"
+    },
+    {
+      "file": "lib/api/models/member.dart",
+      "line": 29,
+      "text": "Me(userId: '', role: role, permissions: {...?rolePermissionsFallback[role], ...grants}.toList()),"
+    },
+    {
+      "file": "lib/api/models/member.dart",
+      "line": 34,
+      "text": "final base = (rolePermissionsFallback[role] ?? const <String>[]).toSet();"
+    },
+    {
+      "file": "lib/api/models/member.dart",
+      "line": 85,
+      "text": "Set<String> get effective => {...?rolePermissionsFallback[role], ...grants};"
+    },
+    {
+      "file": "lib/api/models/member.dart",
+      "line": 178,
+      "text": "/// V1 web link (fallback)."
+    },
+    {
+      "file": "lib/api/quotes_api.dart",
+      "line": 8,
+      "text": "// (per-line rates win; the body rate is a fallback), POST /quotes/:id/clone,"
+    },
+    {
+      "file": "lib/api/settings_api.dart",
+      "line": 89,
+      "text": "/// BE-35: POST /mobile/web-handoff {topic} → e-mail with the link. A server"
+    },
+    {
+      "file": "lib/api/settings_api.dart",
+      "line": 91,
+      "text": "Future<void> sendWebHandoff(String topic, String topicLabel) async {"
+    },
+    {
+      "file": "lib/api/settings_api.dart",
+      "line": 93,
+      "text": "await _api.post('/mobile/web-handoff', {'topic': topic});"
+    },
+    {
+      "file": "lib/api/settings_api.dart",
+      "line": 195,
+      "text": "// router's fallback; domain 404s carry their own code). Rows/fields of such a"
+    },
+    {
+      "file": "lib/api/settings_api.dart",
+      "line": 204,
+      "text": "bool isMissingRoute(Object e) => e is ApiException && e.status == 404 && e.code == 'NOT_FOUND';"
+    },
+    {
+      "file": "lib/api/settings_api.dart",
+      "line": 214,
+      "text": "/// these routes: the empty POST meets the 404 fallback) is still probed."
+    },
+    {
+      "file": "lib/api/settings_api.dart",
+      "line": 225,
+      "text": "return _probes[key] = !isMissingRoute(e);"
+    },
+    {
+      "file": "lib/api/settings_api.dart",
+      "line": 234,
+      "text": "if (isMissingRoute(e)) return null;"
+    },
+    {
+      "file": "lib/api/signing_api.dart",
+      "line": 93,
+      "text": "// Keychain unavailable: the dialog comes back next time."
+    },
+    {
+      "file": "lib/api/suppliers_api.dart",
+      "line": 9,
+      "text": "import 'customers_api.dart' show isMissingRoute;"
+    },
+    {
+      "file": "lib/api/suppliers_api.dart",
+      "line": 55,
+      "text": "if (!isMissingRoute(e)) rethrow;"
+    },
+    {
+      "file": "lib/api/team_api.dart",
+      "line": 10,
+      "text": "// P0 fallback (server without BE-41 ignores `permissions` on invite): the"
+    },
+    {
+      "file": "lib/api/team_api.dart",
+      "line": 57,
+      "text": "final (json, asRep) = await _withRepFallback("
+    },
+    {
+      "file": "lib/api/team_api.dart",
+      "line": 124,
+      "text": "final (_, asRep) = await _withRepFallback("
+    },
+    {
+      "file": "lib/api/team_api.dart",
+      "line": 160,
+      "text": "await _withRepFallback("
+    },
+    {
+      "file": "lib/api/team_api.dart",
+      "line": 181,
+      "text": "Future<(T, bool)> _withRepFallback<T>("
+    },
+    {
+      "file": "lib/screens/auth/invite_screen.dart",
+      "line": 121,
+      "text": "(invite?.inviterName ?? '').isEmpty ? AuthHe.inviterFallback : invite!.inviterName,"
+    },
+    {
+      "file": "lib/screens/business/shaam_page.dart",
+      "line": 115,
+      "text": "? BusinessHe.signingNotConfigured"
+    },
+    {
+      "file": "lib/screens/business/sheets/editor_configs.dart",
+      "line": 614,
+      "text": "return sendWebHandoff(t, desktopTopics[t] ?? t);"
+    },
+    {
+      "file": "lib/screens/compose/compose_screen.dart",
+      "line": 65,
+      "text": "bool _unavailable = false;"
+    },
+    {
+      "file": "lib/screens/compose/compose_screen.dart",
+      "line": 84,
+      "text": "_unavailable = false;"
+    },
+    {
+      "file": "lib/screens/compose/compose_screen.dart",
+      "line": 95,
+      "text": "if (load == null) return setState(() => _unavailable = true);"
+    },
+    {
+      "file": "lib/screens/compose/compose_screen.dart",
+      "line": 193,
+      "text": "child: _unavailable"
+    },
+    {
+      "file": "lib/screens/document/document_screen.dart",
+      "line": 762,
+      "text": "label: bytes != null ? DocumentHe.pdfOpen : DocumentHe.pdfUnavailable,"
+    },
+    {
+      "file": "lib/screens/document/sheets/s6_share.dart",
+      "line": 368,
+      "text": "if (result == 'UNAVAILABLE') {"
+    },
+    {
+      "file": "lib/screens/document/sheets/s6_share.dart",
+      "line": 371,
+      "text": "'SMS_UNAVAILABLE',"
+    },
+    {
+      "file": "lib/screens/expense/expense_capture_screen.dart",
+      "line": 96,
+      "text": "? ExpenseHe.cameraUnavailable"
+    },
+    {
+      "file": "lib/screens/home/doc_rows.dart",
+      "line": 69,
+      "text": "/// \"בתוקף עד 12.10.2026\" (else \"נוצרה …\") — never the title's fallback word."
+    },
+    {
+      "file": "lib/screens/home/inbox_cards.dart",
+      "line": 12,
+      "text": "import '../../api/settings_api.dart' show sendWebHandoff;"
+    },
+    {
+      "file": "lib/screens/home/inbox_cards.dart",
+      "line": 270,
+      "text": "await sendWebHandoff('TAX_AUTHORITY', InboxHe.handoffShaam);"
+    },
+    {
+      "file": "lib/screens/people/person_screen.dart",
+      "line": 130,
+      "text": "if (!opened) throw StateError('External app unavailable');"
+    },
+    {
+      "file": "lib/screens/reports/reports_screen.dart",
+      "line": 21,
+      "text": "import '../../api/settings_api.dart' show sendWebHandoff;"
+    },
+    {
+      "file": "lib/screens/reports/reports_screen.dart",
+      "line": 222,
+      "text": "await sendWebHandoff('UNIFORM_FORMAT', ReportsHe.uniformFormat);"
+    },
+    {
+      "file": "lib/state/caps.dart",
+      "line": 90,
+      "text": "const Map<String, List<String>> rolePermissionsFallback = {"
+    },
+    {
+      "file": "lib/state/caps.dart",
+      "line": 113,
+      "text": "Caps._(this._caps, this.preset, this.approvalPolicy, this.fromFallback);"
+    },
+    {
+      "file": "lib/state/caps.dart",
+      "line": 120,
+      "text": "final perms = (me.permissions ?? rolePermissionsFallback[role] ?? const <String>[]).toSet();"
+    },
+    {
+      "file": "lib/state/caps.dart",
+      "line": 179,
+      "text": "final bool fromFallback;"
+    },
+    {
+      "file": "lib/state/customer_crm_store.dart",
+      "line": 405,
+      "text": "if (kReleaseMode) throw StateError('Preview mode unavailable');"
+    },
+    {
+      "file": "lib/state/system_notices.dart",
+      "line": 112,
+      "text": "if (!deliveryConfigured) throw StateError('PUSH_SERVICE_NOT_CONFIGURED');"
+    },
+    {
+      "file": "lib/state/system_notices.dart",
+      "line": 245,
+      "text": "throw StateError('PUSH_SERVICE_NOT_CONFIGURED');"
+    },
+    {
+      "file": "lib/ui/theme.dart",
+      "line": 198,
+      "text": "static const List<String> _hebrewFallback = ["
+    },
+    {
+      "file": "lib/ui/theme.dart",
+      "line": 206,
+      "text": "fontFamilyFallback: _hebrewFallback,"
+    },
+    {
+      "file": "lib/ui/theme.dart",
+      "line": 216,
+      "text": "fontFamilyFallback: _hebrewFallback,"
+    },
+    {
+      "file": "lib/ui/theme.dart",
+      "line": 226,
+      "text": "fontFamilyFallback: _hebrewFallback,"
+    },
+    {
+      "file": "lib/ui/theme.dart",
+      "line": 235,
+      "text": "fontFamilyFallback: _hebrewFallback,"
+    },
+    {
+      "file": "lib/ui/theme.dart",
+      "line": 243,
+      "text": "fontFamilyFallback: _hebrewFallback,"
+    },
+    {
+      "file": "lib/ui/theme.dart",
+      "line": 251,
+      "text": "fontFamilyFallback: _hebrewFallback,"
+    },
+    {
+      "file": "lib/ui/theme.dart",
+      "line": 259,
+      "text": "fontFamilyFallback: _hebrewFallback,"
+    },
+    {
+      "file": "lib/ui/theme.dart",
+      "line": 267,
+      "text": "fontFamilyFallback: _hebrewFallback,"
+    },
+    {
+      "file": "lib/ui/theme.dart",
+      "line": 274,
+      "text": "fontFamilyFallback: _hebrewFallback,"
+    },
+    {
+      "file": "lib/ui/theme.dart",
+      "line": 280,
+      "text": "fontFamilyFallback: _hebrewFallback,"
+    },
+    {
+      "file": "lib/ui/theme.dart",
+      "line": 287,
+      "text": "fontFamilyFallback: _hebrewFallback,"
+    },
+    {
+      "file": "lib/ui/widgets/notch_notice.dart",
+      "line": 36,
+      "text": "/// Keeps the existing snackbar content/action and the native fallback."
+    },
+    {
+      "file": "lib/util/biometric.dart",
+      "line": 13,
+      "text": "unavailable,"
+    },
+    {
+      "file": "lib/util/biometric.dart",
+      "line": 73,
+      "text": "LocalAuthExceptionCode.noCredentialsSet => UnlockResult.unavailable,"
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 7,
+      "text": "/// used only for VALIDATION). [status] drives the fallback for unknown codes."
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 14,
+      "text": "return _mobileMessages['SERVICE_UNAVAILABLE']!;"
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 44,
+      "text": "'SMS_UNAVAILABLE':"
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 50,
+      "text": "'MERCHANT_VAULT_UNAVAILABLE':"
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 80,
+      "text": "'SERVICE_UNAVAILABLE': 'השירות לא זמין זמנית — נסו שוב בעוד רגע',"
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 138,
+      "text": "'WEB_HANDOFF_THROTTLED':"
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 141,
+      "text": "'EMAIL_UNAVAILABLE': 'לא הצלחנו לשלוח את המייל. נסה שוב.',"
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 158,
+      "text": "'BUSINESS_TYPE_CHANGE_NOT_SUPPORTED':"
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 186,
+      "text": "'MFA_EMAIL_UNAVAILABLE': 'שליחת קודים במייל אינה זמינה בשרת זה',"
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 239,
+      "text": "'SHAAM_TEMPORARILY_UNAVAILABLE':"
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 274,
+      "text": "'EXTRACTION_UNAVAILABLE':"
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 276,
+      "text": "'DB_UNAVAILABLE': 'השרת אינו זמין כרגע — נסה שוב בעוד רגע',"
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 280,
+      "text": "'GOOGLE_CERTS_UNAVAILABLE': 'אימות Google אינו זמין כרגע — נסה שוב בעוד רגע',"
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 293,
+      "text": "'SIGNING_UNAVAILABLE': 'שירות החתימה אינו זמין כרגע — נסו שוב בעוד רגע',"
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 295,
+      "text": "'PADES_BRIDGE_UNAVAILABLE': 'רכיב החתימה (PAdES) אינו זמין בשרת',"
+    },
+    {
+      "file": "lib/util/errors_he.dart",
+      "line": 312,
+      "text": "'SCANNER_UNAVAILABLE': 'סורק הקבצים אינו זמין כרגע — נסו שוב בעוד רגע',"
+    },
+    {
+      "file": "lib/util/labels/business_he.dart",
+      "line": 23,
+      "text": "/// V1 server role names (display only, e.g. S14 role tag fallback)."
+    },
+    {
+      "file": "lib/util/labels/business_he.dart",
+      "line": 112,
+      "text": "static const signingNotConfigured = 'לא הוגדרה חתימה – המשך במחשב';"
+    },
+    {
+      "file": "lib/util/labels/business_he.dart",
+      "line": 370,
+      "text": "static const inviterFallback = 'המזמין';"
+    },
+    {
+      "file": "lib/util/labels/document_he.dart",
+      "line": 108,
+      "text": "static const pdfUnavailable = 'ה-PDF עוד לא מוכן';"
+    },
+    {
+      "file": "lib/util/labels/people_he.dart",
+      "line": 150,
+      "text": "static const cameraUnavailable = 'המצלמה לא זמינה — אפשר לבחור תמונה מהגלריה';"
+    }
+  ],
+  "configurationNames": {
+    "apps/api/src/commerce/customer-payments.ts": [
+      "CARDCOM_PUBLIC_ORIGIN"
+    ],
+    "apps/api/src/commerce/apple-iap.ts": [
+      "APPLE_ALLOWED_ENVIRONMENT",
+      "APPLE_APP_ID",
+      "APPLE_BUNDLE_ID",
+      "NODE_ENV"
+    ],
+    "apps/api/src/commerce/automatic-delivery.ts": [
+      "AUTOMATIC_DELIVERY_ENABLED"
+    ],
+    "apps/api/src/routes/v2/dispatch.ts": [
+      "EMAIL_MODE",
+      "WHATSAPP_PAYMENT_TEMPLATE"
+    ],
+    "apps/api/src/routes/v2/payments.ts": [
+      "PAYMENT_METHODS_EXTENDED"
+    ],
+    "apps/api/src/routes/v2/commerce.ts": [
+      "AUTOMATIC_DELIVERY_ENABLED",
+      "BILLING_ENFORCE",
+      "EMAIL_MODE"
+    ],
+    "apps/worker/src/index.ts": [
+      "AUTOMATION_INTERVAL_MS",
+      "DATABASE_URL",
+      "QUARANTINE_SWEEP_INTERVAL_MS",
+      "SHAAM_AUTO_RETRY_INTERVAL_MS",
+      "WORKER_POLL_INTERVAL_MS",
+      "WORKER_RUN_ONCE"
+    ],
+    "apps/worker/src/backlog-cli.ts": [
+      "DATABASE_URL"
+    ]
+  }
+}

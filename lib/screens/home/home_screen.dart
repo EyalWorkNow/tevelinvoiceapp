@@ -6,18 +6,25 @@
 // its capability; a block without one is not built (F5).
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
-import '../../api/documents_api.dart' show documentsVersion;
+import '../../api/documents_api.dart' show deleteDraft, documentsVersion;
 import '../../api/inbox_api.dart' show dismissSetup;
 import '../../api/models/models.dart';
 import '../../router.dart';
 import '../../state/business_context.dart';
+import '../../state/cache.dart';
 import '../../state/caps.dart';
+import '../../state/contacts_permission.dart';
+import '../../state/session.dart' show session;
 import '../../ui/ds.dart';
 import '../../util/labels/common_he.dart';
 import '../../util/labels/inbox_he.dart';
+import '../people/customer_crm_agenda_screen.dart';
 import '../business/sheets/s14_switch.dart';
 import 'doc_rows.dart';
 import 'home_controller.dart';
@@ -27,10 +34,11 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 /// Tab "בית" for everyone except the accountant presets (they get R).
 /// Shown inside AppShell (no AppBar of its own).
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, this.controller});
+  const HomeScreen({super.key, this.controller, this.onOpenProfile});
 
   /// Tests pass a controller and drive [HomeController.load] themselves.
   final HomeController? controller;
+  final VoidCallback? onOpenProfile;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -41,6 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _owned => widget.controller == null;
   final _recentSearch = TextEditingController();
   bool _recentSearchOpen = false;
+  final Set<String> _deletedRecentDrafts = {};
+  Uint8List? _profileAvatar;
 
   @override
   void initState() {
@@ -49,6 +59,10 @@ class _HomeScreenState extends State<HomeScreen> {
     businessContext.addListener(_onBusiness);
     documentsVersion.addListener(_reload);
     if (_owned) unawaited(_c.load());
+    unawaited(_loadProfileAvatar());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(requestContactsPermissionOnEntry(context));
+    });
   }
 
   @override
@@ -78,6 +92,60 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _reload() => unawaited(_c.load());
 
+  String? get _profileAvatarKey {
+    final userId = session.account?.userId;
+    return userId == null ? null : 'profile_avatar_$userId';
+  }
+
+  Future<void> _loadProfileAvatar() async {
+    final key = _profileAvatarKey;
+    if (key == null) return;
+    final value = await AppCache.readUserData(key);
+    if (!mounted || value is! String) return;
+    try {
+      setState(() => _profileAvatar = base64Decode(value));
+    } on FormatException {
+      // The initial fallback remains available if local photo data is invalid.
+    }
+  }
+
+  Future<void> _pickProfileAvatar() async {
+    final key = _profileAvatarKey;
+    if (key == null) return;
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 78,
+      );
+      if (file == null || !mounted) return;
+      final bytes = await file.readAsBytes();
+      await AppCache.writeUserData(key, base64Encode(bytes));
+      if (mounted) setState(() => _profileAvatar = bytes);
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא הצלחנו לעדכן את תמונת הפרופיל.')),
+      );
+    }
+  }
+
+  Future<void> _deleteRecentDraft(DocumentSummary document) async {
+    if (!await confirmDraftDeletion(context) || !mounted) return;
+    setState(() => _deletedRecentDrafts.add(document.id));
+    try {
+      await deleteDraft(document.id);
+      if (mounted) _reload();
+    } on Object {
+      if (!mounted) return;
+      setState(() => _deletedRecentDrafts.remove(document.id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא הצלחנו למחוק את הטיוטה. נסו שוב.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final caps = businessContext.caps;
@@ -100,7 +168,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   children: [
                     OfflineBanner(visible: _c.offline, onRetry: _reload),
-                    _Header(caps: caps),
+                    _Header(
+                      onOpenProfile: widget.onOpenProfile,
+                      onEditAvatar: _pickProfileAvatar,
+                      avatarBytes: _profileAvatar,
+                    ),
                     SizedBox(height: context.isDark ? 10 : 36),
                     if (data != null && (data.openMinor != null)) ...[
                       _moneyCard(context, data),
@@ -144,7 +216,20 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       return const [SkeletonList(rows: 4)];
     }
+    final businessId = businessContext.business?.businessId;
     return [
+      if (caps.can(Cap.customerManage) && businessId != null)
+        CustomerCrmReminderPreview(
+          businessId: businessId,
+          onOpenAgenda: () => unawaited(
+            openCustomerCrmAgenda(
+              context,
+              businessId: businessId,
+              onOpenCustomer: (id) => unawaited(openPerson(context, id)),
+            ),
+          ),
+          onOpenCustomer: (id) => unawaited(openPerson(context, id)),
+        ),
       if (inboxVisible(caps) && data.cards.isNotEmpty) ..._todo(context, data),
       if (data.recent.isNotEmpty) ..._recent(context, data),
       if (inboxVisible(caps) && data.cards.isEmpty) ...[
@@ -224,9 +309,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Widget> _recent(BuildContext context, HomeData data) {
     final query = _recentSearch.text.trim().toLowerCase();
+    final available = data.recent.where(
+      (document) => !_deletedRecentDrafts.contains(document.id),
+    );
     final recent = query.isEmpty
-        ? data.recent.take(5).toList()
-        : data.recent
+        ? available.take(5).toList()
+        : available
               .where((document) {
                 final searchable = [
                   document.customerName,
@@ -319,23 +407,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 d,
                 today: _c.now?.call(),
                 onTap: () => unawaited(openDocument(context, d.id)),
+                onDelete: () => unawaited(_deleteRecentDraft(d)),
               ),
-            if (!_recentSearchOpen && !context.isDark)
+            if (!_recentSearchOpen)
               Align(
                 alignment: AlignmentDirectional.centerStart,
                 child: TextButton(
                   key: const Key('home-all-activity'),
-                  onPressed: () => unawaited(openActivity(context)),
-                  child: const Text(InboxHe.allActivity),
-                ),
-              )
-            else if (!_recentSearchOpen)
-              Offstage(
-                offstage: true,
-                child: TextButton(
-                  key: const Key('home-all-activity'),
-                  onPressed: () => unawaited(openActivity(context)),
-                  child: const Text(InboxHe.allActivity),
+                  onPressed: () =>
+                      unawaited(openActivity(context, chip: 'all')),
+                  child: const Text(InboxHe.allInvoicesAction),
                 ),
               ),
           ],
@@ -367,102 +448,179 @@ class _SectionTitle extends StatelessWidget {
 
 /// Business name (+ role tag for a non-owner). Opens S14 only with >1 business.
 class _Header extends StatelessWidget {
-  const _Header({required this.caps});
+  const _Header({this.onOpenProfile, this.onEditAvatar, this.avatarBytes});
 
-  final Caps caps;
+  final VoidCallback? onOpenProfile;
+  final VoidCallback? onEditAvatar;
+  final Uint8List? avatarBytes;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final tag = caps.roleTag == null ? null : presetTagLabels[caps.roleTag];
     final many = businessContext.hasManyBusinesses;
-    if (context.isDark) {
-      final headerRow = Row(
-        children: [
-          MoreMenu(
-            items: [
-              MoreMenuItem(
-                label: CommonHe.tabBusiness,
-                onSelected: () => openBusiness(),
-              ),
-            ],
+    final accountName = (session.account?.displayName ?? '')
+        .replaceAll(
+          RegExp(
+            r'[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]',
           ),
-          const SizedBox(width: 12),
-          Container(
-            width: 57.303,
-            height: 57.303,
-            decoration: const BoxDecoration(
-              color: DesignTokens.control,
-              shape: BoxShape.circle,
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Image.asset(
-              'assets/design/danielle_avatar.png',
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const DesignIcon('profile', size: 33),
-            ),
-          ),
-          const Spacer(),
-          Offstage(
-            offstage: true,
-            child: Row(
-              children: [
-                Text(
-                  businessContext.displayName,
-                  key: const Key('home-business-name'),
+          '',
+        )
+        .trim();
+    final normalizedName = accountName.toLowerCase().replaceAll(
+      RegExp(r'[\s.,:;!?\-]'),
+      '',
+    );
+    final isPlaceholderName = const [
+      'account',
+      'חשבון',
+      'משתמש',
+      'user',
+    ].any(normalizedName.startsWith);
+    final hasAccountName = normalizedName.isNotEmpty && !isPlaceholderName;
+    final firstName = hasAccountName
+        ? accountName.split(RegExp(r'\s+')).first
+        : '';
+    final hour = DateTime.now().hour;
+    final salutation = hour < 12
+        ? 'בוקר טוב'
+        : hour < 17
+        ? 'צהריים טובים'
+        : 'ערב טוב';
+    final initial = firstName.isEmpty
+        ? 'ת'
+        : String.fromCharCode(firstName.runes.first).toUpperCase();
+    const avatarColors = [
+      Color(0xFFD9C4F2),
+      Color(0xFFBFE9DB),
+      Color(0xFFF7E59C),
+      Color(0xFFBFDDF0),
+    ];
+    final avatarColor =
+        avatarColors[accountName.hashCode.abs() % avatarColors.length];
+    final avatar = Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: SizedBox(
+        width: 58,
+        height: 58,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(3.5),
+              child: Material(
+                color: avatarColor,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  key: const Key('home-profile-avatar'),
+                  onTap: onOpenProfile,
+                  customBorder: const CircleBorder(),
+                  child: avatarBytes == null
+                      ? Center(
+                          child: Text(
+                            initial,
+                            style: AppText.title.copyWith(
+                              color: const Color(0xFF302139),
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        )
+                      : Image.memory(
+                          avatarBytes!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Center(
+                            child: Text(
+                              initial,
+                              style: AppText.title.copyWith(
+                                color: const Color(0xFF302139),
+                                fontSize: 24,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
                 ),
-                if (tag != null) Text(tag, key: const Key('home-role-tag')),
-                if (many)
-                  InkWell(
-                    key: const Key('home-switch-business'),
-                    onTap: () => unawaited(showSwitchBusinessSheet(context)),
-                  ),
-              ],
+              ),
             ),
-          ),
-        ],
-      );
-      return Semantics(header: true, child: headerRow);
-    }
+            IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: context.isDark
+                        ? Colors.white.withValues(alpha: .78)
+                        : p.line,
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: context.isDark ? .2 : .08,
+                      ),
+                      blurRadius: 9,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (onEditAvatar != null)
+              Positioned(
+                left: 0,
+                bottom: 0,
+                child: Material(
+                  color: DesignTokens.lavender,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    key: const Key('home-edit-avatar'),
+                    onTap: onEditAvatar,
+                    customBorder: const CircleBorder(),
+                    child: const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: Icon(
+                        Icons.edit_rounded,
+                        size: 12,
+                        color: Color(0xFF302139),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
     final row = Row(
       children: [
-        Container(
-          width: 57.303,
-          height: 57.303,
-          decoration: const BoxDecoration(
-            color: DesignTokens.control,
-            shape: BoxShape.circle,
-          ),
-          child: const DesignIcon('profile', size: 33),
-        ),
-        const SizedBox(width: 12),
+        avatar,
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                businessContext.displayName,
-                key: const Key('home-business-name'),
-                style: AppText.body,
+                firstName.isEmpty ? 'שלום' : 'שלום, $firstName',
+                key: const Key('home-greeting-name'),
+                style: AppText.headline.copyWith(fontSize: 19),
                 overflow: TextOverflow.ellipsis,
               ),
-              if (tag != null)
-                Text(
-                  tag,
-                  key: const Key('home-role-tag'),
-                  style: AppText.secondary.copyWith(color: p.muted),
-                ),
+              Text(
+                salutation,
+                style: AppText.secondary.copyWith(color: p.muted),
+              ),
             ],
           ),
         ),
         if (many) Icon(Iconsax.arrow_down_1, color: p.muted),
-        MoreMenu(
-          items: [
-            MoreMenuItem(
-              label: CommonHe.tabBusiness,
-              onSelected: () => openBusiness(),
-            ),
-          ],
+        Offstage(
+          offstage: true,
+          child: Text(
+            businessContext.displayName,
+            key: const Key('home-business-name'),
+          ),
         ),
       ],
     );
@@ -470,6 +628,7 @@ class _Header extends StatelessWidget {
     return Semantics(
       button: true,
       header: true,
+      label: businessContext.displayName,
       hint: InboxHe.switchBusinessHint,
       child: InkWell(
         key: const Key('home-switch-business'),
@@ -477,7 +636,7 @@ class _Header extends StatelessWidget {
         onTap: () => unawaited(showSwitchBusinessSheet(context)),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: Hit.min),
-          child: row,
+          child: ExcludeSemantics(child: row),
         ),
       ),
     );
@@ -497,7 +656,11 @@ class _IntentButtons extends StatelessWidget {
       if (caps.can(Cap.docView))
         ActionOrb(
           label: InboxHe.documentsAction,
-          icon: const DesignIcon('documents'),
+          icon: const Icon(
+            Iconsax.receipt_item,
+            color: Color(0xFF302139),
+            size: 27,
+          ),
           color: DesignTokens.coral,
           onPressed: () => unawaited(openActivity(context)),
         ),

@@ -45,9 +45,11 @@ class MoreMenu extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: Hit.min, minHeight: Hit.min),
       style: IconButton.styleFrom(
         backgroundColor: DesignTokens.control,
-        minimumSize: const Size(57, 57),
+        minimumSize: const Size(46, 46),
       ),
-      icon: context.isDark ? const DesignIcon('more', size: 24) : Icon(Iconsax.more, color: context.palette.ink),
+      icon: context.isDark
+          ? const DesignIcon('more', size: 20)
+          : Icon(Iconsax.more, color: context.palette.ink, size: 20),
       onPressed: () => show(context, items),
     );
   }

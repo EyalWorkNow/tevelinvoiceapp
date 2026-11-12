@@ -1,5 +1,5 @@
 // F6 / AT-95 (INT). The app opens only these:
-// * launchUrl: wa.me, mailto:, tel: ([isAllowedLaunch]);
+// * launchUrl: wa.me, fixed Apple Maps searches, mailto:, tel: ([isAllowedLaunch]);
 // * in-app Safari (SFSafariViewController): the legal/support whitelist below.
 // Hosted subscription checkout is separately pinned to Cardcom below.
 
@@ -14,10 +14,19 @@ const Set<String> safariWhitelist = {privacyUrl, termsUrl, supportUrl};
 
 bool isAllowedSafariUrl(Uri uri) => safariWhitelist.contains(uri.toString());
 
-/// External launches: WhatsApp, mail, phone, and iOS Settings (camera
+/// External launches: fixed map searches, WhatsApp, mail, phone, and iOS Settings (camera
 /// permission denied → "פתח הגדרות" on expense capture).
 bool isAllowedLaunch(Uri uri) =>
     (uri.scheme == 'https' && uri.host == 'wa.me') ||
+    (uri.scheme == 'https' &&
+        uri.host == 'maps.apple.com' &&
+        uri.path == '/' &&
+        uri.userInfo.isEmpty &&
+        (!uri.hasPort || uri.port == 443) &&
+        uri.queryParametersAll.length == 1 &&
+        uri.queryParametersAll['q']?.length == 1 &&
+        uri.queryParameters['q']!.trim().isNotEmpty &&
+        uri.fragment.isEmpty) ||
     uri.scheme == 'mailto' ||
     uri.scheme == 'tel' ||
     uri.toString() == 'app-settings:';
@@ -33,7 +42,7 @@ Future<bool> defaultUrlOpener(Uri uri, {bool inApp = false}) => launchUrl(
   mode: inApp ? LaunchMode.inAppBrowserView : LaunchMode.externalApplication,
 );
 
-/// wa.me / mailto: / tel: only (AT-95). Anything else throws.
+/// Fixed map searches, WhatsApp, mail and phone only. Anything else throws.
 Future<bool> launchAllowed(Uri uri) {
   if (!isAllowedLaunch(uri)) {
     throw ArgumentError.value(uri, 'uri', 'not an allowed launch target');

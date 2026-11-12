@@ -75,6 +75,17 @@ void main() {
     expect(sent.last.headers.containsKey('X-Business-Id'), isFalse);
   });
 
+  test('background push registration uses its business without changing UI scope', () async {
+    api.deviceToken = 'inv_tok';
+    api.businessId = 'active-business';
+    respond(200, {'registered': true});
+    await api.postForBusiness('other-business', '/mobile/push-tokens', {'tokenType': 'liveActivityUpdate'});
+    expect(sent.last.headers['X-Business-Id'], 'other-business');
+    expect(api.businessId, 'active-business');
+    await api.get('/documents');
+    expect(sent.last.headers['X-Business-Id'], 'active-business');
+  });
+
   test('dot segments in an API path are refused before any request', () async {
     respond(200, {});
     await expectLater(api.get('/documents/../business/members'),

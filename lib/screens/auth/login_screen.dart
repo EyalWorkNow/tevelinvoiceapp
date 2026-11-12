@@ -1,11 +1,10 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../api/auth_api.dart';
 import '../../api/client.dart';
+import '../../api/environment.dart';
 import '../../api/settings_api.dart' show rememberAppleSignIn;
 import '../../ui/theme.dart';
 import '../../ui/widgets/big_button.dart';
@@ -46,20 +45,6 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error;
 
   @override
-  void initState() {
-    super.initState();
-    if (!kReleaseMode && !Platform.environment.containsKey('FLUTTER_TEST')) {
-      _email.text = 'test@test.com';
-      _password.text = '123123123';
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _run(_Busy.password, _withPassword);
-        }
-      });
-    }
-  }
-
-  @override
   void dispose() {
     _email.dispose();
     _password.dispose();
@@ -69,7 +54,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   /// Runs one sign-in attempt; provider-specific code only produces the
   /// [SignInResult] (null = the user cancelled the system sheet).
-  Future<void> _run(_Busy which, Future<SignInResult?> Function() attempt) async {
+  Future<void> _run(
+    _Busy which,
+    Future<SignInResult?> Function() attempt,
+  ) async {
     if (_busy != _Busy.none) return;
     FocusScope.of(context).unfocus();
     setState(() {
@@ -92,7 +80,11 @@ class _LoginScreenState extends State<LoginScreen> {
     final AuthorizationCredentialAppleID cred;
     try {
       cred = await SignInWithApple.getAppleIDCredential(
-          scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName]);
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
     } on SignInWithAppleAuthorizationException catch (e) {
       if (e.code == AuthorizationErrorCode.canceled) return null;
       _localError('הכניסה עם Apple לא הושלמה — נסו שוב');
@@ -106,10 +98,10 @@ class _LoginScreenState extends State<LoginScreen> {
       _localError('הכניסה עם Apple לא הושלמה — נסו שוב');
       return null;
     }
-    final name = [cred.givenName, cred.familyName]
-        .whereType<String>()
-        .where((s) => s.trim().isNotEmpty)
-        .join(' ');
+    final name = [
+      cred.givenName,
+      cred.familyName,
+    ].whereType<String>().where((s) => s.trim().isNotEmpty).join(' ');
     final result = await signInWithApple(token, fullName: name);
     await rememberAppleSignIn(); // account deletion must then revoke the Apple grant
     return result;
@@ -152,22 +144,44 @@ class _LoginScreenState extends State<LoginScreen> {
             constraints: const BoxConstraints(maxWidth: 480),
             child: AutofillGroup(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(Space.xl, Space.xl, Space.xl, Space.l),
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(
+                  Space.xl,
+                  Space.xl,
+                  Space.xl,
+                  Space.l,
+                ),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 children: [
                   const SizedBox(height: Space.xl),
-                  const Center(child: TevelLogo(size: 72)),
+                  Center(
+                    child: Image.asset(
+                      'assets/brand/tevel_logo.png',
+                      width: 220,
+                      height: 66,
+                      fit: BoxFit.contain,
+                      semanticLabel: 'תבל',
+                    ),
+                  ),
                   const SizedBox(height: Space.xl),
-                  const Text('ברוכים הבאים', style: AppText.title, textAlign: TextAlign.center),
+                  const Text(
+                    'ברוכים הבאים',
+                    style: AppText.title,
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: Space.xs),
-                  Text('חשבוניות וקבלות בכמה נגיעות',
-                      style: AppText.body.copyWith(color: p.muted), textAlign: TextAlign.center),
+                  Text(
+                    'חשבוניות וקבלות בכמה נגיעות',
+                    style: AppText.body.copyWith(color: p.muted),
+                    textAlign: TextAlign.center,
+                  ),
                   if (widget.sessionExpired) ...[
                     const SizedBox(height: Space.l),
                     _Notice(
-                        icon: Iconsax.security_time,
-                        text: 'פג תוקף ההתחברות — נא להיכנס שוב',
-                        color: p.warn),
+                      icon: Iconsax.security_time,
+                      text: 'פג תוקף ההתחברות — נא להיכנס שוב',
+                      color: p.warn,
+                    ),
                   ],
                   const SizedBox(height: Space.xl),
                   Semantics(
@@ -185,20 +199,29 @@ class _LoginScreenState extends State<LoginScreen> {
                               style: dark
                                   ? SignInWithAppleButtonStyle.white
                                   : SignInWithAppleButtonStyle.black,
-                              borderRadius: const BorderRadius.all(Radius.circular(Radii.button)),
+                              borderRadius: const BorderRadius.all(
+                                Radius.circular(Radii.button),
+                              ),
                               onPressed: _appleTap,
                             ),
                     ),
                   ),
                   const SizedBox(height: Space.xl),
-                  Row(children: [
-                    const Expanded(child: Divider()),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: Space.m),
-                      child: Text('או', style: AppText.caption.copyWith(color: p.muted)),
-                    ),
-                    const Expanded(child: Divider()),
-                  ]),
+                  Row(
+                    children: [
+                      const Expanded(child: Divider()),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Space.m,
+                        ),
+                        child: Text(
+                          'או',
+                          style: AppText.caption.copyWith(color: p.muted),
+                        ),
+                      ),
+                      const Expanded(child: Divider()),
+                    ],
+                  ),
                   const SizedBox(height: Space.xl),
                   TextField(
                     controller: _email,
@@ -207,7 +230,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     textInputAction: TextInputAction.next,
                     autocorrect: false,
                     enableSuggestions: false,
-                    autofillHints: const [AutofillHints.username, AutofillHints.email],
+                    autofillHints: const [
+                      AutofillHints.username,
+                      AutofillHints.email,
+                    ],
                     textDirection: TextDirection.ltr,
                     onSubmitted: (_) => _passwordFocus.requestFocus(),
                     decoration: const InputDecoration(labelText: 'אימייל'),
@@ -227,29 +253,40 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: InputDecoration(
                       labelText: 'סיסמה',
                       suffixIcon: IconButton(
-                        tooltip: _showPassword ? AuthHe.hidePassword : AuthHe.showPassword,
-                        icon: Icon(_showPassword
-                            ? Iconsax.eye_slash
-                            : Iconsax.eye),
-                        onPressed: () => setState(() => _showPassword = !_showPassword),
+                        tooltip: _showPassword
+                            ? AuthHe.hidePassword
+                            : AuthHe.showPassword,
+                        icon: Icon(
+                          _showPassword ? Iconsax.eye_slash : Iconsax.eye,
+                        ),
+                        onPressed: () =>
+                            setState(() => _showPassword = !_showPassword),
                       ),
                     ),
                   ),
                   Align(
                     alignment: AlignmentDirectional.centerStart,
                     child: TextButton(
-                      onPressed: idle ? () => showForgotPasswordSheet(context, _email.text) : null,
+                      onPressed: idle
+                          ? () => showForgotPasswordSheet(context, _email.text)
+                          : null,
                       child: const Text(AuthHe.forgotPassword),
                     ),
                   ),
                   if (_error != null) ...[
-                    _Notice(icon: Iconsax.danger, text: _error!, color: p.danger),
+                    _Notice(
+                      icon: Iconsax.danger,
+                      text: _error!,
+                      color: p.danger,
+                    ),
                     const SizedBox(height: Space.m),
                   ],
                   BigButton(
                     label: AuthHe.signIn,
                     loading: _busy == _Busy.password,
-                    onPressed: idle ? () => _run(_Busy.password, _withPassword) : null,
+                    onPressed: idle
+                        ? () => _run(_Busy.password, _withPassword)
+                        : null,
                   ),
                   const SizedBox(height: Space.xl),
                   const _LegalLinks(),
@@ -287,8 +324,12 @@ class TevelLogo extends StatelessWidget {
         child: FittedBox(
           child: Padding(
             padding: EdgeInsets.all(size * 0.14),
-            child: Image.asset('assets/brand/tevel_mark.png',
-                width: size, height: size, filterQuality: FilterQuality.medium),
+            child: Image.asset(
+              'assets/brand/tevel_mark.png',
+              width: size,
+              height: size,
+              filterQuality: FilterQuality.medium,
+            ),
           ),
         ),
       ),
@@ -303,18 +344,20 @@ class _ProviderSpinner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
-        decoration: BoxDecoration(
-          color: dark ? Colors.black : Colors.white,
-          borderRadius: BorderRadius.circular(Radii.button),
+    decoration: BoxDecoration(
+      color: dark ? Colors.black : Colors.white,
+      borderRadius: BorderRadius.circular(Radii.button),
+    ),
+    child: Center(
+      child: SizedBox.square(
+        dimension: 22,
+        child: CircularProgressIndicator(
+          strokeWidth: 2.5,
+          color: dark ? Colors.white : Colors.black,
         ),
-        child: Center(
-          child: SizedBox.square(
-            dimension: 22,
-            child: CircularProgressIndicator(
-                strokeWidth: 2.5, color: dark ? Colors.white : Colors.black),
-          ),
-        ),
-      );
+      ),
+    ),
+  );
 }
 
 class _Notice extends StatelessWidget {
@@ -326,23 +369,28 @@ class _Notice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-        liveRegion: true,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.m),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(Radii.button),
+    liveRegion: true,
+    child: Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.m,
+        vertical: Space.m,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(Radii.button),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: Space.s),
+          Expanded(
+            child: Text(text, style: AppText.body.copyWith(color: color)),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, size: 20, color: color),
-              const SizedBox(width: Space.s),
-              Expanded(child: Text(text, style: AppText.body.copyWith(color: color))),
-            ],
-          ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 }
 
 class _LegalLinks extends StatelessWidget {
@@ -361,13 +409,20 @@ class _LegalLinks extends StatelessWidget {
       alignment: WrapAlignment.center,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Text('בכניסה את/ה מסכים/ה', style: AppText.caption.copyWith(color: p.muted)),
+        Text(
+          'בכניסה את/ה מסכים/ה',
+          style: AppText.caption.copyWith(color: p.muted),
+        ),
         TextButton(
-            style: link, onPressed: () => openSafari(Uri.parse(termsUrl)), child: const Text(AuthHe.termsLink)),
+          style: link,
+          onPressed: () => openSafari(Uri.parse(termsUrl)),
+          child: const Text(AuthHe.termsLink),
+        ),
         TextButton(
-            style: link,
-            onPressed: () => openSafari(Uri.parse(privacyUrl)),
-            child: const Text(AuthHe.privacyLink)),
+          style: link,
+          onPressed: () => openSafari(Uri.parse(privacyUrl)),
+          child: const Text(AuthHe.privacyLink),
+        ),
       ],
     );
   }
@@ -376,7 +431,24 @@ class _LegalLinks extends StatelessWidget {
 /// "שכחתי סיסמה": always the same answer (no account enumeration); the reset
 /// link opens the web app.
 Future<void> showForgotPasswordSheet(BuildContext context, String prefill) =>
-    showAppSheet<void>(context, builder: (_) => _ForgotPassword(prefill: prefill));
+    showAppSheet<void>(
+      context,
+      builder: (_) => SupabaseAuthSettings.configured.enabled
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SheetTitle(
+                  AuthHe.signInHelp,
+                  subtitle: AuthHe.signInHelpBody,
+                ),
+                BigButton(
+                  label: AuthHe.contactSupport,
+                  onPressed: () => openSafari(Uri.parse(supportUrl)),
+                ),
+              ],
+            )
+          : _ForgotPassword(prefill: prefill),
+    );
 
 class _ForgotPassword extends StatefulWidget {
   const _ForgotPassword({required this.prefill});
@@ -427,16 +499,25 @@ class _ForgotPasswordState extends State<_ForgotPassword> {
         children: [
           Icon(Iconsax.sms_tracking, size: 48, color: p.ok),
           const SizedBox(height: Space.l),
-          const SheetTitle('בדקו את המייל',
-              subtitle: 'אם החשבון קיים, נשלח אליו מייל עם קישור לבחירת סיסמה חדשה.'),
-          BigButton(label: AuthHe.gotIt, onPressed: () => Navigator.of(context).pop()),
+          const SheetTitle(
+            'בדקו את המייל',
+            subtitle:
+                'אם החשבון קיים, נשלח אליו מייל עם קישור לבחירת סיסמה חדשה.',
+          ),
+          BigButton(
+            label: AuthHe.gotIt,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
         ],
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SheetTitle('איפוס סיסמה', subtitle: 'נשלח קישור לבחירת סיסמה חדשה'),
+        const SheetTitle(
+          'איפוס סיסמה',
+          subtitle: 'נשלח קישור לבחירת סיסמה חדשה',
+        ),
         TextField(
           controller: _email,
           autofocus: widget.prefill.isEmpty,
@@ -448,7 +529,11 @@ class _ForgotPasswordState extends State<_ForgotPassword> {
           decoration: InputDecoration(labelText: 'אימייל', errorText: _error),
         ),
         const SizedBox(height: Space.l),
-        BigButton(label: AuthHe.sendResetLink, loading: _sending, onPressed: _send),
+        BigButton(
+          label: AuthHe.sendResetLink,
+          loading: _sending,
+          onPressed: _send,
+        ),
       ],
     );
   }

@@ -124,18 +124,31 @@ void main() {
   }
 
   testWidgets(
-    '4 chips (no "לטיפול" without cards), month groups, F10 words, no PrimaryButton',
+    'six fixed chips, month groups, F10 words, no PrimaryButton',
     (tester) async {
       await pumpActivity(tester);
-      for (final chip in ['הכל', 'לא שולם', 'טיוטות', 'הצעות']) {
-        expect(find.text(chip), findsOneWidget);
+      for (final chip in [
+        'הכל',
+        'לא שולם',
+        'טיוטות',
+        'הצעות',
+        'שולם',
+        'לטיפול',
+      ]) {
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('activity-chips')),
+            matching: find.text(chip),
+          ),
+          findsOneWidget,
+        );
       }
-      expect(find.text('לטיפול'), findsNothing);
+      expect(find.byKey(const Key('activity-chips')), findsOneWidget);
       expect(find.text('אוקטובר 2026'), findsOneWidget);
       expect(find.text('ספטמבר 2026'), findsOneWidget);
       expect(find.text('ממתין לתשלום'), findsNWidgets(2));
       expect(find.text('באיחור'), findsOneWidget); // issue + 30 < today
-      expect(find.text('שולם'), findsOneWidget);
+      expect(find.text('שולם'), findsNWidgets(2)); // filter chip + paid row
       expect(find.text('טיוטה'), findsOneWidget);
       expect(find.text('נשלח'), findsOneWidget); // attribute, not status
       expect(find.byType(PrimaryButton), findsNothing);

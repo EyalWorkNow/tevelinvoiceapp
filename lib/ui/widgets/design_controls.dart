@@ -60,12 +60,14 @@ class ActionOrb extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onPressed,
+    this.labelSpacing = 13,
   });
   final String label;
   final String? semanticsLabel;
   final Widget icon;
   final Color color;
   final VoidCallback? onPressed;
+  final double labelSpacing;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -92,11 +94,19 @@ class ActionOrb extends StatelessWidget {
               decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               child: Center(child: icon),
             ),
-            const SizedBox(height: 13),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: AppText.body.copyWith(color: context.palette.ink),
+            SizedBox(height: labelSpacing),
+            SizedBox(
+              height: 40,
+              child: Center(
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  softWrap: true,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: AppText.body.copyWith(color: context.palette.ink),
+                ),
+              ),
             ),
           ],
         ),

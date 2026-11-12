@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/client.dart' show ApiException;
 import '../../api/models/models.dart';
 import '../../api/settings_api.dart' show isValidEmail;
@@ -71,7 +72,7 @@ Future<InviteResult?> showInviteEditor(BuildContext context, {Preset preset = Pr
   final r = result;
   if (!ok || r == null) return null;
   final url = r.shareUrl;
-  messenger.showSnackBar(
+  messenger.showNotchNotice(
     SnackBar(
       content: const Text(TeamHe.invited),
       action: url == null
@@ -84,6 +85,7 @@ Future<InviteResult?> showInviteEditor(BuildContext context, {Preset preset = Pr
               },
             ),
     ),
+    motion: NoticeMotion.sent,
   );
   return r;
 }
@@ -180,7 +182,7 @@ Future<bool> transferOwnershipFlow(BuildContext context, TeamMember m) async {
       try {
         await confirmOwnershipTransfer(m.userId, code);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TeamHe.transferred(m.name))));
+          ScaffoldMessenger.of(context).showNotchNotice(SnackBar(content: Text(TeamHe.transferred(m.name))));
         }
         return true;
       } on ApiException catch (e) {

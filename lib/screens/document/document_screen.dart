@@ -6,9 +6,11 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/actions_api.dart';
 import '../../api/client.dart';
 import '../../api/documents_api.dart' show documentsVersion, notifyDocumentsChanged;
@@ -398,6 +400,9 @@ class _DocumentScreenState extends State<DocumentScreen> {
           // original (row 6 by pdfMissing) gets it created first.
           final done = await issueSignedOriginal(doc!.id,
               askPassphrase: _askPass, alreadySealed: doc.status == 'ARTIFACT_PENDING');
+          if (done && mounted && defaultTargetPlatform == TargetPlatform.iOS) {
+            toast(context, DocumentHe.timelineIssued, motion: NoticeMotion.signed);
+          }
           return done ? DocumentHe.timelineIssued : null;
         });
       case DocAction.sendWhatsApp:
@@ -425,6 +430,9 @@ class _DocumentScreenState extends State<DocumentScreen> {
           _receiptId = out.receiptId;
           _banner = out.receiptId != null ? PaymentHe.receiptIssued : PaymentHe.paymentRecorded;
         });
+        if (defaultTargetPlatform == TargetPlatform.iOS) {
+          toast(context, _banner!, motion: NoticeMotion.payment);
+        }
         await _load();
       case DocAction.sendQuote:
         return _sendQuote(label);
@@ -496,7 +504,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
     final message = await showShareSheet(context,
         documentId: doc.id, doc: doc, customer: _customer, hasLiveLink: _extras.hasLiveShareLink);
     if (!mounted) return;
-    if (message != null && message.isNotEmpty) toast(context, message);
+    if (message != null && message.isNotEmpty) toast(context, message, motion: NoticeMotion.sent);
     await _load();
   }
 

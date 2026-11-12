@@ -37,6 +37,12 @@ String validationMessageHe(String? raw) {
 }
 
 const Map<String, String> _mobileMessages = {
+  'SUPABASE_AUTH_DISABLED': 'שירות ההתחברות עדיין לא הוגדר. פנו לתמיכה.',
+  'SUPABASE_AUTH_UNAVAILABLE': 'שירות ההתחברות לא זמין זמנית. נסו שוב בעוד רגע.',
+  'SUPABASE_TOKEN_INVALID': 'לא ניתן לאמת את ההתחברות. נסו להתחבר שוב.',
+  'SUPABASE_RECOVERY_SUPPORT_REQUIRED': 'לאיפוס הסיסמה בחשבון זה פנו לתמיכה.',
+  'CRM_CONFLICT': 'המידע עודכן במכשיר אחר. השינויים שלך שמורים עד לבחירת גרסה.',
+  'CRM_MUTATION_REUSED': 'לא ניתן לאשר את הסנכרון הזה. יש לרענן את תיק הלקוח.',
   'PAYMENT_METHOD_NOT_AVAILABLE':
       'ביט אינו פעיל במסוף הזה. אפשר לבחור כרטיס או להפעיל את השירות בקארדקום.',
   'SMS_UNAVAILABLE':

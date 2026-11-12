@@ -8,10 +8,11 @@
 // [editApproved] (BE-44): the same fields for an approved expense; ONE
 // primary "שמור" → PATCH /expenses/:id, no "דלג" (the screen owns ⋯ "מחק").
 
-
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/expenses_api.dart';
 import '../../api/models/models.dart';
 import '../../state/business_context.dart';
@@ -164,10 +165,10 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
         if (vatBad) _more = true;
       });
       ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
+        ..hideCurrentNotchNotice()
+        ..showNotchNotice(SnackBar(
             content: Text(ExpenseHe.missing(
-                [for (final m in missing) _fieldWords[m]!, if (vatBad) ExpenseHe.vat].join(', ')))));
+                [for (final m in missing) _fieldWords[m]!, if (vatBad) ExpenseHe.vat].join(', ')))), motion: NoticeMotion.error);
       return;
     }
     setState(() => _busy = true);

@@ -47,7 +47,9 @@ class Keypad extends StatelessWidget {
   }
 
   Widget _key(BuildContext context, String key) {
-    if (key == '.' && (context.isDark || !allowDecimal)) return const SizedBox(height: Hit.keypad);
+    if (key == '.' && (context.isDark || !allowDecimal)) {
+      return const SizedBox(height: Hit.keypad);
+    }
     final p = context.palette;
     final label = switch (key) {
       'del' => 'מחק',
@@ -58,13 +60,12 @@ class Keypad extends StatelessWidget {
       button: true,
       label: label,
       excludeSemantics: true,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(Radii.button),
-        onTap: () {
+      child: _AnimatedKey(
+        onKey: () {
           HapticFeedback.lightImpact();
           onKey(key);
         },
-        onLongPress: key == 'del'
+        onClear: key == 'del'
             ? () {
                 HapticFeedback.mediumImpact();
                 onKey('clear');
@@ -81,4 +82,35 @@ class Keypad extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AnimatedKey extends StatefulWidget {
+  const _AnimatedKey({required this.onKey, required this.child, this.onClear});
+
+  final VoidCallback onKey;
+  final VoidCallback? onClear;
+  final Widget child;
+
+  @override
+  State<_AnimatedKey> createState() => _AnimatedKeyState();
+}
+
+class _AnimatedKeyState extends State<_AnimatedKey> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    borderRadius: BorderRadius.circular(Radii.button),
+    onHighlightChanged: (pressed) {
+      if (_pressed != pressed) setState(() => _pressed = pressed);
+    },
+    onTap: widget.onKey,
+    onLongPress: widget.onClear,
+    child: AnimatedScale(
+      scale: _pressed ? .94 : 1,
+      duration: const Duration(milliseconds: 110),
+      curve: Curves.easeOutCubic,
+      child: widget.child,
+    ),
+  );
 }

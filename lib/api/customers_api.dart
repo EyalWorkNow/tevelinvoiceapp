@@ -23,10 +23,12 @@ const int openDocumentsCap = 500;
 String? get _bid => session.business?.businessId;
 String _listKey(String? bid) => 'people_customers_$bid';
 String _recentKey(String? bid) => 'people_recent_$bid';
+String _recentPaymentKey(String? bid) => 'people_recent_payment_$bid';
 String _walkInKey(String? bid) => 'people_walkin_$bid';
 
 /// True when [e] means "this server has no such route" (BE-xx not deployed).
-bool isMissingRoute(Object e) => e is ApiException && e.status == 404 && e.code == 'NOT_FOUND';
+bool isMissingRoute(Object e) =>
+    e is ApiException && e.status == 404 && e.code == 'NOT_FOUND';
 
 /// The customer list as P / S2 show it.
 class CustomerList {
@@ -41,18 +43,26 @@ class CustomerList {
   /// Rows carry BE-09 fields (balance, lastDocumentAt, consent…).
   final bool be09;
 
-  List<Customer> get active => [for (final c in customers) if (!c.isArchived) c];
+  List<Customer> get active => [
+    for (final c in customers)
+      if (!c.isArchived) c,
+  ];
 }
 
 List<Customer> _parse(Object? list) => [
-      for (final c in (list as List? ?? const []))
-        Customer.fromJson(Map<String, dynamic>.from(c as Map))
-    ];
+  for (final c in (list as List? ?? const []))
+    Customer.fromJson(Map<String, dynamic>.from(c as Map)),
+];
 
 CustomerList _listFrom(List raw, {int? total}) {
   final customers = _parse(raw);
-  final be09 = raw.isNotEmpty && raw.first is Map && (raw.first as Map).containsKey('balanceMinor');
-  final capped = total != null ? total > customers.length : customers.length >= customerListCap;
+  final be09 =
+      raw.isNotEmpty &&
+      raw.first is Map &&
+      (raw.first as Map).containsKey('balanceMinor');
+  final capped = total != null
+      ? total > customers.length
+      : customers.length >= customerListCap;
   return CustomerList(customers, capped: capped, be09: be09);
 }
 
@@ -70,7 +80,10 @@ Future<CustomerList?> readCachedCustomerList() async {
 /// returns ≤500 by name). Refreshes the cache of the business it was sent for.
 Future<CustomerList> fetchCustomerList() async {
   final bid = _bid;
-  final json = await _api.get('/customers', query: {'sort': 'recent', 'limit': '$customerListCap'});
+  final json = await _api.get(
+    '/customers',
+    query: {'sort': 'recent', 'limit': '$customerListCap'},
+  );
   final raw = json['customers'] as List? ?? const [];
   try {
     await AppCache.write(_listKey(bid), raw);
@@ -81,11 +94,15 @@ Future<CustomerList> fetchCustomerList() async {
 }
 
 /// Active customers (cache when offline is the caller's choice).
-Future<List<Customer>> fetchCustomers() async => (await fetchCustomerList()).active;
+Future<List<Customer>> fetchCustomers() async =>
+    (await fetchCustomerList()).active;
 
 /// BE-09 server search (name / phone / tax id / e-mail), archived included.
 Future<List<Customer>> searchCustomers(String q, {int limit = 50}) async {
-  final json = await _api.get('/customers', query: {'q': q.trim(), 'limit': '$limit'});
+  final json = await _api.get(
+    '/customers',
+    query: {'q': q.trim(), 'limit': '$limit'},
+  );
   return _parse(json['customers']);
 }
 
@@ -101,7 +118,11 @@ Future<CustomerDetail> fetchCustomerDetail(String id) async {
   for (final c in list.customers) {
     if (c.id == id) return CustomerDetail(customer: c);
   }
-  throw ApiException(404, 'CUSTOMER_NOT_FOUND', errorMessageHe('CUSTOMER_NOT_FOUND', status: 404));
+  throw ApiException(
+    404,
+    'CUSTOMER_NOT_FOUND',
+    errorMessageHe('CUSTOMER_NOT_FOUND', status: 404),
+  );
 }
 
 /// INDIVIDUAL, or BUSINESS when a tax id is given (§10: derived, not asked).
@@ -129,14 +150,15 @@ Future<Customer> createCustomer({
     'vatDealerStatus': ?vatDealerStatus,
   });
   return Customer(
-      id: json['id'] as String,
-      name: name,
-      phone: phone,
-      email: email,
-      taxId: taxId,
-      vatDealerStatus: vatDealerStatus,
-      customerType: type,
-      consentGranted: false);
+    id: json['id'] as String,
+    name: name,
+    phone: phone,
+    email: email,
+    taxId: taxId,
+    vatDealerStatus: vatDealerStatus,
+    customerType: type,
+    consentGranted: false,
+  );
 }
 
 /// POST /customers/:id/consent — the owner says the customer agreed to
@@ -157,17 +179,25 @@ Future<void> archiveCustomer(String id) async {
 
 /// GET /documents?customerId=&limit=100 (newest first).
 Future<List<DocumentSummary>> fetchCustomerDocuments(String customerId) async {
-  final json = await _api.get('/documents', query: {'customerId': customerId, 'limit': '100'});
+  final json = await _api.get(
+    '/documents',
+    query: {'customerId': customerId, 'limit': '100'},
+  );
   return _docs(json);
 }
 
 List<DocumentSummary> _docs(Map<String, dynamic> json) => [
-      for (final d in (json['documents'] as List? ?? const []))
-        DocumentSummary.fromJson(d as Map<String, dynamic>)
-    ];
+  for (final d in (json['documents'] as List? ?? const []))
+    DocumentSummary.fromJson(d as Map<String, dynamic>),
+];
 
 const Set<String> _notIssued = {
-  'DRAFT', 'VALIDATING', 'READY_TO_FINALIZE', 'PENDING_APPROVAL', 'REJECTED', 'WAITING_FOR_ALLOCATION',
+  'DRAFT',
+  'VALIDATING',
+  'READY_TO_FINALIZE',
+  'PENDING_APPROVAL',
+  'REJECTED',
+  'WAITING_FOR_ALLOCATION',
 };
 
 /// Sum of what is still owed on issued 300/305 (openMinor, BE-10a, else
@@ -175,7 +205,9 @@ const Set<String> _notIssued = {
 BigInt openBalanceOf(Iterable<DocumentSummary> docs) {
   var total = BigInt.zero;
   for (final d in docs) {
-    if (!isCollectionType(d.documentType) || _notIssued.contains(d.status) || d.voidedAt != null) {
+    if (!isCollectionType(d.documentType) ||
+        _notIssued.contains(d.status) ||
+        d.voidedAt != null) {
       continue;
     }
     final open = d.openMinor;
@@ -186,15 +218,24 @@ BigInt openBalanceOf(Iterable<DocumentSummary> docs) {
 
 /// One customer's exact open balance: GET /documents?customerId=&unpaid=1&limit=500.
 Future<BigInt> fetchCustomerOpenMinor(String customerId) async {
-  final json = await _api.get('/documents',
-      query: {'customerId': customerId, 'unpaid': '1', 'limit': '$openDocumentsCap'});
+  final json = await _api.get(
+    '/documents',
+    query: {
+      'customerId': customerId,
+      'unpaid': '1',
+      'limit': '$openDocumentsCap',
+    },
+  );
   return openBalanceOf(_docs(json));
 }
 
 /// customerId → open balance, or null when the answer was capped (§6.P: a
 /// partial number is never shown; balances then appear only on P2).
 Future<Map<String, BigInt>?> fetchOpenBalances() async {
-  final json = await _api.get('/documents', query: {'unpaid': '1', 'limit': '$openDocumentsCap'});
+  final json = await _api.get(
+    '/documents',
+    query: {'unpaid': '1', 'limit': '$openDocumentsCap'},
+  );
   final docs = _docs(json);
   final total = (json['total'] as num?)?.toInt() ?? docs.length;
   if (docs.length >= openDocumentsCap || total > docs.length) return null;
@@ -205,7 +246,7 @@ Future<Map<String, BigInt>?> fetchOpenBalances() async {
   }
   return {
     for (final e in byCustomer.entries)
-      if (openBalanceOf(e.value) > BigInt.zero) e.key: openBalanceOf(e.value)
+      if (openBalanceOf(e.value) > BigInt.zero) e.key: openBalanceOf(e.value),
   };
 }
 
@@ -215,7 +256,10 @@ Future<Map<String, BigInt>?> fetchOpenBalances() async {
 ({String from, String to}) statementPeriod([DateTime? now]) {
   final d = now ?? DateTime.now();
   String two(int n) => n.toString().padLeft(2, '0');
-  return (from: '${d.year}-01-01', to: '${d.year}-${two(d.month)}-${two(d.day)}');
+  return (
+    from: '${d.year}-01-01',
+    to: '${d.year}-${two(d.month)}-${two(d.day)}',
+  );
 }
 
 final Map<String?, bool> _statementSupport = {};
@@ -229,7 +273,10 @@ Future<bool> statementAvailable(String customerId) async {
   if (known != null) return known;
   final p = statementPeriod();
   try {
-    await _api.get('/customers/$customerId/statement', query: {'from': p.to, 'to': p.to});
+    await _api.get(
+      '/customers/$customerId/statement',
+      query: {'from': p.to, 'to': p.to},
+    );
     return _statementSupport[bid] = true;
   } on ApiException catch (e) {
     if (e.isNetwork) return false;
@@ -243,14 +290,20 @@ void resetStatementProbe() => _statementSupport.clear();
 /// POST /customers/:id/statement/send {channel:'EMAIL', from, to} (BE-17).
 Future<void> sendStatement(String customerId, {DateTime? now}) {
   final p = statementPeriod(now);
-  return _api.post('/customers/$customerId/statement/send',
-      {'channel': 'EMAIL', 'from': p.from, 'to': p.to});
+  return _api.post('/customers/$customerId/statement/send', {
+    'channel': 'EMAIL',
+    'from': p.from,
+    'to': p.to,
+  });
 }
 
 /// GET /customers/:id/statement.pdf?from=&to= (BE-17) → PDF bytes.
 Future<Uint8List> fetchStatementPdf(String customerId, {DateTime? now}) {
   final p = statementPeriod(now);
-  return _api.getBytes('/customers/$customerId/statement.pdf', query: {'from': p.from, 'to': p.to});
+  return _api.getBytes(
+    '/customers/$customerId/statement.pdf',
+    query: {'from': p.from, 'to': p.to},
+  );
 }
 
 // ---- walk-in + recents (S2) ----------------------------------------------------
@@ -261,7 +314,11 @@ Future<Uint8List> fetchStatementPdf(String customerId, {DateTime? now}) {
 /// allocation number): created with vatDealerStatus PRIVATE, and an existing
 /// walk-in that is not PRIVATE (e.g. UNKNOWN from V1) is PATCHed to it.
 /// With [be09] a new record is flagged on the server too (PATCH isWalkIn:true).
-Future<Customer> walkInCustomer(List<Customer> loaded, {required String name, bool be09 = false}) async {
+Future<Customer> walkInCustomer(
+  List<Customer> loaded, {
+  required String name,
+  bool be09 = false,
+}) async {
   for (final c in loaded) {
     if (c.isWalkIn && !c.isArchived) return _walkInPrivate(c);
   }
@@ -273,9 +330,15 @@ Future<Customer> walkInCustomer(List<Customer> loaded, {required String name, bo
     remembered = null;
   }
   for (final c in loaded) {
-    if (!c.isArchived && (c.id == remembered || c.name.trim() == name)) return _walkInPrivate(c);
+    if (!c.isArchived && (c.id == remembered || c.name.trim() == name)) {
+      return _walkInPrivate(c);
+    }
   }
-  final created = await createCustomer(name: name, customerType: 'INDIVIDUAL', vatDealerStatus: _private);
+  final created = await createCustomer(
+    name: name,
+    customerType: 'INDIVIDUAL',
+    vatDealerStatus: _private,
+  );
   if (be09) {
     try {
       await updateCustomer(created.id, {'isWalkIn': true});
@@ -315,11 +378,36 @@ Future<List<String>> readRecentCustomerIds() async {
 }
 
 Future<void> rememberRecentCustomer(String id) async {
-  final ids = [id, ...(await readRecentCustomerIds()).where((e) => e != id)].take(8).toList();
+  final ids = [
+    id,
+    ...(await readRecentCustomerIds()).where((e) => e != id),
+  ].take(8).toList();
   try {
     await AppCache.write(_recentKey(_bid), ids);
   } on Object {
     // best effort
+  }
+}
+
+/// Customers who received a payment most recently on this device (newest first, <=8).
+Future<List<String>> readRecentPaymentCustomerIds() async {
+  try {
+    final value = await AppCache.read(_recentPaymentKey(_bid));
+    return value is List ? [for (final item in value) '$item'] : const [];
+  } on Object {
+    return const [];
+  }
+}
+
+Future<void> rememberRecentPaymentCustomer(String id) async {
+  final ids = [
+    id,
+    ...(await readRecentPaymentCustomerIds()).where((value) => value != id),
+  ].take(8).toList();
+  try {
+    await AppCache.write(_recentPaymentKey(_bid), ids);
+  } on Object {
+    // Recent recipients improve the picker but never block issuing a receipt.
   }
 }
 
@@ -328,20 +416,35 @@ Future<void> rememberRecentCustomer(String id) async {
 String _digits(String s) => s.replaceAll(RegExp(r'\D'), '');
 
 /// Search by name, e-mail, phone digits or tax id digits (≥3 digits).
-bool customerMatches(Customer c, String query) =>
-    personMatches(query, name: c.name, email: c.email, phone: c.phone, taxId: c.taxId);
+bool customerMatches(Customer c, String query) => personMatches(
+  query,
+  name: c.name,
+  email: c.email,
+  phone: c.phone,
+  taxId: c.taxId,
+);
 
-bool personMatches(String query, {required String name, String? email, String? phone, String? taxId}) {
+bool personMatches(
+  String query, {
+  required String name,
+  String? email,
+  String? phone,
+  String? taxId,
+}) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return true;
   if (name.toLowerCase().contains(q)) return true;
   if ((email ?? '').toLowerCase().contains(q)) return true;
   final qd = _digits(q);
-  return qd.length >= 3 && (_digits(phone ?? '').contains(qd) || _digits(taxId ?? '').contains(qd));
+  return qd.length >= 3 &&
+      (_digits(phone ?? '').contains(qd) || _digits(taxId ?? '').contains(qd));
 }
 
 /// §6.P order: customers with documents first (newest first), then א–ת.
-List<Customer> sortForPeople(Iterable<Customer> customers, {List<String> recentIds = const []}) {
+List<Customer> sortForPeople(
+  Iterable<Customer> customers, {
+  List<String> recentIds = const [],
+}) {
   int rank(Customer c) {
     final i = recentIds.indexOf(c.id);
     return i < 0 ? 1 << 20 : i;
@@ -366,8 +469,14 @@ List<Customer> sortForPeople(Iterable<Customer> customers, {List<String> recentI
 /// S2 "5–8 עיגולי אחרונים" (§6 S2): picks made on this device first (most
 /// recent first, even before the customer has a document), then [ordered]
 /// rows that are [eligible] (e.g. have documents), at most [max].
-List<T> recentCircles<T>(List<T> ordered, String Function(T) idOf, List<String> recentIds,
-    {required bool Function(T) eligible, bool Function(T)? excluded, int max = 8}) {
+List<T> recentCircles<T>(
+  List<T> ordered,
+  String Function(T) idOf,
+  List<String> recentIds, {
+  required bool Function(T) eligible,
+  bool Function(T)? excluded,
+  int max = 8,
+}) {
   final byId = {for (final e in ordered) idOf(e): e};
   final out = <T>[];
   final seen = <String>{};
@@ -387,16 +496,28 @@ List<T> recentCircles<T>(List<T> ordered, String Function(T) idOf, List<String> 
 
 /// S2 duplicate check against the loaded list (best-effort, §6 S2): same
 /// name, phone digits or tax id. Archived customers are skipped.
-Customer? findDuplicateCustomer(Iterable<Customer> customers,
-    {String? name, String? phone, String? taxId, String? exceptId}) {
+Customer? findDuplicateCustomer(
+  Iterable<Customer> customers, {
+  String? name,
+  String? phone,
+  String? taxId,
+  String? exceptId,
+}) {
   final n = (name ?? '').trim();
   final p = _digits(phone ?? '');
   final t = _digits(taxId ?? '');
   for (final c in customers) {
-    if (c.isArchived || c.id == exceptId) continue;
+    if (c.isArchived || c.id == exceptId) {
+      continue;
+    }
     if (n.isNotEmpty && c.name.trim() == n) return c;
-    if (p.length >= 9 && _digits(c.phone ?? '').endsWith(p.substring(p.length - 9))) return c;
-    if (t.isNotEmpty && _digits(c.taxId ?? '') == t) return c;
+    if (p.length >= 9 &&
+        _digits(c.phone ?? '').endsWith(p.substring(p.length - 9))) {
+      return c;
+    }
+    if (t.isNotEmpty && _digits(c.taxId ?? '') == t) {
+      return c;
+    }
   }
   return null;
 }
@@ -404,7 +525,11 @@ Customer? findDuplicateCustomer(Iterable<Customer> customers,
 /// Up to two initials for an avatar ("דנה כהן" → "דכ"). Mixed Hebrew/Latin
 /// ("QA חייב") → the first only: a mixed pair would render reversed in RTL.
 String initialsOf(String name) {
-  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+  final parts = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((p) => p.isNotEmpty)
+      .toList();
   if (parts.isEmpty) return '?';
   final a = parts.first.characters0;
   if (parts.length == 1) return a;
@@ -415,7 +540,9 @@ String initialsOf(String name) {
 bool _isRtl(String ch) {
   if (ch.isEmpty) return false;
   final c = ch.runes.first;
-  return (c >= 0x0590 && c <= 0x08FF) || (c >= 0xFB1D && c <= 0xFDFF) || (c >= 0xFE70 && c <= 0xFEFF);
+  return (c >= 0x0590 && c <= 0x08FF) ||
+      (c >= 0xFB1D && c <= 0xFDFF) ||
+      (c >= 0xFE70 && c <= 0xFEFF);
 }
 
 /// Phone as typed / from contacts → what we store: digits, keeping a leading '+'.
@@ -432,8 +559,10 @@ String? normalizePhoneInput(String input) {
 String? preferredPhone(List<String> phones) {
   if (phones.isEmpty) return null;
   final mobile = phones.firstWhere(
-      (p) => RegExp(r'^(\+?972|0)5').hasMatch(p.replaceAll(RegExp(r'[^\d+]'), '')),
-      orElse: () => phones.first);
+    (p) =>
+        RegExp(r'^(\+?972|0)5').hasMatch(p.replaceAll(RegExp(r'[^\d+]'), '')),
+    orElse: () => phones.first,
+  );
   return normalizePhoneInput(mobile);
 }
 

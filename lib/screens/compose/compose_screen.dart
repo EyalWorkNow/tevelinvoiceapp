@@ -8,6 +8,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/widgets/notch_notice.dart';
+import '../../api/customers_api.dart' show rememberRecentPaymentCustomer;
 import '../../api/models/models.dart';
 import '../../state/business_context.dart';
 import '../../state/caps.dart';
@@ -29,6 +31,10 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 /// S2 (squad D). Tests replace it to simulate one tap on a recent customer.
 Future<Customer?> Function(BuildContext context) pickCustomer = (c) =>
     showCustomerSheet(c);
+
+/// S2 with recent recipients for the “received payment” flow.
+Future<Customer?> Function(BuildContext context) pickPaymentCustomer = (c) =>
+    showCustomerSheet(c, recentPayments: true);
 
 /// S2 in supplier mode for a 500 purchase order (shown in the same chip).
 Future<Customer?> Function(BuildContext context) pickSupplier = (c) async =>
@@ -71,8 +77,9 @@ class _ComposeScreenState extends State<ComposeScreen> {
     super.initState();
     // Toasts from the previous issue would sit over the issue button and eat the first tap.
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) =>
-          mounted ? ScaffoldMessenger.maybeOf(context)?.clearSnackBars() : null,
+      (_) => mounted
+          ? ScaffoldMessenger.maybeOf(context)?.clearNotchNotices()
+          : null,
     );
     _start();
   }
@@ -153,7 +160,11 @@ class _ComposeScreenState extends State<ComposeScreen> {
   Future<Customer?> _chooseCustomer() async {
     final s = _load!.state;
     final supplier = s.config.counterparty == Counterparty.supplier;
-    final c = await (supplier ? pickSupplier : pickCustomer)(context);
+    final c = supplier
+        ? await pickSupplier(context)
+        : s.config.paid && s.config.counterparty == Counterparty.customer
+        ? await pickPaymentCustomer(context)
+        : await pickCustomer(context);
     if (c == null || !mounted || ModalRoute.of(context)?.isCurrent != true) {
       return null;
     }
@@ -181,7 +192,28 @@ class _ComposeScreenState extends State<ComposeScreen> {
         setState(() => _step = step);
       },
     );
-    if (mounted && run.pending?.stage.name == 'done') _issuedOrLeft = true;
+    if (mounted && run.pending?.stage.name == 'done') {
+      _issuedOrLeft = true;
+      if (load.state.kind == DocKind.receipt ||
+          load.state.kind == DocKind.taxInvoiceReceipt) {
+        final customer = load.state.customer;
+        if (customer != null) {
+          unawaited(rememberRecentPaymentCustomer(customer.id));
+        }
+      }
+    }
+  }
+
+  Future<void> _backToCustomerPicker() async {
+    if (_issuedOrLeft) {
+      if (mounted) Navigator.of(context).maybePop();
+      return;
+    }
+    if (_load == null || _pickingInitialCustomer) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _pickingInitialCustomer = true);
+    await _chooseCustomer();
+    if (mounted) setState(() => _pickingInitialCustomer = false);
   }
 
   @override
@@ -302,7 +334,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
                   onTap: _chooseCustomer,
                 ),
               ),
-              const DesignBackButton(),
+              DesignBackButton(onPressed: _backToCustomerPicker),
             ],
           ),
         ),
@@ -311,20 +343,28 @@ class _ComposeScreenState extends State<ComposeScreen> {
             padding: const EdgeInsets.symmetric(horizontal: Space.page),
             child: Column(
               children: [
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 AmountField(state: s),
                 if (s.totalMinor == BigInt.zero) ...[
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   _kindActions(load),
                   const SizedBox(height: 24),
                 ],
                 if (s.totalMinor > BigInt.zero)
-                  SummarySection(
-                    state: s,
-                    onMoreDetails: () => showMoreDetailsSheet(
-                      context,
-                      state: s,
-                      kinds: load.switchKinds,
+                  Padding(
+                    padding: const EdgeInsets.only(top: Space.l),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 352),
+                        child: SummarySection(
+                          state: s,
+                          onMoreDetails: () => showMoreDetailsSheet(
+                            context,
+                            state: s,
+                            kinds: load.switchKinds,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
               ],

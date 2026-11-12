@@ -7,7 +7,10 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/commerce_api.dart';
 import '../../state/caps.dart';
 import 'package:share_plus/share_plus.dart';
@@ -16,6 +19,8 @@ import '../../api/client.dart';
 import '../../api/issue_api.dart';
 import '../../api/quotes_api.dart';
 import '../../router.dart' show openDocument, openQuote;
+import '../business/cardcom_merchant_screen.dart'
+    show CustomerPaymentPreviewScreen;
 import '../../state/business_context.dart';
 import '../../util/allowed_urls.dart';
 import '../../util/composer_config.dart';
@@ -194,16 +199,34 @@ Future<void> runCompose(
     final first =
         result.outcome == IssueOutcome.issued && await takeFirstIssueFlag();
     if (!context.mounted) return;
+    if (result.outcome == IssueOutcome.issued &&
+        s.config.after == AfterIssue.collect &&
+        kDebugMode) {
+      await nav.push<void>(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: '/demo/customer-payment'),
+          builder: (_) => CustomerPaymentPreviewScreen(
+            businessName: businessContext.displayName,
+            invoiceLabel: result.document.documentNumber == null
+                ? docTypeLabel(result.document.documentType)
+                : '${docTypeLabel(result.document.documentType)} · ${result.document.documentNumber}',
+            amountMinor: result.document.totalMinor,
+          ),
+        ),
+      );
+      if (!context.mounted) return;
+    }
     unawaited(openIssuedDocument(context, id)); // completes when D closes
-    messenger.showSnackBar(
+    messenger.showNotchNotice(
       SnackBar(
         content: Text(
           deliveryMessage ?? _toast(result.outcome, sentByWhatsApp, s),
         ),
       ),
+      motion: NoticeMotion.document,
     );
     if (first) {
-      messenger.showSnackBar(
+      messenger.showNotchNotice(
         const SnackBar(content: Text(ComposeHe.firstIssueNote)),
       );
     }
@@ -218,7 +241,10 @@ Future<void> runCompose(
   } on IssueCancelled {
     // The user closed a dialog; nothing to say.
   } on ApiException catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text(e.messageHe)));
+    messenger.showNotchNotice(
+      SnackBar(content: Text(e.messageHe)),
+      motion: NoticeMotion.error,
+    );
   } finally {
     onStep(null);
   }
@@ -334,5 +360,8 @@ Future<void> _sendQuote(
     await shareText(text);
   }
   if (sent) await setQuoteStatus(run.quoteId!, 'SENT');
-  messenger.showSnackBar(const SnackBar(content: Text(ComposeHe.quoteSent)));
+  messenger.showNotchNotice(
+    const SnackBar(content: Text(ComposeHe.quoteSent)),
+    motion: NoticeMotion.sent,
+  );
 }

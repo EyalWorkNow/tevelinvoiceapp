@@ -32,6 +32,48 @@ const Map<String, String> roleLabels = {
 
 /// B · עסק rows and sub-pages (§6.B, §13).
 abstract final class BusinessHe {
+  static String monthlySubscriptionPrice(String price) =>
+      'מינוי חודשי · $price';
+  static String securePaymentPrice(int amountMinor) =>
+      'לתשלום מאובטח · ₪${amountMinor ~/ 100}';
+  // Action labels shared by the application screens.
+  static const disconnectAction = 'ניתוק';
+  static const openingPreview = 'פותחים תצוגה מקדימה';
+  static const savingTerminal = 'שומרים פרטי מסוף';
+  static const disconnectTerminal = 'ניתוק המסוף';
+  static const checkCardcom = 'בדיקה מול קארדקום';
+  static const paymentPreviewTitle = 'זו תצוגה מקדימה';
+  static const paymentPreviewBody =
+      'המסך מציג את אפשרויות התשלום לדוגמה. לא בוצע חיוב ולא נשלחו פרטים לקארדקום.';
+  static const securePayment = 'לתשלום מאובטח';
+  static const continueToInvoice = 'המשך לחשבונית';
+  static const enlargePreview = 'הגדלת התצוגה';
+  static const retryPreview = 'התצוגה לא נטענה. נסה שוב';
+  static const saveBranding = 'שמירת העיצוב';
+  static const chooseLogo = 'בחירת לוגו';
+  static const removeLogo = 'הסרת הלוגו';
+  static const scanInvoiceAction = 'סריקה לקבלת החשבונית';
+  static const preparingLink = 'מכינים קישור…';
+  static const validPhoneRequired = 'יש להזין מספר טלפון תקין';
+  static const messageSentFromDevice = 'ההודעה נשלחה מהמכשיר';
+  static const smsUnavailable =
+      'שליחת SMS אינה זמינה במכשיר הזה. אפשר לקבל את המסמך בסריקה או במייל.';
+  static const smsFailed = 'ההודעה לא נשלחה. ניתן לנסות שוב.';
+  static const openingMessage = 'פותחים הודעה לשליחה';
+  static const keepSubscription = 'נשארים במסלול';
+  static const cancelRenewalAction = 'ביטול החידוש';
+  static const manageAppleSubscription = 'ניהול מינוי Apple';
+  static const cancelPlanRenewal = 'ביטול חידוש המסלול';
+  static const selectPlanAndPay = 'בחירת המסלול והמשך לתשלום';
+  static const termsAction = 'תנאי שימוש';
+  static const privacyAction = 'מדיניות פרטיות';
+  static const restorePurchasesAction = 'שחזור רכישות';
+  static const checkingPayment = 'בודקים את התשלום…';
+  static const checkPaymentApproval = 'בדיקת אישור התשלום';
+  static const backToBusiness = 'חוזרים לעסק';
+  static const waitingForAppStore = 'ממתינים ל־App Store…';
+  static const preparingCheckout = 'מכינים את דף התשלום…';
+
   static const title = 'עסק';
   static const reports = 'דוחות';
   static const expenses = 'הוצאות';
@@ -72,7 +114,8 @@ abstract final class BusinessHe {
   static const accountantEmailNeeded = 'לשליחה אוטומטית צריך את מייל הרו״ח';
   static const typeChange = 'עוברים לעוסק מורשה';
   static const typeChangeTitle = 'מעבר לעוסק מורשה';
-  static const typeChangeBody = 'מהתאריך שתבחר המסמכים יופקו כעוסק מורשה. מסמכים שכבר הופקו לא משתנים.';
+  static const typeChangeBody =
+      'מהתאריך שתבחר המסמכים יופקו כעוסק מורשה. מסמכים שכבר הופקו לא משתנים.';
   static const typeChangeFrom = 'מתי?';
   static const typeChangeToday = 'מהיום';
   static const typeChangeNextMonth = 'מתחילת החודש הבא';
@@ -83,14 +126,16 @@ abstract final class BusinessHe {
   // S13 instances.
   static const edit = 'ערוך';
   static const saved = 'נשמר ✓';
-  static const identityLocked = 'אחרי הפקה ראשונה לא משנים סוג עסק כאן – המשך במחשב';
+  static const identityLocked =
+      'אחרי הפקה ראשונה לא משנים סוג עסק כאן – המשך במחשב';
   static const brandingLogo = 'לוגו';
   static const brandingPickLogo = 'בחר לוגו מהתמונות';
   static const brandingRemoveLogo = 'הסר לוגו';
   static const brandingColor = 'צבע';
   static const approvalsSwitch = 'מסמכים גדולים צריכים אישור';
   static const approvalsThreshold = 'מסמכים מ-₪ (כולל מע״מ)';
-  static String approvalsSelf(String name) => 'גם מסמכים שאני יוצר צריכים אישור של $name';
+  static String approvalsSelf(String name) =>
+      'גם מסמכים שאני יוצר צריכים אישור של $name';
   static const approvalsOtherMember = 'חבר צוות נוסף';
   static const desktopIntro = 'נשלח לך מייל עם קישור לדף הנכון במחשב.';
   static const desktopSend = 'שלח לי קישור במייל';
@@ -123,7 +168,8 @@ abstract final class BusinessHe {
   static const signOut = 'צא מהמכשיר';
   static const signOutAll = 'צא מכל המכשירים';
   static const signOutAllConfirm = 'לצאת מכל המכשירים?';
-  static const signOutAllBody = 'כל הטלפונים והדפדפנים יתנתקו, כולל הטלפון הזה.';
+  static const signOutAllBody =
+      'כל הטלפונים והדפדפנים יתנתקו, כולל הטלפון הזה.';
   static const privacy = 'מדיניות הפרטיות';
   static const terms = 'תנאי השימוש';
   static const support = 'תמיכה';
@@ -137,12 +183,14 @@ abstract final class BusinessHe {
       : 'המחיקה תסגור את $business. $n חברי צוות ($names) יאבדו גישה. '
             'המסמכים נשמרים ונעולים 7 שנים לפי החוק ולא יימחקו.';
   static const deleteAnyway = 'מחק בכל זאת';
-  static const transferInstead = 'אפשר להעביר את הבעלות לחבר צוות, והעסק ימשיך לעבוד בלעדיך.';
+  static const transferInstead =
+      'אפשר להעביר את הבעלות לחבר צוות, והעסק ימשיך לעבוד בלעדיך.';
   static String soleOwnerOther(String business) =>
       'גם $business ייסגר אם אין בו בעלים נוסף. המסמכים שלו נשמרים.';
 
   // Setup waiting (§6.A, member of a business that is not set up yet).
-  static String setupPending(String owner) => '$owner עדיין מסיים להגדיר את העסק';
+  static String setupPending(String owner) =>
+      '$owner עדיין מסיים להגדיר את העסק';
   static const setupPendingOwner = 'בעל העסק';
   static const setupPendingBody = 'אפשר להתחיל לעבוד כשההגדרה תסתיים.';
 
@@ -200,19 +248,23 @@ abstract final class TeamHe {
   static const custom = 'מותאם אישית';
   static const transfer = 'העבר בעלות';
   static String transferConfirm(String name) => 'להעביר את הבעלות ל-$name?';
-  static const transferBody = 'הוא יהיה בעל העסק ואת/ה תהיה/י שותף/ה. נשלח אליך קוד במייל לאישור.';
+  static const transferBody =
+      'הוא יהיה בעל העסק ואת/ה תהיה/י שותף/ה. נשלח אליך קוד במייל לאישור.';
   static const transferCodeTitle = 'קוד לאישור העברת הבעלות';
   static const transferCodeWrong = 'הקוד שגוי. נסה שוב.';
   static String transferred(String name) => 'הבעלות הועברה ל-$name';
-  static const customHint = 'לחבר הזה יש הרשאות מותאמות. שינוי שלהן – המשך במחשב.';
+  static const customHint =
+      'לחבר הזה יש הרשאות מותאמות. שינוי שלהן – המשך במחשב.';
   static const completing = 'משלים הגדרה…';
-  static String upgradeConfirm(String name) => 'לעדכן את רו״ח $name להרשאות רו״ח מייצג? יידרש אימות דו-שלבי';
+  static String upgradeConfirm(String name) =>
+      'לעדכן את רו״ח $name להרשאות רו״ח מייצג? יידרש אימות דו-שלבי';
   static const upgrade = 'עדכן';
   static const upgraded = 'ההרשאות עודכנו';
   static const upgradeUnsupported = 'השרת עדיין לא תומך ברו״ח מייצג';
   static const you = '(את/ה)';
-  static String pending(int days) =>
-      days <= 0 ? 'ממתין · פג היום' : (days == 1 ? 'ממתין · פג מחר' : 'ממתין · פג בעוד $days ימים');
+  static String pending(int days) => days <= 0
+      ? 'ממתין · פג היום'
+      : (days == 1 ? 'ממתין · פג מחר' : 'ממתין · פג בעוד $days ימים');
   static const expired = 'פג תוקף';
   static const empty = 'רק את/ה בעסק כרגע';
   static const emptyHint = 'הזמן עובד, שותף או רואה חשבון.';
@@ -230,12 +282,14 @@ abstract final class PresetHe {
   static const accountantFull = 'רו״ח – מלא';
   static const viewer = 'צפייה בלבד';
 
-  static const employeeHint = 'יוצר מסמכים ושולח אותם לאישורך. לא מפיק לבד, לא מבטל, לא משנה הגדרות.';
+  static const employeeHint =
+      'יוצר מסמכים ושולח אותם לאישורך. לא מפיק לבד, לא מבטל, לא משנה הגדרות.';
   static const partnerHint = 'יכול הכל, חוץ ממחיקת העסק. יתבקש אימות דו-שלבי.';
   static const accountantHint =
       'רואה מסמכים ודוחות, מאשר הוצאות. לא מפיק ולא שולח ללקוחות. יתבקש אימות דו-שלבי.';
   static const viewerHint = 'רואה מסמכים בלבד.';
-  static const accountantFullHint = 'הרשאות רו״ח מלאות (קיים). אפשר לשנות לתפקיד אחר.';
+  static const accountantFullHint =
+      'הרשאות רו״ח מלאות (קיים). אפשר לשנות לתפקיד אחר.';
 
   static String label(Preset p) => switch (p) {
     Preset.owner => owner,
@@ -268,7 +322,8 @@ abstract final class ReportsHe {
   static String monthOnlyIncome(String month) => 'הכנסות החודש בלבד ($month)';
   static const owed = 'מגיע לך';
   static const periodIncome = 'הכנסות בתקופה';
-  static String owedLine(String amount) => 'מגיע לך מלקוחות (כל התקופות): $amount';
+  static String owedLine(String amount) =>
+      'מגיע לך מלקוחות (כל התקופות): $amount';
   static const overdue = 'באיחור';
   static const sendToAccountant = 'שלח לרו״ח';
   static const share = 'שתף';
@@ -281,7 +336,8 @@ abstract final class ReportsHe {
   static const notAvailable = 'הדוח הזה עוד לא זמין באפליקציה';
   static String exemptCeiling(String turnover, String ceiling) =>
       'מחזור השנה $turnover מתוך תקרת פטור $ceiling';
-  static String accountantSubject(String business, String period) => 'דוח $period – $business';
+  static String accountantSubject(String business, String period) =>
+      'דוח $period – $business';
   static const noAccountantEmail = 'כדאי להוסיף את מייל הרו״ח בפרטי העסק';
   static const emptyRows = 'אין נתונים בתקופה הזו';
 
@@ -357,7 +413,8 @@ abstract final class AuthHe {
   static const identityHint = 'סוג העסק והמספר המזהה ננעלים אחרי המסמך הראשון.';
 
   // Invitation (§6.A table).
-  static String invitedTo(String business, String preset) => 'הוזמנת ל-$business כ$preset';
+  static String invitedTo(String business, String preset) =>
+      'הוזמנת ל-$business כ$preset';
   static String invitedBy(String name) => 'מאת $name';
   static const joinWithPassword = 'יש לי סיסמה';
   static const createPassword = 'צור סיסמה';
@@ -366,7 +423,11 @@ abstract final class AuthHe {
   static const join = 'הצטרף';
   static const passwordPolicy = 'לפחות 12 תווים';
   static String alreadyMember(String business) => 'אתה כבר חבר ב-$business';
-  static String expiredAskAgain(String inviter) => 'ההזמנה כבר לא בתוקף. בקש מ-$inviter לשלוח שוב';
+  static String expiredAskAgain(String inviter) =>
+      'ההזמנה כבר לא בתוקף. בקש מ-$inviter לשלוח שוב';
   static const inviterFallback = 'המזמין';
   static const forgotPassword = 'שכחתי סיסמה';
+  static const signInHelp = 'עזרה בכניסה';
+  static const signInHelpBody = 'לאיפוס הסיסמה בחשבון זה פנו לתמיכה.';
+  static const contactSupport = 'פנה לתמיכה';
 }

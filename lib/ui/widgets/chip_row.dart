@@ -101,11 +101,13 @@ class _Chip<T> extends StatelessWidget {
                       Icon(option.icon, size: 17, color: fg),
                       const SizedBox(width: Space.xs),
                     ],
-                    Text(
-                      option.label,
-                      style: AppText.secondary.copyWith(
-                        color: fg,
-                        fontWeight: FontWeight.w600,
+                    Flexible(
+                      child: Text(
+                        option.label,
+                        style: AppText.secondary.copyWith(
+                          color: fg,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],

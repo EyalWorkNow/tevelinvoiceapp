@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/signing_api.dart' show PassphraseAnswer;
 import '../../state/session.dart';
 import '../../ui/ds.dart';
@@ -83,12 +84,12 @@ Future<void> continueOnComputer(BuildContext context, String topic) async {
   ));
 }
 
-/// Short message at the bottom (the app-wide messenger when there is one).
-void toast(BuildContext context, String text) {
+/// App-wide action feedback.
+void toast(BuildContext context, String text, {NoticeMotion motion = NoticeMotion.saved}) {
   final m = ScaffoldMessenger.maybeOf(context);
   m
-    ?..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(text)));
+    ?..hideCurrentNotchNotice()
+    ..showNotchNotice(SnackBar(content: Text(text)), motion: motion);
 }
 
 class _OneFieldDialog extends StatefulWidget {

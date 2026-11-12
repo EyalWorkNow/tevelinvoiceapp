@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/models/models.dart';
 import '../../api/shaam_api.dart';
 import '../../api/signing_api.dart' show forgetSigningPassphrase, hasSavedSigningPassphrase;
@@ -128,7 +129,7 @@ class _ShaamPageState extends State<ShaamPage> {
                   setState(() => _savedPassphrase = false);
                   ScaffoldMessenger.of(
                     context,
-                  ).showSnackBar(const SnackBar(content: Text(BusinessHe.signingForgotten)));
+                  ).showNotchNotice(const SnackBar(content: Text(BusinessHe.signingForgotten)));
                 },
               ),
           ],

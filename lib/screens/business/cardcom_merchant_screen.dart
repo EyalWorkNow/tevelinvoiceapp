@@ -1,7 +1,12 @@
+import '../../util/labels/people_he.dart';
+import '../../util/labels/business_he.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../../api/commerce_api.dart';
 import '../../state/business_context.dart';
 import '../../ui/ds.dart';
+import '../../ui/widgets/notch_notice.dart';
 
 class CardcomMerchantScreen extends StatefulWidget {
   const CardcomMerchantScreen({super.key});
@@ -90,11 +95,11 @@ class _CardcomMerchantScreenState extends State<CardcomMerchantScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('חזרה'),
+            child: const Text(AuthHe.back),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('ניתוק'),
+            child: const Text(BusinessHe.disconnectAction),
           ),
         ],
       ),
@@ -179,6 +184,47 @@ class _CardcomMerchantScreenState extends State<CardcomMerchantScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
+                  if (kDebugMode)
+                    AppCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Iconsax.card, color: context.palette.info),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'תצוגה מקדימה של תשלום לקוח',
+                                  style: AppText.headline,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'כך הלקוח יבחר איך לשלם. אפשרויות ההדגמה זמינות גם כשמסוף קארדקום עדיין לא מחובר.',
+                            style: AppText.secondary.copyWith(
+                              color: context.palette.muted,
+                              height: 1.45,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          OutlinedButton.icon(
+                            key: const Key('customer-payment-preview'),
+                            onPressed: () => Navigator.of(context).push<void>(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    const CustomerPaymentPreviewScreen(),
+                              ),
+                            ),
+                            icon: const Icon(Iconsax.eye),
+                            label: const Text(BusinessHe.openingPreview),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 16),
                   if (_error != null) ErrorView(error: _error!, onRetry: _load),
                   if (_account == null && _error == null)
                     const SkeletonList(rows: 3),
@@ -252,14 +298,18 @@ class _CardcomMerchantScreenState extends State<CardcomMerchantScreen> {
                             ),
                             PrimaryButton(
                               key: const Key('merchant-save'),
-                              label: 'שומרים פרטי מסוף',
+                              label: BusinessHe.savingTerminal,
                               onPressed: _save,
-                              loadingText: _busy ? 'שומרים…' : null,
+                              loadingText: _busy
+                                  ? ExpenseHe.savingInProgress
+                                  : null,
                             ),
                             if (_account!['configured'] == true)
                               TextButton(
                                 onPressed: _busy ? null : _disconnect,
-                                child: const Text('ניתוק המסוף'),
+                                child: const Text(
+                                  BusinessHe.disconnectTerminal,
+                                ),
                               ),
                           ],
                         ),
@@ -316,7 +366,7 @@ class _CardcomMerchantScreenState extends State<CardcomMerchantScreen> {
                                   onPressed: _busy
                                       ? null
                                       : () => _verify(row['id'] as String),
-                                  child: const Text('בדיקה מול קארדקום'),
+                                  child: const Text(BusinessHe.checkCardcom),
                                 ),
                             ],
                           ),
@@ -332,3 +382,355 @@ class _CardcomMerchantScreenState extends State<CardcomMerchantScreen> {
     ),
   );
 }
+
+enum _DemoPaymentMethod { card, bit, applePay, googlePay, payBox }
+
+/// Customer facing checkout preview for the proxy/demo account.
+/// It deliberately never submits or stores payment credentials.
+class CustomerPaymentPreviewScreen extends StatefulWidget {
+  const CustomerPaymentPreviewScreen({
+    super.key,
+    this.businessName,
+    this.invoiceLabel,
+    this.amountMinor,
+  });
+
+  final String? businessName;
+  final String? invoiceLabel;
+  final BigInt? amountMinor;
+
+  @override
+  State<CustomerPaymentPreviewScreen> createState() =>
+      _CustomerPaymentPreviewScreenState();
+}
+
+class _CustomerPaymentPreviewScreenState
+    extends State<CustomerPaymentPreviewScreen> {
+  _DemoPaymentMethod _method = _DemoPaymentMethod.card;
+
+  void _showPaymentSoon() {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentNotchNotice()
+      ..showNotchNotice(
+        const SnackBar(content: Text('בקרוב — הסליקה תהיה זמינה כאן')),
+        motion: NoticeMotion.payment,
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final amountMinor = widget.amountMinor ?? BigInt.from(118000);
+    final amount = (amountMinor.toDouble() / 100).toStringAsFixed(2);
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Space.page,
+                Space.m,
+                Space.page,
+                Space.s,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text('תשלום מאובטח', style: AppText.displayTitle),
+                  ),
+                  const DesignBackButton(),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  Space.page,
+                  Space.s,
+                  Space.page,
+                  Space.xl,
+                ),
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(Space.l),
+                    decoration: BoxDecoration(
+                      color: p.surface,
+                      borderRadius: BorderRadius.circular(Radii.card),
+                      border: Border.all(color: p.line),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'תשלום עבור',
+                          style: AppText.secondary.copyWith(color: p.muted),
+                        ),
+                        const SizedBox(height: Space.xs),
+                        Text(
+                          widget.businessName ?? businessContext.displayName,
+                          style: AppText.headline,
+                        ),
+                        const SizedBox(height: Space.m),
+                        Text(
+                          widget.invoiceLabel ?? 'חשבונית לדוגמה · 1048',
+                          style: AppText.secondary.copyWith(color: p.muted),
+                        ),
+                        const SizedBox(height: Space.s),
+                        Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Text('₪$amount', style: AppText.displayTitle),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: Space.section),
+                  Text(
+                    'איך נוח לך לשלם?',
+                    style: AppText.title,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: Space.m),
+                  Column(
+                    key: const Key('payment-method-grid'),
+                    children: [
+                      for (final method in _DemoPaymentMethod.values)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: Space.s),
+                          child: _PaymentMethodTile(
+                            method: method,
+                            selected: _method == method,
+                            onTap: () => setState(() => _method = method),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: Space.m),
+                  AppCard(
+                    child: Row(
+                      children: [
+                        Icon(Iconsax.info_circle, color: p.info),
+                        const SizedBox(width: Space.m),
+                        Expanded(
+                          child: Text(
+                            'אפשרויות התשלום ייפתחו בקרוב. כרגע לא מזינים פרטי אשראי ולא מתבצע חיוב.',
+                            style: AppText.body,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: Space.l),
+                  Container(
+                    padding: const EdgeInsets.all(Space.m),
+                    decoration: BoxDecoration(
+                      color: p.tint(p.warn),
+                      borderRadius: BorderRadius.circular(Radii.button),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Iconsax.info_circle, size: 20, color: p.warn),
+                        const SizedBox(width: Space.s),
+                        Expanded(
+                          child: Text(
+                            'הודעת הדגמה בלבד — פרטי תשלום אינם נאספים או נשמרים.',
+                            style: AppText.secondary.copyWith(height: 1.4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: Space.l),
+                  SizedBox(
+                    height: Hit.primary,
+                    child: FilledButton.icon(
+                      key: const Key('secure-payment-continue'),
+                      onPressed: _showPaymentSoon,
+                      icon: const Icon(Iconsax.info_circle),
+                      label: Text('בקרוב', style: AppText.button),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: p.accent,
+                        foregroundColor: p.accentInk,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(Radii.button),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentMethodTile extends StatelessWidget {
+  const _PaymentMethodTile({
+    required this.method,
+    required this.selected,
+    required this.onTap,
+  });
+  final _DemoPaymentMethod method;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return SizedBox(
+      height: 78,
+      child: Material(
+        color: selected ? p.tint(p.info) : p.surface,
+        borderRadius: BorderRadius.circular(Radii.button),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(Radii.button),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: Space.m),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(Radii.button),
+              border: Border.all(
+                color: selected ? p.info : p.line,
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 82,
+                  child: Center(child: _PaymentBrand(method: method)),
+                ),
+                const SizedBox(width: Space.m),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _paymentMethodLabel(method),
+                        style: AppText.headline,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _paymentMethodSubtitle(method),
+                        style: AppText.secondary.copyWith(
+                          color: p.muted,
+                          fontSize: 13,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: Space.s),
+                Icon(
+                  selected ? Iconsax.tick_circle : Icons.radio_button_unchecked,
+                  color: selected ? p.info : p.muted,
+                  size: 21,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentBrand extends StatelessWidget {
+  const _PaymentBrand({required this.method});
+  final _DemoPaymentMethod method;
+
+  @override
+  Widget build(BuildContext context) {
+    final mark = switch (method) {
+      _DemoPaymentMethod.card => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Iconsax.card, color: context.palette.ink, size: 20),
+          const SizedBox(width: 7),
+          Text('כרטיס אשראי', style: AppText.headline.copyWith(fontSize: 14)),
+        ],
+      ),
+      _DemoPaymentMethod.bit => const Image(
+        image: AssetImage('assets/brand/bit-app-icon.png'),
+        width: 40,
+        height: 40,
+        fit: BoxFit.contain,
+      ),
+      _DemoPaymentMethod.applePay => const Image(
+        image: AssetImage('assets/brand/apple-pay-mark.png'),
+        width: 76,
+        height: 48,
+        fit: BoxFit.contain,
+      ),
+      _DemoPaymentMethod.googlePay => const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'G',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF4285F4),
+            ),
+          ),
+          SizedBox(width: 5),
+          Text(
+            'Pay',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+      _DemoPaymentMethod.payBox => const Image(
+        image: AssetImage('assets/brand/paybox-app-icon.png'),
+        width: 40,
+        height: 40,
+        fit: BoxFit.contain,
+      ),
+    };
+    if (method == _DemoPaymentMethod.applePay ||
+        method == _DemoPaymentMethod.bit ||
+        method == _DemoPaymentMethod.payBox) {
+      return mark;
+    }
+    return Container(
+      constraints: const BoxConstraints(minWidth: 72, minHeight: 38),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: method == _DemoPaymentMethod.card
+            ? context.palette.tint(context.palette.info)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: FittedBox(fit: BoxFit.scaleDown, child: mark),
+    );
+  }
+}
+
+String _paymentMethodLabel(_DemoPaymentMethod method) => switch (method) {
+  _DemoPaymentMethod.card => 'כרטיס אשראי',
+  _DemoPaymentMethod.bit => 'תשלום ב־bit',
+  _DemoPaymentMethod.applePay => 'Apple Pay',
+  _DemoPaymentMethod.googlePay => 'Google Pay',
+  _DemoPaymentMethod.payBox => 'PayBox',
+};
+
+String _paymentMethodSubtitle(_DemoPaymentMethod method) => switch (method) {
+  _DemoPaymentMethod.card => 'Visa, Mastercard וכרטיסים נוספים',
+  _DemoPaymentMethod.bit => 'אישור באפליקציית bit',
+  _DemoPaymentMethod.applePay => 'תשלום מהיר במכשירי Apple',
+  _DemoPaymentMethod.googlePay => 'תשלום מהיר דרך Google Pay',
+  _DemoPaymentMethod.payBox => 'אישור באפליקציית PayBox',
+};

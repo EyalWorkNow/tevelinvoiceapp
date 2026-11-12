@@ -194,9 +194,16 @@ extension AppThemeContext on BuildContext {
 /// follows Dynamic Type through MediaQuery.textScaler (tested at 200%).
 abstract final class AppText {
   static const List<FontFeature> _tabular = [FontFeature.tabularFigures()];
+  static const String _hebrewRounded = 'SF Hebrew Rounded';
+  static const List<String> _hebrewFallback = [
+    'SF Hebrew',
+    'CupertinoSystemText',
+  ];
 
   /// Composer / keypad amount: 44 bold tabular.
   static const TextStyle amountHero = TextStyle(
+    fontFamily: _hebrewRounded,
+    fontFamilyFallback: _hebrewFallback,
     fontSize: 44,
     fontWeight: FontWeight.w700,
     fontFeatures: _tabular,
@@ -205,6 +212,8 @@ abstract final class AppText {
 
   /// Money card amount: 34 bold tabular.
   static const TextStyle amountCard = TextStyle(
+    fontFamily: _hebrewRounded,
+    fontFamilyFallback: _hebrewFallback,
     fontSize: 34,
     fontWeight: FontWeight.w400,
     fontFeatures: _tabular,
@@ -213,6 +222,8 @@ abstract final class AppText {
 
   /// Amount in rows and summaries: 17 semibold tabular.
   static const TextStyle amountRow = TextStyle(
+    fontFamily: _hebrewRounded,
+    fontFamilyFallback: _hebrewFallback,
     fontSize: 17,
     fontWeight: FontWeight.w600,
     fontFeatures: _tabular,
@@ -220,43 +231,62 @@ abstract final class AppText {
 
   /// Screen / sheet title: 24 semibold.
   static const TextStyle title = TextStyle(
+    fontFamily: _hebrewRounded,
+    fontFamilyFallback: _hebrewFallback,
     fontSize: 24,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w700,
   );
 
   /// Row titles, card titles: 17 semibold.
   static const TextStyle headline = TextStyle(
+    fontFamily: _hebrewRounded,
+    fontFamilyFallback: _hebrewFallback,
     fontSize: 17,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w700,
   );
 
   /// Body: 17.
   static const TextStyle body = TextStyle(
-    fontSize: 15,
+    fontFamily: _hebrewRounded,
+    fontFamilyFallback: _hebrewFallback,
+    fontSize: 16,
     fontWeight: FontWeight.w400,
   );
 
   /// Secondary text: 15 (use with `palette.muted`, ≥4.5:1).
   static const TextStyle secondary = TextStyle(
+    fontFamily: _hebrewRounded,
+    fontFamilyFallback: _hebrewFallback,
     fontSize: 15,
     fontWeight: FontWeight.w400,
   );
 
   /// Button labels: 18 semibold.
   static const TextStyle button = TextStyle(
-    fontSize: 15,
-    fontWeight: FontWeight.w600,
+    fontFamily: _hebrewRounded,
+    fontFamilyFallback: _hebrewFallback,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
   );
 
   static const TextStyle keypad = TextStyle(
-    fontFamily: 'Poppins',
+    fontFamily: _hebrewRounded,
+    fontFamilyFallback: _hebrewFallback,
     fontSize: 28,
     fontWeight: FontWeight.w500,
   );
-  static const TextStyle dashboardAmount = TextStyle(fontSize: 71.013, fontWeight: FontWeight.w400, height: 1.15);
+  static const TextStyle dashboardAmount = TextStyle(
+    fontFamily: _hebrewRounded,
+    fontFamilyFallback: _hebrewFallback,
+    fontSize: 71.013,
+    fontWeight: FontWeight.w400,
+    height: 1.15,
+  );
   static const TextStyle displayTitle = TextStyle(
-    fontSize: 38,
-    fontWeight: FontWeight.w600,
+    fontFamily: _hebrewRounded,
+    fontFamilyFallback: _hebrewFallback,
+    fontSize: 32,
+    fontWeight: FontWeight.w800,
   );
 
   // V1 names kept so V1 screens compile until they are rewritten.
@@ -284,19 +314,25 @@ ThemeData buildTheme(Brightness brightness) {
   );
   return ThemeData(
     useMaterial3: true,
+    fontFamily: 'SF Hebrew Rounded',
     brightness: brightness,
     colorScheme: scheme,
     scaffoldBackgroundColor: dark ? Colors.transparent : p.canvas,
     extensions: [p],
     splashFactory: NoSplash.splashFactory,
-    textTheme: const TextTheme(
-      titleLarge: AppText.title,
-      titleMedium: AppText.headline,
-      labelLarge: AppText.button,
-      bodyLarge: AppText.body,
-      bodyMedium: AppText.body,
-      bodySmall: AppText.secondary,
-    ).apply(bodyColor: p.ink, displayColor: p.ink),
+    textTheme:
+        const TextTheme(
+          titleLarge: AppText.title,
+          titleMedium: AppText.headline,
+          labelLarge: AppText.button,
+          bodyLarge: AppText.body,
+          bodyMedium: AppText.body,
+          bodySmall: AppText.secondary,
+        ).apply(
+          fontFamily: 'SF Hebrew Rounded',
+          bodyColor: p.ink,
+          displayColor: p.ink,
+        ),
     appBarTheme: AppBarTheme(
       backgroundColor: dark ? Colors.transparent : p.canvas,
       foregroundColor: p.ink,
@@ -326,6 +362,18 @@ ThemeData buildTheme(Brightness brightness) {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: dark ? DesignTokens.glass : p.surface,
+      labelStyle: AppText.secondary.copyWith(
+        color: p.muted,
+        fontFamily: 'SF Hebrew Rounded',
+      ),
+      floatingLabelStyle: AppText.secondary.copyWith(
+        color: p.ink,
+        fontWeight: FontWeight.w700,
+        fontFamily: 'SF Hebrew Rounded',
+      ),
+      hintStyle: AppText.secondary.copyWith(color: p.muted),
+      helperStyle: AppText.secondary.copyWith(color: p.muted),
+      errorStyle: AppText.secondary.copyWith(color: p.danger),
       contentPadding: const EdgeInsets.symmetric(
         horizontal: Space.l,
         vertical: Space.m,

@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/client.dart';
 import '../../api/inbox_api.dart';
 import '../../api/models/models.dart';
@@ -218,11 +219,11 @@ Future<void> runInboxAction(
   }
 }
 
-void _toast(BuildContext context, String text, {SnackBarAction? action}) {
+void _toast(BuildContext context, String text, {SnackBarAction? action, NoticeMotion motion = NoticeMotion.saved}) {
   if (!context.mounted) return;
   ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(text), action: action));
+    ..hideCurrentNotchNotice()
+    ..showNotchNotice(SnackBar(content: Text(text), action: action), motion: motion);
 }
 
 Future<void> _retryAllocation(
@@ -234,7 +235,7 @@ Future<void> _retryAllocation(
     await retryAllocation(c.documentIds);
     if (context.mounted) _toast(context, InboxHe.allocationRetried);
   } on ApiException catch (e) {
-    if (context.mounted) _toast(context, e.messageHe);
+    if (context.mounted) _toast(context, e.messageHe, motion: NoticeMotion.error);
   }
   onChanged();
 }
@@ -255,10 +256,10 @@ Future<void> _signAll(
       },
     );
     if (signed > 0 && context.mounted) {
-      _toast(context, InboxHe.signedDone(signed));
+      _toast(context, InboxHe.signedDone(signed), motion: NoticeMotion.signed);
     }
   } on ApiException catch (e) {
-    if (context.mounted) _toast(context, e.messageHe);
+    if (context.mounted) _toast(context, e.messageHe, motion: NoticeMotion.error);
   }
   onChanged();
 }
@@ -267,9 +268,9 @@ Future<void> _signAll(
 Future<void> _continueOnComputer(BuildContext context) async {
   try {
     await sendWebHandoff('TAX_AUTHORITY', InboxHe.handoffShaam);
-    if (context.mounted) _toast(context, InboxHe.handoffSent);
+    if (context.mounted) _toast(context, InboxHe.handoffSent, motion: NoticeMotion.sent);
   } on ApiException catch (e) {
-    if (context.mounted) _toast(context, e.messageHe);
+    if (context.mounted) _toast(context, e.messageHe, motion: NoticeMotion.error);
   }
 }
 
@@ -279,19 +280,20 @@ Future<void> runReminders(
   BuildContext context, {
   required VoidCallback onChanged,
 }) async {
-  _toast(context, InboxHe.remindersSending);
+  _toast(context, InboxHe.remindersSending, motion: NoticeMotion.reminder);
   final profile = businessContext.profile;
   final ReminderResult result;
   try {
     result = await sendReminders(paymentUrl: profile?.paymentLinkUrl);
   } on ApiException catch (e) {
-    if (context.mounted) _toast(context, e.messageHe);
+    if (context.mounted) _toast(context, e.messageHe, motion: NoticeMotion.error);
     return;
   }
   if (!context.mounted) return;
   _toast(
     context,
     InboxHe.remindersDone(result.sent, result.whatsapp.length),
+    motion: NoticeMotion.reminder,
     action: result.whatsapp.isEmpty
         ? null
         : SnackBarAction(
@@ -332,7 +334,7 @@ Future<void> showWhatsAppReminders(
                     );
                   } on ApiException catch (e) {
                     if (dialogContext.mounted) {
-                      _toast(dialogContext, e.messageHe);
+                      _toast(dialogContext, e.messageHe, motion: NoticeMotion.error);
                     }
                   }
                 },

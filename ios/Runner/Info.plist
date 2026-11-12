@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -58,6 +60,8 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>כדי לצלם קבלות של הוצאות ולשלוח אותן לתיבת ההוצאות של העסק.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>כדי לבחור לקוח מאנשי הקשר ולמלא את שמו ואת מספר הטלפון שלו במסמך או בבקשת תשלום.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>כדי לבחור קבלה של הוצאה מהגלריה ולשלוח אותה לתיבת ההוצאות של העסק.</string>
 	<key>NSFaceIDUsageDescription</key>

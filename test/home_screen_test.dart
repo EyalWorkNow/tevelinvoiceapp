@@ -162,7 +162,7 @@ void main() {
           },
         ],
       );
-      expect(find.text('סטודיו תבל'), findsOneWidget);
+      expect(find.text('שלום, דנה'), findsOneWidget);
       expect(find.byKey(const Key('home-role-tag')), findsNothing);
       expect(find.text('מגיע לך'), findsOneWidget);
       expect(find.text('מתוכם באיחור'), findsOneWidget);
@@ -298,13 +298,13 @@ void main() {
   );
 
   testWidgets(
-    'employee: no money card, only "בקש תשלום", role tag, own cards',
+    'employee: no money card, only "בקש תשלום", greeting, own cards',
     (tester) async {
       await pumpHome(tester, Preset.employee);
       expect(find.byKey(const Key('home-money')), findsNothing);
       expect(find.byKey(const Key('intent-paid')), findsNothing); // §19 q7
       expect(find.byKey(const Key('intent-request')), findsOneWidget);
-      expect(find.text('עובד'), findsOneWidget);
+      expect(find.byKey(const Key('home-greeting-name')), findsOneWidget);
       expect(find.byKey(const Key('inbox-OVERDUE')), findsNothing);
       expect(find.byKey(const Key('inbox-MY_REJECTED')), findsOneWidget);
       expect(
@@ -328,7 +328,7 @@ void main() {
     expect(find.byKey(const Key('intent-paid')), findsNothing);
     expect(find.byKey(const Key('intent-request')), findsNothing);
     expect(find.text('לטיפול'), findsNothing);
-    expect(find.text('צפייה בלבד'), findsOneWidget);
+    expect(find.byKey(const Key('home-greeting-name')), findsOneWidget);
   });
 
   testWidgets(

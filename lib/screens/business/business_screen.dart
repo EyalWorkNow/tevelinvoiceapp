@@ -6,9 +6,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/settings_api.dart'
     show fetchRemindersEnabled, saveRemindersEnabled;
 import '../../router.dart';
+import '../people/customer_crm_agenda_screen.dart';
 import '../../state/business_context.dart';
 import '../../state/caps.dart';
 import '../../state/session.dart';
@@ -20,6 +22,8 @@ import '../../util/composer_config.dart' show DocKind, configFor, moreKinds;
 import '../../util/intent_resolver.dart' show intentQuote, typeIntent;
 import '../../util/labels/labels.dart';
 import 'account_page.dart';
+import 'system_notice_settings.dart';
+import '../../util/labels/system_notices_he.dart';
 import 'branding_screen.dart';
 import 'integrations_screen.dart';
 import '../billing/billing_screen.dart';
@@ -42,6 +46,7 @@ class BusinessScreen extends StatelessWidget {
     'team' => const TeamPage(),
     'integrations' => const IntegrationsScreen(),
     'account' => const AccountPage(),
+    'notifications' => const SystemNoticeSettings(),
     'shaam' => const ShaamPage(),
     'profile' => const EditorPage(instance: '13.1', title: BusinessHe.profile),
     'branding' => const BrandingScreen(),
@@ -100,6 +105,7 @@ List<BusinessRowSpec> businessRows(
     const BusinessRowSpec('integrations', 'חיבורים ושליחה', Iconsax.link),
   if (caps.can(Cap.owner))
     const BusinessRowSpec('subscription', 'המסלול של העסק', Iconsax.crown),
+  const BusinessRowSpec('notifications', SystemNoticesHe.title, Iconsax.notification),
   const BusinessRowSpec('account', BusinessHe.account, Iconsax.user),
   if (caps.can(Cap.settingsBusiness) || caps.can(Cap.reportView))
     const BusinessRowSpec('desktop', BusinessHe.desktop, Iconsax.monitor),
@@ -189,12 +195,13 @@ class _BusinessListState extends State<_BusinessList> {
     try {
       await saveRemindersEnabled(on);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context).showNotchNotice(
           SnackBar(
             content: Text(
               on ? BusinessHe.remindersOn : BusinessHe.remindersOff,
             ),
           ),
+          motion: NoticeMotion.reminder,
         );
       }
     } on Object catch (e) {
@@ -223,6 +230,8 @@ class _BusinessListState extends State<_BusinessList> {
         openBusinessSection(context, BusinessSection.team);
       case 'shaam':
         openBusinessSection(context, BusinessSection.shaam);
+      case 'notifications':
+        openBusinessSection(context, BusinessSection.notifications);
       case 'account':
         openBusinessSection(context, BusinessSection.account);
       case 'profile':
@@ -267,13 +276,28 @@ class _BusinessListState extends State<_BusinessList> {
                 ),
               )
             : Padding(
-                padding: const EdgeInsets.symmetric(vertical: Space.s),
+                padding: const EdgeInsets.only(bottom: Space.s),
                 child: Semantics(
-                  header: true,
-                  child: Text(
-                    businessContext.displayName,
-                    key: const Key('business-name'),
-                    style: AppText.title,
+                  label: businessContext.displayName,
+                  child: Row(
+                    children: [
+                      Icon(
+                        Iconsax.shop,
+                        size: 17,
+                        color: context.palette.muted,
+                      ),
+                      const SizedBox(width: Space.s),
+                      Flexible(
+                        child: Text(
+                          businessContext.displayName,
+                          key: const Key('business-name'),
+                          style: AppText.secondary.copyWith(
+                            color: context.palette.muted,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -309,6 +333,7 @@ class _BusinessListState extends State<_BusinessList> {
 
   Widget _quickActions(BuildContext context, Caps caps) {
     final businessType = businessContext.businessType;
+    final currentBusinessId = businessContext.business?.businessId;
     final section46 =
         (businessContext.profile?.section46ApprovalNumber ?? '').isNotEmpty;
     final actions = <_ManagementAction>[
@@ -316,14 +341,29 @@ class _BusinessListState extends State<_BusinessList> {
         id: 'customers',
         label: 'לקוחות',
         icon: Iconsax.profile_2user,
-        orb: Icon(
+        orb: const Icon(
           Iconsax.profile_2user,
-          color: const Color(0xFF35556A),
+          color: Color(0xFF35556A),
           size: 28,
         ),
         color: const Color(0xFFC9E7F4),
         onTap: openPeople,
       ),
+      if (currentBusinessId != null)
+        _ManagementAction(
+          id: 'crm-agenda',
+          label: 'לוח מעקב',
+          icon: Iconsax.calendar,
+          orb: const Icon(Iconsax.calendar, color: Color(0xFF385D6E), size: 27),
+          color: const Color(0xFFD6EDF5),
+          onTap: () => unawaited(
+            openCustomerCrmAgenda(
+              context,
+              businessId: currentBusinessId,
+              onOpenCustomer: (id) => unawaited(openPerson(context, id)),
+            ),
+          ),
+        ),
       if (caps.can(Cap.docDraft)) ...[
         _ManagementAction(
           id: 'quote',
@@ -429,7 +469,7 @@ class _BusinessListState extends State<_BusinessList> {
           id: 'desktop',
           label: ComposeHe.moreOnComputer,
           icon: Iconsax.monitor,
-          orb: Icon(Iconsax.monitor, color: context.palette.ink, size: 28),
+          orb: const Icon(Iconsax.monitor, color: Color(0xFF775A36), size: 28),
           color: const Color(0xFFF1DEC2),
           onTap: () => openBusinessSection(context, BusinessSection.desktop),
         ),
@@ -525,38 +565,46 @@ class _ManagementQuickActions extends StatelessWidget {
           id: 'more',
           label: 'פעולות נוספות',
           icon: Iconsax.more,
-          orb: Icon(Iconsax.more, color: context.palette.ink, size: 28),
+          orb: const Icon(Iconsax.more, color: Color(0xFF624D73), size: 28),
           color: const Color(0xFFE6D4F4),
           onTap: () => onMore(actions.skip(7).toList()),
         ),
       );
     }
+    Widget actionOrb(_ManagementAction action) => ActionOrb(
+      key: Key('management-action-${action.id}'),
+      label: action.label,
+      icon: action.orb,
+      color: action.color,
+      labelSpacing: 5,
+      onPressed: action.onTap,
+    );
+
+    final rows = <Widget>[];
+    for (var start = 0; start < visible.length; start += 4) {
+      final row = visible.skip(start).take(4).toList(growable: false);
+      rows.add(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final action in row) Expanded(child: actionOrb(action)),
+            for (var empty = row.length; empty < 4; empty++)
+              const Expanded(child: SizedBox()),
+          ],
+        ),
+      );
+      if (start + 4 < visible.length) {
+        rows.add(const SizedBox(height: Space.xs));
+      }
+    }
+
     return Column(
+      key: const Key('management-quick-actions'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text('פעולות מהירות', style: AppText.title),
         const SizedBox(height: Space.s),
-        GridView.builder(
-          key: const Key('management-quick-actions'),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: visible.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            mainAxisExtent: 132,
-            crossAxisSpacing: 2,
-          ),
-          itemBuilder: (context, index) {
-            final action = visible[index];
-            return ActionOrb(
-              key: Key('management-action-${action.id}'),
-              label: action.label,
-              icon: action.orb,
-              color: action.color,
-              onPressed: action.onTap,
-            );
-          },
-        ),
+        ...rows,
       ],
     );
   }
@@ -569,25 +617,27 @@ class EditorPage extends StatelessWidget {
     required this.instance,
     required this.title,
     this.header,
+    this.showTitle = true,
   });
 
   final String instance;
   final String title;
   final Widget? header;
+  final bool showTitle;
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(title)),
+    appBar: showTitle ? AppBar(title: Text(title)) : null,
     body: SafeArea(
       child: Column(
         children: [
           if (header != null) ...[
             Padding(
-              padding: const EdgeInsets.fromLTRB(
+              padding: EdgeInsets.fromLTRB(
                 Space.page,
-                Space.s,
+                showTitle ? Space.s : Space.l,
                 Space.page,
-                0,
+                Space.m,
               ),
               child: header!,
             ),

@@ -5,12 +5,16 @@ import '../../state/caps.dart';
 import '../money.dart';
 
 abstract final class InboxHe {
+  // Action labels shared by the application screens.
+  static const dismissSummary = 'הסרה מהרשימה';
+  static const allInvoicesAction = 'לכל החשבוניות  ←';
+
   // H
   static const moneyLabel = 'מגיע לך';
   static const moneyOverdue = 'מתוכם באיחור';
   static const todo = 'לטיפול';
   static const inboxListTitle = 'משימות לטיפול';
-  static const recent = 'פעילות אחרונה';
+  static const recent = 'פעילויות אחרונות';
   static const documentsAction = 'מסמכים';
   static const expensesAction = 'הוצאות';
   static const allActivity = 'כל הפעילות ›';
@@ -128,6 +132,7 @@ abstract final class InboxHe {
   static const chipUnpaid = 'לא שולם';
   static const chipDrafts = 'טיוטות';
   static const chipQuotes = 'הצעות';
+  static const chipPaid = 'שולם';
   static const chipInbox = 'לטיפול';
   static const capped = 'מוצגים 500 המסמכים האחרונים';
   static const loadMore = 'טען עוד';

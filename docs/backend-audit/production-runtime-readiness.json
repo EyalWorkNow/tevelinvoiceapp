@@ -1,0 +1,32 @@
+{
+  "configurationPresence": {
+    "APNS_SANDBOX_KEY_ID": true,
+    "APNS_SANDBOX_KEY_PATH": true,
+    "APNS_TEAM_ID": true,
+    "APNS_TOPIC": true,
+    "APPLE_AUDIENCE": true,
+    "CLAMD_HOST": true,
+    "CLAMD_PORT": true,
+    "SHAAM_ENABLED": true,
+    "SIGNING_PYTHON": true,
+    "SIGNING_TSA_URL": true,
+    "SMTP_FROM": true,
+    "SMTP_HOST": true,
+    "SMTP_PASSWORD": true,
+    "SMTP_PORT": true,
+    "SMTP_USER": true
+  },
+  "image": "tevel-invoice:5c3dbe1",
+  "modes": {
+    "ALLOW_UNSCANNED_UPLOADS": "unset",
+    "APNS_ENABLED": "unset",
+    "APP_ENV": "production",
+    "EMAIL_MODE": "provider",
+    "SHAAM_ENABLED": "0",
+    "SHAAM_ENV": "unset",
+    "STORAGE_MODE": "fs"
+  },
+  "service": "tevel-invoice-api-1",
+  "auditType": "read-only configuration presence; no secret values",
+  "workerRunning": false
+}

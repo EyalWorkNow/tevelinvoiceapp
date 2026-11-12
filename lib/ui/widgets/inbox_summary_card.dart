@@ -1,3 +1,4 @@
+import '../../util/labels/inbox_he.dart';
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
@@ -138,7 +139,7 @@ class _SummaryRow extends StatelessWidget {
                     Align(
                       alignment: AlignmentDirectional.centerEnd,
                       child: IconButton(
-                        tooltip: 'הסרה מהרשימה',
+                        tooltip: InboxHe.dismissSummary,
                         onPressed: row.onDismiss,
                         icon: Icon(
                           Icons.close_rounded,

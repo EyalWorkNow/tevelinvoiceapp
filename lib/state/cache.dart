@@ -8,15 +8,18 @@ import 'package:path_provider/path_provider.dart';
 ///
 /// Name entries per business, e.g. `AppCache.write('dashboard_$businessId', json)`.
 ///
-/// Two places on disk:
+/// Three places on disk:
 /// - read-only data → Library/Caches (not in iCloud/iTunes backups; iOS may
 ///   purge it, which only costs a refetch);
 /// - pending operations ([isPending]: idempotency state of an issue / payment /
 ///   credit in progress) → Application Support/pending, which iOS never purges.
-///   AppDelegate.swift marks that directory excluded from backup.
+///   AppDelegate.swift marks this and user-entered local records excluded from backup;
+/// - user-entered local records → Application Support/user_data, which iOS does
+///   not purge.
 abstract final class AppCache {
   static Directory? _dir;
   static Directory? _pendingDir;
+  static Directory? _userDataDir;
 
   static Future<Directory> _defaultDirectory() async =>
       Directory('${(await getApplicationCacheDirectory()).path}/cache');
@@ -29,12 +32,18 @@ abstract final class AppCache {
   static bool isPending(String name) =>
       name.startsWith('pending_') || name.startsWith('nd_pending_issue_');
 
-  static Future<Directory> _cacheDir() async => _dir ??= await directoryProvider();
+  static Future<Directory> _cacheDir() async =>
+      _dir ??= await directoryProvider();
 
-  static Future<Directory> _pendingDirectory() async => _pendingDir ??=
-      directoryProvider == _defaultDirectory
-          ? Directory('${(await getApplicationSupportDirectory()).path}/pending')
-          : Directory('${(await _cacheDir()).path}/pending');
+  static Future<Directory> _pendingDirectory() async =>
+      _pendingDir ??= directoryProvider == _defaultDirectory
+      ? Directory('${(await getApplicationSupportDirectory()).path}/pending')
+      : Directory('${(await _cacheDir()).path}/pending');
+
+  static Future<Directory> _userDataDirectory() async =>
+      _userDataDir ??= directoryProvider == _defaultDirectory
+      ? Directory('${(await getApplicationSupportDirectory()).path}/user_data')
+      : Directory('${(await _cacheDir()).path}/user_data');
 
   /// Marker next to the pending directory (never wiped by [clearAll]). It is
   /// gone after an uninstall, while the Keychain is not.
@@ -74,7 +83,40 @@ abstract final class AppCache {
 
   static Future<void> write(String name, Object? json) async {
     final file = await _file(name);
-    final tmp = File('${file.path}.${DateTime.now().microsecondsSinceEpoch}.tmp');
+    final tmp = File(
+      '${file.path}.${DateTime.now().microsecondsSinceEpoch}.tmp',
+    );
+    await tmp.writeAsString(jsonEncode(json), flush: true);
+    await tmp.rename(file.path);
+  }
+
+  /// Durable device-local JSON for user-entered records. Unlike the cache,
+  /// this survives OS cache eviction and is cleared on explicit sign-out or
+  /// account deletion, but preserved when a session expires.
+  static Future<Object?> readUserData(
+    String name, {
+    bool strict = false,
+  }) async {
+    try {
+      final dir = await _userDataDirectory();
+      final safe = name.replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_');
+      final file = File('${dir.path}/$safe.json');
+      if (!file.existsSync()) return null;
+      return jsonDecode(await file.readAsString());
+    } on Object {
+      if (strict) rethrow;
+      return null;
+    }
+  }
+
+  static Future<void> writeUserData(String name, Object? json) async {
+    final dir = await _userDataDirectory();
+    if (!dir.existsSync()) await dir.create(recursive: true);
+    final safe = name.replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_');
+    final file = File('${dir.path}/$safe.json');
+    final tmp = File(
+      '${file.path}.${DateTime.now().microsecondsSinceEpoch}.tmp',
+    );
     await tmp.writeAsString(jsonEncode(json), flush: true);
     await tmp.rename(file.path);
   }
@@ -88,27 +130,58 @@ abstract final class AppCache {
   static Future<bool> hasPending() async {
     try {
       final dir = await _pendingDirectory();
-      return dir.existsSync() && dir.listSync().any((f) => f.path.endsWith('.json'));
-    } on Object {
+      if (dir.existsSync() &&
+          dir.listSync().any((f) => f.path.endsWith('.json'))) {
+        return true;
+      }
+      final userData = await _userDataDirectory();
+      if (!userData.existsSync()) return false;
+      for (final file in userData.listSync().whereType<File>()) {
+        final name = file.uri.pathSegments.last;
+        if (!name.startsWith('customer_crm_') ||
+            !name.endsWith('.json') ||
+            name.contains('_conflict_backup')) {
+          continue;
+        }
+        final value = jsonDecode(await file.readAsString());
+        if (value is Map &&
+            value['pending'] is List &&
+            (value['pending'] as List).isNotEmpty) {
+          return true;
+        }
+      }
       return false;
+    } on Object {
+      // An unreadable queue must not silently bypass the sign-out confirmation.
+      return true;
     }
   }
 
-  /// Wipes the cache. Pending operations are wiped only when [keepPending]
-  /// is false (explicit sign-out / account deletion), never on token expiry.
+  /// Wipes the cache. Pending operations and user-entered local records are
+  /// wiped only on explicit sign-out / account deletion, never on token expiry.
   static Future<void> clearAll({bool keepPending = false}) async {
     final dir = await _cacheDir();
     final pending = await _pendingDirectory();
     final marker = await _installMarker();
+    final userData = await _userDataDirectory();
     if (dir.existsSync()) {
       for (final e in dir.listSync()) {
-        if (e.path == pending.path || e.path == marker.path) continue;
+        if (e.path == pending.path ||
+            e.path == marker.path ||
+            e.path == userData.path) {
+          continue;
+        }
         await e.delete(recursive: true);
       }
     }
     // Files only: the directory keeps its exclude-from-backup flag.
     if (!keepPending && pending.existsSync()) {
       for (final e in pending.listSync()) {
+        await e.delete(recursive: true);
+      }
+    }
+    if (!keepPending && userData.existsSync()) {
+      for (final e in userData.listSync()) {
         await e.delete(recursive: true);
       }
     }

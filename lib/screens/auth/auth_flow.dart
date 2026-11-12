@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../../api/auth_api.dart';
 import '../../api/client.dart';
+import '../../api/commerce_api.dart';
 import '../../router.dart';
 import '../../state/business_context.dart';
 import '../../state/caps.dart';
@@ -16,15 +17,21 @@ import '../../util/allowed_urls.dart';
 import '../../util/labels/labels.dart';
 import '../business/delete_account_screen.dart';
 import '../business/sheets/s14_switch.dart';
+import '../billing/billing_screen.dart';
 import 'mfa_sheet.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+
+bool _routingSignedIn = false;
+String? _subscriptionGateBusiness;
 
 /// After a provider answered (login / Apple / Google / invitation): MFA if
 /// needed, trade the cookie session for a device token, then route. Returns
 /// false when the user backed out of the MFA step. Throws [ApiException].
 Future<bool> finishSignIn(BuildContext context, SignInResult result) async {
   if (result.mfaRequired) {
-    if (!await showMfaStep(context)) return false;
+    if (!await showMfaStep(context)) {
+      return false;
+    }
   }
   try {
     await _completeSignIn();
@@ -34,7 +41,9 @@ Future<bool> finishSignIn(BuildContext context, SignInResult result) async {
     // enrol an e-mail code first (API-MOBILE §5 "Enrollment").
     if (e.code != 'MFA_REQUIRED' || !context.mounted) rethrow;
     final enrolled = await _hasMfaMethod();
-    if (!context.mounted || !await showMfaStep(context, enroll: !enrolled)) return false;
+    if (!context.mounted || !await showMfaStep(context, enroll: !enrolled)) {
+      return false;
+    }
     await _completeSignIn();
   }
   if (context.mounted) await routeSignedIn(context);
@@ -62,51 +71,91 @@ Future<void> _completeSignIn() async {
 
 /// Signed in (fresh or restored): pick a business, set up, or go home.
 Future<void> routeSignedIn(BuildContext context) async {
-  if (session.hasNoBusiness) {
-    _resetTo(const NoBusinessScreen(), '/gate/no-business');
-    return;
-  }
-  if (session.needsBusinessPick) {
-    final picked = await showSwitchBusinessSheet(context, required: true);
-    if (picked == null) return; // the picker stays the only way forward
-  }
-  if (session.business != null && session.me == null && !session.offline) {
-    try {
-      await session.refreshBusiness();
-    } on ApiException catch (e) {
-      if (e.code == 'MFA_REQUIRED') {
-        // A token minted before this member needed MFA (e.g. just got
-        // "מפיק בעצמו"): sign in again through the MFA step.
-        await session.signOutLocally();
-        resetToLogin(expired: true);
-        return;
+  if (_routingSignedIn) return;
+  _routingSignedIn = true;
+  try {
+    if (session.hasNoBusiness) {
+      _resetTo(const NoBusinessScreen(), '/gate/no-business');
+      return;
+    }
+    if (session.needsBusinessPick) {
+      final picked = await showSwitchBusinessSheet(context, required: true);
+      if (picked == null) return; // the picker stays the only way forward
+    }
+    if (session.business != null && session.me == null && !session.offline) {
+      try {
+        await session.refreshBusiness();
+      } on ApiException catch (e) {
+        if (e.code == 'MFA_REQUIRED') {
+          // A token minted before this member needed MFA (e.g. just got
+          // "מפיק בעצמו"): sign in again through the MFA step.
+          await session.signOutLocally();
+          resetToLogin(expired: true);
+          return;
+        }
+        // 401 already signed us out; offline → home from cache.
+        if (!e.isNetwork) {
+          if (e.status == 401) return;
+          if (context.mounted) showErrorSnack(context, e);
+        }
       }
-      // 401 already signed us out; offline → home from cache.
-      if (!e.isNetwork) {
-        if (e.status == 401) return;
+    }
+    final me = session.me;
+    if (me != null && !me.onboardingCompleted && !session.offline) {
+      if (businessContext.can(Cap.owner)) {
+        resetToSetup();
+      } else {
+        _resetTo(const SetupPendingScreen(), '/gate/setup-pending');
+      }
+      return;
+    }
+    if (session.business != null && !session.offline) {
+      try {
+        final subscription = await fetchSubscription();
+        if (!subscription.active && context.mounted) {
+          final businessId = session.business?.businessId;
+          if (businessId != null && _subscriptionGateBusiness == businessId) {
+            return;
+          }
+          _subscriptionGateBusiness = businessId;
+          _resetTo(
+            RequiredSubscriptionScreen(
+              onSubscribed: _leaveSubscriptionGate,
+              onExit: _leaveSubscriptionGate,
+            ),
+            '/gate/subscription',
+          );
+          return;
+        }
+        _subscriptionGateBusiness = null;
+      } on ApiException catch (e) {
+        if (e.status == 401) {
+          return;
+        }
+        if (!e.isNetwork && context.mounted) showErrorSnack(context, e);
+      } on Object catch (e) {
         if (context.mounted) showErrorSnack(context, e);
       }
     }
+    resetToHome();
+  } finally {
+    _routingSignedIn = false;
   }
-  final me = session.me;
-  if (me != null && !me.onboardingCompleted && !session.offline) {
-    if (businessContext.can(Cap.owner)) {
-      resetToSetup();
-    } else {
-      _resetTo(const SetupPendingScreen(), '/gate/setup-pending');
-    }
-    return;
-  }
+}
+
+void _leaveSubscriptionGate() {
+  _subscriptionGateBusiness = null;
   resetToHome();
 }
 
-void _resetTo(Widget screen, String name) => navigatorKey.currentState?.pushAndRemoveUntil(
-  MaterialPageRoute(
-    builder: (_) => screen,
-    settings: RouteSettings(name: name),
-  ),
-  (_) => false,
-);
+void _resetTo(Widget screen, String name) =>
+    navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => screen,
+        settings: RouteSettings(name: name),
+      ),
+      (_) => false,
+    );
 
 /// A member (not the owner) of a business whose setup is not finished.
 class SetupPendingScreen extends StatefulWidget {
@@ -123,7 +172,9 @@ class _SetupPendingScreenState extends State<SetupPendingScreen> {
     setState(() => _checking = true);
     try {
       await session.refreshBusiness();
-      if (mounted && (session.me?.onboardingCompleted ?? false)) await routeSignedIn(context);
+      if (mounted && (session.me?.onboardingCompleted ?? false)) {
+        await routeSignedIn(context);
+      }
     } on ApiException catch (e) {
       if (mounted) showErrorSnack(context, e);
     } finally {
@@ -146,13 +197,18 @@ class _SetupPendingScreenState extends State<SetupPendingScreen> {
       if (session.businesses.length > 1)
         TextButton(
           onPressed: () async {
-            if (await showSwitchBusinessSheet(context, required: true) != null && context.mounted) {
+            if (await showSwitchBusinessSheet(context, required: true) !=
+                    null &&
+                context.mounted) {
               await routeSignedIn(context);
             }
           },
           child: const Text(BusinessHe.switchBusiness),
         ),
-      TextButton(onPressed: session.signOut, child: const Text(BusinessHe.signOut)),
+      TextButton(
+        onPressed: session.signOut,
+        child: const Text(BusinessHe.signOut),
+      ),
     ],
   );
 }
@@ -204,12 +260,19 @@ class _NoBusinessScreenState extends State<NoBusinessScreen> {
         onPressed: _recheck,
       ),
       links: [
-        TextButton(onPressed: _desktop, child: const Text(CommonHe.continueOnComputer)),
-        TextButton(onPressed: session.signOut, child: const Text(BusinessHe.signOut)),
+        TextButton(
+          onPressed: _desktop,
+          child: const Text(CommonHe.continueOnComputer),
+        ),
+        TextButton(
+          onPressed: session.signOut,
+          child: const Text(BusinessHe.signOut),
+        ),
         // 5.1.1(v): B is out of reach without a business; deletion needs only the token.
         TextButton(
-          onPressed: () =>
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DeleteAccountScreen())),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const DeleteAccountScreen()),
+          ),
           style: TextButton.styleFrom(foregroundColor: p.danger),
           child: const Text(BusinessHe.deleteAccount),
         ),
@@ -247,7 +310,11 @@ class _GateMessage extends StatelessWidget {
             const SizedBox(height: Space.l),
             Semantics(
               header: true,
-              child: Text(title, style: AppText.title, textAlign: TextAlign.center),
+              child: Text(
+                title,
+                style: AppText.title,
+                textAlign: TextAlign.center,
+              ),
             ),
             const SizedBox(height: Space.s),
             Text(

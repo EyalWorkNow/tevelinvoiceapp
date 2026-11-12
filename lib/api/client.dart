@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:http/http.dart' as http;
 
 import '../util/errors_he.dart';
+import 'environment.dart';
 
 /// Server error mapped to Hebrew. [status] 0 = no HTTP response (network).
 class ApiException implements Exception {
@@ -31,7 +32,10 @@ class ApiException implements Exception {
 enum ApiEvent { sessionExpired, mfaRequired, forbidden }
 
 /// 403 codes that mean "your permissions changed" (§4.6).
-const Set<String> capabilityRefreshCodes = {'FORBIDDEN', 'DOCUMENT_ACTION_FORBIDDEN'};
+const Set<String> capabilityRefreshCodes = {
+  'FORBIDDEN',
+  'DOCUMENT_ACTION_FORBIDDEN',
+};
 
 /// One HTTP client for the whole app.
 ///
@@ -47,9 +51,12 @@ class ApiClient {
   ApiClient._();
   static final ApiClient instance = ApiClient._();
 
-  static const String baseUrl =
-      String.fromEnvironment('API_BASE',
-          defaultValue: kReleaseMode ? 'https://invoice.crm.tevel.space' : 'http://127.0.0.1:3031');
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE',
+    defaultValue: kReleaseMode
+        ? 'https://invoice.crm.tevel.space'
+        : 'http://127.0.0.1:3031',
+  );
   static const Duration timeout = Duration(seconds: 30);
 
   /// Replaceable in tests (package:http/testing.dart MockClient).
@@ -60,7 +67,8 @@ class ApiClient {
   String? deviceToken;
   String? businessId;
 
-  final StreamController<ApiEvent> _events = StreamController<ApiEvent>.broadcast();
+  final StreamController<ApiEvent> _events =
+      StreamController<ApiEvent>.broadcast();
   Stream<ApiEvent> get events => _events.stream;
 
   bool get hasDeviceToken => deviceToken != null;
@@ -92,9 +100,35 @@ class ApiClient {
   Future<Map<String, dynamic>> get(String path, {Map<String, String>? query}) =>
       _json('GET', path, query: query);
 
-  Future<Map<String, dynamic>> post(String path,
-          [Object? body, String? idempotencyKey]) =>
-      _json('POST', path, body: body ?? const {}, idempotencyKey: idempotencyKey);
+  Future<Map<String, dynamic>> post(
+    String path, [
+    Object? body,
+    String? idempotencyKey,
+  ]) => _json(
+    'POST',
+    path,
+    body: body ?? const {},
+    idempotencyKey: idempotencyKey,
+  );
+
+  /// Business-scoped background registration without mutating the active UI scope.
+  Future<Map<String, dynamic>> postForBusiness(
+    String business,
+    String path,
+    Object body,
+  ) => _json('POST', path, body: body, businessOverride: business);
+
+  Future<Map<String, dynamic>> getForBusiness(
+    String business,
+    String path, {
+    Map<String, String>? query,
+  }) => _json('GET', path, query: query, businessOverride: business);
+
+  Future<Map<String, dynamic>> putForBusiness(
+    String business,
+    String path,
+    Object body,
+  ) => _json('PUT', path, body: body, businessOverride: business);
 
   Future<Map<String, dynamic>> put(String path, Object? body) =>
       _json('PUT', path, body: body ?? const {});
@@ -111,19 +145,37 @@ class ApiClient {
   }
 
   /// POST with a JSON body that answers with bytes (PDF preview).
-  Future<Uint8List> postBytes(String path, Object? body, {String accept = 'application/pdf'}) async {
-    final response = await _send('POST', path, body: body ?? const {}, extraHeaders: {'Accept': accept});
+  Future<Uint8List> postBytes(
+    String path,
+    Object? body, {
+    String accept = 'application/pdf',
+  }) async {
+    final response = await _send(
+      'POST',
+      path,
+      body: body ?? const {},
+      extraHeaders: {'Accept': accept},
+    );
     return response.bodyBytes;
   }
 
   /// Raw body upload (expense bytes). [filename] is percent-encoded into
   /// X-Filename like the web client (header values must be Latin-1).
-  Future<Map<String, dynamic>> putBytes(String path, Uint8List bytes, String contentType,
-      {String? filename}) async {
-    final response = await _send('PUT', path,
-        bytes: bytes,
-        contentType: contentType,
-        extraHeaders: {if (filename != null) 'X-Filename': Uri.encodeComponent(filename)});
+  Future<Map<String, dynamic>> putBytes(
+    String path,
+    Uint8List bytes,
+    String contentType, {
+    String? filename,
+  }) async {
+    final response = await _send(
+      'PUT',
+      path,
+      bytes: bytes,
+      contentType: contentType,
+      extraHeaders: {
+        if (filename != null) 'X-Filename': Uri.encodeComponent(filename),
+      },
+    );
     return _decode(response);
   }
 
@@ -141,10 +193,22 @@ class ApiClient {
 
   // ---- internals ----------------------------------------------------------
 
-  Future<Map<String, dynamic>> _json(String method, String path,
-      {Object? body, Map<String, String>? query, String? idempotencyKey}) async {
-    final response = await _send(method, path,
-        body: body, query: query, idempotencyKey: idempotencyKey);
+  Future<Map<String, dynamic>> _json(
+    String method,
+    String path, {
+    Object? body,
+    Map<String, String>? query,
+    String? idempotencyKey,
+    String? businessOverride,
+  }) async {
+    final response = await _send(
+      method,
+      path,
+      body: body,
+      query: query,
+      idempotencyKey: idempotencyKey,
+      businessOverride: businessOverride,
+    );
     return _decode(response);
   }
 
@@ -154,10 +218,18 @@ class ApiClient {
     try {
       json = jsonDecode(utf8.decode(response.bodyBytes));
     } on FormatException {
-      throw ApiException(response.statusCode, 'BAD_RESPONSE', errorMessageHe('BAD_RESPONSE'));
+      throw ApiException(
+        response.statusCode,
+        'BAD_RESPONSE',
+        errorMessageHe('BAD_RESPONSE'),
+      );
     }
     if (json is! Map<String, dynamic>) {
-      throw ApiException(response.statusCode, 'BAD_RESPONSE', errorMessageHe('BAD_RESPONSE'));
+      throw ApiException(
+        response.statusCode,
+        'BAD_RESPONSE',
+        errorMessageHe('BAD_RESPONSE'),
+      );
     }
     // Any csrfToken in a body (login, mfa, rotation) replaces the stored one.
     final csrf = json['csrfToken'];
@@ -165,21 +237,28 @@ class ApiClient {
     return json;
   }
 
-  Future<http.Response> _send(String method, String path,
-      {Object? body,
-      Uint8List? bytes,
-      String? contentType,
-      Map<String, String>? query,
-      String? idempotencyKey,
-      Map<String, String> extraHeaders = const {}}) async {
+  Future<http.Response> _send(
+    String method,
+    String path, {
+    Object? body,
+    Uint8List? bytes,
+    String? contentType,
+    Map<String, String>? query,
+    String? idempotencyKey,
+    String? businessOverride,
+    Map<String, String> extraHeaders = const {},
+  }) async {
     // Defence in depth for interpolated ids ('/documents/$id'): no dot
     // segments, so nothing can climb out of the intended resource.
     final rawPath = path.split('?').first;
-    if (rawPath.split('/').any((s) => s == '.' || s == '..') || path.contains('#')) {
+    if (rawPath.split('/').any((s) => s == '.' || s == '..') ||
+        path.contains('#')) {
       throw ApiException(0, 'INVALID_ID', errorMessageHe('INVALID_ID'));
     }
-    final uri = Uri.parse('$baseUrl$path').replace(
-        queryParameters: (query == null || query.isEmpty) ? null : query);
+    final origin = kReleaseMode ? productionApiUri(baseUrl).toString() : baseUrl;
+    final uri = Uri.parse(
+      '$origin$path',
+    ).replace(queryParameters: (query == null || query.isEmpty) ? null : query);
     final request = http.Request(method, uri);
     final headers = request.headers..addAll(extraHeaders);
     headers['Accept'] = extraHeaders['Accept'] ?? 'application/json';
@@ -192,8 +271,10 @@ class ApiClient {
       final csrf = csrfToken;
       if (method != 'GET' && csrf != null) headers['X-CSRF-Token'] = csrf;
     }
-    final business = businessId;
-    if (business != null && sendsBusinessHeader(path)) headers['X-Business-Id'] = business;
+    final business = businessOverride ?? businessId;
+    if (business != null && sendsBusinessHeader(path)) {
+      headers['X-Business-Id'] = business;
+    }
     if (idempotencyKey != null) headers['Idempotency-Key'] = idempotencyKey;
     if (bytes != null) {
       headers['Content-Type'] = contentType ?? 'application/octet-stream';
@@ -206,7 +287,8 @@ class ApiClient {
     final http.Response response;
     try {
       response = await http.Response.fromStream(
-          await httpClient.send(request).timeout(timeout)).timeout(timeout);
+        await httpClient.send(request).timeout(timeout),
+      ).timeout(timeout);
     } on TimeoutException {
       throw ApiException(0, 'TIMEOUT', errorMessageHe('TIMEOUT'));
     } on SocketException {
@@ -216,7 +298,9 @@ class ApiClient {
     }
 
     _captureCookie(response.headers['set-cookie']);
-    if (response.statusCode >= 200 && response.statusCode < 300) return response;
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return response;
+    }
     throw _error(response, path);
   }
 
@@ -224,7 +308,9 @@ class ApiClient {
   /// an emptied cookie (logout) clears it.
   void _captureCookie(String? setCookie) {
     if (setCookie == null) return;
-    final match = RegExp(r'(?:^|[,\s])tvl_session=([^;,]*)').firstMatch(setCookie);
+    final match = RegExp(
+      r'(?:^|[,\s])tvl_session=([^;,]*)',
+    ).firstMatch(setCookie);
     if (match == null) return;
     final value = match.group(1)!;
     sessionCookie = value.isEmpty ? null : value;
@@ -245,23 +331,39 @@ class ApiClient {
     }
     if (code == 'ERROR') {
       if (status == 429) code = 'RATE_LIMITED';
-      if (status == 502 || status == 503 || status == 504) code = 'SERVICE_UNAVAILABLE';
+      if (status == 502 || status == 503 || status == 504) {
+        code = 'SERVICE_UNAVAILABLE';
+      }
     }
     // 401 on /auth/* is a login answer (wrong password, bad code), not expiry.
-    if (status == 401 && !path.startsWith('/auth/')) _events.add(ApiEvent.sessionExpired);
-    if (status == 403 && code == 'MFA_REQUIRED') _events.add(ApiEvent.mfaRequired);
-    if (status == 403 && capabilityRefreshCodes.contains(code) && path != '/me') {
+    if (status == 401 && !path.startsWith('/auth/')) {
+      _events.add(ApiEvent.sessionExpired);
+    }
+    if (status == 403 && code == 'MFA_REQUIRED') {
+      _events.add(ApiEvent.mfaRequired);
+    }
+    if (status == 403 &&
+        capabilityRefreshCodes.contains(code) &&
+        path != '/me') {
       _events.add(ApiEvent.forbidden);
     }
-    return ApiException(status, code, errorMessageHe(code, serverMessage: message, status: status),
-        serverMessage: message);
+    return ApiException(
+      status,
+      code,
+      errorMessageHe(code, serverMessage: message, status: status),
+      serverMessage: message,
+    );
   }
 }
 
 /// /mobile/* routes that are business-scoped on the server (V2: BE-05 inbox,
 /// BE-35 web hand-off). The rest of /mobile/* and /auth/* are account-level
 /// and must not carry X-Business-Id (400 BUSINESS_REQUIRED otherwise).
-const Set<String> businessScopedMobilePaths = {'/mobile/inbox', '/mobile/web-handoff'};
+const Set<String> businessScopedMobilePaths = {
+  '/mobile/inbox',
+  '/mobile/web-handoff',
+  '/mobile/push-tokens',
+};
 
 bool sendsBusinessHeader(String path) {
   if (path.startsWith('/auth/')) return false;

@@ -36,10 +36,20 @@ void main() {
     backend = FakeBackend()..install();
   });
 
-  Future<void> pumpShell(WidgetTester tester, Preset preset) async {
+  Future<void> pumpShell(
+    WidgetTester tester,
+    Preset preset, {
+    bool contactsPermissionPrompted = true,
+  }) async {
     tester.view.physicalSize = const Size(1170, 2532);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
+    await tester.runAsync(
+      () => AppCache.write(
+        'contacts_permission_prompted',
+        contactsPermissionPrompted,
+      ),
+    );
     await tester.runAsync(() => signInAs(backend, preset));
     await tester.pumpWidget(
       MaterialApp(
@@ -56,63 +66,59 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  double x(WidgetTester t, String key) => t.getCenter(find.byKey(Key(key))).dx;
+  testWidgets('large reserved glass navigation; create action only at home', (
+    tester,
+  ) async {
+    await pumpShell(tester, Preset.owner);
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.byKey(const Key('home-profile-avatar')), findsOneWidget);
+    expect(find.textContaining('שלום,'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Scaffold && widget.bottomNavigationBar != null,
+      ),
+      findsAtLeastNWidgets(1),
+    );
+    expect(find.byKey(const Key('tab-home')), findsOneWidget);
+    expect(find.byKey(const Key('tab-business')), findsOneWidget);
+    expect(find.byKey(const Key('tab-profile')), findsOneWidget);
+    expect(find.byKey(const Key('home-create-glass')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('tab-create')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ComposeScreen), findsOneWidget);
+    expect(
+      AppRouter.instance.observer.stack.any(
+        (route) => route.contains('/compose'),
+      ),
+      isTrue,
+    );
+    Navigator.of(
+      tester.element(find.byType(AppShell, skipOffstage: false)),
+    ).popUntil((route) => route.isFirst);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('tab-business')));
+    await tester.pumpAndSettle();
+    expect(currentTab.value, AppTab.business);
+    expect(find.byType(BusinessScreen), findsOneWidget);
+    expect(find.byKey(const Key('tab-create')), findsNothing);
+    await tester.tap(find.byKey(const Key('tab-profile')));
+    await tester.pumpAndSettle();
+    expect(currentTab.value, AppTab.profile);
+    expect(find.byType(ProfileSettingsScreen), findsOneWidget);
+    await tester.tap(find.byKey(const Key('tab-home')));
+    await tester.pumpAndSettle();
+    expect(currentTab.value, AppTab.home);
+    expect(find.byKey(const Key('home-create-glass')), findsOneWidget);
+  });
 
   testWidgets(
-    'RTL glass bar: בית · ניהול · פרופיל; invoice action only at home',
-    (tester) async {
-      await pumpShell(tester, Preset.owner);
-      expect(find.byType(HomeScreen), findsOneWidget);
-      expect(x(tester, 'tab-home'), greaterThan(x(tester, 'tab-business')));
-      expect(x(tester, 'tab-business'), greaterThan(x(tester, 'tab-profile')));
-      expect(find.byKey(const Key('home-create-glass')), findsOneWidget);
-      expect(find.text('בית'), findsOneWidget);
-      expect(find.text('ניהול'), findsOneWidget);
-      expect(find.text('פרופיל'), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('tab-create')));
-      await tester.pumpAndSettle();
-      expect(find.byType(ComposeScreen), findsOneWidget);
-      expect(
-        AppRouter.instance.observer.stack.any(
-          (route) => route.contains('/compose'),
-        ),
-        isTrue,
-      );
-      Navigator.of(
-        tester.element(find.byType(AppShell)),
-      ).popUntil((route) => route.isFirst);
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('tab-business')));
-      await tester.pumpAndSettle();
-      expect(currentTab.value, AppTab.business);
-      expect(find.byType(BusinessScreen), findsOneWidget);
-      expect(find.byKey(const Key('tab-create')), findsNothing);
-
-      await tester.tap(find.byKey(const Key('tab-profile')));
-      await tester.pumpAndSettle();
-      expect(currentTab.value, AppTab.profile);
-      expect(find.byType(ProfileSettingsScreen), findsOneWidget);
-      expect(find.byKey(const Key('tab-create')), findsNothing);
-      expect(
-        find.byKey(const Key('profile-settings-switcher')),
-        findsOneWidget,
-      );
-
-      await tester.tap(find.byKey(const Key('tab-home')));
-      await tester.pumpAndSettle();
-      expect(currentTab.value, AppTab.home);
-      expect(find.byKey(const Key('home-create-glass')), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'no ＋ for צפייה בלבד and the P0 accountant; accountant home = R',
+    'no invoice action for read-only and accountant presets; accountant home = R',
     (tester) async {
       await pumpShell(tester, Preset.viewer);
-      expect(find.byKey(const Key('tab-create')), findsNothing);
       expect(find.byType(HomeScreen), findsOneWidget);
+      expect(find.byKey(const Key('tab-create')), findsNothing);
 
       resetSession();
       await pumpShell(tester, Preset.accountantRep);

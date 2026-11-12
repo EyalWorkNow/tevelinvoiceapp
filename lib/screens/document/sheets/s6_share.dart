@@ -311,10 +311,10 @@ class _ShareSheetState extends State<ShareSheet> {
           if (_canSend) ...[
             PrimaryButton(
               key: const Key('s6-qr'),
-              label: 'סריקה לקבלת החשבונית',
+              label: BusinessHe.scanInvoiceAction,
               icon: Iconsax.scan_barcode,
               offline: _offline,
-              loadingText: _busy == _Busy.qr ? 'מכינים קישור…' : null,
+              loadingText: _busy == _Busy.qr ? BusinessHe.preparingLink : null,
               onPressed: () => _run(_Busy.qr, () async {
                 final link = _qrLink ?? await createShareLink(doc);
                 _linkMade = true;
@@ -356,32 +356,34 @@ class _ShareSheetState extends State<ShareSheet> {
                               throw ApiException(
                                 422,
                                 'CUSTOMER_PHONE_INVALID',
-                                'יש להזין מספר טלפון תקין',
+                                BusinessHe.validPhoneRequired,
                               );
                             }
                             final link = await createShareLink(doc);
                             final result = await smsComposer(
                               '+$number',
-                              'המסמך שלך מ$_businessName:\n$link',
+                              DocumentHe.customerSms(_businessName, link),
                             );
-                            if (result == 'SENT') return 'ההודעה נשלחה מהמכשיר';
+                            if (result == 'SENT') {
+                              return BusinessHe.messageSentFromDevice;
+                            }
                             if (result == 'UNAVAILABLE') {
                               throw ApiException(
                                 503,
                                 'SMS_UNAVAILABLE',
-                                'שליחת SMS אינה זמינה במכשיר הזה. אפשר לקבל את המסמך בסריקה או במייל.',
+                                BusinessHe.smsUnavailable,
                               );
                             }
                             if (result == 'FAILED') {
                               throw ApiException(
                                 502,
                                 'SMS_FAILED',
-                                'ההודעה לא נשלחה. ניתן לנסות שוב.',
+                                BusinessHe.smsFailed,
                               );
                             }
                             return null;
                           }),
-                    child: const Text('פותחים הודעה לשליחה'),
+                    child: const Text(BusinessHe.openingMessage),
                   ),
                 ],
               ),

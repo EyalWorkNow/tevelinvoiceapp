@@ -6,8 +6,10 @@
 // instance is one template. Instances by id: see editor_configs.dart.
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
+import '../../../ui/widgets/notch_notice.dart';
 import '../../../state/session.dart';
 import '../../../ui/ds.dart';
 import '../../../util/labels/labels.dart';
@@ -153,7 +155,7 @@ class _EditorFormState extends State<EditorForm> {
       final msg = widget.config.savedMessage;
       final messenger = ScaffoldMessenger.maybeOf(context);
       if (widget.popOnSave) Navigator.of(context).pop(true);
-      if (msg.isNotEmpty) messenger?.showSnackBar(SnackBar(content: Text(msg)));
+      if (msg.isNotEmpty) messenger?.showNotchNotice(SnackBar(content: Text(msg)));
     } on Object catch (e) {
       HapticFeedback.heavyImpact();
       if (mounted) setState(() => _error = errorTextHe(e));

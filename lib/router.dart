@@ -14,6 +14,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'ui/widgets/notch_notice.dart';
 import 'app_shell.dart';
 import 'ui/app_page_route.dart';
 import 'screens/activity/activity_screen.dart';
@@ -83,6 +84,7 @@ const Map<String, String> sheetRegistry = {
 /// /business/:section slugs (B sub-pages, §6.B / §13). Squad E may ask INT to
 /// append; unknown slugs open the business list.
 enum BusinessSection {
+  notifications,
   integrations,
   team,
   profile,
@@ -102,13 +104,14 @@ Cap? sectionCap(BusinessSection s) => switch (s) {
   BusinessSection.branding => Cap.settingsDesign,
   BusinessSection.approvals => Cap.settingsBusiness,
   BusinessSection.shaam => null,
-  BusinessSection.account => null,
+  BusinessSection.account || BusinessSection.notifications => null,
   BusinessSection.desktop => null,
   BusinessSection.numbering => Cap.settingsNumbering,
 };
 
 /// Query keys that carry an entity id into an API path.
 const Set<String> idQueryKeys = {
+  'businessId',
   'id',
   'customerId',
   'fromDocId',
@@ -262,9 +265,21 @@ Future<bool> go(String locationString, {BuildContext? context}) async {
     resetToLogin();
     return true;
   }
+  if (session.status != SessionStatus.signedIn) return false;
   if (route.pattern == '/setup') {
     resetToSetup();
     return true;
+  }
+  var switchedBusiness = false;
+  final targetBusiness = route.query['businessId'];
+  if (targetBusiness != null && targetBusiness != session.business?.businessId) {
+    if (session.status != SessionStatus.signedIn) return false;
+    final matches = session.account?.businesses.where((business) => business.businessId == targetBusiness);
+    if (matches == null || matches.isEmpty) return false;
+    await session.selectBusiness(matches.first);
+    resetToHome();
+    await WidgetsBinding.instance.endOfFrame;
+    switchedBusiness = true;
   }
   if (!route.allowedFor(businessContext.caps)) return false;
   switch (route.pattern) {
@@ -280,7 +295,7 @@ Future<bool> go(String locationString, {BuildContext? context}) async {
       return true;
   }
   final screen = screenFor(route)!;
-  final nav = context != null
+  final nav = context != null && context.mounted && !switchedBusiness
       ? Navigator.of(context)
       : navigatorKey.currentState;
   if (nav == null) return false;
@@ -574,7 +589,7 @@ class AppRouter with WidgetsBindingObserver {
     if (forbidden) resetToHome();
     // After the reset, so the toast lands on the visible Scaffold.
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => messengerKey.currentState?.showSnackBar(
+      (_) => messengerKey.currentState?.showNotchNotice(
         const SnackBar(
           content: Text(CommonHe.permissionsUpdated),
           behavior: SnackBarBehavior.fixed,

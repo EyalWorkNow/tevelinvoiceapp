@@ -4,7 +4,7 @@
 // Page 1 (pick): recent circles · search · "לקוח מזדמן" · "+ לקוח חדש".
 //   A tap on a customer returns it at once (auto-advance, no "המשך").
 // Page 2 (form): "+ לקוח חדש" opens an empty form. Contact import is optional
-// through an explicit action (CNContactPicker, no contacts permission).
+// through an explicit action (permission prompt, then the native picker).
 // Name · phone · e-mail · tax id (check digit) · one
 //   consent switch → "שמור". customerType is derived from the tax id;
 //   vatDealerStatus is never asked here (§4.9).
@@ -12,10 +12,14 @@
 // creates a supplier (supplier mode: no consent, POST /suppliers).
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
+
 import 'package:flutter/services.dart';
 import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
+import '../../../ui/widgets/notch_notice.dart';
 import '../../../api/customers_api.dart';
 import '../../../api/models/models.dart';
 import '../../../api/suppliers_api.dart';
@@ -38,6 +42,16 @@ class PickedContact {
 Future<PickedContact?> Function() pickContact = _nativePick;
 
 Future<PickedContact?> _nativePick() async {
+  if (defaultTargetPlatform == TargetPlatform.iOS) {
+    final allowed =
+        await const MethodChannel(
+          'tevel/contacts_permission',
+        ).invokeMethod<bool>('requestAccess') ??
+        false;
+    if (!allowed) {
+      throw PlatformException(code: 'CONTACTS_PERMISSION_DENIED');
+    }
+  }
   final c = await FlutterNativeContactPicker().selectContact();
   if (c == null) return null;
   return PickedContact(name: c.fullName, phones: c.phoneNumbers ?? const []);
@@ -49,13 +63,18 @@ Future<PickedContact?> _nativePick() async {
 Future<Customer?> showCustomerSheet(
   BuildContext context, {
   bool startOnNew = false,
+  bool recentPayments = false,
   Customer? edit,
   CustomerDetail? detail,
 }) async {
   final r = await _showCounterpartyPage(
     context,
-    builder: (_) =>
-        CustomerSheet(startOnNew: startOnNew, edit: edit, detail: detail),
+    builder: (_) => CustomerSheet(
+      startOnNew: startOnNew,
+      recentPayments: recentPayments,
+      edit: edit,
+      detail: detail,
+    ),
   );
   return r is Customer ? r : null;
 }
@@ -125,6 +144,7 @@ class CustomerSheet extends StatefulWidget {
   const CustomerSheet({
     super.key,
     this.startOnNew = false,
+    this.recentPayments = false,
     this.suppliers = false,
     this.edit,
     this.detail,
@@ -133,6 +153,7 @@ class CustomerSheet extends StatefulWidget {
 
   /// Open directly on page 2 ("לקוח חדש", e.g. from S1 "לקוח").
   final bool startOnNew;
+  final bool recentPayments;
   final bool suppliers;
   final Customer? edit;
   final CustomerDetail? detail;
@@ -166,6 +187,7 @@ class _CustomerSheetState extends State<CustomerSheet> {
       widget.startOnNew || widget.edit != null || widget.editSupplier != null;
   List<_Entry>? _entries;
   List<String> _recentIds = const [];
+  List<String> _recentPaymentIds = const [];
   List<Customer> _customers = const [];
   bool _be09 = false;
   Object? _loadError;
@@ -232,6 +254,9 @@ class _CustomerSheetState extends State<CustomerSheet> {
         return;
       }
       _recentIds = await readRecentCustomerIds();
+      if (widget.recentPayments) {
+        _recentPaymentIds = await readRecentPaymentCustomerIds();
+      }
       final cached = await readCachedCustomerList();
       if (cached != null && mounted) _setCustomers(cached.customers);
       final list = await fetchCustomerList();
@@ -295,13 +320,25 @@ class _CustomerSheetState extends State<CustomerSheet> {
         final phone = preferredPhone(c.phones);
         if (phone != null) _phone.text = phone;
       });
-    } on PlatformException {
+    } on PlatformException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text(PeopleHe.contactsFailed)));
+        ScaffoldMessenger.of(context).showNotchNotice(
+          SnackBar(
+            content: Text(
+              error.code == 'CONTACTS_PERMISSION_DENIED'
+                  ? PeopleHe.contactsPermissionDenied
+                  : PeopleHe.contactsFailed,
+            ),
+          ),
+          motion: NoticeMotion.error,
+        );
       }
     }
+  }
+
+  Future<void> _newFromContact() async {
+    setState(() => _form = true);
+    await _importContact();
   }
 
   Widget _pickPage(BuildContext context) {
@@ -318,11 +355,25 @@ class _CustomerSheetState extends State<CustomerSheet> {
                 !e.archived && (e.value as Customer).lastDocumentAt != null,
             excluded: (e) => e.archived,
           );
+    final recentPaymentEntries =
+        (!widget.recentPayments || _sup || entries == null || q.isNotEmpty)
+        ? const <_Entry>[]
+        : recentCircles(
+            entries,
+            (e) => e.id,
+            _recentPaymentIds,
+            eligible: (e) => !e.archived,
+            excluded: (e) => e.archived,
+          );
+    final recentPaymentIds = {
+      for (final entry in recentPaymentEntries) entry.id,
+    };
     final shown = entries == null
         ? const <_Entry>[]
         : [
             for (final e in entries)
               if ((q.trim().isEmpty ? !e.archived : true) &&
+                  !(q.trim().isEmpty && recentPaymentIds.contains(e.id)) &&
                   personMatches(
                     q,
                     name: e.name,
@@ -357,6 +408,22 @@ class _CustomerSheetState extends State<CustomerSheet> {
             prefixIcon: Icon(Icons.search_rounded),
           ),
         ),
+        if (recentPaymentEntries.isNotEmpty) ...[
+          const SizedBox(height: Space.m),
+          Text(
+            PeopleHe.recentPaymentCustomers,
+            style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: Space.xs),
+          for (final entry in recentPaymentEntries.take(3))
+            PersonRow(
+              key: Key('s2-recent-payment-${entry.id}'),
+              name: entry.name,
+              subtitle: entry.phone,
+              subtitleOnLeft: true,
+              onTap: () => _pick(entry),
+            ),
+        ],
         const SizedBox(height: 36),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -393,6 +460,14 @@ class _CustomerSheetState extends State<CustomerSheet> {
               ),
           ],
         ),
+        if (!_sup && _canCreate && q.isEmpty) ...[
+          const SizedBox(height: Space.s),
+          TextButton.icon(
+            onPressed: _busy ? null : _newFromContact,
+            icon: const Icon(Icons.contacts_outlined),
+            label: const Text(PeopleHe.importContactAction),
+          ),
+        ],
         if (!_sup && _canCreate && q.isEmpty && !context.isDark) ...[
           const SizedBox(height: 12),
           Text(
@@ -402,7 +477,8 @@ class _CustomerSheetState extends State<CustomerSheet> {
           ),
         ],
         const SizedBox(height: 28),
-        if (q.isEmpty &&
+        if (!widget.recentPayments &&
+            q.isEmpty &&
             (recent.length >= 2 || (context.isDark && shown.length >= 2))) ...[
           Text(
             PeopleHe.mostActive,
@@ -435,7 +511,7 @@ class _CustomerSheetState extends State<CustomerSheet> {
               _load();
             },
           ),
-        if (entries != null && shown.isEmpty)
+        if (entries != null && shown.isEmpty && recentPaymentEntries.isEmpty)
           Padding(
             padding: const EdgeInsets.all(Space.l),
             child: Text(
@@ -445,7 +521,8 @@ class _CustomerSheetState extends State<CustomerSheet> {
             ),
           ),
         for (final e
-            in (q.isEmpty &&
+            in (!widget.recentPayments &&
+                    q.isEmpty &&
                     (recent.length >= 2 ||
                         (context.isDark && shown.length >= 2))
                 ? shown.where(
@@ -650,7 +727,7 @@ class _CustomerSheetState extends State<CustomerSheet> {
                 key: const Key('s2-import-contact'),
                 onPressed: _busy ? null : _importContact,
                 icon: const Icon(Iconsax.user_search),
-                label: const Text('ייבוא מאנשי קשר'),
+                label: const Text(PeopleHe.importContactAction),
               ),
             ),
           if (!_isEdit) const SizedBox(height: Space.m),

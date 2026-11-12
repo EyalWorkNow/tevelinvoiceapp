@@ -19,16 +19,21 @@ import 'caps.dart';
 import 'session.dart';
 
 class BusinessContext extends ChangeNotifier {
-  BusinessContext({SessionController? sessionController, ApiClient? client, DateTime Function()? clock})
-      : _session = sessionController ?? session,
-        _client = client ?? ApiClient.instance,
-        _clock = clock ?? DateTime.now {
+  BusinessContext({
+    SessionController? sessionController,
+    ApiClient? client,
+    DateTime Function()? clock,
+  }) : _session = sessionController ?? session,
+       _client = client ?? ApiClient.instance,
+       _clock = clock ?? DateTime.now {
     _session.addListener(_onSession);
     // Root zone: this app-wide singleton outlives whichever zone first touched
     // it (matters in widget tests, where each test runs in its own fake zone).
-    _sub = Zone.root.run(() => _client.events.listen((e) {
-          if (e == ApiEvent.forbidden) unawaited(handleForbidden());
-        }));
+    _sub = Zone.root.run(
+      () => _client.events.listen((e) {
+        if (e == ApiEvent.forbidden) unawaited(handleForbidden());
+      }),
+    );
   }
 
   final SessionController _session;
@@ -43,7 +48,8 @@ class BusinessContext extends ChangeNotifier {
   Me? _capsFrom;
   bool _refreshing = false;
 
-  final StreamController<void> _permissionsChanged = StreamController<void>.broadcast();
+  final StreamController<void> _permissionsChanged =
+      StreamController<void>.broadcast();
 
   /// Fires after a capability 403 refreshed /me (toast + route guard).
   Stream<void> get permissionsChanged => _permissionsChanged.stream;
@@ -68,10 +74,13 @@ class BusinessContext extends ChangeNotifier {
   /// OSEK_PATUR | OSEK_MURSHE | COMPANY | PARTNERSHIP | NONPROFIT.
   /// /me (BE-02) first, else /business/profile, else OSEK_MURSHE.
   String get businessType =>
-      _session.me?.businessType ?? _session.profile?.businessType ?? 'OSEK_MURSHE';
+      _session.me?.businessType ??
+      _session.profile?.businessType ??
+      'OSEK_MURSHE';
 
   /// §4.7: no VAT component at all (עוסק פטור / עמותה).
-  bool get isVatExempt => businessType == 'OSEK_PATUR' || businessType == 'NONPROFIT';
+  bool get isVatExempt =>
+      businessType == 'OSEK_PATUR' || businessType == 'NONPROFIT';
 
   /// Header name: trading name, else legal name, else the membership name.
   String get displayName =>
@@ -85,7 +94,10 @@ class BusinessContext extends ChangeNotifier {
   /// App back in the foreground: refresh /me if the last fetch is > 60 s old.
   Future<void> onResumed() async {
     final at = _session.meFetchedAt;
-    if (_session.business == null || _session.status != SessionStatus.signedIn) return;
+    if (_session.business == null ||
+        _session.status != SessionStatus.signedIn) {
+      return;
+    }
     if (at != null && _clock().difference(at) < resumeRefreshAfter) return;
     await _refresh();
   }

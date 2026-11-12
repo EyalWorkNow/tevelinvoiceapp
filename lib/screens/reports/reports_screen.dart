@@ -14,6 +14,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/client.dart' show ApiException;
 import '../../api/models/models.dart';
 import '../../api/reports_api.dart';
@@ -222,7 +223,7 @@ class _ReportsState extends State<_Reports> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text(BusinessHe.desktopSent)));
+        ).showNotchNotice(const SnackBar(content: Text(BusinessHe.desktopSent)), motion: NoticeMotion.sent);
       }
     } on Object catch (e) {
       if (mounted) showErrorSnack(context, e);
@@ -398,7 +399,7 @@ class _ReportsState extends State<_Reports> {
         Space.page,
         widget.embedded ? Space.xl : Space.s,
         Space.page,
-        Space.xl,
+        MediaQuery.paddingOf(context).bottom + Space.xl,
       ),
       children: content,
     );
@@ -423,7 +424,7 @@ class _ReportsState extends State<_Reports> {
           ? null
           : AppBar(title: const Text(ReportsHe.title)),
       body: SafeArea(
-        bottom: bottom == null,
+        bottom: false,
         child: Column(
           children: [
             if (!widget.embedded && context.isDark)

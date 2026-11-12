@@ -10,9 +10,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../api/client.dart';
-import '../../api/documents_api.dart' show documentsVersion;
+import '../../api/documents_api.dart' show deleteDraft, documentsVersion;
 import '../../api/inbox_api.dart';
 import '../../api/models/models.dart';
 import '../../router.dart';
@@ -25,12 +26,13 @@ import '../home/doc_rows.dart';
 import '../home/inbox_cards.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
-enum ActivityChip { all, unpaid, drafts, quotes, inbox }
+enum ActivityChip { all, unpaid, drafts, quotes, paid, inbox }
 
 ActivityChip chipFromQuery(String? chip) => switch (chip) {
   'unpaid' => ActivityChip.unpaid,
   'drafts' => ActivityChip.drafts,
   'quotes' => ActivityChip.quotes,
+  'paid' => ActivityChip.paid,
   'inbox' => ActivityChip.inbox,
   _ => ActivityChip.all,
 };
@@ -195,7 +197,8 @@ class ActivityController extends ChangeNotifier {
   static bool _documentChip(ActivityChip c) =>
       c == ActivityChip.all ||
       c == ActivityChip.unpaid ||
-      c == ActivityChip.drafts;
+      c == ActivityChip.drafts ||
+      c == ActivityChip.paid;
 
   bool _searching(ActivityChip chip, String query) =>
       _searchPage != null &&
@@ -210,7 +213,9 @@ class ActivityController extends ChangeNotifier {
       return _searching(chip, query) && _searchPage!.hasMore;
     }
     return switch (chip) {
-      ActivityChip.all || ActivityChip.drafts => (all?.length ?? 0) < _allTotal,
+      ActivityChip.all ||
+      ActivityChip.drafts ||
+      ActivityChip.paid => (all?.length ?? 0) < _allTotal,
       ActivityChip.unpaid => (unpaid?.length ?? 0) < _unpaidTotal,
       _ => false,
     };
@@ -269,7 +274,10 @@ class ActivityController extends ChangeNotifier {
     if (_searching(chip, query)) {
       return [
         for (final d in _searchPage!.documents)
-          if (!drafts || _draftStatuses.contains(d.status)) d,
+          if (chip == ActivityChip.paid
+              ? d.isPaid
+              : (!drafts || _draftStatuses.contains(d.status)))
+            d,
       ];
     }
     final base = switch (chip) {
@@ -277,6 +285,10 @@ class ActivityController extends ChangeNotifier {
       ActivityChip.drafts => [
         for (final d in all ?? const <DocumentSummary>[])
           if (_draftStatuses.contains(d.status)) d,
+      ],
+      ActivityChip.paid => [
+        for (final d in all ?? const <DocumentSummary>[])
+          if (d.isPaid) d,
       ],
       _ => all ?? const <DocumentSummary>[],
     };
@@ -287,7 +299,7 @@ class ActivityController extends ChangeNotifier {
 class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key, this.chip, this.controller});
 
-  /// Initial chip: all | unpaid | drafts | quotes | inbox ("לטיפול").
+  /// Initial chip: all | unpaid | drafts | quotes | paid | inbox ("לטיפול").
   final String? chip;
 
   /// Tests pass a controller and drive [ActivityController.load] themselves.
@@ -300,7 +312,6 @@ class ActivityScreen extends StatefulWidget {
 class _ActivityScreenState extends State<ActivityScreen> {
   late final ActivityController _c = widget.controller ?? ActivityController();
   late ActivityChip _chip = chipFromQuery(widget.chip);
-  late final bool _openedOnInbox = _chip == ActivityChip.inbox;
   final TextEditingController _search = TextEditingController();
   Timer? _debounce;
 
@@ -310,9 +321,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     _c.addListener(_changed);
     documentsVersion.addListener(_reload);
     businessContext.addListener(_changed);
-    if (widget.controller == null) {
-      unawaited(_c.load(withCards: _openedOnInbox));
-    }
+    if (widget.controller == null) unawaited(_c.load(withCards: true));
   }
 
   @override
@@ -332,6 +341,19 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
   void _reload() => unawaited(_c.load(withCards: true));
 
+  Future<void> _deleteDraft(DocumentSummary document) async {
+    if (!await confirmDraftDeletion(context) || !mounted) return;
+    try {
+      await deleteDraft(document.id);
+      _reload();
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא הצלחנו למחוק את הטיוטה. נסו שוב.')),
+      );
+    }
+  }
+
   void _onQuery(String text) {
     setState(() {});
     _debounce?.cancel();
@@ -341,7 +363,81 @@ class _ActivityScreenState extends State<ActivityScreen> {
     );
   }
 
-  bool get _showInboxChip => _openedOnInbox || _c.cards.isNotEmpty;
+  Widget _filterGrid(List<ChipOption<ActivityChip>> options) {
+    Widget tile(ChipOption<ActivityChip> option) {
+      final selected = option.value == _chip;
+      final palette = context.palette;
+      final background = selected ? palette.accent : palette.surface;
+      final foreground = selected ? palette.accentInk : palette.ink;
+      return Expanded(
+        child: Padding(
+          padding: const EdgeInsets.all(3),
+          child: Semantics(
+            button: true,
+            selected: selected,
+            label: option.label,
+            child: Material(
+              color: background,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: selected ? background : palette.line),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: selected
+                    ? null
+                    : () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _chip = option.value);
+                        if (_search.text.trim().isNotEmpty) {
+                          unawaited(
+                            _c.search(_search.text, chip: option.value),
+                          );
+                        }
+                      },
+                child: SizedBox(
+                  height: 44,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(option.icon, size: 17, color: foreground),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          option.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.secondary.copyWith(
+                            color: foreground,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      key: const Key('activity-chips'),
+      padding: const EdgeInsets.symmetric(horizontal: Space.page),
+      child: Column(
+        children: [
+          Row(children: [for (final option in options.take(3)) tile(option)]),
+          Row(
+            children: [
+              for (final option in options.skip(3).take(3)) tile(option),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -366,16 +462,17 @@ class _ActivityScreenState extends State<ActivityScreen> {
         InboxHe.chipQuotes,
         icon: Icons.request_quote_outlined,
       ),
-      if (_showInboxChip)
-        const ChipOption(
-          ActivityChip.inbox,
-          InboxHe.chipInbox,
-          icon: Icons.inbox_outlined,
-        ),
+      const ChipOption(
+        ActivityChip.paid,
+        InboxHe.chipPaid,
+        icon: Icons.check_circle_outline_rounded,
+      ),
+      const ChipOption(
+        ActivityChip.inbox,
+        InboxHe.chipInbox,
+        icon: Icons.inbox_outlined,
+      ),
     ];
-    if (!_showInboxChip && _chip == ActivityChip.inbox) {
-      _chip = ActivityChip.all;
-    }
     return Scaffold(
       appBar: context.isDark
           ? null
@@ -436,17 +533,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
                 ),
               ),
             ),
-            ChipRow<ActivityChip>(
-              key: const Key('activity-chips'),
-              options: chips,
-              selected: _chip,
-              onSelected: (c) {
-                setState(() => _chip = c);
-                if (_search.text.trim().isNotEmpty) {
-                  unawaited(_c.search(_search.text, chip: c));
-                }
-              },
-            ),
+            _filterGrid(chips),
             const SizedBox(height: Space.s),
             Expanded(
               child: RefreshIndicator(
@@ -508,6 +595,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
               d,
               today: _c.now?.call(),
               onTap: () => unawaited(openDocument(context, d.id)),
+              onDelete: () => unawaited(_deleteDraft(d)),
             ),
         ],
       ];
@@ -516,7 +604,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
     final showCap =
         _c.allCapped &&
         !_c.serverSearch &&
-        (_chip == ActivityChip.all || _chip == ActivityChip.drafts);
+        (_chip == ActivityChip.all ||
+            _chip == ActivityChip.drafts ||
+            _chip == ActivityChip.paid);
     final more = _c.canLoadMore(_chip, query);
     return ListView(
       key: const Key('activity-list'),
@@ -631,6 +721,10 @@ class _ActivityScreenState extends State<ActivityScreen> {
       ActivityChip.quotes => const EmptyState(
         icon: Iconsax.receipt_edit,
         title: InboxHe.emptyQuotes,
+      ),
+      ActivityChip.paid => const EmptyState(
+        icon: Iconsax.tick_circle,
+        title: 'אין מסמכים ששולמו',
       ),
       _ => EmptyState(
         icon: Iconsax.receipt_item,

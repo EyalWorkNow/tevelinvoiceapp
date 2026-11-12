@@ -1,0 +1,27 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:invoice/state/system_notices.dart';
+import 'package:invoice/ui/widgets/notch_notice.dart';
+
+void main() {
+  test(
+    'server event kinds map to distinct in-app motion without revealing amounts',
+    () {
+      expect(systemNoticePresentation('approved')?.$2, NoticeMotion.approved);
+      expect(systemNoticePresentation('payment')?.$2, NoticeMotion.payment);
+      expect(systemNoticePresentation('rejected')?.$2, NoticeMotion.error);
+      for (final kind in [
+        'approved',
+        'payment',
+        'approvalNeeded',
+        'rejected',
+        'viewed',
+        'expense',
+      ]) {
+        final presentation = systemNoticePresentation(kind);
+        expect(presentation, isNotNull);
+        expect(presentation!.$1, isNot(contains('₪')));
+      }
+      expect(systemNoticePresentation('arbitrary-remote-event'), isNull);
+    },
+  );
+}

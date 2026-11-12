@@ -13,8 +13,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/client.dart';
 import '../../api/expenses_api.dart';
 import '../../api/models/models.dart';
@@ -158,8 +160,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     setState(() => _editing = null);
     if (message != null) {
       ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(message)));
+        ..hideCurrentNotchNotice()
+        ..showNotchNotice(SnackBar(content: Text(message)));
     }
     unawaited(_load());
     unawaited(_loadList());
@@ -278,8 +280,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     });
     if (message != null) {
       ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(message)));
+        ..hideCurrentNotchNotice()
+        ..showNotchNotice(SnackBar(content: Text(message)));
     }
     _afterChange();
   }

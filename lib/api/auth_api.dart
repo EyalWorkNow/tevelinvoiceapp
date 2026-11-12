@@ -4,6 +4,9 @@
 
 import 'client.dart';
 import 'models/models.dart';
+import 'supabase_auth.dart';
+import 'environment.dart';
+import '../util/errors_he.dart';
 
 final _api = ApiClient.instance;
 
@@ -31,7 +34,17 @@ void _freshCookiePhase() => _api.clearCredentials();
 
 Future<SignInResult> signInWithPassword(String email, String password) async {
   _freshCookiePhase();
+  if (SupabaseAuthSettings.configured.enabled) {
+    final token = await supabasePasswordToken(email, password, client: _api.httpClient);
+    return signInWithSupabase(token);
+  }
   final json = await _api.post('/auth/login', {'email': email.trim(), 'password': password});
+  return SignInResult.fromJson(json);
+}
+
+Future<SignInResult> signInWithSupabase(String accessToken) async {
+  _freshCookiePhase();
+  final json = await _api.post('/auth/supabase', {'accessToken': accessToken});
   return SignInResult.fromJson(json);
 }
 
@@ -55,6 +68,10 @@ Future<SignInResult> signInWithGoogle(String idToken) async {
 
 /// Always "ok" (no account enumeration). The reset link opens the web app.
 Future<void> requestPasswordReset(String email) async {
+  if (SupabaseAuthSettings.configured.enabled) {
+    throw ApiException(409, 'SUPABASE_RECOVERY_SUPPORT_REQUIRED',
+        errorMessageHe('SUPABASE_RECOVERY_SUPPORT_REQUIRED'));
+  }
   await _api.post('/auth/password/forgot', {'email': email.trim()});
 }
 
