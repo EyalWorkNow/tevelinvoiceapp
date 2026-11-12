@@ -40,6 +40,8 @@ String paymentMethodLabel(String method) => paymentMethodLabels[method] ?? metho
 
 /// S5 wording (F11: imperative verbs only on buttons).
 abstract final class PaymentHe {
+  /// Card-clearing preview button (the clearing itself comes later).
+  static const comingSoon = 'בקרוב';
   static const title = 'תשלום';
   static const record = 'רשום';
   static const recording = 'רושם…';

@@ -61,6 +61,62 @@ Future<bool> showEditorSheet(BuildContext context, {required String instance, Ed
   return saved ?? false;
 }
 
+/// "לצאת בלי לשמור?" (06·U8). True = leave and drop the changes.
+Future<bool> confirmDiscardChanges(BuildContext context) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text(BusinessHe.discardTitle),
+      content: const Text(BusinessHe.discardBody),
+      actions: [
+        TextButton(
+          key: const Key('discard-keep'),
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text(BusinessHe.keepEditing),
+        ),
+        TextButton(
+          key: const Key('discard-confirm'),
+          style: TextButton.styleFrom(foregroundColor: context.palette.danger),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text(BusinessHe.discardAction),
+        ),
+      ],
+    ),
+  );
+  return ok ?? false;
+}
+
+/// Guards a route against losing [dirty] input: back / barrier tap ask first,
+/// and while dirty a drag on the content does not close a sheet. Does nothing
+/// on a route that cannot pop (a root tab).
+class UnsavedChangesGuard extends StatelessWidget {
+  const UnsavedChangesGuard({super.key, required this.dirty, required this.child});
+
+  final bool dirty;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!(ModalRoute.of(context)?.canPop ?? false)) return child;
+    return PopScope<Object?>(
+      canPop: !dirty,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final navigator = Navigator.of(context);
+        if (await confirmDiscardChanges(context)) navigator.pop();
+      },
+      // The sheet's own drag-to-close bypasses PopScope; an inner vertical
+      // drag recogniser wins the arena and keeps the sheet open.
+      // Always the same tree (toggling it would remount the form).
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onVerticalDragUpdate: dirty ? (_) {} : null,
+        child: child,
+      ),
+    );
+  }
+}
+
 class EditorSheet extends StatelessWidget {
   const EditorSheet({super.key, required this.instance, this.config});
 
@@ -128,6 +184,7 @@ class _EditorFormState extends State<EditorForm> {
   late final EditorValues _values = EditorValues({for (final f in widget.config.fields) f.key: f.initial});
   bool _validate = false;
   bool _saving = false;
+  bool _dirty = false;
   String? _error;
 
   List<EditorField> get _visible => [
@@ -152,6 +209,7 @@ class _EditorFormState extends State<EditorForm> {
       await onSave(_values);
       HapticFeedback.mediumImpact();
       if (!mounted) return;
+      setState(() => _dirty = false);
       final msg = widget.config.savedMessage;
       final messenger = ScaffoldMessenger.maybeOf(context);
       if (widget.popOnSave) Navigator.of(context).pop(true);
@@ -166,6 +224,7 @@ class _EditorFormState extends State<EditorForm> {
 
   void _changed(String key, Object? value) => setState(() {
     _values[key] = value;
+    _dirty = true;
     _error = null;
   });
 
@@ -257,7 +316,9 @@ class _EditorFormState extends State<EditorForm> {
       ),
     );
     if (widget.shrinkWrap) {
-      return Column(
+      return UnsavedChangesGuard(
+        dirty: _dirty,
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -268,13 +329,17 @@ class _EditorFormState extends State<EditorForm> {
           ),
           ?action,
         ],
+        ),
       );
     }
-    return Column(
-      children: [
-        Expanded(child: ListView(children: [header, body])),
-        ?action,
-      ],
+    return UnsavedChangesGuard(
+      dirty: _dirty,
+      child: Column(
+        children: [
+          Expanded(child: ListView(children: [header, body])),
+          ?action,
+        ],
+      ),
     );
   }
 }

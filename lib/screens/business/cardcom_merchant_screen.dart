@@ -1,5 +1,6 @@
 import '../../util/labels/people_he.dart';
 import '../../util/labels/business_he.dart';
+import '../../util/labels/payment_he.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
@@ -549,7 +550,7 @@ class _CustomerPaymentPreviewScreenState
                       key: const Key('secure-payment-continue'),
                       onPressed: _showPaymentSoon,
                       icon: const Icon(Iconsax.info_circle),
-                      label: Text('בקרוב', style: AppText.button),
+                      label: Text(PaymentHe.comingSoon, style: AppText.button),
                       style: FilledButton.styleFrom(
                         backgroundColor: p.accent,
                         foregroundColor: p.accentInk,

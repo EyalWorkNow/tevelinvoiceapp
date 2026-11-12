@@ -9,6 +9,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/inbox_api.dart';
+import 'package:invoice/api/models/models.dart' show DocumentSummary;
 import 'package:invoice/app_shell.dart';
 import 'package:invoice/router.dart';
 import 'package:invoice/screens/activity/activity_screen.dart';
@@ -153,7 +154,8 @@ void main() {
       expect(find.text('נשלח'), findsOneWidget); // attribute, not status
       expect(find.byType(PrimaryButton), findsNothing);
       expect(find.byKey(const Key('activity-capped')), findsNothing);
-      expect(backend.last('GET', '/documents')!.query['limit'], '500');
+      // One page; the 500 cap only for a server that does not page (2.5).
+      expect(backend.last('GET', '/documents')!.query['limit'], '100');
     },
   );
 
@@ -409,23 +411,27 @@ void main() {
           ),
       ];
       final c = await pumpActivity(tester, documents: many, be10: true);
-      expect(c.all, hasLength(500));
+      expect(c.all, hasLength(activityPageSize)); // first page only
       expect(
         find.byKey(const Key('activity-capped')),
         findsNothing,
       ); // BE-10: paging instead of the note
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('activity-more')),
-        2000,
-        scrollable: find.byType(Scrollable).last,
-      );
-      await tester.tap(find.byKey(const Key('activity-more')));
-      await tester.runAsync(() async {
-        for (var i = 0; i < 50 && c.all!.length < 520; i++) {
-          await Future<void>.delayed(const Duration(milliseconds: 20));
-        }
-      });
-      await tester.pumpAndSettle();
+      while (c.all!.length < 520) {
+        final before = c.all!.length;
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('activity-more')),
+          2000,
+          scrollable: find.byType(Scrollable).last,
+        );
+        await tester.tap(find.byKey(const Key('activity-more')));
+        await tester.runAsync(() async {
+          for (var i = 0; i < 50 && c.all!.length == before; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 20));
+          }
+        });
+        await tester.pumpAndSettle();
+        expect(c.all!.length, greaterThan(before));
+      }
       expect(c.all, hasLength(520));
       expect(backend.last('GET', '/documents')!.query['offset'], '500');
       expect(find.byKey(const Key('activity-more')), findsNothing);
@@ -510,4 +516,37 @@ void main() {
       });
     },
   );
+
+  testWidgets('2.5: filter by document type; title is "מסמכים"', (
+    tester,
+  ) async {
+    await pumpActivity(tester);
+    expect(find.text('מסמכים'), findsOneWidget);
+    expect(find.text('פעילות'), findsNothing);
+    expect(find.byKey(const Key('doc-open')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('activity-filter-type')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('activity-type-TAX_INVOICE_RECEIPT')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('doc-paid')), findsOneWidget);
+    expect(find.byKey(const Key('doc-open')), findsNothing);
+    await tester.tap(find.byKey(const Key('activity-filter-clear')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('doc-open')), findsOneWidget);
+  });
+
+  test('2.5: date range keeps issue dates inside it (inclusive), drops drafts', () {
+    final rows = [
+      for (final j in docs()) DocumentSummary.fromJson(j),
+    ];
+    final kept = filterDocuments(
+      rows,
+      range: DateTimeRange(
+        start: DateTime(2026, 10, 27),
+        end: DateTime(2026, 10, 28),
+      ),
+    );
+    expect([for (final d in kept) d.id], ['open', 'sent']);
+    expect(filterDocuments(rows), same(rows));
+  });
 }

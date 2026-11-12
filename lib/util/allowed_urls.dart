@@ -14,10 +14,16 @@ const Set<String> safariWhitelist = {privacyUrl, termsUrl, supportUrl};
 
 bool isAllowedSafariUrl(Uri uri) => safariWhitelist.contains(uri.toString());
 
+/// Apple's own "manage subscriptions" page (cancel an App Store plan).
+final Uri appleSubscriptionsUri = Uri.parse(
+  'https://apps.apple.com/account/subscriptions',
+);
+
 /// External launches: fixed map searches, WhatsApp, mail, phone, and iOS Settings (camera
 /// permission denied → "פתח הגדרות" on expense capture).
 bool isAllowedLaunch(Uri uri) =>
     (uri.scheme == 'https' && uri.host == 'wa.me') ||
+    uri == appleSubscriptionsUri ||
     (uri.scheme == 'https' &&
         uri.host == 'maps.apple.com' &&
         uri.path == '/' &&

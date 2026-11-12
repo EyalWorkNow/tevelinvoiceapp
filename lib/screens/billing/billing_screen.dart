@@ -4,7 +4,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../api/commerce_api.dart';
 import '../../api/client.dart';
 import '../../state/business_context.dart';
@@ -131,10 +130,12 @@ class _PlansSheetState extends State<PlansSheet> with WidgetsBindingObserver {
 
   Future<void> _cancel() async {
     if (_subscription?.billingProvider == 'APPLE') {
-      final opened = await launchUrl(
-        Uri.parse('https://apps.apple.com/account/subscriptions'),
-        mode: LaunchMode.externalApplication,
-      );
+      var opened = false;
+      try {
+        opened = await launchAllowed(appleSubscriptionsUri);
+      } on Object {
+        opened = false;
+      }
       if (!opened && mounted) {
         setState(() => _error = 'לא ניתן לפתוח את ניהול המינויים של Apple.');
       }
@@ -389,7 +390,7 @@ class _PlansSheetState extends State<PlansSheet> with WidgetsBindingObserver {
                 key: const Key('required-plan-later'),
                 onPressed: widget.onExit,
                 icon: const Icon(Icons.close_rounded),
-                label: const Text('אולי אחר כך'),
+                label: const Text(BusinessHe.planLater),
               ),
               const SizedBox(height: 6),
               Text(
@@ -763,10 +764,13 @@ class _BillingCheckoutScreenState extends State<BillingCheckoutScreen>
   }
 
   Future<void> _openLegal(String url) async {
-    final opened = await launchUrl(
-      Uri.parse(url),
-      mode: LaunchMode.externalApplication,
-    );
+    // F6: the legal pages open only through the whitelist (in-app Safari).
+    var opened = false;
+    try {
+      opened = await openSafari(Uri.parse(url));
+    } on Object {
+      opened = false;
+    }
     if (!opened && mounted) {
       setState(() => _error = 'לא ניתן לפתוח את הקישור כרגע.');
     }
@@ -1056,15 +1060,11 @@ class _BillingCheckoutScreenState extends State<BillingCheckoutScreen>
                           spacing: 12,
                           children: [
                             TextButton(
-                              onPressed: () => _openLegal(
-                                'https://www.tevel.space/legal/tevel-invoice',
-                              ),
+                              onPressed: () => _openLegal(termsUrl),
                               child: const Text(BusinessHe.termsAction),
                             ),
                             TextButton(
-                              onPressed: () => _openLegal(
-                                'https://www.tevel.space/legal/privacy',
-                              ),
+                              onPressed: () => _openLegal(privacyUrl),
                               child: const Text(BusinessHe.privacyAction),
                             ),
                           ],
