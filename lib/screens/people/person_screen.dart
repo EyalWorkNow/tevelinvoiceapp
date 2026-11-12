@@ -97,16 +97,23 @@ class _PersonScreenState extends State<PersonScreen> {
         // Never holds the card up: the row appears when the probe answers.
         statementAvailable(widget.id).then((v) {
           if (mounted && v != _statement) setState(() => _statement = v);
-        });
+        }, onError: (Object _) {});
       }
-      final docs = await docsF;
-      final open = await openF;
+      // Both futures are awaited together, so a failure in one never leaves
+      // the other as an unhandled async error.
+      final (docs, open) = await (docsF, openF).wait;
       if (mounted) {
         setState(() {
           _docs = docs;
           _open = open;
         });
       }
+    } on ParallelWaitError<
+      (List<DocumentSummary>?, BigInt?),
+      (AsyncError?, AsyncError?)
+    > catch (e) {
+      final cause = e.errors.$1?.error ?? e.errors.$2?.error ?? e;
+      if (mounted) setState(() => _error = cause);
     } on Object catch (e) {
       if (mounted) setState(() => _error = e);
     }
@@ -184,6 +191,7 @@ class _PersonScreenState extends State<PersonScreen> {
   }
 
   Future<void> _archive() async {
+    if (_busy) return;
     final open = _open ?? BigInt.zero;
     final ok = await showDialog<bool>(
       context: context,
@@ -261,6 +269,32 @@ class _PersonScreenState extends State<PersonScreen> {
     );
   }
 
+  /// Secondary actions under the primary button (customer card only):
+  /// "קיבלתי תשלום" (payment.record) and, when the primary asks for payment,
+  /// a plain "new invoice" for this customer.
+  List<Widget> _secondary() {
+    if (widget.isSupplier || _archived) return const [];
+    final owes = (_open ?? BigInt.zero) > BigInt.zero;
+    return [
+      if (owes && _caps.can(Cap.docDraft))
+        TextButton.icon(
+          key: const Key('person-new-invoice'),
+          onPressed: () =>
+              openCompose(context, intent: 'REQUEST', customerId: widget.id),
+          icon: const Icon(Iconsax.receipt_add, size: 18),
+          label: const Text(PeopleHe.newInvoice),
+        ),
+      if (_caps.can(Cap.paymentRecord))
+        TextButton.icon(
+          key: const Key('person-paid'),
+          onPressed: () =>
+              openCompose(context, intent: 'PAID', customerId: widget.id),
+          icon: const Icon(Iconsax.money_recive, size: 18),
+          label: const Text(CommonHe.paid),
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final loaded = widget.isSupplier ? _supplier != null : _detail != null;
@@ -270,76 +304,84 @@ class _PersonScreenState extends State<PersonScreen> {
         (widget.isSupplier
             ? _be16 && _caps.can(Cap.supplierManage)
             : _caps.can(Cap.customerManage));
+    final secondary = loaded ? _secondary() : const <Widget>[];
     return Scaffold(
-      appBar: context.isDark
-          ? null
-          : AppBar(
-              title: Text(_name),
-              actions: [
-                if (loaded && manage)
-                  MoreMenu(
-                    items: [
-                      MoreMenuItem(
-                        label: PeopleHe.archive,
-                        destructive: true,
-                        onSelected: _archive,
-                      ),
-                    ],
-                  ),
-              ],
-            ),
       body: SafeArea(
-        child: !loaded
-            ? (_error != null
-                  ? ErrorView(error: _error!, onRetry: _load)
-                  : const SingleChildScrollView(child: SkeletonList()))
-            : AbsorbPointer(
-                absorbing: _busy,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (context.isDark)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          Space.page,
-                          Space.m,
-                          Space.page,
-                          Space.s,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Space.page,
+                Space.m,
+                Space.page,
+                Space.s,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Semantics(
+                      header: true,
+                      child: Text(_name, style: AppText.displayTitle),
+                    ),
+                  ),
+                  if (loaded && manage)
+                    MoreMenu(
+                      items: [
+                        MoreMenuItem(
+                          label: PeopleHe.archive,
+                          destructive: true,
+                          onSelected: _archive,
                         ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(_name, style: AppText.displayTitle),
+                      ],
+                    ),
+                  const SizedBox(width: 8),
+                  const DesignBackButton(),
+                ],
+              ),
+            ),
+            Expanded(
+              child: !loaded
+                  ? (_error != null
+                        ? ErrorView(error: _error!, onRetry: _load)
+                        : const SingleChildScrollView(child: SkeletonList()))
+                  : AbsorbPointer(
+                      absorbing: _busy,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          OfflineBanner(
+                            visible: businessContext.offline,
+                            onRetry: _load,
+                          ),
+                          Expanded(
+                            child: RefreshIndicator(
+                              onRefresh: _load,
+                              child: _content(context, manage),
                             ),
-                            if (loaded && manage)
-                              MoreMenu(
-                                items: [
-                                  MoreMenuItem(
-                                    label: PeopleHe.archive,
-                                    destructive: true,
-                                    onSelected: _archive,
-                                  ),
+                          ),
+                          if (primary != null || secondary.isNotEmpty)
+                            BottomActionArea(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (secondary.isNotEmpty)
+                                    Wrap(
+                                      alignment: WrapAlignment.center,
+                                      spacing: Space.s,
+                                      children: secondary,
+                                    ),
+                                  ?primary,
                                 ],
                               ),
-                            const SizedBox(width: 8),
-                            const DesignBackButton(),
-                          ],
-                        ),
-                      ),
-                    OfflineBanner(
-                      visible: businessContext.offline,
-                      onRetry: _load,
-                    ),
-                    Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: _load,
-                        child: _content(context, manage),
+                            ),
+                        ],
                       ),
                     ),
-                    if (primary != null) BottomActionArea(child: primary),
-                  ],
-                ),
-              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -354,18 +396,13 @@ class _PersonScreenState extends State<PersonScreen> {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(vertical: Space.l),
       children: [
-        if (!context.isDark || widget.isSupplier || _archived)
+        if (widget.isSupplier || _archived)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.page),
             child: Wrap(
               spacing: Space.s,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                if (!context.isDark)
-                  Semantics(
-                    header: true,
-                    child: Text(_name, style: AppText.title),
-                  ),
                 if (widget.isSupplier)
                   Text(
                     PeopleHe.supplierBadge,
@@ -379,8 +416,7 @@ class _PersonScreenState extends State<PersonScreen> {
               ],
             ),
           ),
-        if (!context.isDark || widget.isSupplier || _archived)
-          const SizedBox(height: Space.l),
+        if (widget.isSupplier || _archived) const SizedBox(height: Space.l),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -420,6 +456,10 @@ class _PersonScreenState extends State<PersonScreen> {
               customerName: _name,
               canEdit: manage,
               canViewMoney: _caps.can(Cap.moneyView),
+              documentsOpenMinor: open,
+              hasDocuments:
+                  (docs?.isNotEmpty ?? false) ||
+                  _detail?.customer.lastDocumentAt != null,
               onNavigate: (job) =>
                   unawaited(_openVisitTarget(crmVisitMapUri(job))),
               onMessage: wa == null

@@ -32,6 +32,16 @@ Future<void> openCustomerCrmAgenda(
   );
 }
 
+/// Job range filter: 0 all, 1 today, 2 the next 7 days. Only open jobs reach
+/// the board, so one scheduled before today is overdue and stays visible in
+/// every range until it is completed or cancelled.
+@visibleForTesting
+bool crmJobInRange(DateTime scheduledAt, int range, DateTime now) {
+  if (range == 0) return true;
+  final end = DateTime(now.year, now.month, now.day + (range == 1 ? 1 : 7));
+  return scheduledAt.isBefore(end);
+}
+
 class CustomerCrmAgendaScreen extends StatefulWidget {
   const CustomerCrmAgendaScreen({
     super.key,
@@ -213,16 +223,8 @@ class _CustomerCrmAgendaScreenState extends State<CustomerCrmAgendaScreen> {
       final now = DateTime.now();
       final startToday = DateTime(now.year, now.month, now.day);
       final endToday = startToday.add(const Duration(days: 1));
-      final endWeek = DateTime(now.year, now.month, now.day + 7);
       final visibleJobs = jobs
-          .where(
-            (job) =>
-                _jobRange == 0 ||
-                (!job.scheduledAt.isBefore(startToday) &&
-                    job.scheduledAt.isBefore(
-                      _jobRange == 1 ? endToday : endWeek,
-                    )),
-          )
+          .where((job) => crmJobInRange(job.scheduledAt, _jobRange, now))
           .toList();
       final overdue = open
           .where((reminder) => reminder.dueAt.isBefore(startToday))

@@ -11,6 +11,8 @@
 // The same form edits an existing customer from P2 ("פרטים ועריכה") and
 // creates a supplier (supplier mode: no consent, POST /suppliers).
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform;
@@ -29,6 +31,7 @@ import '../../../ui/ds.dart';
 import '../../../ui/app_page_route.dart';
 import '../../../util/labels/common_he.dart';
 import '../../../util/labels/people_he.dart';
+import '../confirm_discard.dart';
 
 /// A contact from the system picker.
 class PickedContact {
@@ -226,7 +229,23 @@ class _CustomerSheetState extends State<CustomerSheet> {
     for (final c in [_search, _name, _phone, _taxId]) {
       c.addListener(() => setState(() {}));
     }
+    _formOpened = _formSignature;
   }
+
+  /// The form as it was when it opened (empty for a new one).
+  String _formOpened = '';
+
+  String get _formSignature => [
+    for (final c in [
+      _name, _phone, _email, _taxId, _contact, _notes, //
+      _street, _houseNumber, _city, _postal, _accountKey,
+    ])
+      c.text.trim(),
+    _terms,
+    _consent,
+  ].join('\u0000');
+
+  bool get _formDirty => _form && _formSignature != _formOpened;
 
   @override
   void dispose() {
@@ -308,7 +327,10 @@ class _CustomerSheetState extends State<CustomerSheet> {
   }
 
   Future<void> _openNew() async {
-    setState(() => _form = true);
+    setState(() {
+      _form = true;
+      _formOpened = _formSignature;
+    });
   }
 
   Future<void> _importContact() async {
@@ -337,7 +359,7 @@ class _CustomerSheetState extends State<CustomerSheet> {
   }
 
   Future<void> _newFromContact() async {
-    setState(() => _form = true);
+    await _openNew();
     await _importContact();
   }
 
@@ -468,7 +490,7 @@ class _CustomerSheetState extends State<CustomerSheet> {
             label: const Text(PeopleHe.importContactAction),
           ),
         ],
-        if (!_sup && _canCreate && q.isEmpty && !context.isDark) ...[
+        if (!_sup && _canCreate && q.isEmpty) ...[
           const SizedBox(height: 12),
           Text(
             PeopleHe.walkInHint,
@@ -477,21 +499,19 @@ class _CustomerSheetState extends State<CustomerSheet> {
           ),
         ],
         const SizedBox(height: 28),
-        if (!widget.recentPayments &&
-            q.isEmpty &&
-            (recent.length >= 2 || (context.isDark && shown.length >= 2))) ...[
+        if (!widget.recentPayments && q.isEmpty && recent.length >= 2) ...[
           Text(
             PeopleHe.mostActive,
             style: AppText.body.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
-          for (final e in (recent.isNotEmpty ? recent : shown).take(2))
+          for (final e in recent.take(2))
             PersonRow(
               key: Key('s2-recent-${e.id}'),
               name: e.name,
               subtitle: (e.phone != null && e.phone!.isNotEmpty)
                   ? e.phone
-                  : (context.isDark ? '052-0000111' : null),
+                  : null,
               subtitleOnLeft: true,
               onTap: () => _pick(e),
             ),
@@ -521,22 +541,13 @@ class _CustomerSheetState extends State<CustomerSheet> {
             ),
           ),
         for (final e
-            in (!widget.recentPayments &&
-                    q.isEmpty &&
-                    (recent.length >= 2 ||
-                        (context.isDark && shown.length >= 2))
-                ? shown.where(
-                    (x) => !(recent.isNotEmpty ? recent : shown)
-                        .take(2)
-                        .any((a) => a.id == x.id),
-                  )
+            in (!widget.recentPayments && q.isEmpty && recent.length >= 2
+                ? shown.where((x) => !recent.take(2).any((a) => a.id == x.id))
                 : shown))
           PersonRow(
             key: Key('s2-row-${e.id}'),
             name: e.name,
-            subtitle: (e.phone != null && e.phone!.isNotEmpty)
-                ? e.phone
-                : (context.isDark ? '052-0000111' : null),
+            subtitle: (e.phone != null && e.phone!.isNotEmpty) ? e.phone : null,
             subtitleOnLeft: true,
             badge: e.archived ? PeopleHe.archivedBadge : null,
             onTap: () => _pick(e),
@@ -975,20 +986,25 @@ class _CustomerSheetState extends State<CustomerSheet> {
     );
   }
 
-  void _backFromForm() {
+  /// Back from the form: "לצאת בלי לשמור?" when something was typed (06·9),
+  /// then page 1 (opened from it) or close.
+  Future<void> _backFromForm() async {
+    if (_busy) return;
+    if (_formDirty && !await confirmDiscardChanges(context)) return;
+    if (!mounted) return;
     if (!widget.startOnNew && !_isEdit) {
       FocusScope.of(context).unfocus();
       setState(() => _form = false);
     } else {
-      Navigator.of(context).maybePop();
+      Navigator.of(context).pop();
     }
   }
 
   @override
   Widget build(BuildContext context) => PopScope<Object>(
-    canPop: !_form || widget.startOnNew || _isEdit,
+    canPop: !_form,
     onPopInvokedWithResult: (didPop, result) {
-      if (!didPop) _backFromForm();
+      if (!didPop) unawaited(_backFromForm());
     },
     child: _form ? _formPage(context) : _pickPage(context),
   );

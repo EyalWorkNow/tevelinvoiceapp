@@ -32,7 +32,8 @@ abstract final class PeopleHe {
   static const call = 'חייג';
   static const whatsapp = 'ווטסאפ';
   static const mail = 'מייל';
-  static String newDocFor(String name) => 'מסמך חדש ל-$name';
+  static String newDocFor(String name) => 'חשבונית חדשה ל-$name';
+  static const newInvoice = 'חשבונית חדשה';
   static String newExpenseFrom(String name) => 'הוצאה חדשה מ-$name';
   static const detailsAndEdit = 'פרטים ועריכה';
   static const archive = 'ארכב';
@@ -91,6 +92,10 @@ abstract final class PeopleHe {
   static const contactsFailed = 'לא הצלחנו לפתוח את אנשי הקשר';
   static const saving = 'שומר…';
   static const editNote = 'השינוי לא משנה מסמכים שכבר הופקו';
+  static const discardTitle = 'לצאת בלי לשמור?';
+  static const discardBody = 'השינויים שהקלדת לא יישמרו.';
+  static const discardLeave = 'יציאה בלי לשמור';
+  static const discardStay = 'המשך עריכה';
 
   /// BE-09 payment terms codes → words (§10).
   static const Map<String, String> paymentTermsLabels = {

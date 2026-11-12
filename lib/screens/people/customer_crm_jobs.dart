@@ -343,11 +343,6 @@ class _CustomerCrmJobsState extends State<CustomerCrmJobs> {
                               value: 'edit',
                               child: Text(CustomerCrmHe.edit),
                             ),
-                            if (widget.showMoney)
-                              const PopupMenuItem(
-                                value: 'edit',
-                                child: Text(CustomerCrmHe.moneyEdit),
-                              ),
                             if (job.status.isOpen &&
                                 widget.onReschedule != null) ...[
                               const PopupMenuItem(
@@ -408,7 +403,9 @@ class _CustomerCrmJobsState extends State<CustomerCrmJobs> {
 
   String _day(DateTime date) {
     final now = DateTime.now();
-    if (date.year == now.year && date.month == now.month && date.day == now.day) {
+    if (date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day) {
       return CustomerCrmHe.todayJobs;
     }
     final tomorrow = DateTime(now.year, now.month, now.day + 1);

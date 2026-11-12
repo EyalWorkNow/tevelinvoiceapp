@@ -74,16 +74,10 @@ class CustomerCrmSyncStatus extends StatelessWidget {
             style: AppText.secondary.copyWith(color: context.palette.muted),
           ),
         ),
-        if (!store.syncing)
+        if (!store.syncing && store.hasConflict)
           TextButton(
-            onPressed: store.hasConflict
-                ? () => _resolve(context)
-                : store.refresh,
-            child: Text(
-              store.hasConflict
-                  ? CustomerCrmHe.chooseVersion
-                  : CustomerCrmHe.refreshAction,
-            ),
+            onPressed: () => _resolve(context),
+            child: const Text(CustomerCrmHe.chooseVersion),
           ),
       ],
     );

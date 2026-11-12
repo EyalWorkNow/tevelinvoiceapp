@@ -382,7 +382,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
           name: c.name,
           subtitle: (c.phone != null && c.phone!.isNotEmpty)
               ? formatPhoneHe(c.phone)
-              : (context.isDark ? '052-0000111' : null),
+              : null,
           badge: c.isArchived ? PeopleHe.archivedBadge : null,
           amountLabel: owed != null ? PeopleHe.owesYou : null,
           amountMinor: owed,

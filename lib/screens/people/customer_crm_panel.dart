@@ -25,6 +25,8 @@ class CustomerCrmPanel extends StatefulWidget {
     this.canViewMoney = false,
     this.onNavigate,
     this.onMessage,
+    this.documentsOpenMinor,
+    this.hasDocuments = false,
   });
 
   final String businessId;
@@ -35,6 +37,14 @@ class CustomerCrmPanel extends StatefulWidget {
   final VoidCallback? onCreateDocument;
   final bool canViewMoney;
   final ValueChanged<CustomerCrmJob>? onNavigate, onMessage;
+
+  /// What the customer still owes according to the issued documents (the
+  /// accounting truth); shown above the manual CRM tracking in "כסף".
+  final BigInt? documentsOpenMinor;
+
+  /// The customer already has documents: a never-changed stage ("ליד חדש")
+  /// is shown as an active customer instead.
+  final bool hasDocuments;
 
   @override
   State<CustomerCrmPanel> createState() => _CustomerCrmPanelState();
@@ -256,6 +266,10 @@ class _CustomerCrmPanelState extends State<CustomerCrmPanel> {
       final visibleNotes = _showAllNotes ? notes : notes.take(3).toList();
 
       final enabled = widget.canEdit && !_busy && _store.readyForEdits;
+      final stage = displayStage(
+        entry.stage,
+        hasDocuments: widget.hasDocuments,
+      );
       return Column(
         key: const Key('person-crm'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -282,7 +296,7 @@ class _CustomerCrmPanelState extends State<CustomerCrmPanel> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        entry.stage.label,
+                        stage.label,
                         style: AppText.secondary.copyWith(
                           color: context.palette.muted,
                         ),
@@ -550,6 +564,7 @@ class _CustomerCrmPanelState extends State<CustomerCrmPanel> {
           if (_section == 2 && widget.canViewMoney)
             CustomerCrmFinanceCard(
               jobs: entry.jobs,
+              documentsOpenMinor: widget.documentsOpenMinor,
               onOpenJob: (job) => unawaited(_editJob(job: job)),
             ),
           const SizedBox(height: Space.m),
@@ -561,17 +576,30 @@ class _CustomerCrmPanelState extends State<CustomerCrmPanel> {
               label: const Text(CustomerCrmHe.businessBoard),
             ),
           ),
-          const SizedBox(height: Space.s),
-          Text(
-            CustomerCrmHe.local,
-            style: AppText.secondary.copyWith(color: context.palette.muted),
-          ),
+          // One save indicator: the sync row above covers server sync.
+          if (!_store.remoteActive) ...[
+            const SizedBox(height: Space.s),
+            Text(
+              CustomerCrmHe.local,
+              style: AppText.secondary.copyWith(color: context.palette.muted),
+            ),
+          ],
           if (_busy) const LinearProgressIndicator(minHeight: 2),
         ],
       );
     },
   );
 }
+
+/// The stage shown on the card: a customer that already has documents is not
+/// a "new lead" unless someone chose a later stage.
+@visibleForTesting
+CustomerCrmStage displayStage(
+  CustomerCrmStage stored, {
+  required bool hasDocuments,
+}) => stored == CustomerCrmStage.lead && hasDocuments
+    ? CustomerCrmStage.active
+    : stored;
 
 class _NoteRow extends StatelessWidget {
   const _NoteRow({

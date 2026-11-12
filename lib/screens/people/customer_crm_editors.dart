@@ -7,6 +7,7 @@ import '../../state/customer_crm_job_budget.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/common_he.dart';
 import '../../util/labels/customer_crm_he.dart';
+import 'confirm_discard.dart';
 import 'customer_crm_job_fields.dart';
 
 Future<String?> showCustomerNoteEditor(
@@ -40,8 +41,22 @@ class _NoteEditorState extends State<_NoteEditor> {
     }
   }
 
+  /// A tap outside or a back swipe asks first when the text changed (06·9).
+  Future<void> _leave(bool didPop, Object? _) async {
+    if (didPop) return;
+    final changed = _text.text.trim() != (widget.note?.text ?? '').trim();
+    if (changed && !await confirmDiscardChanges(context)) return;
+    if (mounted) Navigator.pop(context);
+  }
+
   @override
-  Widget build(BuildContext context) => AlertDialog(
+  Widget build(BuildContext context) => PopScope<String>(
+    canPop: false,
+    onPopInvokedWithResult: _leave,
+    child: _dialog(context),
+  );
+
+  Widget _dialog(BuildContext context) => AlertDialog(
     title: Text(
       widget.note == null ? CustomerCrmHe.noteTitle : CustomerCrmHe.editNote,
     ),
@@ -173,6 +188,34 @@ class _WorkEditorState extends State<_WorkEditor> {
     _time = original == null
         ? const TimeOfDay(hour: 9, minute: 0)
         : TimeOfDay.fromDateTime(original);
+    _initial = _signature;
+  }
+
+  late final String _initial;
+
+  /// Everything the user can change; compared with the opening state.
+  String get _signature => [
+    _title.text,
+    _address.text,
+    _details.text,
+    _date,
+    _time,
+    _jobDraft.price.text,
+    _jobDraft.cost.text,
+    _jobDraft.minutes.text,
+    _jobDraft.paid.text,
+    _jobDraft.tasks.text,
+    _jobDraft.paymentDueAt,
+    _jobDraft.repeatEveryDays,
+  ].join('\u0000');
+
+  /// A tap outside or a back swipe asks first when something changed (06·9).
+  Future<void> _leave(bool didPop, Object? _) async {
+    if (didPop || _saving) return;
+    if (_signature != _initial && !await confirmDiscardChanges(context)) {
+      return;
+    }
+    if (mounted) Navigator.pop(context);
   }
 
   @override
@@ -285,8 +328,9 @@ class _WorkEditorState extends State<_WorkEditor> {
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: !_saving,
+  Widget build(BuildContext context) => PopScope<Object>(
+    canPop: false,
+    onPopInvokedWithResult: _leave,
     child: AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Text(

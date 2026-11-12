@@ -73,6 +73,7 @@ void main() {
     Widget home, {
     Preset preset = Preset.owner,
     bool readGating = false,
+    Brightness brightness = Brightness.light,
   }) async {
     tester.view.physicalSize = const Size(1170, 2532);
     tester.view.devicePixelRatio = 3;
@@ -91,7 +92,7 @@ void main() {
         locale: const Locale('he', 'IL'),
         supportedLocales: const [Locale('he', 'IL')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: buildTheme(Brightness.light),
+        theme: buildTheme(brightness),
         home: home,
       ),
     );
@@ -836,6 +837,76 @@ void main() {
       expect(find.byKey(const Key('s2-new')), findsNothing);
       expect(find.byKey(const Key('s2-walkin')), findsNothing);
       expect(find.byKey(const Key('s2-row-c1')), findsOneWidget);
+    });
+  });
+
+  group('QA 2026-11-12 · A5', () {
+    testWidgets('dark theme: no invented phone, same content as light (0.1)', (
+      tester,
+    ) async {
+      installPeopleFakes(
+        backend,
+        customers: [customerJson('c1', 'דנה'), customerJson('c2', 'אבי')],
+      );
+      await pump(
+        tester,
+        const Scaffold(body: Text('root')),
+        brightness: Brightness.dark,
+      );
+      unawaited(showCustomerSheet(navigatorKey.currentContext!));
+      await flush(tester);
+      expect(find.text('052-0000111'), findsNothing);
+      expect(find.text(PeopleHe.walkInHint), findsOneWidget);
+      expect(find.byKey(const Key('s2-row-c1')), findsOneWidget);
+    });
+
+    testWidgets('card: "קיבלתי תשלום" opens PAID for this customer (1.9)', (
+      tester,
+    ) async {
+      installPeopleFakes(
+        backend,
+        customers: [customerJson('c1', 'דנה')],
+        documents: docs(),
+      );
+      await pump(
+        tester,
+        const PersonScreen(id: 'c1'),
+        brightness: Brightness.dark,
+      );
+      expect(find.text('דנה'), findsWidgets, reason: 'name in the header');
+      expect(find.byKey(const Key('person-new-invoice')), findsOneWidget);
+      await tap(tester, find.byKey(const Key('person-paid')));
+      final c = tester.widget<ComposeScreen>(find.byType(ComposeScreen));
+      expect(c.intent, 'PAID');
+      expect(c.customerId, 'c1');
+    });
+
+    testWidgets('S2 form: back with typed text asks before leaving (1.10)', (
+      tester,
+    ) async {
+      installPeopleFakes(backend);
+      Customer? result;
+      var closed = false;
+      await pump(tester, const Scaffold(body: Text('root')));
+      unawaited(
+        showCustomerSheet(navigatorKey.currentContext!, startOnNew: true).then((
+          c,
+        ) {
+          result = c;
+          closed = true;
+        }),
+      );
+      await flush(tester);
+      await tester.enterText(find.byKey(const Key('s2-name')), 'דנה');
+      await flush(tester);
+      unawaited(Navigator.of(navigatorKey.currentContext!).maybePop());
+      await flush(tester);
+      expect(find.byKey(const Key('discard-confirm')), findsOneWidget);
+      expect(closed, isFalse);
+      await tap(tester, find.byKey(const Key('discard-leave')));
+      expect(closed, isTrue);
+      expect(result, isNull);
+      expect(backend.calls('POST', '/customers'), isEmpty);
     });
   });
 }
