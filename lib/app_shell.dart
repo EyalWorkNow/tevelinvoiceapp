@@ -151,7 +151,7 @@ class _AppShellState extends State<AppShell> {
         : _shellBottomNavigationHeight + media.viewPadding.bottom;
     return Scaffold(
       extendBody: true,
-      bottomNavigationBar: _ShellBottomNavigation(
+      bottomNavigationBar: ShellBottomNavigation(
         current: tab,
         showPeople: caps.showPeopleTab,
         showCreate: caps.showCreateTab,
@@ -224,8 +224,10 @@ class _KeepAliveTabState extends State<_KeepAliveTab>
   }
 }
 
-class _ShellBottomNavigation extends StatefulWidget {
-  const _ShellBottomNavigation({
+@visibleForTesting
+class ShellBottomNavigation extends StatefulWidget {
+  const ShellBottomNavigation({
+    super.key,
     required this.current,
     required this.showPeople,
     required this.showCreate,
@@ -240,10 +242,10 @@ class _ShellBottomNavigation extends StatefulWidget {
   final VoidCallback onCreate;
 
   @override
-  State<_ShellBottomNavigation> createState() => _ShellBottomNavigationState();
+  State<ShellBottomNavigation> createState() => _ShellBottomNavigationState();
 }
 
-class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
+class _ShellBottomNavigationState extends State<ShellBottomNavigation> {
   bool _pressed = false;
 
   @override
@@ -350,52 +352,61 @@ class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
                             4.423 * scale,
                             3.538 * scale,
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            textDirection: TextDirection.rtl,
-                            children: [
-                              _item(
-                                context,
-                                AppTab.home,
-                                'בית',
-                                'home',
-                                selected,
-                                motionDuration,
-                                scale,
-                              ),
-                              if (widget.showPeople) ...[
+                          // AT-29: when the לקוחות tab comes or goes (caps
+                          // change on a business switch) the capsule animates
+                          // its width while the Row already has the new item
+                          // count; the tabs keep their size and the capsule
+                          // clips them for those 360ms instead of overflowing.
+                          child: OverflowBox(
+                            minWidth: 0,
+                            maxWidth: double.infinity,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              textDirection: TextDirection.rtl,
+                              children: [
+                                _item(
+                                  context,
+                                  AppTab.home,
+                                  'בית',
+                                  'home',
+                                  selected,
+                                  motionDuration,
+                                  scale,
+                                ),
+                                if (widget.showPeople) ...[
+                                  SizedBox(width: _navigationItemGap * scale),
+                                  _item(
+                                    context,
+                                    AppTab.people,
+                                    'לקוחות',
+                                    'existing-customer',
+                                    selected,
+                                    motionDuration,
+                                    scale,
+                                  ),
+                                ],
                                 SizedBox(width: _navigationItemGap * scale),
                                 _item(
                                   context,
-                                  AppTab.people,
-                                  'לקוחות',
-                                  'existing-customer',
+                                  AppTab.business,
+                                  'ניהול',
+                                  'manage',
+                                  selected,
+                                  motionDuration,
+                                  scale,
+                                ),
+                                SizedBox(width: _navigationItemGap * scale),
+                                _item(
+                                  context,
+                                  AppTab.profile,
+                                  'פרופיל',
+                                  'profile',
                                   selected,
                                   motionDuration,
                                   scale,
                                 ),
                               ],
-                              SizedBox(width: _navigationItemGap * scale),
-                              _item(
-                                context,
-                                AppTab.business,
-                                'ניהול',
-                                'manage',
-                                selected,
-                                motionDuration,
-                                scale,
-                              ),
-                              SizedBox(width: _navigationItemGap * scale),
-                              _item(
-                                context,
-                                AppTab.profile,
-                                'פרופיל',
-                                'profile',
-                                selected,
-                                motionDuration,
-                                scale,
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
