@@ -30,7 +30,6 @@ import '../../util/intent_resolver.dart';
 import '../../util/labels/labels.dart';
 import '../../util/phone.dart';
 import '../../util/vat.dart';
-import '../document/sheets/s6_share.dart';
 import 'compose_dialogs.dart';
 import 'compose_memory.dart';
 import 'compose_state.dart';
@@ -51,11 +50,13 @@ class ShareDismissed implements Exception {
 /// D after issuing (replaces C) and the auto-opened S6. Tests replace them
 /// so the Composer is tested without squad C's screens.
 Future<void> Function(BuildContext context, String id) openIssuedDocument =
-    (c, id) => openDocument(c, id, replace: true);
+    (c, id) => openDocument(c, id, replace: true, justIssued: true);
 Future<void> Function(BuildContext context, String id) openIssuedQuote =
     (c, id) => openQuote(c, id, replace: true);
+// QA 1.2: D's success state (justIssued) carries WhatsApp / copy link / "עוד";
+// S6 no longer pops up over it.
 Future<void> Function(BuildContext context, String id) openShareAfterIssue =
-    (c, id) => showShareSheet(c, documentId: id);
+    (c, id) async {};
 
 /// What the screen needs to run the button.
 class ComposeRun {

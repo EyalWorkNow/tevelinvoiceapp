@@ -6,7 +6,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../api/actions_api.dart';
-import '../../../api/client.dart';
 import '../../../api/models/models.dart';
 import '../../../state/business_context.dart';
 import '../../../ui/ds.dart';
@@ -143,7 +142,7 @@ class _CancelSheetState extends State<CancelSheet> {
     try {
       await voidDocument(_doc!.id, _reason.text);
       if (mounted) Navigator.of(context).pop(const CancelResult(voided: true));
-    } on ApiException catch (e) {
+    } on Object catch (e) {
       if (mounted) setState(() => _error = e);
     } finally {
       if (mounted) setState(() => _busy = false);

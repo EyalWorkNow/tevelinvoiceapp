@@ -4,9 +4,9 @@
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +19,7 @@ import 'package:invoice/screens/document/document_screen.dart';
 import 'package:invoice/screens/document/payments_ledger.dart';
 import 'package:invoice/screens/document/sheets/s6_share.dart';
 import 'package:invoice/screens/document/sheets/s8_cancel.dart';
+import 'package:invoice/screens/people/person_screen.dart';
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/ui/theme.dart';
@@ -56,6 +57,11 @@ void main() {
     pdfPreviewBuilder = (_) => const SizedBox(key: Key('pdf-preview'));
     pdfSharer = (Uint8List bytes, String name, {String? text}) async => sharedPdfs.add(name);
     signingBiometric = (_) async => true;
+    backend.json('GET', '/tax-rates', {
+      'rates': [
+        {'tax_code': 'VAT', 'rate_basis_points': 1800}
+      ]
+    });
     await AppCache.clearAll();
   });
 
@@ -73,6 +79,7 @@ void main() {
   Future<void> tap(WidgetTester tester, Finder f) async {
     taps++;
     await tester.ensureVisible(f);
+    await tester.pump(); // lay out the scroll before hit-testing the new position
     // Tap from the real zone: the handlers' file IO (AppCache) then completes.
     await tester.runAsync(() async {
       await tester.tap(f);
@@ -86,6 +93,7 @@ void main() {
       bool quote = false,
       Map<String, dynamic>? policy,
       double textScale = 1,
+      bool justIssued = false,
       Size size = const Size(1170, 2532)}) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 3;
@@ -102,7 +110,7 @@ void main() {
         data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
         child: child!,
       ),
-      home: DocumentScreen(id: id, isQuote: quote),
+      home: DocumentScreen(id: id, isQuote: quote, justIssued: justIssued),
     ));
     await settle(tester);
   }
@@ -305,6 +313,7 @@ void main() {
     await openMenu(tester);
     await tap(tester, find.text('שלח שוב'));
     expect(find.byType(PrimaryButton), findsNWidgets(2)); // D + S6 (one each)
+    await tap(tester, find.byKey(const Key('s6-more')));
     await tap(tester, find.byKey(const Key('s6-email')));
     expect(tester.widget<TextField>(find.byKey(const Key('s6-email-field'))).controller!.text,
         'dana@example.test');
@@ -321,6 +330,7 @@ void main() {
     await pumpDoc(tester, Preset.owner);
     await openMenu(tester);
     await tap(tester, find.text('שתף'));
+    await tap(tester, find.byKey(const Key('s6-more')));
     expect(find.text('סריקה לקבלת החשבונית'), findsOneWidget);
     await tap(tester, find.byKey(const Key('s6-qr')));
     expect(find.byKey(const Key('s6-qr-image')), findsOneWidget);
@@ -335,6 +345,7 @@ void main() {
     await pumpDoc(tester,Preset.owner);
     await openMenu(tester);
     await tap(tester,find.text('שתף'));
+    await tap(tester,find.byKey(const Key('s6-more')));
     await tap(tester,find.byKey(const Key('s6-sms')));
     await tester.enterText(find.byKey(const Key('s6-phone-field')),'0501234567');
     await tap(tester,find.byKey(const Key('s6-sms-send')));
@@ -474,6 +485,7 @@ void main() {
     expect(find.textContaining('לתשלום עד'), findsOneWidget); // BE-07
     expect(find.textContaining('נצפה'), findsOneWidget);
     await tap(tester, find.byKey(const Key('doc-status-line')));
+    await tester.scrollUntilVisible(find.text('הלקוח צפה'), 200, scrollable: find.byType(Scrollable).first);
     expect(find.text('הלקוח צפה'), findsOneWidget);
     expect(find.text('נרשם תשלום'), findsOneWidget);
     await tester.scrollUntilVisible(find.byKey(const Key('doc-link-rcp-1')), 200,
@@ -546,6 +558,7 @@ void main() {
     await pumpDoc(tester, Preset.owner);
     await openMenu(tester);
     await tap(tester, find.text('שלח שוב'));
+    await tap(tester, find.byKey(const Key('s6-more')));
     expect(find.byKey(const Key('s6-revoke')), findsOneWidget);
     await tap(tester, find.byKey(const Key('s6-revoke')));
     expect(backend.calls('POST', '/documents/:id/share-link/revoke'), hasLength(1));
@@ -585,6 +598,107 @@ void main() {
     await tap(tester, find.byKey(const Key('dialog-confirm')));
     expect(backend.last('POST', '/payments/:id/void')!.body, {'reason': 'נרשם פעמיים'});
     expect(backend.calls('GET', '/payments').length, greaterThanOrEqualTo(2));
+  });
+
+  group('QA 2026-11-12 fixes (A2)', () {
+    testWidgets('1.1: sent by WhatsApp dispatch only → "קיבלתי תשלום" + visible "שלח תזכורת"', (tester) async {
+      backend.json('GET', '/documents/:id',
+          docDetailJson(timeline: [timelineJson('document.finalized'), timelineJson('document.whatsapp_sent')]));
+      await pumpDoc(tester, Preset.owner);
+      expect(primaryLabel(tester), 'קיבלתי תשלום');
+      expect(find.byType(PrimaryButton), findsOneWidget);
+      await tap(tester, find.byKey(const Key('doc-secondary')));
+      expect(find.text('שלח תזכורת'), findsOneWidget);
+      expect(launcher.last.toString(), startsWith('https://wa.me/972501234567'));
+    });
+
+    testWidgets('1.2: opened right after issue → success state; "העתק קישור" copies the /d/ link', (tester) async {
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String?;
+        return null;
+      });
+      addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+      await pumpDoc(tester, Preset.owner, justIssued: true);
+      expect(find.text('הופק ✓ · חשבונית מס 1042'), findsOneWidget);
+      expect(find.byKey(const Key('doc-issued-whatsapp')), findsNothing, reason: 'the primary already is WhatsApp');
+      expect(find.byKey(const Key('doc-issued-more')), findsOneWidget);
+      await tap(tester, find.byKey(const Key('doc-issued-copy')));
+      expect(backend.calls('POST', '/documents/:id/share-link'), hasLength(1));
+      expect(copied, contains('/d/tok123'));
+    });
+
+    testWidgets('1.2: no success state when D is opened from a list', (tester) async {
+      await pumpDoc(tester, Preset.owner);
+      expect(find.byKey(const Key('doc-issued')), findsNothing);
+    });
+
+    testWidgets('1.2: S6 shows 3 ways + "עוד"; the folded ones are still there', (tester) async {
+      await pumpDoc(tester, Preset.owner);
+      unawaited(showShareSheet(navigatorKey.currentContext!, documentId: 'doc-1'));
+      await settle(tester);
+      for (final k in ['s6-whatsapp', 's6-copy', 's6-pdf', 's6-more']) {
+        expect(find.byKey(Key(k)), findsOneWidget, reason: k);
+      }
+      expect(find.byKey(const Key('s6-email')), findsNothing);
+      await tap(tester, find.byKey(const Key('s6-more')));
+      for (final k in ['s6-qr', 's6-sms', 's6-automatic', 's6-email', 's6-pdf-copy']) {
+        expect(find.byKey(Key(k)), findsOneWidget, reason: k);
+      }
+    });
+
+    testWidgets('0.6: quote → invoice uses the VAT rate of GET /tax-rates (not a fixed 1800)', (tester) async {
+      backend.json('GET', '/tax-rates', {
+        'rates': [
+          {'tax_code': 'VAT', 'rate_basis_points': 1700}
+        ]
+      });
+      await pumpDoc(tester, Preset.owner, id: 'q-1', quote: true);
+      await tester.tap(primary());
+      await settle(tester);
+      expect(backend.last('POST', '/quotes/:id/convert')!.body['taxRateBasisPoints'], 1700);
+    });
+
+    testWidgets('"עבור ללקוח": the customer row opens the customer card', (tester) async {
+      await pumpDoc(tester, Preset.owner);
+      await tester.scrollUntilVisible(find.byKey(const Key('doc-customer')), 200,
+          scrollable: find.byType(Scrollable).first);
+      expect(find.text('דנה כהן'), findsWidgets);
+      await tester.tap(find.byKey(const Key('doc-customer')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(PersonScreen), findsOneWidget);
+    });
+
+    testWidgets('cache-first: the device copy shows at once, the server copy replaces it', (tester) async {
+      await tester.runAsync(() => AppCache.write('doc_b1_doc-1', docDetailJson(number: '999')));
+      final gate = Completer<void>();
+      backend.on('GET', '/documents/:id', (_) async {
+        await gate.future;
+        return FakeResponse(200, docDetailJson());
+      });
+      await pumpDoc(tester, Preset.owner);
+      expect(find.text('חשבונית מס 999'), findsOneWidget);
+      expect(tester.widget<PrimaryButton>(primary()).loadingText, 'מעדכן…');
+      expect(find.text('אין חיבור – מציג נתונים אחרונים'), findsNothing);
+      gate.complete();
+      await settle(tester);
+      expect(find.text('חשבונית מס 1042'), findsOneWidget);
+      expect(tester.widget<PrimaryButton>(primary()).loadingText, isNull);
+    });
+
+    testWidgets('S8 void: a non-API failure is shown in the sheet, not lost', (tester) async {
+      backend
+        ..json('GET', '/documents/:id', docDetailJson(type: 'SALES_ORDER', timeline: const []))
+        ..on('POST', '/documents/:id/void', (_) => throw StateError('boom'));
+      await pumpDoc(tester, Preset.owner);
+      await openMenu(tester);
+      await tap(tester, find.text('בטל / זכה'));
+      await tester.enterText(find.byKey(const Key('s8-reason')), 'כפול');
+      await tap(tester, find.byKey(const Key('s8-void')));
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const Key('s8-void')), findsOneWidget, reason: 'the sheet stays open');
+    });
   });
 
   group('round-1 fixes (area C)', () {

@@ -10,7 +10,7 @@
 // | 6  | ARTIFACT_PENDING (or issued, PDF missing) + doc.issue   | חתום והפק PDF               | — |
 // | 7  | ARTIFACT_PENDING (or issued, PDF missing) otherwise     | — "ממתין לחתימה…"           | — |
 // | 8  | 300/305 open, never sent + doc.send                     | שלח בווטסאפ / שלח           | קיבלתי תשלום (payment.record) |
-// | 9  | 300/305 open + payment.record                           | קיבלתי תשלום                | שלח שוב (doc.send) |
+// | 9  | 300/305 open + payment.record                           | קיבלתי תשלום (+ שלח תזכורת) | שלח שוב (doc.send) |
 // | 10 | 300/305 open + doc.send                                 | שלח תזכורת                  | — |
 // | 11 | quote DRAFT + doc.send                                  | שלח הצעה                    | הפוך לחשבונית |
 // | 12 | quote SENT + doc.draft                                  | הפוך לחשבונית               | הלקוח דחה · שלח שוב |
@@ -151,7 +151,8 @@ class DocViewer {
 }
 
 class NextAction {
-  const NextAction({required this.row, this.primary, this.label, this.waiting, this.menu = const []});
+  const NextAction(
+      {required this.row, this.primary, this.label, this.secondary, this.waiting, this.menu = const []});
 
   /// §6.D row (1–16), 0 = nothing applies (e.g. a draft for a viewer).
   final int row;
@@ -159,6 +160,10 @@ class NextAction {
   /// Null = no PrimaryButton ("—" rows, F2).
   final DocAction? primary;
   final String? label;
+
+  /// A second visible action beside the primary (row 9: "שלח תזכורת"), not
+  /// buried in ⋯ (QA 1.1).
+  final DocAction? secondary;
 
   /// "—" rows: the one line shown instead of a button.
   final String? waiting;
@@ -215,6 +220,7 @@ String docActionLabel(DocAction a, {bool rejected = false, bool hasPhone = true}
 /// §6.D. Pure: same input → same output.
 NextAction nextAction(DocFacts d, DocViewer v) {
   final (row, primary, waiting, state) = _row(d, v);
+  final secondary = row == 9 && v.can(Cap.docSend) ? DocAction.sendReminder : null;
   final menu = <DocAction>[...state];
   final mayShare = v.can(Cap.docView) && !d.amountHidden && primary != DocAction.share;
   if (!d.isQuote && _mayIssueTaxInvoice(d, v)) menu.add(DocAction.issueTaxInvoice);
@@ -239,6 +245,7 @@ NextAction nextAction(DocFacts d, DocViewer v) {
     row: row,
     primary: primary,
     label: primary == null ? null : docActionLabel(primary, rejected: d.rejected, hasPhone: d.customerHasPhone),
+    secondary: secondary,
     waiting: waiting,
     menu: menu,
   );

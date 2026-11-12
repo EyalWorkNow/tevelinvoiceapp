@@ -59,10 +59,10 @@ void main() {
       expect(emp.menu, isEmpty);
     });
 
-    test('3: draft + doc.draft → "המשך"; rejected → "תקן ושלח שוב"', () {
+    test('3: draft + doc.draft → "המשך להפקה"; rejected → "תקן ושלח שוב"', () {
       for (final s in ['DRAFT', 'VALIDATING', 'READY_TO_FINALIZE']) {
         final n = nextAction(DocFacts(status: s, documentType: 'TAX_INVOICE'), viewer(Preset.employee));
-        expect((n.row, n.label), (3, 'המשך'), reason: s);
+        expect((n.row, n.label), (3, 'המשך להפקה'), reason: s);
       }
       final r = nextAction(DocFacts(status: 'DRAFT', documentType: 'TAX_INVOICE', rejected: true),
           viewer(Preset.employee));
@@ -123,6 +123,14 @@ void main() {
       final n = nextAction(open305(sentAt: '2026-10-30T10:00:00Z'), viewer(Preset.owner));
       expect((n.row, n.label), (9, 'קיבלתי תשלום'));
       expect(n.menu.first, DocAction.sendAgain);
+    });
+
+    test('9 (QA 1.1): "שלח תזכורת" is a visible second action, not only in ⋯; never on other rows', () {
+      final n = nextAction(open305(sentAt: '2026-10-30T10:00:00Z'), viewer(Preset.owner));
+      expect(n.secondary, DocAction.sendReminder);
+      expect(docActionLabel(n.secondary!), 'שלח תזכורת');
+      expect(nextAction(open305(), viewer(Preset.owner)).secondary, isNull); // row 8
+      expect(nextAction(open305(sentAt: 'x'), viewer(Preset.employee)).secondary, isNull); // row 10
     });
 
     test('10: open, sent, doc.send without payment.record → "שלח תזכורת"', () {
