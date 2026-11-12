@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:invoice/screens/expense/expense_capture_screen.dart';
 import 'package:invoice/api/inbox_api.dart';
 import 'package:invoice/app_shell.dart';
 import 'package:invoice/router.dart';
@@ -312,6 +313,20 @@ void main() {
         find.textContaining('₪'),
         findsWidgets,
       ); // rows keep amounts (P0, §12.5)
+    },
+  );
+
+  testWidgets(
+    'QA (A10): employee "הוצאות" opens capture directly (S1 is gone)',
+    (tester) async {
+      await pumpHome(tester, Preset.employee);
+      await tester.ensureVisible(find.byKey(const Key('intent-expenses')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('intent-expenses')));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(ExpenseCaptureScreen), findsOneWidget);
     },
   );
 

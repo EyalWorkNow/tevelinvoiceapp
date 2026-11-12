@@ -688,12 +688,18 @@ class _IntentButtons extends StatelessWidget {
         ),
       if (caps.can(Cap.expenseCapture) || caps.can(Cap.expenseApprove))
         ActionOrb(
+          key: const Key('intent-expenses'),
           label: InboxHe.expensesAction,
           icon: const DesignIcon('expense'),
           color: DesignTokens.yellow,
           onPressed: () => unawaited(
             caps.can(Cap.expenseApprove) && caps.can(Cap.moneyView)
                 ? openExpenseOverview(context)
+                // Capture-only roles (עובד) go straight to the camera, as
+                // the removed S1 "הוצאה" tile did: the review queue only
+                // offers capture when it is empty.
+                : !caps.can(Cap.expenseApprove)
+                ? openExpenseCapture(context)
                 : openExpenses(context),
           ),
         ),

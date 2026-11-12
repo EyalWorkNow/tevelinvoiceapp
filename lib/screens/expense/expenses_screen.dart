@@ -420,6 +420,37 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         _approver &&
         current.isReviewable &&
         !current.isDuplicate;
+    // ⋯ "מחק" / "דחה" and the progress line exist in both themes (QA 0.1:
+    // the dark header used to drop them, so reject/delete were unreachable).
+    final menus = [
+      if (editing != null)
+        MoreMenu(
+          items: [
+            MoreMenuItem(
+              label: ExpenseHe.delete,
+              destructive: true,
+              onSelected: _delete,
+            ),
+          ],
+        ),
+      if (canReject)
+        MoreMenu(
+          items: [
+            MoreMenuItem(
+              label: ExpenseHe.reject,
+              destructive: true,
+              onSelected: _reject,
+            ),
+          ],
+        ),
+    ];
+    final progress = editing == null && !_list && current != null
+        ? Text(
+            ExpenseHe.progress(_done + 1, _done + _queue.length),
+            key: const Key('expense-progress'),
+            style: AppText.secondary.copyWith(color: context.palette.muted),
+          )
+        : null;
     return Scaffold(
       appBar: context.isDark
           ? null
@@ -428,14 +459,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(editing != null ? ExpenseHe.editTitle : ExpenseHe.title),
-                  if (editing == null && !_list && current != null)
-                    Text(
-                      ExpenseHe.progress(_done + 1, _done + _queue.length),
-                      key: const Key('expense-progress'),
-                      style: AppText.secondary.copyWith(
-                        color: context.palette.muted,
-                      ),
-                    ),
+                  ?progress,
                 ],
               ),
               actions: [
@@ -449,26 +473,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                           : ExpenseHe.allExpenses,
                     ),
                   ),
-                if (editing != null)
-                  MoreMenu(
-                    items: [
-                      MoreMenuItem(
-                        label: ExpenseHe.delete,
-                        destructive: true,
-                        onSelected: _delete,
-                      ),
-                    ],
-                  ),
-                if (canReject)
-                  MoreMenu(
-                    items: [
-                      MoreMenuItem(
-                        label: ExpenseHe.reject,
-                        destructive: true,
-                        onSelected: _reject,
-                      ),
-                    ],
-                  ),
+                ...menus,
               ],
             ),
       body: SafeArea(
@@ -486,14 +491,22 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        editing != null ? ExpenseHe.editTitle : ExpenseHe.title,
-                        style: AppText.displayTitle,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            editing != null
+                                ? ExpenseHe.editTitle
+                                : ExpenseHe.title,
+                            style: AppText.displayTitle,
+                          ),
+                          ?progress,
+                        ],
                       ),
                     ),
                     if (_rows != null && _rows!.isNotEmpty) ...[
                       TextButton(
-                        key: const Key('expense-mode-dark'),
+                        key: const Key('expense-mode'),
                         onPressed: _toggleList,
                         child: Text(
                           _list && editing == null
@@ -506,6 +519,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                       ),
                       const SizedBox(width: Space.s),
                     ],
+                    ...menus,
                     const DesignBackButton(),
                   ],
                 ),
