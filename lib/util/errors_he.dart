@@ -52,6 +52,10 @@ const Map<String, String> _mobileMessages = {
   'SUPABASE_AUTH_DISABLED': 'שירות ההתחברות עדיין לא הוגדר. פנו לתמיכה.',
   'SUPABASE_AUTH_UNAVAILABLE': 'שירות ההתחברות לא זמין זמנית. נסו שוב בעוד רגע.',
   'SUPABASE_TOKEN_INVALID': 'לא ניתן לאמת את ההתחברות. נסו להתחבר שוב.',
+  'SUPABASE_EMAIL_NOT_CONFIRMED':
+      'כתובת האימייל עדיין לא אושרה. פתחו את הקישור שנשלח אליכם ואז התחברו.',
+  'SUPABASE_USER_BANNED': 'החשבון הזה חסום להתחברות. פנו לתמיכה.',
+  'SUPABASE_LOGIN_INVALID_INPUT': 'יש להזין כתובת אימייל וסיסמה תקינות.',
   'SUPABASE_RECOVERY_SUPPORT_REQUIRED': 'לאיפוס הסיסמה בחשבון זה פנו לתמיכה.',
   'CRM_CONFLICT': 'המידע עודכן במכשיר אחר. השינויים שלך שמורים עד לבחירת גרסה.',
   'CRM_MUTATION_REUSED': 'לא ניתן לאשר את הסנכרון הזה. יש לרענן את תיק הלקוח.',

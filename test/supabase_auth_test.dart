@@ -80,6 +80,12 @@ void main() {
     () async {
       for (final sample in [
         (400, '{}', 'INVALID_CREDENTIALS'),
+        (400, '{"error_code":"invalid_credentials"}', 'INVALID_CREDENTIALS'),
+        (400, '{"error":"invalid_grant"}', 'INVALID_CREDENTIALS'),
+        (400, '{"error_code":"email_not_confirmed"}', 'SUPABASE_EMAIL_NOT_CONFIRMED'),
+        (400, '{"error_code":"user_banned"}', 'SUPABASE_USER_BANNED'),
+        (422, '{"error_code":"validation_failed"}', 'SUPABASE_LOGIN_INVALID_INPUT'),
+        (422, '{}', 'SUPABASE_LOGIN_INVALID_INPUT'),
         (429, '{}', 'RATE_LIMITED'),
         (503, '{}', 'SUPABASE_AUTH_UNAVAILABLE'),
         (200, 'not-json', 'BAD_RESPONSE'),
