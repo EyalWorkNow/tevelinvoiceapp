@@ -62,6 +62,7 @@ Widget docRowFor(
       if (dateStr.isNotEmpty) ltrIsolate(dateStr),
       for (final a in st.attributes) docAttributeLabels[a]!,
     ],
+    meta: dateStr.isEmpty ? null : ltrIsolate(dateStr),
     onTap: onTap,
   );
   if (onDelete == null || !isDraftStatus(d.status)) return row;
@@ -69,7 +70,7 @@ Widget docRowFor(
     children: [
       Expanded(child: row),
       PopupMenuButton<String>(
-        tooltip: 'פעולות לטיוטה',
+        tooltip: InboxHe.draftActions,
         icon: const Icon(Icons.more_horiz_rounded),
         onSelected: (action) {
           if (action == 'delete') onDelete();
@@ -81,7 +82,7 @@ Widget docRowFor(
               children: [
                 Icon(Icons.delete_outline_rounded, size: 20),
                 SizedBox(width: 10),
-                Text('מחק טיוטה'),
+                Text(InboxHe.deleteDraft),
               ],
             ),
           ),
@@ -96,16 +97,16 @@ Future<bool> confirmDraftDeletion(BuildContext context) async =>
       context: context,
       builder: (context) => AlertDialog(
         icon: const Icon(Icons.delete_outline_rounded),
-        title: const Text('למחוק את הטיוטה?'),
-        content: const Text('הטיוטה תימחק מרשימת המסמכים.'),
+        title: const Text(InboxHe.deleteDraftTitle),
+        content: const Text(InboxHe.deleteDraftBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('ביטול'),
+            child: const Text(InboxHe.cancel),
           ),
           FilledButton.tonal(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('מחק טיוטה'),
+            child: const Text(InboxHe.deleteDraft),
           ),
         ],
       ),

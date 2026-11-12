@@ -87,6 +87,7 @@ void main() {
     bool load = true,
     double textScale = 1,
     Size size = const Size(1170, 2532),
+    Brightness brightness = Brightness.light,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 3;
@@ -112,7 +113,7 @@ void main() {
         locale: const Locale('he', 'IL'),
         supportedLocales: const [Locale('he', 'IL')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: buildTheme(Brightness.light),
+        theme: buildTheme(brightness),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,
@@ -350,7 +351,7 @@ void main() {
     },
   );
 
-  testWidgets('J10: "שלח תזכורות" is ONE tap → e-mails sent + toast', (
+  testWidgets('J10 + 0.8: "באיחור" opens a preview; only confirm sends', (
     tester,
   ) async {
     await pumpHome(
@@ -378,7 +379,25 @@ void main() {
     });
     expect(find.byKey(const Key('inbox-OVERDUE')), findsOneWidget);
     expect(find.text('3 חשבוניות באיחור'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('inbox-OVERDUE')));
+    Future<void> openPreview() async {
+      await tester.tap(find.byKey(const Key('inbox-OVERDUE')));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('reminders-preview')), findsOneWidget);
+      expect(find.byKey(const Key('reminder-late')), findsOneWidget);
+    }
+
+    // Cancel: nothing leaves the phone.
+    await openPreview();
+    expect(backend.calls('POST', '/documents/:id/send'), isEmpty);
+    await tester.tap(find.byKey(const Key('reminders-cancel')));
+    await tester.pumpAndSettle();
+    expect(backend.calls('POST', '/documents/:id/send'), isEmpty);
+
+    await openPreview();
+    await tester.tap(find.byKey(const Key('reminders-confirm')));
     await tester.runAsync(() async {
       for (
         var i = 0;
@@ -626,6 +645,28 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('intent-request')), findsOneWidget);
       expect(find.byKey(const Key('home-money')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    '0.1 + 1.8: in the dark theme the app ships with, the overdue amount, '
+    'the business name and the role tag are all shown',
+    (tester) async {
+      await pumpHome(tester, Preset.owner, brightness: Brightness.dark);
+      expect(find.text('מתוכם באיחור'), findsOneWidget);
+      final name = tester.widget<Text>(
+        find.byKey(const Key('home-business-name')),
+      );
+      expect(name.data, isNotEmpty);
+      expect(find.byKey(const Key('home-business-name')).hitTestable(), findsOneWidget);
+      expect(find.byKey(const Key('home-role-tag')), findsNothing); // owner
+
+      resetSession();
+      await pumpHome(tester, Preset.viewer, brightness: Brightness.dark);
+      expect(find.byKey(const Key('home-role-tag')), findsOneWidget);
+      expect(find.text('צפייה בלבד'), findsOneWidget);
+      // No intent buttons for a viewer in dark mode either (caps, not theme).
+      expect(find.byKey(const Key('intent-request')), findsNothing);
     },
   );
 }

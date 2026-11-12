@@ -33,6 +33,7 @@ import 'state/business_context.dart';
 import 'state/caps.dart';
 import 'state/session.dart';
 import 'util/labels/common_he.dart';
+import 'util/labels/inbox_he.dart';
 
 /// Root navigator (MaterialApp.navigatorKey) for resets without a context.
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -256,12 +257,20 @@ Widget? screenFor(AppRoute route) {
 }
 
 /// Opens [locationString] (a §5 path or a tevel:// link). Tab routes switch
-/// the tab of the running shell; /gate and /setup reset the stack. Returns
-/// false when the location is unknown or not allowed for the current caps.
+/// the tab of the running shell; /gate (signed out only) and /setup reset the
+/// stack. Returns false when the location is unknown or not allowed for the
+/// current caps; a refusal of a signed-in user says so (1.11).
+///
+/// Without a [context] (deep link, notification, debug server) the open
+/// dialogs, sheets and the Composer are closed first, so the new screen is
+/// the one the user sees (1.11). A `businessId` other than the active one
+/// switches business only after the user confirms (1.12).
 Future<bool> go(String locationString, {BuildContext? context}) async {
   final route = AppRoute.parse(locationString);
   if (route == null) return false;
   if (route.pattern == '/gate') {
+    // 1.12: a link never drops a live session onto the sign-in screen.
+    if (session.status == SessionStatus.signedIn) return false;
     resetToLogin();
     return true;
   }
@@ -273,15 +282,24 @@ Future<bool> go(String locationString, {BuildContext? context}) async {
   var switchedBusiness = false;
   final targetBusiness = route.query['businessId'];
   if (targetBusiness != null && targetBusiness != session.business?.businessId) {
+    final matches = session.account?.businesses.where(
+      (business) => business.businessId == targetBusiness,
+    );
+    if (matches == null || matches.isEmpty) {
+      _refused(InboxHe.routeUnavailable);
+      return false;
+    }
+    if (!await confirmBusinessSwitch(matches.first.legalName)) return false;
     if (session.status != SessionStatus.signedIn) return false;
-    final matches = session.account?.businesses.where((business) => business.businessId == targetBusiness);
-    if (matches == null || matches.isEmpty) return false;
     await session.selectBusiness(matches.first);
     resetToHome();
     await WidgetsBinding.instance.endOfFrame;
     switchedBusiness = true;
   }
-  if (!route.allowedFor(businessContext.caps)) return false;
+  if (!route.allowedFor(businessContext.caps)) {
+    _refused(InboxHe.routeForbidden);
+    return false;
+  }
   switch (route.pattern) {
     case '/home':
       _toTab(AppTab.home);
@@ -295,10 +313,12 @@ Future<bool> go(String locationString, {BuildContext? context}) async {
       return true;
   }
   final screen = screenFor(route)!;
+  final local = context != null && !switchedBusiness;
   final nav = context != null && context.mounted && !switchedBusiness
       ? Navigator.of(context)
       : navigatorKey.currentState;
   if (nav == null) return false;
+  if (!local) dismissTransientRoutes(nav);
   unawaited(
     nav.push(
       _page(screen, locationString, fullscreen: route.pattern == '/compose'),
@@ -306,6 +326,50 @@ Future<bool> go(String locationString, {BuildContext? context}) async {
   );
   return true;
 }
+
+/// Pops dialogs, sheets and Composers above the screen a link lands on.
+void dismissTransientRoutes(NavigatorState nav) => nav.popUntil(
+  (r) =>
+      r.isFirst ||
+      (r is! PopupRoute &&
+          !(r.settings.name?.startsWith('/compose') ?? false) &&
+          !(r.settings.name?.startsWith('tevel://compose') ?? false)),
+);
+
+/// "Switch to business X?" before a link changes the active business.
+/// Tests may replace it.
+Future<bool> Function(String businessName) confirmBusinessSwitch =
+    _askBusinessSwitch;
+
+Future<bool> _askBusinessSwitch(String businessName) async {
+  final ctx = navigatorKey.currentContext;
+  if (ctx == null) return false;
+  return await showDialog<bool>(
+        context: ctx,
+        builder: (dialogContext) => AlertDialog(
+          key: const Key('switch-business-confirm'),
+          title: const Text(InboxHe.switchBusinessTitle),
+          content: Text(InboxHe.switchBusinessBody(businessName)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text(InboxHe.cancel),
+            ),
+            FilledButton(
+              key: const Key('switch-business-yes'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text(InboxHe.switchBusinessConfirm),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+}
+
+void _refused(String text) => messengerKey.currentState?.showNotchNotice(
+  SnackBar(content: Text(text)),
+  motion: NoticeMotion.error,
+);
 
 PageRoute<T> _page<T>(Widget screen, String name, {bool fullscreen = false}) =>
     AppPageRoute<T>(

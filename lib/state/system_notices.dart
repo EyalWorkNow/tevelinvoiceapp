@@ -8,6 +8,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../api/client.dart';
 import '../router.dart';
 import '../ui/widgets/notch_notice.dart';
+import '../util/labels/inbox_he.dart';
 import 'session.dart';
 
 const _channel = MethodChannel('tevel/system_notices');
@@ -192,8 +193,15 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
       if (!_seen.add(id)) return;
       if (_seen.length > 100) _seen.remove(_seen.first);
     }
+    // 1.11: a notice that arrives in the foreground opens its screen on tap.
     notchNoticeKey.currentState?.show(
-      SnackBar(content: Text(presentation.$1)),
+      SnackBar(
+        content: Text(presentation.$1),
+        action: SnackBarAction(
+          label: InboxHe.actOpen,
+          onPressed: () => unawaited(go(route)),
+        ),
+      ),
       motion: presentation.$2,
     );
   }

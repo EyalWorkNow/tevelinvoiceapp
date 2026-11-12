@@ -5,7 +5,6 @@ import '../money_text.dart';
 import '../theme.dart';
 import 'amount_display.dart';
 import 'status_pill.dart';
-import 'design_controls.dart';
 
 /// Document list row (spec V2 §15.2), ≥64pt.
 /// Line 1: [title] (customer) + amount. Line 2: [subtitle] ("חשבונית מס 1042")
@@ -22,6 +21,7 @@ class DocRow extends StatelessWidget {
     this.onTap,
     this.swipeLabel,
     this.onSwipe,
+    this.meta,
   });
 
   final String title;
@@ -34,6 +34,9 @@ class DocRow extends StatelessWidget {
   final VoidCallback? onTap;
   final String? swipeLabel;
   final VoidCallback? onSwipe;
+
+  /// Quiet text beside the single status in the compact row (the date).
+  final String? meta;
 
   @override
   Widget build(BuildContext context) {
@@ -148,28 +151,8 @@ class DocRow extends StatelessWidget {
         ? p.muted
         : p.ink;
     final isExpense = amountColor == p.danger || amountColor == p.muted;
-    Widget avatarWidget;
-    if (title.contains('דלק')) {
-      avatarWidget = ClipOval(
-        child: Image.asset(
-          'assets/design/delek_avatar.png',
-          width: 38,
-          height: 38,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => PersonAvatar(name: title),
-        ),
-      );
-    } else {
-      avatarWidget = ClipOval(
-        child: Image.asset(
-          'assets/design/danielle_avatar.png',
-          width: 38,
-          height: 38,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => PersonAvatar(name: title),
-        ),
-      );
-    }
+    // 1.7: the customer's initials, never a stock face.
+    final avatarWidget = _InitialsAvatar(name: title);
     final row = Semantics(
       button: onTap != null,
       label: [
@@ -214,19 +197,18 @@ class DocRow extends StatelessWidget {
                         style: AppText.secondary.copyWith(color: p.muted),
                       ),
                       const SizedBox(height: 2),
+                      // 1.7: one status. Attributes ("נשלח", "נצפה") stay in
+                      // the spoken label and on D, not as a second status.
                       Wrap(
                         spacing: Space.s,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          for (final a in attributes)
+                          status,
+                          if (meta != null && meta!.isNotEmpty)
                             Text(
-                              a,
+                              meta!,
                               style: AppText.secondary.copyWith(color: p.muted),
                             ),
-                          Text(
-                            status.label,
-                            style: AppText.secondary.copyWith(color: p.muted),
-                          ),
                         ],
                       ),
                     ],
@@ -234,8 +216,10 @@ class DocRow extends StatelessWidget {
                 ),
                 if (amountMinor != null) ...[
                   const SizedBox(width: Space.s),
-                  Flexible(
-                    flex: 2,
+                  // Sized by the amount itself, so the type and number keep
+                  // the rest of the line (1.7).
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 140),
                     child: Directionality(
                       textDirection: TextDirection.ltr,
                       child: Row(
@@ -303,6 +287,53 @@ class DocRow extends StatelessWidget {
         ),
       ),
       child: row,
+    );
+  }
+}
+
+/// First letters of up to two words of [name] on a calm tint (1.7).
+class _InitialsAvatar extends StatelessWidget {
+  const _InitialsAvatar({required this.name});
+
+  final String name;
+
+  static String initialsOf(String name) {
+    final words = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .take(2);
+    return words.map((w) => String.fromCharCode(w.runes.first)).join();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const colors = [
+      DesignTokens.yellow,
+      DesignTokens.green,
+      DesignTokens.coral,
+      DesignTokens.lavender,
+    ];
+    final initials = initialsOf(name);
+    return Container(
+      key: const Key('doc-row-initials'),
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: colors[name.hashCode.abs() % colors.length],
+      ),
+      alignment: Alignment.center,
+      child: initials.isEmpty
+          ? const Icon(Icons.person_outline_rounded, size: 20, color: Colors.black87)
+          : Text(
+              initials,
+              maxLines: 1,
+              style: AppText.secondary.copyWith(
+                color: const Color(0xFF302139),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
     );
   }
 }

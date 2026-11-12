@@ -584,14 +584,11 @@ class ReminderResult {
 /// §9.3 P0: every overdue invoice whose customer has an e-mail gets
 /// POST /documents/:id/send {recipient, paymentUrl?} → /deliveries/:id/process.
 /// No e-mail, or CONSENT_REQUIRED → the WhatsApp list. A network error stops.
-Future<ReminderResult> sendReminders({DateTime? now, String? paymentUrl}) async {
-  final today = now ?? DateTime.now();
-  final unpaid = await fetchDocumentRows(unpaid: true, limit: 500);
+/// [only] limits the run to the invoices the user confirmed (H "באיחור" preview).
+Future<ReminderResult> sendReminders({DateTime? now, String? paymentUrl, Set<String>? only}) async {
   final overdue = [
-    for (final d in unpaid.documents)
-      if ((d.openMinor ?? BigInt.zero) > BigInt.zero &&
-          isOverdue(dueDate: d.dueDate, issueDate: d.issueDate, today: today))
-        d
+    for (final d in await fetchOverdueDocuments(now: now))
+      if (only == null || only.contains(d.id)) d
   ];
   if (overdue.isEmpty) return const ReminderResult(0, []);
   final customers = <String, Customer>{
@@ -627,6 +624,18 @@ Future<ReminderResult> sendReminders({DateTime? now, String? paymentUrl}) async 
     }
   }
   return ReminderResult(sent, whatsapp);
+}
+
+/// Open invoices past due (what [sendReminders] would remind).
+Future<List<DocumentSummary>> fetchOverdueDocuments({DateTime? now}) async {
+  final today = now ?? DateTime.now();
+  final unpaid = await fetchDocumentRows(unpaid: true, limit: 500);
+  return [
+    for (final d in unpaid.documents)
+      if ((d.openMinor ?? BigInt.zero) > BigInt.zero &&
+          isOverdue(dueDate: d.dueDate, issueDate: d.issueDate, today: today))
+        d
+  ];
 }
 
 /// "שלח בווטסאפ" for one reminder: share link (original created when
