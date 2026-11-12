@@ -21,6 +21,8 @@ import '../../state/business_context.dart';
 import '../../state/caps.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/common_he.dart';
+import '../../util/labels/business_he.dart' show ActivityHe;
+import '../../util/labels/document_he.dart' show docTypeLabel;
 import '../../util/labels/inbox_he.dart';
 import '../home/doc_rows.dart';
 import '../home/inbox_cards.dart';
@@ -44,8 +46,45 @@ const Set<String> _draftStatuses = {
   'REJECTED',
 };
 
-/// The 500-row cap of P0 (BE-10a).
+/// The 500-row cap of P0 (BE-10a): a server without paging still gets it.
 const int activityLimit = 500;
+
+/// First page of L when the server pages (BE-10); "טען עוד" brings the rest.
+const int activityPageSize = 100;
+
+/// One page of rows, or the P0 500 cap when the server does not page.
+Future<ActivityPage> _firstPage({bool unpaid = false}) async {
+  final page = await fetchDocumentRows(unpaid: unpaid, limit: activityPageSize);
+  if (page.serverSearch || page.documents.length < activityPageSize) {
+    return page;
+  }
+  return fetchDocumentRows(unpaid: unpaid, limit: activityLimit);
+}
+
+/// L's type / date filters over the loaded rows (null = no filter). Drafts
+/// have no issue date and drop out while a date range is set.
+List<DocumentSummary> filterDocuments(
+  List<DocumentSummary> docs, {
+  String? type,
+  DateTimeRange? range,
+}) {
+  if (type == null && range == null) return docs;
+  return [
+    for (final d in docs)
+      if ((type == null || d.documentType == type) &&
+          (range == null || _inRange(d.issueDate, range)))
+        d,
+  ];
+}
+
+bool _inRange(String? date, DateTimeRange range) {
+  final day = date == null ? null : DateTime.tryParse(date);
+  if (day == null) return false;
+  final d = DateTime(day.year, day.month, day.day);
+  final from = DateTime(range.start.year, range.start.month, range.start.day);
+  final to = DateTime(range.end.year, range.end.month, range.end.day);
+  return !d.isBefore(from) && !d.isAfter(to);
+}
 
 /// L state: cached lists first, then the network.
 class ActivityController extends ChangeNotifier {
@@ -113,8 +152,8 @@ class ActivityController extends ChangeNotifier {
     _notify();
     try {
       final caps = businessContext.caps;
-      final allF = fetchDocumentRows(limit: activityLimit);
-      final unpaidF = fetchDocumentRows(unpaid: true, limit: activityLimit);
+      final allF = _firstPage();
+      final unpaidF = _firstPage(unpaid: true);
       final quotesF = caps.can(Cap.docView)
           ? fetchQuoteRows()
           : Future.value(const <QuoteRow>[]);
@@ -137,6 +176,8 @@ class ActivityController extends ChangeNotifier {
       quotes = q;
       if (home != null) cards = home.cards;
       error = null;
+      // Rows first; the cache write (encode + fsync) does not hold them back.
+      _notify();
       await writeCachedActivity(business, {
         'all': [for (final d in all!) d.toJson()],
         'unpaid': [for (final d in unpaid!) d.toJson()],
@@ -314,6 +355,13 @@ class _ActivityScreenState extends State<ActivityScreen> {
   late ActivityChip _chip = chipFromQuery(widget.chip);
   final TextEditingController _search = TextEditingController();
   Timer? _debounce;
+  String? _type;
+  DateTimeRange? _range;
+
+  /// The flattened rows (month headers + rows) of the last build, rebuilt
+  /// only when an input changes, not on every frame.
+  Object? _itemsKey;
+  List<Object> _items = const [];
 
   @override
   void initState() {
@@ -474,14 +522,10 @@ class _ActivityScreenState extends State<ActivityScreen> {
       ),
     ];
     return Scaffold(
-      appBar: context.isDark
-          ? null
-          : AppBar(title: const Text(InboxHe.activityTitle)),
       body: SafeArea(
         child: Column(
           children: [
-            if (context.isDark)
-              Padding(
+            Padding(
                 padding: const EdgeInsets.fromLTRB(
                   Space.page,
                   Space.m,
@@ -490,13 +534,18 @@ class _ActivityScreenState extends State<ActivityScreen> {
                 ),
                 child: Row(
                   children: [
+                    // One name with the home button (07·U9): "מסמכים".
                     Expanded(
-                      child: Text(
-                        InboxHe.activityTitle,
-                        style: AppText.displayTitle,
+                      child: Semantics(
+                        header: true,
+                        child: Text(
+                          InboxHe.documentsAction,
+                          style: AppText.displayTitle,
+                        ),
                       ),
                     ),
-                    const DesignBackButton(),
+                    if (ModalRoute.of(context)?.canPop ?? false)
+                      const DesignBackButton(),
                   ],
                 ),
               ),
@@ -534,6 +583,8 @@ class _ActivityScreenState extends State<ActivityScreen> {
               ),
             ),
             _filterGrid(chips),
+            if (_chip != ActivityChip.quotes && _chip != ActivityChip.inbox)
+              _filterRow(context),
             const SizedBox(height: Space.s),
             Expanded(
               child: RefreshIndicator(
@@ -564,43 +615,39 @@ class _ActivityScreenState extends State<ActivityScreen> {
       }
       return const SingleChildScrollView(child: SkeletonList(rows: 6));
     }
-    final List<Widget> rows;
-    var count = 0;
-    if (_chip == ActivityChip.quotes) {
-      final qs = searchQuotes(_c.quotes!, query);
-      count = qs.length;
-      rows = [
-        for (final g in groupByMonth(
-          qs,
-          (q) => q.createdAt,
-          today: _c.now?.call(),
-        )) ...[
-          _MonthHeader(g.title),
-          for (final q in g.rows)
-            quoteRowFor(q, onTap: () => unawaited(openQuote(context, q.id))),
-        ],
-      ];
-    } else {
-      final docs = _c.docsFor(_chip, query);
-      count = docs.length;
-      rows = [
-        for (final g in groupByMonth(
-          docs,
-          (d) => d.issueDate,
-          today: _c.now?.call(),
-        )) ...[
-          _MonthHeader(g.title),
-          for (final d in g.rows)
-            docRowFor(
-              d,
-              today: _c.now?.call(),
-              onTap: () => unawaited(openDocument(context, d.id)),
-              onDelete: () => unawaited(_deleteDraft(d)),
+    final key = (
+      _chip,
+      query,
+      _type,
+      _range,
+      _c.all,
+      _c.unpaid,
+      _c.quotes,
+      _c.searchResults,
+    );
+    if (_itemsKey != key) {
+      _itemsKey = key;
+      _items = [
+        if (_chip == ActivityChip.quotes)
+          for (final g in groupByMonth(
+            searchQuotes(_c.quotes!, query),
+            (q) => q.createdAt,
+            today: _c.now?.call(),
+          )) ...[_MonthTitle(g.title), ...g.rows]
+        else
+          for (final g in groupByMonth(
+            filterDocuments(
+              _c.docsFor(_chip, query),
+              type: _type,
+              range: _range,
             ),
-        ],
+            (d) => d.issueDate,
+            today: _c.now?.call(),
+          )) ...[_MonthTitle(g.title), ...g.rows],
       ];
     }
-    if (count == 0) return ListView(children: [_empty(context, query)]);
+    final items = _items;
+    if (items.isEmpty) return ListView(children: [_empty(context, query)]);
     final showCap =
         _c.allCapped &&
         !_c.serverSearch &&
@@ -608,34 +655,147 @@ class _ActivityScreenState extends State<ActivityScreen> {
             _chip == ActivityChip.drafts ||
             _chip == ActivityChip.paid);
     final more = _c.canLoadMore(_chip, query);
-    return ListView(
+    final footer = <Widget>[
+      if (showCap)
+        Padding(
+          key: const Key('activity-capped'),
+          padding: const EdgeInsets.symmetric(vertical: Space.l),
+          child: Text(
+            InboxHe.capped,
+            textAlign: TextAlign.center,
+            style: AppText.secondary.copyWith(color: context.palette.muted),
+          ),
+        ),
+      if (more || _c.loadingMore)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: Space.m),
+          child: Center(
+            child: TextButton(
+              key: const Key('activity-more'),
+              onPressed: () => unawaited(_c.loadMore(_chip, query)),
+              child: const Text(InboxHe.loadMore),
+            ),
+          ),
+        ),
+    ];
+    // Lazy: only the rows on screen are built (2.5; up to hundreds of rows).
+    return ListView.builder(
       key: const Key('activity-list'),
       padding: const EdgeInsets.fromLTRB(Space.page, 0, Space.page, Space.xl),
-      children: [
-        ...rows,
-        if (showCap)
-          Padding(
-            key: const Key('activity-capped'),
-            padding: const EdgeInsets.symmetric(vertical: Space.l),
-            child: Text(
-              InboxHe.capped,
-              textAlign: TextAlign.center,
-              style: AppText.secondary.copyWith(color: context.palette.muted),
-            ),
+      itemCount: items.length + footer.length,
+      itemBuilder: (context, i) {
+        if (i >= items.length) return footer[i - items.length];
+        final item = items[i];
+        return switch (item) {
+          _MonthTitle(:final title) => _MonthHeader(title),
+          QuoteRow q => quoteRowFor(
+            q,
+            onTap: () => unawaited(openQuote(context, q.id)),
           ),
-        if (more || _c.loadingMore)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: Space.m),
-            child: Center(
-              child: TextButton(
-                key: const Key('activity-more'),
-                onPressed: () => unawaited(_c.loadMore(_chip, query)),
-                child: const Text(InboxHe.loadMore),
-              ),
-            ),
+          DocumentSummary d => docRowFor(
+            d,
+            today: _c.now?.call(),
+            onTap: () => unawaited(openDocument(context, d.id)),
+            onDelete: () => unawaited(_deleteDraft(d)),
           ),
-      ],
+          _ => const SizedBox.shrink(),
+        };
+      },
     );
+  }
+
+  Widget _filterRow(BuildContext context) {
+    final p = context.palette;
+    final types = <String>{
+      for (final d in _c.all ?? const <DocumentSummary>[]) d.documentType,
+    }.toList()..sort((a, b) => docTypeLabel(a).compareTo(docTypeLabel(b)));
+    Widget pill(Key key, String label, bool active, VoidCallback onTap) =>
+        ActionChip(
+          key: key,
+          label: Text(label, style: AppText.secondary),
+          avatar: Icon(
+            Iconsax.arrow_down_1,
+            size: 14,
+            color: active ? p.accent : p.muted,
+          ),
+          side: BorderSide(color: active ? p.accent : p.line),
+          onPressed: onTap,
+        );
+    return Padding(
+      key: const Key('activity-filters'),
+      padding: const EdgeInsets.fromLTRB(Space.page, Space.xs, Space.page, 0),
+      // Wrap, not a sideways scroll: "נקה סינון" must never sit off-screen.
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Wrap(
+          spacing: Space.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            pill(
+              const Key('activity-filter-type'),
+              _type == null ? ActivityHe.filterType : docTypeLabel(_type!),
+              _type != null,
+              () => unawaited(_pickType(types)),
+            ),
+            pill(
+              const Key('activity-filter-date'),
+              _range == null
+                  ? ActivityHe.filterDate
+                  : ltrIsolate(ActivityHe.range(_range!.start, _range!.end)),
+              _range != null,
+              () => unawaited(_pickRange()),
+            ),
+            if (_type != null || _range != null)
+              TextButton(
+                key: const Key('activity-filter-clear'),
+                onPressed: () => setState(() {
+                  _type = null;
+                  _range = null;
+                }),
+                child: const Text(ActivityHe.clearFilters),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickType(List<String> types) async {
+    final picked = await showAppSheet<String>(
+      context,
+      builder: (sheet) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SheetTitle(ActivityHe.filterType),
+          for (final t in ['', ...types])
+            ListTile(
+              key: Key('activity-type-${t.isEmpty ? 'all' : t}'),
+              title: Text(
+                t.isEmpty ? ActivityHe.allTypes : docTypeLabel(t),
+                style: AppText.body,
+              ),
+              selected: (_type ?? '') == t,
+              onTap: () => Navigator.of(sheet).pop(t),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _type = picked.isEmpty ? null : picked);
+  }
+
+  Future<void> _pickRange() async {
+    final now = _c.now?.call() ?? DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(now.year + 1, 12, 31),
+      initialDateRange: _range,
+      currentDate: now,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _range = picked);
   }
 
   Widget _inboxList(BuildContext context) {
@@ -736,6 +896,13 @@ class _ActivityScreenState extends State<ActivityScreen> {
       ),
     };
   }
+}
+
+/// A month header in the flattened list.
+class _MonthTitle {
+  const _MonthTitle(this.title);
+
+  final String title;
 }
 
 class _MonthHeader extends StatelessWidget {
