@@ -16,6 +16,7 @@ import 'package:invoice/screens/home/home_screen.dart';
 import 'package:invoice/screens/people/people_screen.dart';
 import 'package:invoice/screens/profile/profile_settings_screen.dart';
 import 'package:invoice/screens/reports/reports_screen.dart';
+import 'package:invoice/state/business_context.dart';
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/state/session.dart';
@@ -121,7 +122,7 @@ void main() {
   });
 
   testWidgets(
-    'no invoice action for read-only and accountant presets; accountant home = R',
+    '＋ follows the caps (doc.draft), never the role or the home tab; accountant home = R',
     (tester) async {
       await pumpShell(tester, Preset.viewer);
       expect(find.byType(HomeScreen), findsOneWidget);
@@ -133,10 +134,70 @@ void main() {
       expect(find.byType(ReportsScreen), findsOneWidget);
       expect(find.byType(HomeScreen), findsNothing);
 
+      // PM 2026-11-12: the full accountant may draft and issue → ＋, even
+      // though the home tab is R.
       resetSession();
       await pumpShell(tester, Preset.accountantFull);
-      expect(find.byKey(const Key('tab-create')), findsNothing);
+      expect(find.byKey(const Key('tab-create')), findsOneWidget);
       expect(find.byType(ReportsScreen), findsOneWidget);
+
+      resetSession();
+      await pumpShell(tester, Preset.employee);
+      expect(find.byKey(const Key('tab-create')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'bar = [בית][לקוחות][ניהול][פרופיל]; לקוחות is a root tab gated by doc.view (§5)',
+    (tester) async {
+      await pumpShell(tester, Preset.owner);
+      final x = {
+        for (final k in ['home', 'people', 'business', 'profile'])
+          k: tester.getCenter(find.byKey(Key('tab-$k'))).dx,
+      };
+      // RTL: בית on the right, then לקוחות, ניהול, פרופיל.
+      expect(x['home']! > x['people']!, isTrue);
+      expect(x['people']! > x['business']!, isTrue);
+      expect(x['business']! > x['profile']!, isTrue);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('tab-people')),
+          matching: find.text('לקוחות'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('tab-people')));
+      await tester.pumpAndSettle();
+      expect(currentTab.value, AppTab.people);
+      expect(find.byType(PeopleScreen), findsOneWidget);
+      expect(
+        tester.widget<PeopleScreen>(find.byType(PeopleScreen)).onBack,
+        isNull,
+        reason: 'a root tab has no back button',
+      );
+      expect(find.byKey(const Key('tab-create')), findsOneWidget);
+
+      // Deep link /people → the tab.
+      currentTab.value = AppTab.home;
+      await tester.pumpAndSettle();
+      expect(await go('tevel://people?chip=debtors'), isTrue);
+      await tester.pumpAndSettle();
+      expect(currentTab.value, AppTab.people);
+
+      // A member without document:read: no tab, and the link is refused.
+      backend.json('GET', '/me', {
+        ...meJson(Preset.viewer),
+        'permissions': <String>['money:read'],
+      });
+      await tester.runAsync(session.refreshBusiness);
+      currentTab.value = AppTab.home;
+      await tester.pumpAndSettle();
+      expect(businessContext.caps.showPeopleTab, isFalse);
+      expect(find.byKey(const Key('tab-people')), findsNothing);
+      expect(find.byKey(const Key('tab-business')), findsOneWidget);
+      expect(await go('/people'), isFalse);
+      expect(currentTab.value, AppTab.home);
     },
   );
 

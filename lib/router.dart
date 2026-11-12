@@ -95,6 +95,9 @@ enum BusinessSection {
   account,
   desktop,
   numbering,
+
+  /// "עוד הגדרות": the rarely used rows of B (≤ 10 rows, §6.B).
+  more,
 }
 
 /// Capability a business sub-page needs (§4.4). `account` and `desktop` are for everyone.
@@ -106,7 +109,7 @@ Cap? sectionCap(BusinessSection s) => switch (s) {
   BusinessSection.approvals => Cap.settingsBusiness,
   BusinessSection.shaam => null,
   BusinessSection.account || BusinessSection.notifications => null,
-  BusinessSection.desktop => null,
+  BusinessSection.desktop || BusinessSection.more => null,
   BusinessSection.numbering => Cap.settingsNumbering,
 };
 
@@ -187,7 +190,7 @@ class AppRoute {
   /// Capability the route needs; null = any signed-in member.
   Cap? get requiredCap => switch (pattern) {
     '/compose' => Cap.docDraft,
-    '/activity' || '/doc/:id' || '/quote/:id' => Cap.docView,
+    '/activity' || '/doc/:id' || '/quote/:id' || '/people' => Cap.docView,
     '/reports' || '/reports/:kind' => Cap.reportView,
     '/expenses/overview' => Cap.expenseApprove,
     '/business/:section' =>

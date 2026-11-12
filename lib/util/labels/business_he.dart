@@ -85,6 +85,7 @@ abstract final class BusinessHe {
   static const shaam = 'רשות המסים וחתימה';
   static const account = 'החשבון שלי';
   static const desktop = 'המשך במחשב';
+  static const moreSettings = 'עוד הגדרות';
   static const numbering = 'מספור ואישורים';
   static const switchBusiness = 'החלף';
   // 06·U8: leaving a form with changes.

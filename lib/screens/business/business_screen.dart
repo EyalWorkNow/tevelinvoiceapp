@@ -1,6 +1,7 @@
 // B · עסק (one template: rows → sub-page / S13) (SPEC-v2 §6.B, §13). Owner: squad E.
 // Routes: /business (tab) and /business/:section (see BusinessSection in router.dart).
-// Rows exist only with their capability (§4.4, F5): the owner sees at most 10.
+// Rows exist only with their capability (§4.4, F5): the owner sees at most 10;
+// rarely used rows sit under one "עוד הגדרות" row (/business/more, PM 2026-11-12).
 
 import 'dart:async';
 
@@ -59,13 +60,73 @@ class BusinessScreen extends StatelessWidget {
       instance: '13.3',
       title: BusinessHe.numbering,
     ),
+    'more' => const _MoreSettingsPage(),
     _ => const _BusinessList(),
   };
 }
 
-/// The rows of B for [caps] (key, label, icon, action). Public for capability and navigation tests.
+/// Rarely used rows grouped under "עוד הגדרות" (SPEC §6.B: B ≤ 10 rows).
+const Set<String> moreSettingsKeys = {
+  'integrations',
+  'subscription',
+  'notifications',
+  'desktop',
+};
+
+/// The "עוד הגדרות" row of B.
+const BusinessRowSpec moreSettingsRow = BusinessRowSpec(
+  'more',
+  BusinessHe.moreSettings,
+  Iconsax.setting_2,
+);
+
+/// The rows of B for [caps] (key, label, icon). Public for capability and
+/// navigation tests. When two or more [moreSettingsKeys] rows exist they are
+/// replaced by one [moreSettingsRow] (their page: [moreSettingsRows]).
 /// [reminders]: BE-19 switch state; null = the server has no reminders (row hidden).
 List<BusinessRowSpec> businessRows(
+  Caps caps, {
+  required int memberCount,
+  bool? reminders,
+}) {
+  final all = allBusinessRows(
+    caps,
+    memberCount: memberCount,
+    reminders: reminders,
+  );
+  final more = moreSettingsRows(
+    caps,
+    memberCount: memberCount,
+    reminders: reminders,
+  );
+  if (more.isEmpty) return all;
+  return [
+    for (final r in all)
+      if (!moreSettingsKeys.contains(r.key)) r,
+    moreSettingsRow,
+  ];
+}
+
+/// The rows of the "עוד הגדרות" page; empty when fewer than two exist (a
+/// single one stays in B itself).
+List<BusinessRowSpec> moreSettingsRows(
+  Caps caps, {
+  required int memberCount,
+  bool? reminders,
+}) {
+  final more = [
+    for (final r in allBusinessRows(
+      caps,
+      memberCount: memberCount,
+      reminders: reminders,
+    ))
+      if (moreSettingsKeys.contains(r.key)) r,
+  ];
+  return more.length < 2 ? const [] : more;
+}
+
+/// Every destination of B for [caps], before grouping (§4.4).
+List<BusinessRowSpec> allBusinessRows(
   Caps caps, {
   required int memberCount,
   bool? reminders,
@@ -215,43 +276,7 @@ class _BusinessListState extends State<_BusinessList> {
     }
   }
 
-  void _open(BuildContext context, String key) {
-    switch (key) {
-      case 'integrations':
-        openBusinessSection(context, BusinessSection.integrations);
-      case 'subscription':
-        showBillingPlans(context);
-      case 'reports':
-        openReports(context);
-      case 'expenses':
-        if (businessContext.can(Cap.expenseApprove) &&
-            businessContext.can(Cap.moneyView)) {
-          openExpenseOverview(context);
-        } else {
-          openExpenses(context);
-        }
-      case 'team':
-        openBusinessSection(context, BusinessSection.team);
-      case 'shaam':
-        openBusinessSection(context, BusinessSection.shaam);
-      case 'notifications':
-        openBusinessSection(context, BusinessSection.notifications);
-      case 'account':
-        openBusinessSection(context, BusinessSection.account);
-      case 'profile':
-        showEditorSheet(context, instance: '13.1');
-      case 'customers':
-        openPeople();
-      case 'branding':
-        openBusinessSection(context, BusinessSection.branding);
-      case 'approvals':
-        showEditorSheet(context, instance: '13.6');
-      case 'numbering':
-        showEditorSheet(context, instance: '13.3');
-      case 'desktop':
-        showEditorSheet(context, instance: '13.9');
-    }
-  }
+  void _open(BuildContext context, String key) => openBusinessRow(context, key);
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -342,19 +367,8 @@ class _BusinessListState extends State<_BusinessList> {
         (businessContext.profile?.section46ApprovalNumber ?? '').isNotEmpty;
     // Actions only: everything that is a settings row below (reports, team,
     // branding, business details, numbering, …) lives there once (07·U9).
+    // Customers are a tab of their own (§5, PM 2026-11-12), not an action here.
     final actions = <_ManagementAction>[
-      _ManagementAction(
-        id: 'customers',
-        label: 'לקוחות',
-        icon: Iconsax.profile_2user,
-        orb: const Icon(
-          Iconsax.profile_2user,
-          color: Color(0xFF35556A),
-          size: 28,
-        ),
-        color: const Color(0xFFC9E7F4),
-        onTap: openPeople,
-      ),
       if (currentBusinessId != null)
         _ManagementAction(
           id: 'crm-agenda',
@@ -583,6 +597,70 @@ class EditorPage extends StatelessWidget {
           Expanded(child: EditorLoader(instance: instance)),
         ],
       ),
+    ),
+  );
+}
+
+/// Opens the destination of the B row [key] (the B list and "עוד הגדרות").
+void openBusinessRow(BuildContext context, String key) {
+  switch (key) {
+    case 'integrations':
+      openBusinessSection(context, BusinessSection.integrations);
+    case 'subscription':
+      showBillingPlans(context);
+    case 'reports':
+      openReports(context);
+    case 'expenses':
+      if (businessContext.can(Cap.expenseApprove) &&
+          businessContext.can(Cap.moneyView)) {
+        openExpenseOverview(context);
+      } else {
+        openExpenses(context);
+      }
+    case 'team':
+      openBusinessSection(context, BusinessSection.team);
+    case 'shaam':
+      openBusinessSection(context, BusinessSection.shaam);
+    case 'notifications':
+      openBusinessSection(context, BusinessSection.notifications);
+    case 'account':
+      openBusinessSection(context, BusinessSection.account);
+    case 'profile':
+      showEditorSheet(context, instance: '13.1');
+    case 'more':
+      openBusinessSection(context, BusinessSection.more);
+    case 'branding':
+      openBusinessSection(context, BusinessSection.branding);
+    case 'approvals':
+      showEditorSheet(context, instance: '13.6');
+    case 'numbering':
+      showEditorSheet(context, instance: '13.3');
+    case 'desktop':
+      showEditorSheet(context, instance: '13.9');
+  }
+}
+
+/// "עוד הגדרות" (/business/more): the rarely used rows of B, same template.
+class _MoreSettingsPage extends StatelessWidget {
+  const _MoreSettingsPage();
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: businessContext,
+    builder: (context, _) => BusinessPage(
+      title: BusinessHe.moreSettings,
+      children: [
+        for (final r in moreSettingsRows(
+          businessContext.caps,
+          memberCount: businessContext.me?.memberCount ?? 1,
+        ))
+          BusinessRow(
+            key: Key('brow-${r.key}'),
+            label: r.label,
+            icon: r.icon,
+            onTap: () => openBusinessRow(context, r.key),
+          ),
+      ],
     ),
   );
 }

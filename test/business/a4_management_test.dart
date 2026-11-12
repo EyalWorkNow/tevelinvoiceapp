@@ -62,10 +62,8 @@ void main() {
         reason: id,
       );
     }
-    expect(
-      find.byKey(const Key('management-action-customers')),
-      findsOneWidget,
-    );
+    // Customers are a tab of their own (§5, PM 2026-11-12).
+    expect(find.byKey(const Key('management-action-customers')), findsNothing);
     expect(find.byKey(const Key('brow-team')), findsOneWidget);
     expect(find.text('עיצוב מסמכים ומיתוג'), findsOneWidget);
   });

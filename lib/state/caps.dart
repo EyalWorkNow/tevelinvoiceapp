@@ -247,8 +247,14 @@ class Caps {
   bool get homeIsReports =>
       preset == Preset.accountantRep || preset == Preset.accountantFull;
 
-  /// The ＋ tab exists only when S1 has a tile (§4.5): every tile needs docDraft.
+  /// The ＋ action (opens the Composer) exists only when the caps let this
+  /// member create documents — issue, or draft for approval (§4.5, PM
+  /// 2026-11-12: the cap decides, never the role or the home tab).
   bool get showCreateTab => can(Cap.docDraft);
+
+  /// The "לקוחות" tab (§4.4, §5; PM 2026-11-12): the customer list is part of
+  /// reading the business's documents, so it follows `doc.view`.
+  bool get showPeopleTab => can(Cap.docView);
 
   /// "קיבלתי תשלום" / "בקש תשלום" on H.
   bool get showIntentButtons => can(Cap.docDraft) && !homeIsReports;

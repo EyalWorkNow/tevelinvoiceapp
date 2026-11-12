@@ -39,6 +39,18 @@ void main() {
       ];
     }
 
+    Future<List<String>> moreFor(Preset p, {int members = 3}) async {
+      final b = FakeBackend()..install();
+      await signInAs(b, p);
+      return [
+        for (final r in moreSettingsRows(
+          businessContext.caps,
+          memberCount: members,
+        ))
+          r.key,
+      ];
+    }
+
     test(
       'owner: commerce rows in order; approvals only with another member',
       () async {
@@ -50,26 +62,41 @@ void main() {
           'branding',
           'approvals',
           'shaam',
+          'account',
+          'more',
+        ]);
+        // Nothing deleted: the rarely used rows are one tap further (§6.B).
+        expect(await moreFor(Preset.owner), [
           'integrations',
           'subscription',
           'notifications',
-          'account',
           'desktop',
         ]);
         expect(
           await rowsFor(Preset.owner, members: 1),
           isNot(contains('approvals')),
         );
-        expect((await rowsFor(Preset.owner)).length, lessThanOrEqualTo(12));
+        // §6.B: at most 10 rows, even with approvals and reminders.
+        final b = FakeBackend()..install();
+        await signInAs(b, Preset.owner);
+        expect(
+          businessRows(
+            businessContext.caps,
+            memberCount: 3,
+            reminders: true,
+          ).length,
+          lessThanOrEqualTo(10),
+        );
       },
     );
 
     test(
       'partner = owner rows; employee: expenses, notifications and account',
       () async {
+        expect(await rowsFor(Preset.partner), await rowsFor(Preset.owner));
         expect(
-          await rowsFor(Preset.partner),
-          (await rowsFor(
+          await moreFor(Preset.partner),
+          (await moreFor(
             Preset.owner,
           )).where((row) => row != 'subscription').toList(),
         );
@@ -92,11 +119,16 @@ void main() {
         expect(await rowsFor(Preset.accountantRep), [
           'expenses',
           'shaam',
-          'notifications',
           'account',
+          'more',
+        ]);
+        expect(await moreFor(Preset.accountantRep), [
+          'notifications',
           'desktop',
         ]);
+        // A single rarely used row stays in B (no one-row sub-page).
         expect(await rowsFor(Preset.viewer), ['notifications', 'account']);
+        expect(await moreFor(Preset.viewer), isEmpty);
       },
     );
   });
@@ -265,10 +297,10 @@ void main() {
       final launcher = FakeLauncher()..install();
       addTearDown(FakeLauncher.uninstall);
       await pumpAs(tester, backend, Preset.owner, const BusinessScreen());
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('brow-desktop')),
-        250,
-      );
+      await tester.scrollUntilVisible(find.byKey(const Key('brow-more')), 250);
+      await tester.tap(find.byKey(const Key('brow-more')));
+      await settle(tester);
+      expect(find.text('עוד הגדרות'), findsWidgets);
       await tester.tap(find.byKey(const Key('brow-desktop')));
       await settle(tester);
       expect(find.text('רשות המסים'), findsOneWidget);
@@ -479,12 +511,12 @@ void main() {
     final b = FakeBackend()..install();
     await signInAs(b, Preset.owner);
     expect(
-      businessRows(businessContext.caps, memberCount: 1).map((r) => r.key),
+      allBusinessRows(businessContext.caps, memberCount: 1).map((r) => r.key),
       contains('subscription'),
     );
     await signInAs(b, Preset.employee);
     expect(
-      businessRows(businessContext.caps, memberCount: 1).map((r) => r.key),
+      allBusinessRows(businessContext.caps, memberCount: 1).map((r) => r.key),
       isNot(contains('subscription')),
     );
   });

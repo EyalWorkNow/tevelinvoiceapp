@@ -1,5 +1,7 @@
-// The app shell owns root destinations and the floating glass navigation.
-// Invoice creation sits beside the navigation on every tab (1.5).
+// The app shell owns root destinations and the floating glass navigation:
+// [בית][לקוחות][ניהול][פרופיל] (§5; לקוחות only with Caps.showPeopleTab).
+// Invoice creation (＋) sits beside the navigation on every tab when the caps
+// allow creating documents (Caps.showCreateTab, 1.5).
 
 import 'dart:async';
 import 'dart:ui' as ui;
@@ -27,7 +29,13 @@ const double _navigationMaxScale =
 const double _navigationActionSize = 84;
 const double _shellBottomNavigationHeight =
     _navigationActionSize * _navigationMaxScale;
-const double _navigationCapsuleWidth = 206;
+
+/// Capsule width for [items] tabs (3 tabs = the original 206pt design).
+double _navigationCapsuleWidth(int items) =>
+    items * _navigationItemSize +
+    (items - 1) * _navigationItemGap +
+    2 * 4.423 +
+    1.7;
 const double _navigationCapsuleHeight = 72;
 const double _navigationGap = 8;
 const double _navigationItemSize = 62.808;
@@ -145,7 +153,8 @@ class _AppShellState extends State<AppShell> {
       extendBody: true,
       bottomNavigationBar: _ShellBottomNavigation(
         current: tab,
-        showCreate: !caps.homeIsReports && caps.showCreateTab,
+        showPeople: caps.showPeopleTab,
+        showCreate: caps.showCreateTab,
         onTab: (next) {
           HapticFeedback.selectionClick();
           currentTab.value = next;
@@ -179,7 +188,10 @@ class _AppShellState extends State<AppShell> {
             _KeepAliveTab(
               child: PeopleScreen(
                 chip: peopleChip.value,
-                onBack: () => currentTab.value = _previousTab,
+                // A root tab of its own; without it P is not reachable.
+                onBack: caps.showPeopleTab
+                    ? null
+                    : () => currentTab.value = _previousTab,
               ),
             ),
             const _KeepAliveTab(child: BusinessScreen()),
@@ -215,12 +227,14 @@ class _KeepAliveTabState extends State<_KeepAliveTab>
 class _ShellBottomNavigation extends StatefulWidget {
   const _ShellBottomNavigation({
     required this.current,
+    required this.showPeople,
     required this.showCreate,
     required this.onTab,
     required this.onCreate,
   });
 
   final AppTab current;
+  final bool showPeople;
   final bool showCreate;
   final ValueChanged<AppTab> onTab;
   final VoidCallback onCreate;
@@ -234,9 +248,10 @@ class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
 
   @override
   Widget build(BuildContext context) {
-    final selected = widget.current == AppTab.people
+    final selected = widget.current == AppTab.people && !widget.showPeople
         ? AppTab.business
         : widget.current;
+    final capsuleWidth = _navigationCapsuleWidth(widget.showPeople ? 4 : 3);
     final screenWidth = MediaQuery.sizeOf(context).width;
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
     final motionDuration = reducedMotion
@@ -244,14 +259,12 @@ class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
         : const Duration(milliseconds: 360);
     final scale =
         (((screenWidth - 24) /
-                        (_navigationCapsuleWidth +
-                            _navigationActionSize +
-                            _navigationGap))
+                        (capsuleWidth + _navigationActionSize + _navigationGap))
                     .clamp(.7, _navigationDesignScale) *
                 _navigationScaleReduction)
             .clamp(.7, _navigationMaxScale)
             .toDouble();
-    final navWidth = _navigationCapsuleWidth * scale;
+    final navWidth = capsuleWidth * scale;
     final actionSize = _navigationActionSize * scale;
     const barHeight = _shellBottomNavigationHeight;
 
@@ -350,6 +363,18 @@ class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
                                 motionDuration,
                                 scale,
                               ),
+                              if (widget.showPeople) ...[
+                                SizedBox(width: _navigationItemGap * scale),
+                                _item(
+                                  context,
+                                  AppTab.people,
+                                  'לקוחות',
+                                  'existing-customer',
+                                  selected,
+                                  motionDuration,
+                                  scale,
+                                ),
+                              ],
                               SizedBox(width: _navigationItemGap * scale),
                               _item(
                                 context,
@@ -424,32 +449,38 @@ class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
               8 * scale,
               4 * scale,
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ColorFiltered(
-                  colorFilter: ColorFilter.mode(
-                    selected == tab ? const Color(0xFF302138) : Colors.white,
-                    BlendMode.srcIn,
+            // scaleDown: four tabs on a narrow phone shrink the bar's scale;
+            // the label and icon then fit instead of overflowing.
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ColorFiltered(
+                    colorFilter: ColorFilter.mode(
+                      selected == tab ? const Color(0xFF302138) : Colors.white,
+                      BlendMode.srcIn,
+                    ),
+                    child: DesignIcon(iconName, size: 33 * scale),
                   ),
-                  child: DesignIcon(iconName, size: 33 * scale),
-                ),
-                SizedBox(height: 3 * scale),
-                Text(
-                  label,
-                  maxLines: 1,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: selected == tab
-                        ? const Color(0xFF302138)
-                        : Colors.white,
-                    fontFamily: 'SF Hebrew Rounded',
-                    fontSize: 12.5 * scale,
-                    fontWeight: FontWeight.w400,
-                    height: 1,
+                  SizedBox(height: 3 * scale),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: selected == tab
+                          ? const Color(0xFF302138)
+                          : Colors.white,
+                      fontFamily: 'SF Hebrew Rounded',
+                      fontSize: 12.5 * scale,
+                      fontWeight: FontWeight.w400,
+                      height: 1,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -494,28 +525,32 @@ class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
                 },
                 child: Padding(
                   padding: EdgeInsets.only(bottom: 4 * scale),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Iconsax.add_circle,
-                        color: Colors.white,
-                        size: 45.5 * scale,
-                      ),
-                      SizedBox(height: 2 * scale),
-                      Text(
-                        'חשבונית',
-                        maxLines: 1,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Iconsax.add_circle,
                           color: Colors.white,
-                          fontFamily: 'SF Hebrew Rounded',
-                          fontSize: 12.5 * scale,
-                          fontWeight: FontWeight.w400,
-                          height: 1,
+                          size: 45.5 * scale,
                         ),
-                      ),
-                    ],
+                        SizedBox(height: 2 * scale),
+                        Text(
+                          'חשבונית',
+                          maxLines: 1,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'SF Hebrew Rounded',
+                            fontSize: 12.5 * scale,
+                            fontWeight: FontWeight.w400,
+                            height: 1,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
