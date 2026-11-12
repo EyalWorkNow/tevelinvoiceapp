@@ -9,12 +9,19 @@ String errorMessageHe(String code, {String? serverMessage, int status = 0}) {
   if (code == 'VALIDATION') return validationMessageHe(serverMessage);
   final known = _mobileMessages[code] ?? _webMessages[code];
   if (known != null) return known;
+  // The server already wrote a Hebrew sentence for codes the app does not know.
+  final server = serverMessage?.trim();
+  if (server != null && server.length <= 300 && _hebrew.hasMatch(server)) {
+    return server;
+  }
   if (status == 429) return _webMessages['RATE_LIMITED']!;
   if (status == 503 || status == 502 || status == 504) {
     return _mobileMessages['SERVICE_UNAVAILABLE']!;
   }
   return 'שגיאה לא צפויה ($code)';
 }
+
+final RegExp _hebrew = RegExp(r'[\u05D0-\u05EA]');
 
 /// CRM changes the server refused for good (kept in a backup file on the device).
 String crmRejectedNoticeHe(int count) => count == 1
@@ -82,6 +89,25 @@ const Map<String, String> _mobileMessages = {
       'משלוח WhatsApp אוטומטי ייפתח לאחר חיבור החשבון העסקי.',
   'WHATSAPP_DELIVERY_UNKNOWN':
       'מצב המשלוח עדיין בבדיקה אצל הספק. אין צורך לשלוח שוב.',
+  // QA 2026-11-12 (report 04 · M1): server codes the app did not map.
+  'CUSTOMER_PHONE_INVALID': 'מספר הטלפון של הלקוח אינו תקין. יש לתקן אותו בכרטיס הלקוח.',
+  'WHATSAPP_SEND_FAILED':
+      'הודעת ה-WhatsApp לא נשלחה אצל הספק. אפשר לשלוח שוב או לשתף בקישור.',
+  'BILLING_CONSENT_REQUIRED': 'יש לאשר את פרטי המסלול לפני ההמשך.',
+  'PLAN_INVALID': 'יש לבחור מסלול תקין.',
+  'APPLE_TRANSACTION_ALREADY_LINKED':
+      'הרכישה הזו כבר משויכת לעסק אחר. פנו לתמיכה לשיוך מחדש.',
+  'APPLE_ACCOUNT_MISMATCH':
+      'הרכישה שייכת לחשבון Apple אחר. היכנסו עם החשבון שביצע את הרכישה.',
+  'IDEMPOTENCY_KEY_INVALID': 'הבקשה לא תקינה — נסו שוב',
+  'ACCOUNT_ALREADY_EXISTS': 'כבר קיים חשבון עם הכתובת הזו. אפשר להתחבר אליו.',
+  'EMAIL_INVALID': 'כתובת האימייל אינה תקינה',
+  'BUSINESS_NAME_INVALID': 'שם העסק אינו תקין',
+  'TAX_RATE_MISSING': 'לא מוגדר שיעור מע״מ לתאריך הזה. פנו לתמיכה.',
+  'QUOTE_CHANGED': 'הצעת המחיר עודכנה בינתיים. פתחו אותה שוב ובדקו לפני ההמשך.',
+  'PUSH_MFA_REQUIRED':
+      'התראות למכשיר זמינות רק אחרי אימות דו-שלבי. התנתקו והתחברו שוב עם קוד אימות.',
+  'API_CONFIG_INVALID': 'כתובת השרת בגרסה הזו אינה תקינה. פנו לתמיכה.',
   // Client-side (no HTTP response).
   'NETWORK': 'אין חיבור לשרת — בדקו את החיבור לאינטרנט ונסו שוב',
   'TIMEOUT': 'השרת לא הגיב בזמן — נסו שוב',
