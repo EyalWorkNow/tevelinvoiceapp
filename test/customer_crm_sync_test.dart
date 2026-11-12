@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/client.dart';
 import 'package:invoice/api/customer_crm_api.dart';
@@ -328,10 +329,53 @@ void main() {
       expect(remote.records, isEmpty);
     },
   );
+
+  test(
+    'resume never refreshes a business loaded under another member (AT-29 → AT-46)',
+    () async {
+      final loads = <String>[];
+      final counting = _CountingRemote(remote, loads)..identity = 'user-a';
+      ApiClient.instance.deviceToken = 'token-a';
+      addTearDown(ApiClient.instance.clearCredentials);
+      final store = CustomerCrmStore(
+        remote: counting,
+        read: (key) async => disk[key],
+        write: (key, value) async {
+          disk[key] = jsonDecode(jsonEncode(value));
+        },
+      );
+      await store.loadForBusiness('biz-a');
+      loads.clear();
+
+      store.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await Future<void>.delayed(Duration.zero);
+      expect(loads, ['biz-a'], reason: 'same member: refreshed on resume');
+      loads.clear();
+
+      // Another member signs in on this device without an app restart.
+      ApiClient.instance.deviceToken = 'token-b';
+      counting.identity = 'user-b';
+      expect(store.loadedForCurrentCredential, isFalse);
+      store.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await Future<void>.delayed(Duration.zero);
+      expect(loads, isEmpty, reason: 'biz-a is not the new member\'s');
+    },
+  );
 }
 
 class _Unavailable extends Remote {
   @override
   Future<List<CrmRemoteRecord>> load(String businessId) async =>
       throw ApiException(404, 'NOT_FOUND', 'missing');
+}
+
+class _CountingRemote extends Remote {
+  _CountingRemote(this.inner, this.loads);
+  final Remote inner;
+  final List<String> loads;
+  @override
+  Future<List<CrmRemoteRecord>> load(String businessId) {
+    loads.add(businessId);
+    return inner.load(businessId);
+  }
 }

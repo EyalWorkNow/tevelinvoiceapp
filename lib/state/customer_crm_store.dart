@@ -432,10 +432,20 @@ class CustomerCrmStore extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed &&
         remoteActive &&
-        _businessId != null) {
+        _businessId != null &&
+        loadedForCurrentCredential) {
       unawaited(refresh());
     }
   }
+
+  /// The loaded business belongs to the device token and user now signed in.
+  /// After another member signs in on this device (no app restart) the store
+  /// still holds the previous member's business; refreshing it on resume sent
+  /// that business with the new token → 401 → the new member was signed out
+  /// (business E2E AT-29 → AT-46). The screens load the current business.
+  bool get loadedForCurrentCredential =>
+      _credentialAtLoad == ApiClient.instance.deviceToken &&
+      _loadedUserId == (remoteActive ? remote?.userId : null);
 
   /// Flushes the queue, then replaces records in place from the server. The
   /// loaded state is never cleared, and an edit made meanwhile always wins.
