@@ -45,7 +45,14 @@ class SessionController extends ChangeNotifier {
   /// app is running from cache (writes are disabled).
   bool offline = false;
 
-  MobileAccount? account;
+  MobileAccount? _account;
+  MobileAccount? get account => _account;
+
+  /// Also scopes the device cache to this user (null → unscoped).
+  set account(MobileAccount? value) {
+    _account = value;
+    AppCache.userScope = value?.userId;
+  }
   Business? business;
   Me? me;
   BusinessProfile? profile;
@@ -211,10 +218,7 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  void _setAccount(MobileAccount value) {
-    account = value;
-    AppCache.userScope = value.userId;
-  }
+  void _setAccount(MobileAccount value) => account = value;
 
   /// After the cookie login (+ MFA if required) succeeded: get a device token,
   /// persist it, load the account. Returns the account so the caller can

@@ -90,8 +90,10 @@ void main() {
       ..error('GET', '/mobile/session', 503, 'SERVICE_UNAVAILABLE')
       ..error('GET', '/me', 503, 'SERVICE_UNAVAILABLE');
     await session.restore();
-    expect(session.offline, isTrue);
     expect(session.status, SessionStatus.signedIn);
+    expect(businessContext.caps.preset, Preset.partner);
+    await session.revalidation; // cache start: the server check runs in the background
+    expect(session.offline, isTrue);
     expect(businessContext.caps.preset, Preset.partner);
   });
 

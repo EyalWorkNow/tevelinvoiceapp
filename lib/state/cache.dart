@@ -107,13 +107,16 @@ abstract final class AppCache {
     try {
       final file = await _file(name);
       if (file.existsSync()) return jsonDecode(await file.readAsString());
-      if (!isUserEntered(name)) return null;
-      // Silent one-time move of a draft saved by an older version.
+      // An unscoped entry (older version, or written before sign-in). Caches
+      // are wiped on every sign-out/expiry, so it can only be this session's.
       final legacy = await _legacyFile(name);
       if (legacy.path == file.path || !legacy.existsSync()) return null;
       final value = jsonDecode(await legacy.readAsString());
-      await write(name, value);
-      await legacy.delete();
+      if (isUserEntered(name)) {
+        // Silent one-time move of a draft out of Library/Caches.
+        await write(name, value);
+        await legacy.delete();
+      }
       return value;
     } on Object {
       return null;
