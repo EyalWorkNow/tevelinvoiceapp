@@ -639,13 +639,13 @@ void main() {
         final over = await createCustomer(
           owner,
           phone: randomPhone(),
-          taxId: '514000002',
+          taxId: randomCompanyId(),
           vatDealerStatus: 'UNKNOWN',
         );
         final at = await createCustomer(
           owner,
           phone: randomPhone(),
-          taxId: '514000002',
+          taxId: randomCompanyId(),
           vatDealerStatus: 'UNKNOWN',
         );
         await signInApp(tester, owner);
@@ -1512,7 +1512,7 @@ void main() {
         final cid = await createCustomer(
           owner,
           phone: randomPhone(),
-          taxId: '514000002',
+          taxId: randomCompanyId(),
           vatDealerStatus: 'AUTHORIZED_DEALER',
         );
         await signInApp(tester, owner);

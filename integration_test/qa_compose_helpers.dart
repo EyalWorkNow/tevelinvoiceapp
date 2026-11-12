@@ -315,6 +315,30 @@ Future<String> createCustomer(
 String randomPhone() =>
     '05${_rnd.nextInt(9) + 1}${(_rnd.nextInt(9000000) + 1000000)}';
 
+/// Israeli 9-digit id check digit (ת.ז. / ע.מ. / ח.פ.): weights 1,2,1,2,…,
+/// digits of products > 9 summed, total divisible by 10 — the server's
+/// `isValidIsraeliId` (packages/shared/src/israel.ts).
+bool isValidIsraeliId(String id) {
+  if (!RegExp(r'^\d{1,9}$').hasMatch(id)) return false;
+  final d = id.padLeft(9, '0');
+  var sum = 0;
+  for (var i = 0; i < 9; i++) {
+    final n = int.parse(d[i]) * (i.isEven ? 1 : 2);
+    sum += n > 9 ? n - 9 : n;
+  }
+  return sum % 10 == 0;
+}
+
+/// A random valid ח.פ. (starts with 51, company) — unique per call so the
+/// server's duplicate-tax-id guard (409 CUSTOMER_DUPLICATE) never trips.
+String randomCompanyId() {
+  final body = '51${(_rnd.nextInt(900000) + 100000)}';
+  for (var c = 0; c < 10; c++) {
+    if (isValidIsraeliId('$body$c')) return '$body$c';
+  }
+  throw StateError('unreachable: one check digit always fits');
+}
+
 Map<String, dynamic> line(
   String description,
   int unitPriceMinor, {
