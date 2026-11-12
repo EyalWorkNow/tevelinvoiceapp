@@ -7,6 +7,7 @@ import 'package:pdfx/pdfx.dart';
 
 import '../../api/models/models.dart';
 import '../../ui/ds.dart';
+import '../../util/allocation_meter.dart';
 import '../../util/labels/labels.dart';
 import '../../util/status_map.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
@@ -539,6 +540,65 @@ class DocBanner extends StatelessWidget {
               TextButton(onPressed: onAction, child: Text(action!)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// R7: the allocation number of a 305/320, or its state in words
+/// (waiting / failed / not required) + "נסה שוב" when [onRetry] is set.
+class AllocationRow extends StatelessWidget {
+  const AllocationRow({
+    super.key,
+    required this.text,
+    required this.tone,
+    this.onRetry,
+  });
+
+  final String text;
+  final AllocationTone tone;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final color = switch (tone) {
+      AllocationTone.ok => p.ok,
+      AllocationTone.waiting => p.warn,
+      AllocationTone.failed => p.danger,
+      AllocationTone.neutral => p.muted,
+    };
+    return ConstrainedBox(
+      key: const Key('doc-allocation'),
+      constraints: const BoxConstraints(minHeight: Hit.row),
+      child: Row(
+        children: [
+          Icon(
+            switch (tone) {
+              AllocationTone.ok => Iconsax.verify,
+              AllocationTone.waiting => Iconsax.clock,
+              AllocationTone.failed => Iconsax.danger,
+              AllocationTone.neutral => Iconsax.info_circle,
+            },
+            color: color,
+            size: 20,
+          ),
+          const SizedBox(width: Space.s),
+          Expanded(
+            child: Text(
+              text,
+              style: AppText.body.copyWith(
+                color: tone == AllocationTone.neutral ? p.muted : null,
+              ),
+            ),
+          ),
+          if (onRetry != null)
+            TextButton(
+              key: const Key('doc-allocation-retry'),
+              onPressed: onRetry,
+              child: const Text(AllocationHe.retry),
+            ),
+        ],
       ),
     );
   }

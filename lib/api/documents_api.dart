@@ -38,6 +38,10 @@ Future<Map<String, dynamic>> fetchDocumentsJson({
   String? issuedFrom,
   String? documentNumber,
   String? customerId,
+  String? documentType,
+  BigInt? minTotalMinor,
+  int? limit,
+  int? offset,
 }) {
   return _api.get(
     '/documents',
@@ -46,6 +50,10 @@ Future<Map<String, dynamic>> fetchDocumentsJson({
       'issuedFrom': ?issuedFrom,
       'documentNumber': ?documentNumber,
       'customerId': ?customerId,
+      'documentType': ?documentType,
+      if (minTotalMinor != null) 'minTotal': minTotalMinor.toString(),
+      if (limit != null) 'limit': '$limit',
+      if (offset != null) 'offset': '$offset',
     },
   );
 }

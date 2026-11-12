@@ -23,6 +23,8 @@ import 'compose_dialogs.dart';
 import 'compose_loader.dart';
 import 'compose_memory.dart';
 import 'compose_submit.dart';
+import '../../router.dart' show BusinessSection, openBusinessSection;
+import 'fields/allocation_hint_line.dart';
 import 'fields/amount_field.dart';
 import 'fields/customer_chip.dart';
 import 'fields/summary_section.dart';
@@ -404,6 +406,13 @@ class _ComposeScreenState extends State<ComposeScreen> {
               children: [
                 const SizedBox(height: 12),
                 AmountField(state: s),
+                // R7: "יקבל מספר הקצאה" / "נדרש חיבור" above the threshold only.
+                if (s.totalMinor > BigInt.zero)
+                  AllocationHintLine(
+                    state: s,
+                    onConnect: () =>
+                        openBusinessSection(context, BusinessSection.shaam),
+                  ),
                 if (s.totalMinor == BigInt.zero) ...[
                   const SizedBox(height: 24),
                   _kindActions(load),

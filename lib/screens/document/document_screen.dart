@@ -14,7 +14,7 @@ import '../../ui/widgets/notch_notice.dart';
 import '../../api/actions_api.dart';
 import '../../api/client.dart';
 import '../../api/documents_api.dart'
-    show documentsVersion, notifyDocumentsChanged;
+    show documentsVersion, issuedStatuses, notifyDocumentsChanged;
 import '../../api/models/models.dart';
 import '../../api/signing_api.dart';
 import '../../router.dart';
@@ -22,6 +22,7 @@ import '../../state/business_context.dart';
 import '../../state/cache.dart';
 import '../../state/caps.dart';
 import '../../ui/ds.dart';
+import '../../util/allocation_meter.dart';
 import '../../util/allowed_urls.dart';
 import '../../util/errors_he.dart';
 import '../../util/labels/labels.dart';
@@ -193,7 +194,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
             Future.value(null),
           // BE-12 timeline gives sentAt; only an older server needs the list row.
           extras.hasTimeline ? Future.value(null) : _rowOrNull(doc),
-          doc.status == 'WAITING_FOR_ALLOCATION'
+          doc.status == 'WAITING_FOR_ALLOCATION' || _allocationRelevant(doc)
               ? _allocOrNull(doc.id)
               : Future.value(null),
         ]);
@@ -294,6 +295,37 @@ class _DocumentScreenState extends State<DocumentScreen> {
       return null;
     }
   }
+
+  /// R7: an issued 305/320 shows its allocation number or state.
+  static bool _allocationRelevant(DocumentDetail doc) =>
+      allocationDocumentTypes.contains(doc.documentType) &&
+      (issuedStatuses.contains(doc.status) || doc.status == 'ARTIFACT_PENDING');
+
+  /// The allocation row under the status line (null = nothing to say).
+  Widget? _allocationRow(DocumentDetail doc) {
+    if (!allocationDocumentTypes.contains(doc.documentType) || doc.isDraft) {
+      return null;
+    }
+    final number = doc.allocationNumber ?? _alloc?.allocationNumber;
+    final state = _alloc?.state ?? 'NOT_EVALUATED';
+    final status = allocationStatusHe(state, number);
+    if (status == null) return null;
+    final retry =
+        doc.status != 'WAITING_FOR_ALLOCATION' &&
+        allocationRetryable(state, number) &&
+        businessContext.can(Cap.allocationRequest) &&
+        !businessContext.offline;
+    return AllocationRow(
+      text: status.$1,
+      tone: status.$2,
+      onRetry: retry ? _retryIssuedAllocation : null,
+    );
+  }
+
+  Future<void> _retryIssuedAllocation() => _guard(AllocationHe.retry, () async {
+    final s = await retryAllocation(_doc!.id);
+    return s.serviceNoticeHe ?? s.detailHe ?? DocumentHe.allocationRetried;
+  });
 
   Future<AllocationState?> _allocOrNull(String id) async {
     try {
@@ -878,10 +910,10 @@ class _DocumentScreenState extends State<DocumentScreen> {
                         ),
                         openMinor: _openMinor,
                         dueDate: doc.dueDate,
-                        allocationNumber: doc.allocationNumber,
                         expanded: _timeline,
                         onTap: () => setState(() => _timeline = !_timeline),
                       ),
+                      ?_allocationRow(doc),
                       if (_customer != null)
                         ListTile(
                           key: const Key('doc-customer'),
