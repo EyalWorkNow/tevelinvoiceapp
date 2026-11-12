@@ -130,8 +130,10 @@ class ApiClient {
     Object body,
   ) => _json('PUT', path, body: body, businessOverride: business);
 
-  Future<Map<String, dynamic>> deleteForBusiness(String business, String path) =>
-      _json('DELETE', path, businessOverride: business);
+  Future<Map<String, dynamic>> deleteForBusiness(
+    String business,
+    String path,
+  ) => _json('DELETE', path, businessOverride: business);
 
   Future<Map<String, dynamic>> put(String path, Object? body) =>
       _json('PUT', path, body: body ?? const {});

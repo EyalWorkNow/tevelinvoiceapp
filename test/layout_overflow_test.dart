@@ -21,7 +21,8 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 const widths = [320.0, 375.0, 402.0];
 const scales = [1.0, 2.0];
 
-const longName = 'חברת הבנייה והשיפוצים של משפחת אברהמוביץ בע״מ – סניף ראשון לציון';
+const longName =
+    'חברת הבנייה והשיפוצים של משפחת אברהמוביץ בע״מ – סניף ראשון לציון';
 final big = BigInt.parse('123456789');
 
 void size(WidgetTester tester, double width) {
@@ -36,9 +37,17 @@ void scale(WidgetTester tester, double s) {
 }
 
 /// Server-shaped BE-18 reports (packages/postgres/src/reports.ts).
-Map<String, dynamic> serverReport(List<String> money, {String first = 'label'}) => {
+Map<String, dynamic> serverReport(
+  List<String> money, {
+  String first = 'label',
+}) => {
   'kpis': [
-    {'key': 'totalMinor', 'label': 'סה״כ הכנסות (כולל מע״מ)', 'type': 'money', 'value': '$big'},
+    {
+      'key': 'totalMinor',
+      'label': 'סה״כ הכנסות (כולל מע״מ)',
+      'type': 'money',
+      'value': '$big',
+    },
     {'key': 'documentsCount', 'label': 'מסמכים', 'type': 'number', 'value': 3},
   ],
   'columns': [
@@ -60,74 +69,99 @@ void main() {
     for (final s in scales) {
       final tag = '${w.toInt()}pt × $s';
 
-      testWidgets('DocRow · PersonRow · InboxCard · BusinessRow · SummaryRow fit ($tag)', (tester) async {
-        size(tester, w);
-        scale(tester, s);
-        await tester.pumpWidget(
-          eApp(
-            Scaffold(
-              body: ListView(
-                children: [
-                  DocRow(
-                    title: longName,
-                    subtitle: 'חשבונית מס/קבלה 104212',
-                    amountMinor: big,
-                    status: const StatusPill.doc(DocStatus.pendingApproval),
-                    attributes: const ['נשלח', 'נצפה'],
-                    onTap: () {},
-                    swipeLabel: 'קיבלתי תשלום',
-                    onSwipe: () {},
-                  ),
-                  DocRow(
-                    title: 'א',
-                    subtitle: 'הצעת מחיר 7',
-                    amountMinor: big * big,
-                    status: const StatusPill.quote(QuoteListStatus.converted),
-                  ),
-                  PersonRow(
-                    name: longName,
-                    badge: 'בארכיון',
-                    subtitle: '+972 54-123-4567',
-                    amountLabel: 'חייב לך',
-                    amountMinor: big,
-                    onTap: () {},
-                  ),
-                  PersonRow(name: 'דנה', amountLabel: 'חייב לך', amountMinor: big * big),
-                  Padding(
-                    padding: const EdgeInsets.all(Space.page),
-                    child: InboxCard(
-                      icon: Iconsax.clock,
+      testWidgets(
+        'DocRow · PersonRow · InboxCard · BusinessRow · SummaryRow fit ($tag)',
+        (tester) async {
+          size(tester, w);
+          scale(tester, s);
+          await tester.pumpWidget(
+            eApp(
+              Scaffold(
+                body: ListView(
+                  children: [
+                    DocRow(
                       title: longName,
-                      subtitle: 'באיחור 45 ימים',
+                      subtitle: 'חשבונית מס/קבלה 104212',
                       amountMinor: big,
-                      actionLabel: 'שלח תזכורת לתשלום',
-                      tone: InboxTone.danger,
-                      onAction: () {},
-                      onDismiss: () {},
+                      status: const StatusPill.doc(DocStatus.pendingApproval),
+                      attributes: const ['נשלח', 'נצפה'],
+                      onTap: () {},
+                      swipeLabel: 'קיבלתי תשלום',
+                      onSwipe: () {},
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: Space.page),
-                    child: Column(
+                    DocRow(
+                      title: 'א',
+                      subtitle: 'הצעת מחיר 7',
+                      amountMinor: big * big,
+                      status: const StatusPill.quote(QuoteListStatus.converted),
+                    ),
+                    PersonRow(
+                      name: longName,
+                      badge: 'בארכיון',
+                      subtitle: '+972 54-123-4567',
+                      amountLabel: 'חייב לך',
+                      amountMinor: big,
+                      onTap: () {},
+                    ),
+                    PersonRow(
+                      name: 'דנה',
+                      amountLabel: 'חייב לך',
+                      amountMinor: big * big,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(Space.page),
+                      child: InboxCard(
+                        icon: Iconsax.clock,
+                        title: longName,
+                        subtitle: 'באיחור 45 ימים',
+                        amountMinor: big,
+                        actionLabel: 'שלח תזכורת לתשלום',
+                        tone: InboxTone.danger,
+                        onAction: () {},
+                        onDismiss: () {},
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Space.page,
+                      ),
+                      child: Column(
+                        children: [
+                          BusinessRow(
+                            icon: Iconsax.profile_2user,
+                            label: longName,
+                            value: longName,
+                            onTap: () {},
+                          ),
+                          BusinessRow(
+                            label: longName,
+                            trailing: Switch(value: true, onChanged: (_) {}),
+                          ),
+                          const BusinessRow(
+                            label: 'מחק את החשבון',
+                            destructive: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    SummaryCard(
                       children: [
-                        BusinessRow(icon: Iconsax.profile_2user, label: longName, value: longName, onTap: () {}),
-                        BusinessRow(
-                          label: longName,
-                          trailing: Switch(value: true, onChanged: (_) {}),
+                        SummaryRow(
+                          icon: Iconsax.user,
+                          value: longName,
+                          onTap: () {},
                         ),
-                        const BusinessRow(label: 'מחק את החשבון', destructive: true),
                       ],
                     ),
-                  ),
-                  SummaryCard(children: [SummaryRow(icon: Iconsax.user, value: longName, onTap: () {})]),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-      });
+          );
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        },
+      );
 
       testWidgets('team rows (B·צוות) fit ($tag)', (tester) async {
         backend.json(
@@ -136,12 +170,35 @@ void main() {
           teamJson(
             members: [
               memberJson('u-me', 'OWNER', self: true, name: longName),
-              memberJson('u-cpa', 'READ_ONLY', permissions: const ['expense:record', 'expense:approve'],
-                  email: 'very.long.accountant.address@accounting-firm.example.co.il'),
-              memberJson('u-emp', 'EMPLOYEE', name: longName, permissions: const ['document:finalize']),
+              memberJson(
+                'u-cpa',
+                'READ_ONLY',
+                permissions: const ['expense:record', 'expense:approve'],
+                email:
+                    'very.long.accountant.address@accounting-firm.example.co.il',
+              ),
+              memberJson(
+                'u-emp',
+                'EMPLOYEE',
+                name: longName,
+                permissions: const ['document:finalize'],
+              ),
             ],
-            invitations: [invitationJson('i1', 'someone.with.a.long.address@example.co.il', 'EMPLOYEE')],
-            expired: [invitationJson('i2', 'x@y.z', 'READ_ONLY', expiresAt: DateTime(2020))],
+            invitations: [
+              invitationJson(
+                'i1',
+                'someone.with.a.long.address@example.co.il',
+                'EMPLOYEE',
+              ),
+            ],
+            expired: [
+              invitationJson(
+                'i2',
+                'x@y.z',
+                'READ_ONLY',
+                expiresAt: DateTime(2020),
+              ),
+            ],
           ),
         );
         scale(tester, s);
@@ -156,24 +213,37 @@ void main() {
         ('vat', ['a', 'b', 'c', 'd', 'e', 'vatPayableMinor']),
         ('items', ['netMinor']),
       ]) {
-        testWidgets('report rows R2 · $kind (${money.length} money columns) fit ($tag)', (tester) async {
-          backend.json('GET', '/reports/:kind', serverReport(money));
-          scale(tester, s);
-          await pumpAs(tester, backend, Preset.owner, ReportView(kind: kind, period: PeriodKey.current));
-          size(tester, w);
-          await settle(tester);
-          expect(tester.takeException(), isNull);
-          // The long-label row (built lazily at 2.0) lays out too.
-          await tester.scrollUntilVisible(find.text(longName), 200);
-          await tester.pumpAndSettle();
-          expect(tester.takeException(), isNull);
-          // Every money cell of that row is drawn (none dropped to make room).
-          final cells = find.descendant(
-            of: find.ancestor(of: find.text(longName), matching: find.byType(Container)).first,
-            matching: find.byType(AmountText),
-          );
-          expect(cells, findsNWidgets(money.length));
-        });
+        testWidgets(
+          'report rows R2 · $kind (${money.length} money columns) fit ($tag)',
+          (tester) async {
+            backend.json('GET', '/reports/:kind', serverReport(money));
+            scale(tester, s);
+            await pumpAs(
+              tester,
+              backend,
+              Preset.owner,
+              ReportView(kind: kind, period: PeriodKey.current),
+            );
+            size(tester, w);
+            await settle(tester);
+            expect(tester.takeException(), isNull);
+            // The long-label row (built lazily at 2.0) lays out too.
+            await tester.scrollUntilVisible(find.text(longName), 200);
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+            // Every money cell of that row is drawn (none dropped to make room).
+            final cells = find.descendant(
+              of: find
+                  .ancestor(
+                    of: find.text(longName),
+                    matching: find.byType(Container),
+                  )
+                  .first,
+              matching: find.byType(AmountText),
+            );
+            expect(cells, findsNWidgets(money.length));
+          },
+        );
       }
     }
   }

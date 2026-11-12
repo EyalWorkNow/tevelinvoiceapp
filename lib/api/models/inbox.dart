@@ -40,7 +40,7 @@ class DashboardSummary {
       pendingApproval: jInt(s['pending_approval'] ?? 0),
       recent: [
         for (final r in (json['recent'] as List? ?? const []))
-          DocumentSummary.fromJson(r as Map<String, dynamic>)
+          DocumentSummary.fromJson(r as Map<String, dynamic>),
       ],
     );
   }
@@ -147,9 +147,13 @@ class InboxItem {
       customerName: pick('customerName'),
       documentNumber: pick('documentNumber'),
       documentType: pick('documentType'),
-      reason: rejection is Map ? jStr(rejection['reason']) : jStr(json['reason']),
+      reason: rejection is Map
+          ? jStr(rejection['reason'])
+          : jStr(json['reason']),
       dueDate: jStr(d['dueBy']) ?? jStr(json['dueDate']),
-      daysLeft: jIntOrNull(json['daysLeft']) ?? _shaamDaysLeft(d, now ?? DateTime.now()),
+      daysLeft:
+          jIntOrNull(json['daysLeft']) ??
+          _shaamDaysLeft(d, now ?? DateTime.now()),
       setupStep: SetupStep.fromWire(pick('step')),
     );
   }
@@ -178,19 +182,19 @@ class InboxItem {
   final SetupStep? setupStep;
 
   Map<String, dynamic> toJson() => {
-        'kind': kind.wire,
-        'count': count,
-        if (amountMinor != null) 'amountMinor': amountMinor.toString(),
-        'documentIds': documentIds,
-        if (expenseIds.isNotEmpty) 'expenseIds': expenseIds,
-        'customerName': ?customerName,
-        'documentNumber': ?documentNumber,
-        'documentType': ?documentType,
-        'reason': ?reason,
-        'dueDate': ?dueDate,
-        'daysLeft': ?daysLeft,
-        if (setupStep != null) 'step': setupStep!.wire,
-      };
+    'kind': kind.wire,
+    'count': count,
+    if (amountMinor != null) 'amountMinor': amountMinor.toString(),
+    'documentIds': documentIds,
+    if (expenseIds.isNotEmpty) 'expenseIds': expenseIds,
+    'customerName': ?customerName,
+    'documentNumber': ?documentNumber,
+    'documentType': ?documentType,
+    'reason': ?reason,
+    'dueDate': ?dueDate,
+    'daysLeft': ?daysLeft,
+    if (setupStep != null) 'step': setupStep!.wire,
+  };
 }
 
 /// BE-05 SHAAM_RENEW detail → days left (EXPIRED / REAUTH_REQUIRED = 0);
@@ -207,7 +211,9 @@ int? _shaamDaysLeft(Map<String, dynamic> d, DateTime now) {
 /// BE-05 `recent[]` rows say `cancelled` instead of voidedAt/creditedMinor;
 /// keep the F10 word "בוטל" by marking them voided.
 Map<String, dynamic> _recentRow(Map<String, dynamic> r) =>
-    r['cancelled'] == true && r['voidedAt'] == null ? {...r, 'voidedAt': 'cancelled'} : r;
+    r['cancelled'] == true && r['voidedAt'] == null
+    ? {...r, 'voidedAt': 'cancelled'}
+    : r;
 
 /// What H shows: money card numbers, sorted cards, recent rows.
 /// Cached per business so H paints before the network (F9).
@@ -225,17 +231,25 @@ class HomeData {
     final money = json['money'];
     final recent = json['recent'] as List? ?? const [];
     return HomeData(
-      openMinor: money is Map<String, dynamic> ? jBigOrNull(money['openMinor']) : null,
-      overdueMinor: money is Map<String, dynamic> ? jBigOrNull(money['overdueMinor']) : null,
+      openMinor: money is Map<String, dynamic>
+          ? jBigOrNull(money['openMinor'])
+          : null,
+      overdueMinor: money is Map<String, dynamic>
+          ? jBigOrNull(money['overdueMinor'])
+          : null,
       cards: [
         for (final c in (json['cards'] as List? ?? const []))
-          if (c is Map<String, dynamic> && InboxKind.fromWire(jStr(c['kind'])) != null)
-            InboxItem.fromJson(c, now: now)
+          if (c is Map<String, dynamic> &&
+              InboxKind.fromWire(jStr(c['kind'])) != null)
+            InboxItem.fromJson(c, now: now),
       ],
       recent: [
-        for (final r in recent) DocumentSummary.fromJson(_recentRow(r as Map<String, dynamic>))
+        for (final r in recent)
+          DocumentSummary.fromJson(_recentRow(r as Map<String, dynamic>)),
       ],
-      hasDocuments: json['hasDocuments'] is bool ? json['hasDocuments'] as bool : recent.isNotEmpty,
+      hasDocuments: json['hasDocuments'] is bool
+          ? json['hasDocuments'] as bool
+          : recent.isNotEmpty,
     );
   }
 
@@ -255,26 +269,34 @@ class HomeData {
   final bool hasDocuments;
 
   Map<String, dynamic> toJson() => {
-        'money': openMinor == null
-            ? null
-            : {'openMinor': openMinor.toString(), 'overdueMinor': (overdueMinor ?? BigInt.zero).toString()},
-        'cards': [for (final c in cards) c.toJson()],
-        'recent': [for (final r in recent) r.toJson()],
-        'hasDocuments': hasDocuments,
-      };
+    'money': openMinor == null
+        ? null
+        : {
+            'openMinor': openMinor.toString(),
+            'overdueMinor': (overdueMinor ?? BigInt.zero).toString(),
+          },
+    'cards': [for (final c in cards) c.toJson()],
+    'recent': [for (final r in recent) r.toJson()],
+    'hasDocuments': hasDocuments,
+  };
 }
 
 /// GET /approvals → {approvals:[{id, documentType, totalMinor, currency,
 /// submittedBy, submittedByEmail, submittedAt}]}.
 class ApprovalRow {
-  const ApprovalRow({required this.id, required this.documentType, required this.totalMinor, this.submittedBy});
+  const ApprovalRow({
+    required this.id,
+    required this.documentType,
+    required this.totalMinor,
+    this.submittedBy,
+  });
 
   factory ApprovalRow.fromJson(Map<String, dynamic> json) => ApprovalRow(
-        id: json['id'] as String,
-        documentType: jStr(json['documentType']) ?? '',
-        totalMinor: jBig(json['totalMinor']),
-        submittedBy: jStr(json['submittedBy']),
-      );
+    id: json['id'] as String,
+    documentType: jStr(json['documentType']) ?? '',
+    totalMinor: jBig(json['totalMinor']),
+    submittedBy: jStr(json['submittedBy']),
+  );
 
   final String id;
   final String documentType;
@@ -298,15 +320,17 @@ class QuoteRow {
   });
 
   factory QuoteRow.fromJson(Map<String, dynamic> json) => QuoteRow(
-        id: json['id'] as String,
-        status: jStr(json['status']) ?? 'DRAFT',
-        totalMinor: jBig(jPick(json, ['totalMinor', 'total_minor'])),
-        title: jStr(json['title']),
-        customerName: jStr(jPick(json, ['customerName', 'customer_name'])),
-        createdAt: jStr(jPick(json, ['createdAt', 'created_at'])),
-        convertedDocumentId: jStr(jPick(json, ['convertedDocumentId', 'converted_document_id'])),
-        validUntil: jStr(jPick(json, ['validUntil', 'valid_until'])),
-      );
+    id: json['id'] as String,
+    status: jStr(json['status']) ?? 'DRAFT',
+    totalMinor: jBig(jPick(json, ['totalMinor', 'total_minor'])),
+    title: jStr(json['title']),
+    customerName: jStr(jPick(json, ['customerName', 'customer_name'])),
+    createdAt: jStr(jPick(json, ['createdAt', 'created_at'])),
+    convertedDocumentId: jStr(
+      jPick(json, ['convertedDocumentId', 'converted_document_id']),
+    ),
+    validUntil: jStr(jPick(json, ['validUntil', 'valid_until'])),
+  );
 
   final String id;
   final String status;
@@ -322,13 +346,13 @@ class QuoteRow {
   final String? validUntil;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'status': status,
-        'totalMinor': totalMinor.toString(),
-        'title': title,
-        'customerName': customerName,
-        'createdAt': createdAt,
-        'convertedDocumentId': convertedDocumentId,
-        'validUntil': validUntil,
-      };
+    'id': id,
+    'status': status,
+    'totalMinor': totalMinor.toString(),
+    'title': title,
+    'customerName': customerName,
+    'createdAt': createdAt,
+    'convertedDocumentId': convertedDocumentId,
+    'validUntil': validUntil,
+  };
 }

@@ -17,14 +17,17 @@ class QuoteLine {
   });
 
   factory QuoteLine.fromJson(Map<String, dynamic> j) => QuoteLine(
-        description: jStr(j['description']) ?? '',
-        quantityMicros: jBigOrNull(jPick(j, ['quantityMicros', 'quantity_micros'])) ??
-            _quantityFromText(jStr(j['quantity'])),
-        unitPriceMinor: jBig(jPick(j, ['unitPriceMinor', 'unit_price_minor'])),
-        discountMinor: jBigOrNull(jPick(j, ['discountMinor', 'discount_minor'])),
-        taxRateBasisPoints: jIntOrNull(jPick(j, ['taxRateBasisPoints', 'tax_rate_basis_points'])),
-        itemId: jStr(jPick(j, ['itemId', 'item_id'])),
-      );
+    description: jStr(j['description']) ?? '',
+    quantityMicros:
+        jBigOrNull(jPick(j, ['quantityMicros', 'quantity_micros'])) ??
+        _quantityFromText(jStr(j['quantity'])),
+    unitPriceMinor: jBig(jPick(j, ['unitPriceMinor', 'unit_price_minor'])),
+    discountMinor: jBigOrNull(jPick(j, ['discountMinor', 'discount_minor'])),
+    taxRateBasisPoints: jIntOrNull(
+      jPick(j, ['taxRateBasisPoints', 'tax_rate_basis_points']),
+    ),
+    itemId: jStr(jPick(j, ['itemId', 'item_id'])),
+  );
 
   final String description;
   final BigInt quantityMicros;
@@ -37,21 +40,23 @@ class QuoteLine {
 
   /// POST /quotes line body.
   Map<String, dynamic> toJson() => {
-        'description': description,
-        'quantityMicros': quantityMicros.toString(),
-        'unitPriceMinor': unitPriceMinor.toString(),
-        if (discountMinor != null && discountMinor! > BigInt.zero)
-          'discountMinor': discountMinor.toString(),
-        if (taxRateBasisPoints != null) 'taxRateBasisPoints': taxRateBasisPoints,
-        if (itemId != null) 'itemId': itemId,
-      };
+    'description': description,
+    'quantityMicros': quantityMicros.toString(),
+    'unitPriceMinor': unitPriceMinor.toString(),
+    if (discountMinor != null && discountMinor! > BigInt.zero)
+      'discountMinor': discountMinor.toString(),
+    if (taxRateBasisPoints != null) 'taxRateBasisPoints': taxRateBasisPoints,
+    if (itemId != null) 'itemId': itemId,
+  };
 }
 
 /// '1.000000' (numeric(18,6) text) → micros.
 BigInt _quantityFromText(String? text) {
   if (text == null || text.isEmpty) return BigInt.from(1000000);
   final parts = text.split('.');
-  final frac = (parts.length > 1 ? parts[1] : '').padRight(6, '0').substring(0, 6);
+  final frac = (parts.length > 1 ? parts[1] : '')
+      .padRight(6, '0')
+      .substring(0, 6);
   return BigInt.parse(parts[0]) * BigInt.from(1000000) + BigInt.parse(frac);
 }
 
@@ -97,11 +102,13 @@ class Quote {
       currency: jStr(q['currency']) ?? 'ILS',
       validUntil: jStr(jPick(q, ['validUntil', 'valid_until'])),
       notes: jStr(q['notes']),
-      convertedDocumentId: jStr(jPick(q, ['convertedDocumentId', 'converted_document_id'])),
+      convertedDocumentId: jStr(
+        jPick(q, ['convertedDocumentId', 'converted_document_id']),
+      ),
       createdAt: jStr(jPick(q, ['createdAt', 'created_at'])),
       lines: [
         for (final l in (json['lines'] as List? ?? const []))
-          if (l is Map<String, dynamic>) QuoteLine.fromJson(l)
+          if (l is Map<String, dynamic>) QuoteLine.fromJson(l),
       ],
     );
   }

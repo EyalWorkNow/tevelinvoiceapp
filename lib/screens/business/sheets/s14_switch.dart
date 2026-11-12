@@ -25,7 +25,10 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 /// [required] = right after sign-in with several businesses (no dismiss, no
 /// reset: the sign-in flow routes on). Returns the chosen business.
-Future<Business?> showSwitchBusinessSheet(BuildContext context, {bool required = false}) async {
+Future<Business?> showSwitchBusinessSheet(
+  BuildContext context, {
+  bool required = false,
+}) async {
   final picked = await showModalBottomSheet<Business>(
     context: context,
     isScrollControlled: true,
@@ -86,12 +89,18 @@ class _SwitchBusinessSheetState extends State<SwitchBusinessSheet> {
       setState(() => _remote = null);
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 300), () => _search(v, append: false));
+    _debounce = Timer(
+      const Duration(milliseconds: 300),
+      () => _search(v, append: false),
+    );
   }
 
   Future<void> _search(String q, {required bool append}) async {
     try {
-      final page = await searchBusinesses(q, offset: append ? (_remote?.length ?? 0) : 0);
+      final page = await searchBusinesses(
+        q,
+        offset: append ? (_remote?.length ?? 0) : 0,
+      );
       if (!mounted || q != _query) return;
       setState(() {
         if (page == null) {
@@ -115,7 +124,8 @@ class _SwitchBusinessSheetState extends State<SwitchBusinessSheet> {
   Future<void> _pick(Business b) async {
     if (_loadingId != null) return;
     HapticFeedback.selectionClick();
-    final current = session.business?.businessId == b.businessId && session.me != null;
+    final current =
+        session.business?.businessId == b.businessId && session.me != null;
     if (current) {
       Navigator.of(context).pop(b);
       return;
@@ -161,12 +171,25 @@ class _SwitchBusinessSheetState extends State<SwitchBusinessSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(Space.page, widget.required ? Space.xl : 0, Space.page, Space.m),
-            child: Semantics(header: true, child: const Text(BusinessHe.switchTitle, style: AppText.title)),
+            padding: EdgeInsets.fromLTRB(
+              Space.page,
+              widget.required ? Space.xl : 0,
+              Space.page,
+              Space.m,
+            ),
+            child: Semantics(
+              header: true,
+              child: const Text(BusinessHe.switchTitle, style: AppText.title),
+            ),
           ),
           if (all.length > 7)
             Padding(
-              padding: const EdgeInsets.fromLTRB(Space.page, 0, Space.page, Space.s),
+              padding: const EdgeInsets.fromLTRB(
+                Space.page,
+                0,
+                Space.page,
+                Space.s,
+              ),
               child: TextField(
                 key: const Key('s14-search'),
                 onChanged: _onQuery,
@@ -200,7 +223,10 @@ class _SwitchBusinessSheetState extends State<SwitchBusinessSheet> {
                     contentPadding: EdgeInsets.zero,
                     minTileHeight: Hit.row,
                     leading: const Icon(Iconsax.shop_add),
-                    title: const Text(BusinessHe.addBusiness, style: AppText.body),
+                    title: const Text(
+                      BusinessHe.addBusiness,
+                      style: AppText.body,
+                    ),
                     onTap: session.offline ? null : _addBusiness,
                   ),
               ],
@@ -211,7 +237,10 @@ class _SwitchBusinessSheetState extends State<SwitchBusinessSheet> {
               padding: const EdgeInsets.all(Space.page),
               child: Semantics(
                 liveRegion: true,
-                child: Text(errorTextHe(_error!), style: AppText.body.copyWith(color: p.danger)),
+                child: Text(
+                  errorTextHe(_error!),
+                  style: AppText.body.copyWith(color: p.danger),
+                ),
               ),
             ),
           const SizedBox(height: Space.xl),
@@ -241,7 +270,8 @@ class _BusinessRow extends StatelessWidget {
     return Semantics(
       button: true,
       selected: current,
-      label: '${business.legalName}, $role${current ? ', ${BusinessHe.active}' : ''}',
+      label:
+          '${business.legalName}, $role${current ? ', ${BusinessHe.active}' : ''}',
       excludeSemantics: true,
       child: InkWell(
         key: Key('s14-${business.businessId}'),
@@ -255,7 +285,10 @@ class _BusinessRow extends StatelessWidget {
                 radius: 20,
                 backgroundColor: p.charcoal,
                 foregroundColor: p.accent,
-                child: Text(_initial(business.legalName), style: AppText.headline),
+                child: Text(
+                  _initial(business.legalName),
+                  style: AppText.headline,
+                ),
               ),
               const SizedBox(width: Space.m),
               Expanded(
@@ -264,14 +297,23 @@ class _BusinessRow extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(business.legalName, style: AppText.headline),
-                    Text(role, style: AppText.secondary.copyWith(color: p.muted)),
+                    Text(
+                      role,
+                      style: AppText.secondary.copyWith(color: p.muted),
+                    ),
                   ],
                 ),
               ),
               if (loading)
-                const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
+                const SizedBox.square(
+                  dimension: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                )
               else if (current)
-                Text(BusinessHe.active, style: AppText.secondary.copyWith(color: p.ok)),
+                Text(
+                  BusinessHe.active,
+                  style: AppText.secondary.copyWith(color: p.ok),
+                ),
             ],
           ),
         ),

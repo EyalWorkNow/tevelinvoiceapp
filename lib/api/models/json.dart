@@ -8,8 +8,11 @@ String? jStr(Object? v) => v?.toString();
 int jInt(Object? v) => v is int ? v : int.parse(v.toString());
 int? jIntOrNull(Object? v) => v == null ? null : jInt(v);
 bool jBool(Object? v) => v == true;
-Map<String, dynamic> jMap(Object? v) => v is Map<String, dynamic> ? v : const {};
-List<String> jStrings(Object? v) => [for (final e in (v is List ? v : const [])) e.toString()];
+Map<String, dynamic> jMap(Object? v) =>
+    v is Map<String, dynamic> ? v : const {};
+List<String> jStrings(Object? v) => [
+  for (final e in (v is List ? v : const [])) e.toString(),
+];
 
 /// First present key among [keys] (for rows that come in both casings).
 Object? jPick(Map<String, dynamic> json, List<String> keys) {

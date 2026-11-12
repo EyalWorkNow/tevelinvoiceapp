@@ -16,12 +16,17 @@ enum SessionStatus { unknown, signedOut, signedIn }
 /// signed out with [expired] = true.
 class SessionController extends ChangeNotifier {
   SessionController({FlutterSecureStorage? storage, ApiClient? client})
-      : _storage = storage ??
-            const FlutterSecureStorage(
-                iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device)),
-        _client = client ?? ApiClient.instance {
+    : _storage =
+          storage ??
+          const FlutterSecureStorage(
+            iOptions: IOSOptions(
+              accessibility: KeychainAccessibility.first_unlock_this_device,
+            ),
+          ),
+      _client = client ?? ApiClient.instance {
     _client.events.listen((event) {
-      if (event == ApiEvent.sessionExpired && status == SessionStatus.signedIn) {
+      if (event == ApiEvent.sessionExpired &&
+          status == SessionStatus.signedIn) {
         unawaited(_signOutLocally(expired: true));
       }
     });
@@ -53,6 +58,7 @@ class SessionController extends ChangeNotifier {
     _account = value;
     AppCache.userScope = value?.userId;
   }
+
   Business? business;
   Me? me;
   BusinessProfile? profile;
@@ -81,6 +87,7 @@ class SessionController extends ChangeNotifier {
   }
 
   List<Business> get businesses => account?.businesses ?? const [];
+
   /// Signed in to several businesses and none chosen yet → G2 picker.
   bool get needsBusinessPick => business == null && businesses.length > 1;
 
@@ -128,7 +135,9 @@ class SessionController extends ChangeNotifier {
       // splash that waits forever.
       offline = true;
       final cached = await AppCache.read(_kAccountCache);
-      final restored = cached is Map<String, dynamic> ? _accountOrNull(cached) : null;
+      final restored = cached is Map<String, dynamic>
+          ? _accountOrNull(cached)
+          : null;
       if (restored == null) {
         // Never been online with this token — nothing to show; keep the token
         // and let the UI offer a retry from the login screen.
@@ -166,12 +175,15 @@ class SessionController extends ChangeNotifier {
   /// that cache is complete (account, chosen business, fresh /me, set up).
   Future<bool> _restoreFromCache(String? storedBusiness) async {
     final cached = await AppCache.read(_kAccountCache);
-    final restored = cached is Map<String, dynamic> ? _accountOrNull(cached) : null;
+    final restored = cached is Map<String, dynamic>
+        ? _accountOrNull(cached)
+        : null;
     if (restored == null) return false;
     _setAccount(restored);
     _selectFromAccount(storedBusiness);
     if (business != null) await _readCachedBusiness();
-    final ready = business != null &&
+    final ready =
+        business != null &&
         freshMe != null &&
         profile != null &&
         me!.onboardingCompleted;
@@ -198,8 +210,7 @@ class SessionController extends ChangeNotifier {
       notifyListeners();
     } on Object catch (e) {
       if (status != SessionStatus.signedIn) return;
-      if (e is ApiException &&
-          (e.status == 401 || e.code == 'MFA_REQUIRED')) {
+      if (e is ApiException && (e.status == 401 || e.code == 'MFA_REQUIRED')) {
         await _signOutLocally(expired: true);
         return;
       }
@@ -226,7 +237,9 @@ class SessionController extends ChangeNotifier {
   Future<MobileAccount> completeSignIn({String deviceName = 'iPhone'}) async {
     final token = await _client.exchangeSessionForDeviceToken(deviceName);
     await _storage.write(key: _kToken, value: token);
-    await _loadAccount(preferredBusinessId: await _storage.read(key: _kBusiness));
+    await _loadAccount(
+      preferredBusinessId: await _storage.read(key: _kBusiness),
+    );
     expired = false;
     offline = false;
     status = SessionStatus.signedIn;
@@ -258,7 +271,9 @@ class SessionController extends ChangeNotifier {
     ]);
     if (business?.businessId != requested) return;
     me = Me.fromJson(results[0]);
-    profile = BusinessProfile.fromJson(results[1]['profile'] as Map<String, dynamic>);
+    profile = BusinessProfile.fromJson(
+      results[1]['profile'] as Map<String, dynamic>,
+    );
     meFetchedAt = DateTime.now();
     offline = false;
     notifyListeners();
@@ -281,7 +296,9 @@ class SessionController extends ChangeNotifier {
     if (cached is! Map<String, dynamic>) return;
     try {
       me = Me.fromJson(cached['me'] as Map<String, dynamic>);
-      profile = BusinessProfile.fromJson(cached['profile'] as Map<String, dynamic>);
+      profile = BusinessProfile.fromJson(
+        cached['profile'] as Map<String, dynamic>,
+      );
       meFetchedAt = DateTime.parse(cached['fetchedAt'] as String);
     } on Object {
       me = null;

@@ -413,24 +413,27 @@ void main() {
     },
   );
 
-  testWidgets('S14 local search shows with more than 7 businesses when BE-24 is unavailable', (tester) async {
-    backend.off('GET', '/mobile/businesses');
-    await pumpAs(
-      tester,
-      backend,
-      Preset.owner,
-      const BusinessScreen(),
-      businesses: 9,
-    );
-    await tester.tap(find.byKey(const Key('business-name')));
-    await settle(tester);
-    expect(find.byKey(const Key('s14-search')), findsOneWidget);
-    await tester.enterText(find.byKey(const Key('s14-search')), 'עסק 9');
-    await settle(tester);
-    expect(find.byKey(const Key('s14-b9')), findsOneWidget);
-    expect(find.byKey(const Key('s14-b2')), findsNothing);
-    expect(find.byType(SwitchBusinessSheet), findsOneWidget);
-  });
+  testWidgets(
+    'S14 local search shows with more than 7 businesses when BE-24 is unavailable',
+    (tester) async {
+      backend.off('GET', '/mobile/businesses');
+      await pumpAs(
+        tester,
+        backend,
+        Preset.owner,
+        const BusinessScreen(),
+        businesses: 9,
+      );
+      await tester.tap(find.byKey(const Key('business-name')));
+      await settle(tester);
+      expect(find.byKey(const Key('s14-search')), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('s14-search')), 'עסק 9');
+      await settle(tester);
+      expect(find.byKey(const Key('s14-b9')), findsOneWidget);
+      expect(find.byKey(const Key('s14-b2')), findsNothing);
+      expect(find.byType(SwitchBusinessSheet), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'Dynamic Type 200% + dark: B, צוות, חשבון, רשות המסים, R do not overflow (AT-70)',

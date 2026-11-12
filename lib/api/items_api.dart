@@ -13,8 +13,9 @@ final _api = ApiClient.instance;
 String _key(String? bid) => 'items_$bid';
 
 List<Item> _parse(Object? list) => [
-      for (final i in (list as List? ?? const [])) Item.fromJson(Map<String, dynamic>.from(i as Map))
-    ];
+  for (final i in (list as List? ?? const []))
+    Item.fromJson(Map<String, dynamic>.from(i as Map)),
+];
 
 Future<List<Item>?> readCachedItems() async {
   try {
@@ -70,7 +71,12 @@ Future<Item> createItem({
 }
 
 /// PATCH /items/:id (BE-15): {name?, defaultUnitPriceMinor?, unit?, itemType?}.
-Future<void> updateItem(String id, {String? name, BigInt? priceMinor, String? unit}) async {
+Future<void> updateItem(
+  String id, {
+  String? name,
+  BigInt? priceMinor,
+  String? unit,
+}) async {
   final body = <String, Object?>{
     if (name != null) 'name': name.trim(),
     if (priceMinor != null) 'defaultUnitPriceMinor': priceMinor.toString(),
@@ -90,14 +96,23 @@ Future<void> restoreItem(String id) => _api.post('/items/$id/restore');
 
 /// S3 autocomplete: active items whose name starts with [query] first, then
 /// those containing it; at most [limit].
-List<Item> itemSuggestions(Iterable<Item> items, String query, {int limit = 5}) {
+List<Item> itemSuggestions(
+  Iterable<Item> items,
+  String query, {
+  int limit = 5,
+}) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return const [];
   final active = items.where((i) => i.isActive);
-  final starts = [for (final i in active) if (i.name.toLowerCase().startsWith(q)) i];
+  final starts = [
+    for (final i in active)
+      if (i.name.toLowerCase().startsWith(q)) i,
+  ];
   final contains = [
     for (final i in active)
-      if (!i.name.toLowerCase().startsWith(q) && i.name.toLowerCase().contains(q)) i
+      if (!i.name.toLowerCase().startsWith(q) &&
+          i.name.toLowerCase().contains(q))
+        i,
   ];
   return [...starts, ...contains].take(limit).toList();
 }

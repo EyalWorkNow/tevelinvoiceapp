@@ -526,29 +526,29 @@ class _ActivityScreenState extends State<ActivityScreen> {
         child: Column(
           children: [
             Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  Space.page,
-                  Space.m,
-                  Space.page,
-                  Space.s,
-                ),
-                child: Row(
-                  children: [
-                    // One name with the home button (07·U9): "מסמכים".
-                    Expanded(
-                      child: Semantics(
-                        header: true,
-                        child: Text(
-                          InboxHe.documentsAction,
-                          style: AppText.displayTitle,
-                        ),
+              padding: const EdgeInsets.fromLTRB(
+                Space.page,
+                Space.m,
+                Space.page,
+                Space.s,
+              ),
+              child: Row(
+                children: [
+                  // One name with the home button (07·U9): "מסמכים".
+                  Expanded(
+                    child: Semantics(
+                      header: true,
+                      child: Text(
+                        InboxHe.documentsAction,
+                        style: AppText.displayTitle,
                       ),
                     ),
-                    if (ModalRoute.of(context)?.canPop ?? false)
-                      const DesignBackButton(),
-                  ],
-                ),
+                  ),
+                  if (ModalRoute.of(context)?.canPop ?? false)
+                    const DesignBackButton(),
+                ],
               ),
+            ),
             OfflineBanner(visible: _c.offline, onRetry: _reload),
             Padding(
               padding: const EdgeInsets.fromLTRB(

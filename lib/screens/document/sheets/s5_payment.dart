@@ -16,15 +16,19 @@ import '../../../util/money.dart';
 import '../dialogs.dart';
 
 /// Opens S5 for an open document. Returns the outcome after "רשום", or null.
-Future<PaymentsOutcome?> showPaymentSheet(BuildContext context,
-    {required String documentId, DocumentDetail? doc}) {
+Future<PaymentsOutcome?> showPaymentSheet(
+  BuildContext context, {
+  required String documentId,
+  DocumentDetail? doc,
+}) {
   return showAppSheet<PaymentsOutcome>(
     context,
     builder: (_) => PaymentSheet(documentId: documentId, doc: doc),
   );
 }
 
-String _lastMethodKey() => 'last_payment_method_${businessContext.business?.businessId ?? 'none'}';
+String _lastMethodKey() =>
+    'last_payment_method_${businessContext.business?.businessId ?? 'none'}';
 
 /// F8: the last method used in S5 (else cash).
 Future<String> lastPaymentMethod() async {
@@ -45,7 +49,7 @@ class PaymentSheet extends StatefulWidget {
 /// One payment's editable fields.
 class _Draft {
   _Draft({required this.method, required String amount, required this.date})
-      : amount = TextEditingController(text: amount);
+    : amount = TextEditingController(text: amount);
 
   String method;
   final TextEditingController amount;
@@ -57,14 +61,14 @@ class _Draft {
   final check = TextEditingController();
 
   PaymentEntry toEntry() => PaymentEntry(
-        method: method,
-        amountMinor: parseAmount(amount.text) ?? BigInt.zero,
-        paymentDate: date,
-        reference: method == 'CHECK' ? check.text.trim() : null,
-        bankNumber: method == 'CHECK' ? bank.text.trim() : null,
-        branchNumber: method == 'CHECK' ? branch.text.trim() : null,
-        accountNumber: method == 'CHECK' ? account.text.trim() : null,
-      );
+    method: method,
+    amountMinor: parseAmount(amount.text) ?? BigInt.zero,
+    paymentDate: date,
+    reference: method == 'CHECK' ? check.text.trim() : null,
+    bankNumber: method == 'CHECK' ? bank.text.trim() : null,
+    branchNumber: method == 'CHECK' ? branch.text.trim() : null,
+    accountNumber: method == 'CHECK' ? account.text.trim() : null,
+  );
 
   void dispose() {
     for (final c in [amount, bank, branch, account, check]) {
@@ -96,8 +100,13 @@ class _PaymentSheetState extends State<PaymentSheet> {
         _doc = doc;
         _loadError = null;
         if (_drafts.isEmpty) {
-          _drafts.add(_Draft(
-              method: method, amount: agorotToKeypadText(doc.balanceMinor), date: isoDay(DateTime.now())));
+          _drafts.add(
+            _Draft(
+              method: method,
+              amount: agorotToKeypadText(doc.balanceMinor),
+              date: isoDay(DateTime.now()),
+            ),
+          );
         }
       });
     } on Object catch (e) {
@@ -113,17 +122,27 @@ class _PaymentSheetState extends State<PaymentSheet> {
     super.dispose();
   }
 
-  BigInt get _sum => _drafts.fold(BigInt.zero, (a, d) => a + (parseAmount(d.amount.text) ?? BigInt.zero));
+  BigInt get _sum => _drafts.fold(
+    BigInt.zero,
+    (a, d) => a + (parseAmount(d.amount.text) ?? BigInt.zero),
+  );
 
   /// Local checks before the server: amount > 0, total ≤ balance
   /// (PAYMENT_OVERALLOCATED), cheque details complete (0037: digits).
   String? _validate() {
     for (final d in _drafts) {
-      if ((parseAmount(d.amount.text) ?? BigInt.zero) <= BigInt.zero) return PaymentHe.amountRequired;
+      if ((parseAmount(d.amount.text) ?? BigInt.zero) <= BigInt.zero)
+        return PaymentHe.amountRequired;
       if (d.method == 'CHECK') {
-        final parts = [d.bank.text, d.branch.text, d.account.text, d.check.text].map((s) => s.trim());
+        final parts = [
+          d.bank.text,
+          d.branch.text,
+          d.account.text,
+          d.check.text,
+        ].map((s) => s.trim());
         if (parts.any((s) => s.isEmpty)) return PaymentHe.checkDetailsRequired;
-        if (parts.any((s) => !RegExp(r'^\d+$').hasMatch(s))) return PaymentHe.digitsOnly;
+        if (parts.any((s) => !RegExp(r'^\d+$').hasMatch(s)))
+          return PaymentHe.digitsOnly;
       }
     }
     if (_sum > _doc!.balanceMinor) {
@@ -139,13 +158,15 @@ class _PaymentSheetState extends State<PaymentSheet> {
       _error = null;
     });
     if (invalid != null) return;
-    setState(() => _busy = paymentNeedsReceipt(_doc!.documentType) ? PaymentHe.issuingReceipt : PaymentHe.recording);
+    setState(
+      () => _busy = paymentNeedsReceipt(_doc!.documentType)
+          ? PaymentHe.issuingReceipt
+          : PaymentHe.recording,
+    );
     try {
-      final outcome = await recordPayments(
-        _doc!,
-        [for (final d in _drafts) d.toEntry()],
-        askPassphrase: () => askSigningPassphrase(context),
-      );
+      final outcome = await recordPayments(_doc!, [
+        for (final d in _drafts) d.toEntry(),
+      ], askPassphrase: () => askSigningPassphrase(context));
       await AppCache.write(_lastMethodKey(), _drafts.last.method);
       if (mounted) Navigator.of(context).pop(outcome);
     } on Object catch (e) {
@@ -183,7 +204,9 @@ class _PaymentSheetState extends State<PaymentSheet> {
       context: context,
       initialDate: DateTime.tryParse(d.date) ?? now,
       firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 2), // a post-dated cheque carries its own date (§9.1)
+      lastDate: DateTime(
+        now.year + 2,
+      ), // a post-dated cheque carries its own date (§9.1)
     );
     if (picked != null) setState(() => d.date = isoDay(picked));
   }
@@ -194,7 +217,9 @@ class _PaymentSheetState extends State<PaymentSheet> {
     if (doc == null) {
       return SizedBox(
         height: 240,
-        child: _loadError == null ? const SkeletonList(rows: 3) : ErrorView(error: _loadError!, onRetry: _load),
+        child: _loadError == null
+            ? const SkeletonList(rows: 3)
+            : ErrorView(error: _loadError!, onRetry: _load),
       );
     }
     final p = context.palette;
@@ -203,15 +228,22 @@ class _PaymentSheetState extends State<PaymentSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SheetTitle(PaymentHe.title,
-              subtitle: '${PaymentHe.balance}: ${moneyText(context, doc.balanceMinor)}'),
+          SheetTitle(
+            PaymentHe.title,
+            subtitle:
+                '${PaymentHe.balance}: ${moneyText(context, doc.balanceMinor)}',
+          ),
           for (var i = 0; i < _drafts.length; i++) _paymentBlock(i),
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: TextButton(
               key: const Key('s5-add'),
               onPressed: _busy == null ? _addPayment : null,
-              child: Text(_drafts.last.method == 'CHECK' ? PaymentHe.addCheck : PaymentHe.addPayment),
+              child: Text(
+                _drafts.last.method == 'CHECK'
+                    ? PaymentHe.addCheck
+                    : PaymentHe.addPayment,
+              ),
             ),
           ),
           if (_invalid != null || _error != null)
@@ -219,8 +251,11 @@ class _PaymentSheetState extends State<PaymentSheet> {
               padding: const EdgeInsets.only(bottom: Space.s),
               child: Semantics(
                 liveRegion: true,
-                child: Text(_invalid ?? errorTextHe(_error!),
-                    key: const Key('s5-error'), style: AppText.body.copyWith(color: p.danger)),
+                child: Text(
+                  _invalid ?? errorTextHe(_error!),
+                  key: const Key('s5-error'),
+                  style: AppText.body.copyWith(color: p.danger),
+                ),
               ),
             ),
           PrimaryButton(
@@ -239,7 +274,8 @@ class _PaymentSheetState extends State<PaymentSheet> {
     final d = _drafts[i];
     final p = context.palette;
     final chips = [
-      for (final m in primaryPaymentMethods) ChipOption(m, paymentMethodLabel(m)),
+      for (final m in primaryPaymentMethods)
+        ChipOption(m, paymentMethodLabel(m)),
       if (d.showMore || morePaymentMethods.contains(d.method))
         for (final m in morePaymentMethods) ChipOption(m, paymentMethodLabel(m))
       else
@@ -253,7 +289,12 @@ class _PaymentSheetState extends State<PaymentSheet> {
           if (_drafts.length > 1)
             Row(
               children: [
-                Expanded(child: Text('${PaymentHe.paymentN} ${i + 1}', style: AppText.headline)),
+                Expanded(
+                  child: Text(
+                    '${PaymentHe.paymentN} ${i + 1}',
+                    style: AppText.headline,
+                  ),
+                ),
                 if (i > 0)
                   TextButton(
                     onPressed: _busy == null
@@ -269,7 +310,10 @@ class _PaymentSheetState extends State<PaymentSheet> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             textDirection: TextDirection.ltr,
             style: AppText.amountCard,
-            decoration: const InputDecoration(labelText: PaymentHe.amount, prefixText: '₪ '),
+            decoration: const InputDecoration(
+              labelText: PaymentHe.amount,
+              prefixText: '₪ ',
+            ),
             onChanged: (_) => setState(() => _invalid = null),
           ),
           const SizedBox(height: Space.s),
@@ -285,23 +329,49 @@ class _PaymentSheetState extends State<PaymentSheet> {
             }),
           ),
           if (d.method == 'CHECK') ...[
-            Row(children: [
-              Expanded(child: _digits(d.bank, PaymentHe.bank, Key('s5-bank-$i'))),
-              const SizedBox(width: Space.s),
-              Expanded(child: _digits(d.branch, PaymentHe.branch, Key('s5-branch-$i'))),
-            ]),
-            Row(children: [
-              Expanded(child: _digits(d.account, PaymentHe.account, Key('s5-account-$i'))),
-              const SizedBox(width: Space.s),
-              Expanded(child: _digits(d.check, PaymentHe.checkNumber, Key('s5-check-$i'))),
-            ]),
+            Row(
+              children: [
+                Expanded(
+                  child: _digits(d.bank, PaymentHe.bank, Key('s5-bank-$i')),
+                ),
+                const SizedBox(width: Space.s),
+                Expanded(
+                  child: _digits(
+                    d.branch,
+                    PaymentHe.branch,
+                    Key('s5-branch-$i'),
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: _digits(
+                    d.account,
+                    PaymentHe.account,
+                    Key('s5-account-$i'),
+                  ),
+                ),
+                const SizedBox(width: Space.s),
+                Expanded(
+                  child: _digits(
+                    d.check,
+                    PaymentHe.checkNumber,
+                    Key('s5-check-$i'),
+                  ),
+                ),
+              ],
+            ),
           ],
           ListTile(
             key: Key('s5-date-$i'),
             contentPadding: EdgeInsets.zero,
             minTileHeight: Hit.min,
-            title: Text(d.method == 'CHECK' ? PaymentHe.checkDate : PaymentHe.date,
-                style: AppText.secondary.copyWith(color: p.muted)),
+            title: Text(
+              d.method == 'CHECK' ? PaymentHe.checkDate : PaymentHe.date,
+              style: AppText.secondary.copyWith(color: p.muted),
+            ),
             trailing: Text(relativeDateHe(d.date), style: AppText.body),
             onTap: _busy == null ? () => _pickDate(d) : null,
           ),
@@ -311,10 +381,10 @@ class _PaymentSheetState extends State<PaymentSheet> {
   }
 
   Widget _digits(TextEditingController c, String label, Key key) => TextField(
-        key: key,
-        controller: c,
-        keyboardType: TextInputType.number,
-        textDirection: TextDirection.ltr,
-        decoration: InputDecoration(labelText: label),
-      );
+    key: key,
+    controller: c,
+    keyboardType: TextInputType.number,
+    textDirection: TextDirection.ltr,
+    decoration: InputDecoration(labelText: label),
+  );
 }

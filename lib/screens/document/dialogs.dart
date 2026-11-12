@@ -11,8 +11,12 @@ import '../../util/allowed_urls.dart';
 import '../../util/labels/labels.dart';
 
 /// "למה לדחות?" — one required field. Null = cancelled.
-Future<String?> askReason(BuildContext context,
-    {String title = DocumentHe.rejectTitle, String hint = DocumentHe.rejectHint, String? confirm}) {
+Future<String?> askReason(
+  BuildContext context, {
+  String title = DocumentHe.rejectTitle,
+  String hint = DocumentHe.rejectHint,
+  String? confirm,
+}) {
   return showDialog<String>(
     context: context,
     builder: (_) => _OneFieldDialog(
@@ -27,39 +31,44 @@ Future<String?> askReason(BuildContext context,
 
 /// "מספר הקצאה" — digits. Null = cancelled.
 Future<String?> askManualAllocation(BuildContext context) => showDialog<String>(
-      context: context,
-      builder: (_) => const _OneFieldDialog(
-        title: DocumentHe.manualTitle,
-        hint: DocumentHe.manualHint,
-        confirm: CommonHe.save,
-        required: DocumentHe.manualHint,
-        digits: true,
-        fieldKey: Key('allocation-field'),
-      ),
-    );
+  context: context,
+  builder: (_) => const _OneFieldDialog(
+    title: DocumentHe.manualTitle,
+    hint: DocumentHe.manualHint,
+    confirm: CommonHe.save,
+    required: DocumentHe.manualHint,
+    digits: true,
+    fieldKey: Key('allocation-field'),
+  ),
+);
 
 /// "סיסמת החתימה" with "שמור עם Face ID" (on by default, §6.C step 4).
 Future<PassphraseAnswer?> askSigningPassphrase(BuildContext context) =>
-    showDialog<PassphraseAnswer>(context: context, builder: (_) => const _PassphraseDialog());
+    showDialog<PassphraseAnswer>(
+      context: context,
+      builder: (_) => const _PassphraseDialog(),
+    );
 
 /// CONSENT_REQUIRED on e-mail (S6): true = the customer agreed; false =
 /// "שלח בווטסאפ במקום"; null = dismissed.
 Future<bool?> askEmailConsent(BuildContext context) => showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(DocumentHe.consentTitle),
-        content: const Text(DocumentHe.consentBody),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text(DocumentHe.consentNoWhatsApp)),
-          TextButton(
-              key: const Key('consent-yes'),
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text(DocumentHe.consentYes)),
-        ],
+  context: context,
+  builder: (context) => AlertDialog(
+    title: const Text(DocumentHe.consentTitle),
+    content: const Text(DocumentHe.consentBody),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context, false),
+        child: const Text(DocumentHe.consentNoWhatsApp),
       ),
-    );
+      TextButton(
+        key: const Key('consent-yes'),
+        onPressed: () => Navigator.pop(context, true),
+        child: const Text(DocumentHe.consentYes),
+      ),
+    ],
+  ),
+);
 
 /// "המשך במחשב" (§13.9, P0): a mail to myself with the topic.
 Future<void> continueOnComputer(BuildContext context, String topic) async {
@@ -69,23 +78,34 @@ Future<void> continueOnComputer(BuildContext context, String topic) async {
       title: const Text(DocumentHe.continueOnComputerTitle),
       content: const Text(DocumentHe.continueOnComputerBody),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text(CommonHe.cancel)),
         TextButton(
-            onPressed: () => Navigator.pop(context, true), child: const Text(DocumentHe.sendMeLink)),
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text(CommonHe.cancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text(DocumentHe.sendMeLink),
+        ),
       ],
     ),
   );
   if (ok != true) return;
   final email = session.account?.email ?? '';
-  await launchAllowed(Uri(
-    scheme: 'mailto',
-    path: email,
-    query: 'subject=${Uri.encodeComponent('תבל – $topic')}',
-  ));
+  await launchAllowed(
+    Uri(
+      scheme: 'mailto',
+      path: email,
+      query: 'subject=${Uri.encodeComponent('תבל – $topic')}',
+    ),
+  );
 }
 
 /// App-wide action feedback.
-void toast(BuildContext context, String text, {NoticeMotion motion = NoticeMotion.saved}) {
+void toast(
+  BuildContext context,
+  String text, {
+  NoticeMotion motion = NoticeMotion.saved,
+}) {
   final m = ScaffoldMessenger.maybeOf(context);
   m
     ?..hideCurrentNotchNotice()
@@ -125,7 +145,8 @@ class _OneFieldDialogState extends State<_OneFieldDialog> {
 
   void _submit() {
     final v = _c.text.trim();
-    final bad = v.isEmpty || (widget.digits && !RegExp(r'^\d{9,}$').hasMatch(v));
+    final bad =
+        v.isEmpty || (widget.digits && !RegExp(r'^\d{9,}$').hasMatch(v));
     if (bad) {
       setState(() => _error = widget.required);
       return;
@@ -135,22 +156,33 @@ class _OneFieldDialogState extends State<_OneFieldDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: Text(widget.title),
-        content: TextField(
-          key: widget.fieldKey,
-          controller: _c,
-          autofocus: true,
-          maxLength: widget.digits ? 20 : 300,
-          keyboardType: widget.digits ? TextInputType.number : TextInputType.text,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _submit(),
-          decoration: InputDecoration(hintText: widget.hint, errorText: _error, counterText: ''),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text(CommonHe.cancel)),
-          TextButton(key: const Key('dialog-confirm'), onPressed: _submit, child: Text(widget.confirm)),
-        ],
-      );
+    title: Text(widget.title),
+    content: TextField(
+      key: widget.fieldKey,
+      controller: _c,
+      autofocus: true,
+      maxLength: widget.digits ? 20 : 300,
+      keyboardType: widget.digits ? TextInputType.number : TextInputType.text,
+      textInputAction: TextInputAction.done,
+      onSubmitted: (_) => _submit(),
+      decoration: InputDecoration(
+        hintText: widget.hint,
+        errorText: _error,
+        counterText: '',
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text(CommonHe.cancel),
+      ),
+      TextButton(
+        key: const Key('dialog-confirm'),
+        onPressed: _submit,
+        child: Text(widget.confirm),
+      ),
+    ],
+  );
 }
 
 class _PassphraseDialog extends StatefulWidget {
@@ -177,32 +209,41 @@ class _PassphraseDialogState extends State<_PassphraseDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: const Text(DocumentHe.passphraseTitle),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              key: const Key('passphrase-field'),
-              controller: _c,
-              autofocus: true,
-              obscureText: true,
-              onSubmitted: (_) => _submit(),
-              decoration: const InputDecoration(hintText: DocumentHe.passphraseHint),
-            ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _remember,
-              onChanged: (v) => setState(() => _remember = v ?? false),
-              title: const Text(DocumentHe.rememberWithFaceId, style: AppText.secondary),
-            ),
-          ],
+    title: const Text(DocumentHe.passphraseTitle),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          key: const Key('passphrase-field'),
+          controller: _c,
+          autofocus: true,
+          obscureText: true,
+          onSubmitted: (_) => _submit(),
+          decoration: const InputDecoration(
+            hintText: DocumentHe.passphraseHint,
+          ),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text(CommonHe.cancel)),
-          TextButton(
-              key: const Key('passphrase-confirm'),
-              onPressed: _submit,
-              child: const Text(DocumentHe.saveWithFaceId)),
-        ],
-      );
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          value: _remember,
+          onChanged: (v) => setState(() => _remember = v ?? false),
+          title: const Text(
+            DocumentHe.rememberWithFaceId,
+            style: AppText.secondary,
+          ),
+        ),
+      ],
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text(CommonHe.cancel),
+      ),
+      TextButton(
+        key: const Key('passphrase-confirm'),
+        onPressed: _submit,
+        child: const Text(DocumentHe.saveWithFaceId),
+      ),
+    ],
+  );
 }

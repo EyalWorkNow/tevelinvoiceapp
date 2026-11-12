@@ -42,7 +42,10 @@ class SheetTitle extends StatelessWidget {
           Text(text, style: AppText.title),
           if (subtitle != null) ...[
             const SizedBox(height: Space.xs),
-            Text(subtitle!, style: AppText.body.copyWith(color: context.palette.muted)),
+            Text(
+              subtitle!,
+              style: AppText.body.copyWith(color: context.palette.muted),
+            ),
           ],
         ],
       ),

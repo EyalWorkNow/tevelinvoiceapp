@@ -105,7 +105,11 @@ List<BusinessRowSpec> businessRows(
     const BusinessRowSpec('integrations', 'חיבורים ושליחה', Iconsax.link),
   if (caps.can(Cap.owner))
     const BusinessRowSpec('subscription', 'המסלול של העסק', Iconsax.crown),
-  const BusinessRowSpec('notifications', SystemNoticesHe.title, Iconsax.notification),
+  const BusinessRowSpec(
+    'notifications',
+    SystemNoticesHe.title,
+    Iconsax.notification,
+  ),
   const BusinessRowSpec('account', BusinessHe.account, Iconsax.user),
   if (caps.can(Cap.settingsBusiness) || caps.can(Cap.reportView))
     const BusinessRowSpec('desktop', BusinessHe.desktop, Iconsax.monitor),

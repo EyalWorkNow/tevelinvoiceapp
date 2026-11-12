@@ -39,7 +39,9 @@ Map<String, dynamic> invitationJson(
   'role': role,
   'permissions': permissions,
   'invitedBy': 'דנה',
-  'expiresAt': (expiresAt ?? DateTime.now().add(const Duration(days: 5))).toUtc().toIso8601String(),
+  'expiresAt': (expiresAt ?? DateTime.now().add(const Duration(days: 5)))
+      .toUtc()
+      .toIso8601String(),
   'createdAt': DateTime.now().toUtc().toIso8601String(),
 };
 
@@ -56,7 +58,8 @@ Map<String, dynamic> teamJson({
         memberJson('u-partner', 'ADMIN', name: 'יוסי'),
         memberJson('u-emp', 'EMPLOYEE', name: 'רון'),
       ],
-  'invitations': invitations ?? [invitationJson('i1', 'new@tevel.test', 'EMPLOYEE')],
+  'invitations':
+      invitations ?? [invitationJson('i1', 'new@tevel.test', 'EMPLOYEE')],
   'expiredInvitations': expired ?? const [],
   'grantablePermissions': [
     'document:read',
@@ -82,7 +85,10 @@ void installBusinessFakes(FakeBackend backend) {
               'invitationId': 'i-new',
               'link': 'https://app.test/#/invite?token=t',
               'inviteUrl': 'https://app.test/m/invite/tok',
-              'expiresAt': DateTime.now().add(const Duration(days: 7)).toUtc().toIso8601String(),
+              'expiresAt': DateTime.now()
+                  .add(const Duration(days: 7))
+                  .toUtc()
+                  .toIso8601String(),
               'role': r.body['role'],
               'permissions': r.body['permissions'] ?? const [],
             }),
@@ -110,7 +116,11 @@ void installBusinessFakes(FakeBackend backend) {
       (r) => FakeResponse(200, {'permissions': r.body['permissions']}),
     )
     ..json('POST', '/business/members/:userId/revoke', {'status': 'ok'})
-    ..on('PUT', '/settings/approval', (r) => FakeResponse(200, {'mode': r.body['mode']}))
+    ..on(
+      'PUT',
+      '/settings/approval',
+      (r) => FakeResponse(200, {'mode': r.body['mode']}),
+    )
     ..json('GET', '/settings/branding', {
       'branding': {
         'template': 'modern',
@@ -124,7 +134,11 @@ void installBusinessFakes(FakeBackend backend) {
       },
       'canConfigure': true,
     })
-    ..on('PUT', '/settings/branding', (r) => FakeResponse(200, {'branding': r.body, 'canConfigure': true}))
+    ..on(
+      'PUT',
+      '/settings/branding',
+      (r) => FakeResponse(200, {'branding': r.body, 'canConfigure': true}),
+    )
     ..json('GET', '/settings/signing', {
       'available': true,
       'identity': {'id': 'sig1'},
@@ -140,13 +154,20 @@ void installBusinessFakes(FakeBackend backend) {
     })
     ..json('GET', '/sequences', {
       'sequences': [
-        {'numbering_scope_key': 'default', 'numbering_policy_version': 1, 'next_number': '1'},
+        {
+          'numbering_scope_key': 'default',
+          'numbering_policy_version': 1,
+          'next_number': '1',
+        },
       ],
     })
     ..on(
       'PUT',
       '/sequences/:scopeKey/start',
-      (r) => FakeResponse(200, {'scopeKey': r.params['scopeKey'], 'nextNumber': r.body['nextNumber']}),
+      (r) => FakeResponse(200, {
+        'scopeKey': r.params['scopeKey'],
+        'nextNumber': r.body['nextNumber'],
+      }),
     )
     ..on(
       'POST',
@@ -168,9 +189,16 @@ void installBusinessFakes(FakeBackend backend) {
     ..on(
       'POST',
       '/exports/:kind',
-      (r) => FakeResponse(201, {'exportId': 'x1', 'storageKey': 'exports/b1/${r.params['kind']}-2026.zip'}),
+      (r) => FakeResponse(201, {
+        'exportId': 'x1',
+        'storageKey': 'exports/b1/${r.params['kind']}-2026.zip',
+      }),
     )
-    ..on('GET', '/exports/download', (_) => const FakeResponse(200, <int>[80, 75, 3, 4]))
+    ..on(
+      'GET',
+      '/exports/download',
+      (_) => const FakeResponse(200, <int>[80, 75, 3, 4]),
+    )
     // BE-13 (SRV-2, live): copy of every document e-mail to the owner.
     ..json('GET', '/settings/document-email', {'ccOwnerEmail': false})
     ..on(
@@ -185,7 +213,11 @@ void installBusinessFakes(FakeBackend backend) {
       final q = r.raw.url.queryParameters['q'] ?? '';
       final all = [
         for (var i = 1; i <= 30; i++)
-          {'businessId': 'srv-$i', 'legalName': 'לקוח שרת $i', 'role': 'ACCOUNTANT'},
+          {
+            'businessId': 'srv-$i',
+            'legalName': 'לקוח שרת $i',
+            'role': 'ACCOUNTANT',
+          },
       ].where((b) => (b['legalName'] as String).contains(q)).toList();
       final offset = int.parse(r.raw.url.queryParameters['offset'] ?? '0');
       final limit = int.parse(r.raw.url.queryParameters['limit'] ?? '50');
@@ -208,7 +240,10 @@ void installBusinessFakes(FakeBackend backend) {
       'permissions': const [],
       'businessName': 'סטודיו תבל',
       'inviterName': 'דנה',
-      'expiresAt': DateTime.now().add(const Duration(days: 5)).toUtc().toIso8601String(),
+      'expiresAt': DateTime.now()
+          .add(const Duration(days: 5))
+          .toUtc()
+          .toIso8601String(),
       'accountExists': true,
       'accountHasPassword': true,
     })
@@ -231,7 +266,8 @@ Map<String, dynamic> reportJson({int rows = 3}) => {
     {'key': 'total', 'label': 'סכום', 'type': 'money'},
   ],
   'rows': [
-    for (var i = 1; i <= rows; i++) {'customer': 'לקוח $i', 'total': '${i * 10000}'},
+    for (var i = 1; i <= rows; i++)
+      {'customer': 'לקוח $i', 'total': '${i * 10000}'},
   ],
 };
 

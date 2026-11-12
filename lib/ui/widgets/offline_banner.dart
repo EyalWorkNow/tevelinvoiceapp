@@ -26,7 +26,10 @@ class OfflineBanner extends StatelessWidget {
                 child: InkWell(
                   onTap: onRetry,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: Space.page, vertical: Space.s),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Space.page,
+                      vertical: Space.s,
+                    ),
                     child: Row(
                       children: [
                         Icon(Iconsax.cloud_cross, size: 18, color: p.warn),

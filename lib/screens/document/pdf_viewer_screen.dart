@@ -19,8 +19,9 @@ class PdfViewerScreen extends StatefulWidget {
 }
 
 class _PdfViewerScreenState extends State<PdfViewerScreen> {
-  late final PdfControllerPinch _controller =
-      PdfControllerPinch(document: PdfDocument.openData(widget.bytes));
+  late final PdfControllerPinch _controller = PdfControllerPinch(
+    document: PdfDocument.openData(widget.bytes),
+  );
 
   @override
   void dispose() {

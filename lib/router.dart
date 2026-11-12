@@ -281,7 +281,8 @@ Future<bool> go(String locationString, {BuildContext? context}) async {
   }
   var switchedBusiness = false;
   final targetBusiness = route.query['businessId'];
-  if (targetBusiness != null && targetBusiness != session.business?.businessId) {
+  if (targetBusiness != null &&
+      targetBusiness != session.business?.businessId) {
     final matches = session.account?.businesses.where(
       (business) => business.businessId == targetBusiness,
     );

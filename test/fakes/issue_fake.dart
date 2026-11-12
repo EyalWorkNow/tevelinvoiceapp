@@ -13,9 +13,20 @@ import 'fake_backend.dart';
 /// Customers of the fixtures: דנה (phone), "לקוח מזדמן" (no phone),
 /// "בע״מ" with a tax id and an unknown VAT-dealer status.
 const List<Map<String, dynamic>> fakeCustomers = [
-  {'id': 'c1', 'name': 'דנה', 'phone': '050-1234567', 'email': 'dana@example.com'},
+  {
+    'id': 'c1',
+    'name': 'דנה',
+    'phone': '050-1234567',
+    'email': 'dana@example.com',
+  },
   {'id': 'c2', 'name': 'לקוח מזדמן', 'vat_dealer_status': 'PRIVATE'},
-  {'id': 'c3', 'name': 'רון בע״מ', 'tax_id': '514000002', 'vat_dealer_status': 'UNKNOWN', 'phone': '052-7654321'},
+  {
+    'id': 'c3',
+    'name': 'רון בע״מ',
+    'tax_id': '514000002',
+    'vat_dealer_status': 'UNKNOWN',
+    'phone': '052-7654321',
+  },
 ];
 
 class IssueFake {
@@ -51,9 +62,9 @@ class IssueFake {
   int _numbers = 0;
 
   Map<String, dynamic> detail(String id) => {
-        'document': docs[id],
-        'lines': lines[id] ?? const [],
-      };
+    'document': docs[id],
+    'lines': lines[id] ?? const [],
+  };
 
   /// GET /quotes/:id (BE-06 shape: totals WITH the VAT of rated lines).
   Map<String, dynamic> quoteDetail(String id) {
@@ -64,7 +75,8 @@ class IssueFake {
     for (final l in (q['lines'] as List).cast<Map<String, dynamic>>()) {
       final qty = BigInt.parse(l['quantityMicros'] as String);
       final unit = BigInt.parse(l['unitPriceMinor'] as String);
-      final disc = BigInt.tryParse(l['discountMinor'] as String? ?? '') ?? BigInt.zero;
+      final disc =
+          BigInt.tryParse(l['discountMinor'] as String? ?? '') ?? BigInt.zero;
       final bp = l['taxRateBasisPoints'] as int?;
       final n = _round(qty * unit, BigInt.from(1000000)) - disc;
       final t = _round(n * BigInt.from(bp ?? 0), BigInt.from(10000));
@@ -99,7 +111,12 @@ class IssueFake {
     };
   }
 
-  void _create(String id, String type, String? customerId, List<Map<String, dynamic>> ls) {
+  void _create(
+    String id,
+    String type,
+    String? customerId,
+    List<Map<String, dynamic>> ls,
+  ) {
     var sub = BigInt.zero;
     var tax = BigInt.zero;
     final rows = <Map<String, dynamic>>[];
@@ -107,7 +124,8 @@ class IssueFake {
       final l = ls[i];
       final qty = BigInt.parse(l['quantityMicros'] as String);
       final unit = BigInt.parse(l['unitPriceMinor'] as String);
-      final disc = BigInt.tryParse(l['discountMinor'] as String? ?? '') ?? BigInt.zero;
+      final disc =
+          BigInt.tryParse(l['discountMinor'] as String? ?? '') ?? BigInt.zero;
       final bp = l['taxRateBasisPoints'] as int? ?? 0;
       final net = _round(qty * unit, BigInt.from(1000000)) - disc;
       final t = _round(net * BigInt.from(bp), BigInt.from(10000));
@@ -147,7 +165,11 @@ class IssueFake {
 
   /// An already issued document (e.g. the paid 300 of TAX_INVOICE_DUE).
   /// [lines]: POST /documents line bodies.
-  String seedIssued(String type, String customerId, List<Map<String, dynamic>> lines) {
+  String seedIssued(
+    String type,
+    String customerId,
+    List<Map<String, dynamic>> lines,
+  ) {
     final id = 'd${++_docs}';
     _create(id, type, customerId, lines);
     docs[id]!
@@ -176,8 +198,8 @@ class IssueFake {
     b
       ..json('GET', '/tax-rates', {
         'rates': [
-          {'tax_code': 'VAT', 'rate_basis_points': 1800}
-        ]
+          {'tax_code': 'VAT', 'rate_basis_points': 1800},
+        ],
       })
       ..json('GET', '/customers', {'customers': fakeCustomers})
       ..json('PATCH', '/customers/:id', {'ok': true})
@@ -192,15 +214,22 @@ class IssueFake {
       })
       ..json('GET', '/sequences', {
         'sequences': [
-          {'numbering_scope_key': 'default', 'next_number': '1'}
-        ]
+          {'numbering_scope_key': 'default', 'next_number': '1'},
+        ],
       })
       ..json('GET', '/documents', {'total': 0, 'documents': []})
       ..on('POST', '/documents', (r) {
         final id = 'd${++_docs}';
         final body = r.body;
-        _create(id, body['documentType'] as String, body['customerId'] as String?,
-            [for (final l in body['lines'] as List) Map<String, dynamic>.from(l as Map)]);
+        _create(
+          id,
+          body['documentType'] as String,
+          body['customerId'] as String?,
+          [
+            for (final l in body['lines'] as List)
+              Map<String, dynamic>.from(l as Map),
+          ],
+        );
         _notes(id, body);
         return FakeResponse(201, {'id': id, 'status': 'DRAFT'});
       })
@@ -212,8 +241,10 @@ class IssueFake {
           'notes': docs[id]!['notes'],
           'due_date': docs[id]!['due_date'],
         };
-        _create(id, type, r.body['customerId'] as String?,
-            [for (final l in r.body['lines'] as List) Map<String, dynamic>.from(l as Map)]);
+        _create(id, type, r.body['customerId'] as String?, [
+          for (final l in r.body['lines'] as List)
+            Map<String, dynamic>.from(l as Map),
+        ]);
         docs[id]!.addAll(keep);
         _notes(id, r.body);
         return FakeResponse(200, {'id': id});
@@ -222,9 +253,11 @@ class IssueFake {
         final src = docs[r.params['id']!];
         if (src == null) return FakeResponse.error(404, 'DOCUMENT_NOT_FOUND');
         final link = r.body['link'] == true;
-        if (link && src['document_number'] == null) return FakeResponse.error(409, 'DOCUMENT_NOT_FINAL');
+        if (link && src['document_number'] == null)
+          return FakeResponse.error(409, 'DOCUMENT_NOT_FINAL');
         final id = 'd${++_docs}';
-        final type = r.body['documentType'] as String? ?? src['document_type'] as String;
+        final type =
+            r.body['documentType'] as String? ?? src['document_type'] as String;
         _create(id, type, src['customer_id'] as String?, [
           for (final l in lines[src['id']] ?? const <Map<String, dynamic>>[])
             {
@@ -233,7 +266,7 @@ class IssueFake {
               'unitPriceMinor': l['unit_price_minor'],
               'discountMinor': l['discount_minor'],
               'taxRateBasisPoints': l['tax_rate_basis_points'],
-            }
+            },
         ]);
         docs[id]!['converted_from_document_id'] = link ? src['id'] : null;
         return FakeResponse(201, {
@@ -244,11 +277,14 @@ class IssueFake {
       })
       ..on('GET', '/documents/:id', (r) {
         final id = r.params['id']!;
-        if (!docs.containsKey(id)) return FakeResponse.error(404, 'DOCUMENT_NOT_FOUND');
+        if (!docs.containsKey(id))
+          return FakeResponse.error(404, 'DOCUMENT_NOT_FOUND');
         return FakeResponse(200, detail(id));
       })
       ..on('POST', '/documents/:id/allocation/evaluate', (r) {
-        final next = evaluateAnswers.isEmpty ? {'state': 'NOT_REQUIRED'} : evaluateAnswers.removeAt(0);
+        final next = evaluateAnswers.isEmpty
+            ? {'state': 'NOT_REQUIRED'}
+            : evaluateAnswers.removeAt(0);
         return FakeResponse(200, next);
       })
       ..on('POST', '/documents/:id/finalize', (r) {
@@ -256,7 +292,10 @@ class IssueFake {
         _numbers++;
         docs[id]!['document_number'] = '$_numbers';
         _status(id, finalizeStatus);
-        return FakeResponse(200, {'status': finalizeStatus, 'documentNumber': '$_numbers'});
+        return FakeResponse(200, {
+          'status': finalizeStatus,
+          'documentNumber': '$_numbers',
+        });
       })
       ..on('POST', '/documents/:id/submit', (r) {
         _status(r.params['id']!, 'PENDING_APPROVAL');
@@ -266,7 +305,10 @@ class IssueFake {
         final id = r.params['id']!;
         final locked = artifactSigning == 'LOCKED' && !signingUnlocked;
         _status(id, locked ? 'ARTIFACT_PENDING' : 'ARCHIVED');
-        return FakeResponse(201, {'artifactId': 'a-$id', 'signing': locked ? 'LOCKED' : artifactSigning});
+        return FakeResponse(201, {
+          'artifactId': 'a-$id',
+          'signing': locked ? 'LOCKED' : artifactSigning,
+        });
       })
       ..on('POST', '/documents/:id/sign', (r) {
         if (!signingUnlocked) return FakeResponse.error(409, 'SIGNING_LOCKED');
@@ -279,18 +321,28 @@ class IssueFake {
         }
         signingUnlocked = true;
         return const FakeResponse(200, {
-          'session': {'unlocked': true}
+          'session': {'unlocked': true},
         });
       })
-      ..on('POST', '/documents/:id/share-link',
-          (r) => FakeResponse(201, {'url': 'https://invoice.example/d/tok-${r.params['id']}'}))
-      ..on('POST', '/payments', (r) => FakeResponse(201, {'paymentId': 'p-${r.idempotencyKey}'}))
+      ..on(
+        'POST',
+        '/documents/:id/share-link',
+        (r) => FakeResponse(201, {
+          'url': 'https://invoice.example/d/tok-${r.params['id']}',
+        }),
+      )
+      ..on(
+        'POST',
+        '/payments',
+        (r) => FakeResponse(201, {'paymentId': 'p-${r.idempotencyKey}'}),
+      )
       ..on('POST', '/documents/:id/payments', (r) {
         final d = docs[r.params['id']!]!;
         final amount = BigInt.parse(r.body['amountMinor'] as String);
         final paid = BigInt.parse(d['paid_total_minor'] as String) + amount;
         d['paid_total_minor'] = '$paid';
-        d['balance_minor'] = '${BigInt.parse(d['total_minor'] as String) - paid}';
+        d['balance_minor'] =
+            '${BigInt.parse(d['total_minor'] as String) - paid}';
         return const FakeResponse(200, {'allocated': true});
       })
       ..on('POST', '/receipts', (r) {
@@ -302,7 +354,7 @@ class IssueFake {
           ..['document_number'] = '$_numbers';
         return FakeResponse(201, {
           'receiptDocumentId': id,
-          'outcome': {'status': 'FINALIZED', 'documentNumber': '$_numbers'}
+          'outcome': {'status': 'FINALIZED', 'documentNumber': '$_numbers'},
         });
       })
       ..json('GET', '/quotes', {'quotes': []})
@@ -314,12 +366,14 @@ class IssueFake {
       })
       ..on('GET', '/quotes/:id', (r) {
         final id = r.params['id']!;
-        if (!quotes.containsKey(id)) return FakeResponse.error(404, 'QUOTE_NOT_FOUND');
+        if (!quotes.containsKey(id))
+          return FakeResponse.error(404, 'QUOTE_NOT_FOUND');
         return FakeResponse(200, quoteDetail(id));
       })
       ..on('PUT', '/quotes/:id', (r) {
         final id = r.params['id']!;
-        if (!quotes.containsKey(id)) return FakeResponse.error(404, 'QUOTE_NOT_FOUND');
+        if (!quotes.containsKey(id))
+          return FakeResponse.error(404, 'QUOTE_NOT_FOUND');
         final status = quoteStatus[id] ?? 'DRAFT';
         if (status != 'DRAFT' && status != 'SENT') {
           return FakeResponse.error(409, 'QUOTE_INVALID_TRANSITION');
@@ -337,8 +391,12 @@ class IssueFake {
       })
       ..on('POST', '/quotes/:id/share-link', (r) {
         final id = r.params['id']!;
-        if (quoteStatus[id] == 'CONVERTED') return FakeResponse.error(409, 'QUOTE_INVALID_TRANSITION');
-        return FakeResponse(201, {'url': 'https://invoice.example/d/qtok-$id', 'expiresAt': null});
+        if (quoteStatus[id] == 'CONVERTED')
+          return FakeResponse.error(409, 'QUOTE_INVALID_TRANSITION');
+        return FakeResponse(201, {
+          'url': 'https://invoice.example/d/qtok-$id',
+          'expiresAt': null,
+        });
       })
       ..on('POST', '/quotes/:id/status', (r) {
         quoteStatus[r.params['id']!] = r.body['to'] as String;
@@ -352,7 +410,7 @@ class IssueFake {
             'quantityMicros': '1000000',
             'unitPriceMinor': '100000',
             'taxRateBasisPoints': r.body['taxRateBasisPoints'],
-          }
+          },
         ]);
         quoteStatus[r.params['id']!] = 'CONVERTED';
         return FakeResponse(201, {'documentId': id});
@@ -361,4 +419,5 @@ class IssueFake {
 }
 
 /// Registers the Composer defaults on [backend] and returns the store.
-IssueFake installIssueFakes(FakeBackend backend) => IssueFake(backend)..install();
+IssueFake installIssueFakes(FakeBackend backend) =>
+    IssueFake(backend)..install();

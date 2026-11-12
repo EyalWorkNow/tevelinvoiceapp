@@ -106,41 +106,104 @@ class ComposerConfig {
 
 const Map<DocKind, ComposerConfig> composerTable = {
   DocKind.taxInvoiceReceipt: ComposerConfig(
-      kind: DocKind.taxInvoiceReceipt, code: 320, serverType: 'TAX_INVOICE_RECEIPT',
-      counterparty: Counterparty.customer, vat: VatRule.always, paid: true,
-      cap: Cap.docIssue, after: AfterIssue.share, vatBusinessesOnly: true),
+    kind: DocKind.taxInvoiceReceipt,
+    code: 320,
+    serverType: 'TAX_INVOICE_RECEIPT',
+    counterparty: Counterparty.customer,
+    vat: VatRule.always,
+    paid: true,
+    cap: Cap.docIssue,
+    after: AfterIssue.share,
+    vatBusinessesOnly: true,
+  ),
   DocKind.taxInvoice: ComposerConfig(
-      kind: DocKind.taxInvoice, code: 305, serverType: 'TAX_INVOICE',
-      counterparty: Counterparty.customer, vat: VatRule.always, paid: false,
-      cap: Cap.docDraft, after: AfterIssue.collect, vatBusinessesOnly: true),
+    kind: DocKind.taxInvoice,
+    code: 305,
+    serverType: 'TAX_INVOICE',
+    counterparty: Counterparty.customer,
+    vat: VatRule.always,
+    paid: false,
+    cap: Cap.docDraft,
+    after: AfterIssue.collect,
+    vatBusinessesOnly: true,
+  ),
   DocKind.transactionInvoice: ComposerConfig(
-      kind: DocKind.transactionInvoice, code: 300, serverType: 'TRANSACTION_INVOICE',
-      counterparty: Counterparty.customer, vat: VatRule.byBusiness, paid: false,
-      cap: Cap.docDraft, after: AfterIssue.collect),
+    kind: DocKind.transactionInvoice,
+    code: 300,
+    serverType: 'TRANSACTION_INVOICE',
+    counterparty: Counterparty.customer,
+    vat: VatRule.byBusiness,
+    paid: false,
+    cap: Cap.docDraft,
+    after: AfterIssue.collect,
+  ),
   DocKind.receipt: ComposerConfig(
-      kind: DocKind.receipt, code: 400, serverType: 'RECEIPT',
-      counterparty: Counterparty.customer, vat: VatRule.never, paid: true,
-      cap: Cap.paymentRecord, after: AfterIssue.share),
+    kind: DocKind.receipt,
+    code: 400,
+    serverType: 'RECEIPT',
+    counterparty: Counterparty.customer,
+    vat: VatRule.never,
+    paid: true,
+    cap: Cap.paymentRecord,
+    after: AfterIssue.share,
+  ),
   DocKind.donationReceipt: ComposerConfig(
-      kind: DocKind.donationReceipt, code: 405, serverType: 'DONATION_RECEIPT',
-      counterparty: Counterparty.donor, vat: VatRule.never, paid: true,
-      cap: Cap.paymentRecord, after: AfterIssue.share, needsSection46: true, nonprofitOnly: true),
+    kind: DocKind.donationReceipt,
+    code: 405,
+    serverType: 'DONATION_RECEIPT',
+    counterparty: Counterparty.donor,
+    vat: VatRule.never,
+    paid: true,
+    cap: Cap.paymentRecord,
+    after: AfterIssue.share,
+    needsSection46: true,
+    nonprofitOnly: true,
+  ),
   DocKind.credit: ComposerConfig(
-      kind: DocKind.credit, code: 330, serverType: 'CREDIT_DOCUMENT',
-      counterparty: Counterparty.fromSource, vat: VatRule.fromSource, paid: false,
-      cap: Cap.docCancel, after: AfterIssue.share, vatBusinessesOnly: true, viaComposer: false),
+    kind: DocKind.credit,
+    code: 330,
+    serverType: 'CREDIT_DOCUMENT',
+    counterparty: Counterparty.fromSource,
+    vat: VatRule.fromSource,
+    paid: false,
+    cap: Cap.docCancel,
+    after: AfterIssue.share,
+    vatBusinessesOnly: true,
+    viaComposer: false,
+  ),
   DocKind.quote: ComposerConfig(
-      kind: DocKind.quote, code: null, serverType: null,
-      counterparty: Counterparty.customer, vat: VatRule.byBusiness, paid: false,
-      cap: Cap.docDraft, after: AfterIssue.quote, validUntil: true),
+    kind: DocKind.quote,
+    code: null,
+    serverType: null,
+    counterparty: Counterparty.customer,
+    vat: VatRule.byBusiness,
+    paid: false,
+    cap: Cap.docDraft,
+    after: AfterIssue.quote,
+    validUntil: true,
+  ),
   DocKind.salesOrder: ComposerConfig(
-      kind: DocKind.salesOrder, code: 100, serverType: 'SALES_ORDER',
-      counterparty: Counterparty.customer, vat: VatRule.byBusiness, paid: false,
-      cap: Cap.docDraft, after: AfterIssue.share, lines: true),
+    kind: DocKind.salesOrder,
+    code: 100,
+    serverType: 'SALES_ORDER',
+    counterparty: Counterparty.customer,
+    vat: VatRule.byBusiness,
+    paid: false,
+    cap: Cap.docDraft,
+    after: AfterIssue.share,
+    lines: true,
+  ),
   DocKind.purchaseOrder: ComposerConfig(
-      kind: DocKind.purchaseOrder, code: 500, serverType: 'PURCHASE_ORDER',
-      counterparty: Counterparty.supplier, vat: VatRule.byBusiness, paid: false,
-      cap: Cap.docDraft, after: AfterIssue.share, lines: true),
+    kind: DocKind.purchaseOrder,
+    code: 500,
+    serverType: 'PURCHASE_ORDER',
+    counterparty: Counterparty.supplier,
+    vat: VatRule.byBusiness,
+    paid: false,
+    cap: Cap.docDraft,
+    after: AfterIssue.share,
+    lines: true,
+  ),
 };
 
 ComposerConfig configFor(DocKind kind) => composerTable[kind]!;
@@ -172,10 +235,12 @@ bool isPaidServerType(String type) {
 }
 
 /// Whether [kind] carries VAT for [businessType] (330: decided by the source).
-bool kindHasVat(DocKind kind, String businessType) => switch (configFor(kind).vat) {
+bool kindHasVat(DocKind kind, String businessType) =>
+    switch (configFor(kind).vat) {
       VatRule.always => true,
       VatRule.never => false,
-      VatRule.byBusiness || VatRule.fromSource => !isVatExemptBusiness(businessType),
+      VatRule.byBusiness ||
+      VatRule.fromSource => !isVatExemptBusiness(businessType),
     };
 
 /// Line VAT rate in basis points.
@@ -183,7 +248,11 @@ int taxRateFor(DocKind kind, String businessType, int vatBasisPoints) =>
     kindHasVat(kind, businessType) ? vatBasisPoints : 0;
 
 /// [kind] can be produced by this business at all.
-bool kindAllowedFor(DocKind kind, String businessType, {bool section46 = false}) {
+bool kindAllowedFor(
+  DocKind kind,
+  String businessType, {
+  bool section46 = false,
+}) {
   final c = configFor(kind);
   if (c.vatBusinessesOnly && isVatExemptBusiness(businessType)) return false;
   if (c.nonprofitOnly && businessType != 'NONPROFIT') return false;
@@ -193,7 +262,11 @@ bool kindAllowedFor(DocKind kind, String businessType, {bool section46 = false})
 
 /// [kind] is offered to a user with [caps] (the server is still the gate).
 /// 320 stays available without docIssue: it ends in "שלח לאישור" (§8.1).
-bool kindAllowedForCaps(DocKind kind, Caps caps, {bool supplierPicker = false}) {
+bool kindAllowedForCaps(
+  DocKind kind,
+  Caps caps, {
+  bool supplierPicker = false,
+}) {
   final c = configFor(kind);
   if (!caps.can(Cap.docDraft) && c.cap != Cap.paymentRecord) return false;
   if (c.cap == Cap.docIssue) return caps.can(Cap.docDraft);
@@ -205,8 +278,12 @@ bool kindAllowedForCaps(DocKind kind, Caps caps, {bool supplierPicker = false}) 
 
 /// S1 "עוד סוגים" and the S3 type list: the flat list of ≤6 kinds allowed to
 /// the business (§6 S1), in the spec order. Quotes and 330 are never here.
-List<DocKind> moreKinds(String businessType, Caps caps,
-    {bool section46 = false, bool supplierPicker = false}) {
+List<DocKind> moreKinds(
+  String businessType,
+  Caps caps, {
+  bool section46 = false,
+  bool supplierPicker = false,
+}) {
   const order = [
     DocKind.taxInvoice,
     DocKind.taxInvoiceReceipt,
@@ -220,7 +297,7 @@ List<DocKind> moreKinds(String businessType, Caps caps,
     for (final k in order)
       if (kindAllowedFor(k, businessType, section46: section46) &&
           kindAllowedForCaps(k, caps, supplierPicker: supplierPicker))
-        k
+        k,
   ];
 }
 

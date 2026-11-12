@@ -27,7 +27,10 @@ class Biometric {
   /// Replaceable in tests.
   LocalAuthentication auth = LocalAuthentication();
   FlutterSecureStorage storage = const FlutterSecureStorage(
-      iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device));
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+    ),
+  );
 
   /// Device has Face ID / Touch ID or at least a passcode.
   Future<bool> isAvailable() async {
@@ -58,7 +61,8 @@ class Biometric {
     }
   }
 
-  Future<void> setEnabled(bool enabled) => storage.write(key: _kEnabled, value: enabled ? '1' : '0');
+  Future<void> setEnabled(bool enabled) =>
+      storage.write(key: _kEnabled, value: enabled ? '1' : '0');
 
   /// Enabled in settings AND the device can actually lock.
   Future<bool> shouldLock() async => await isEnabled() && await isAvailable();
@@ -66,7 +70,10 @@ class Biometric {
   /// System prompt (Face ID, falls back to the device passcode).
   Future<UnlockResult> unlock({String reason = 'פתיחת תבל'}) async {
     try {
-      final ok = await auth.authenticate(localizedReason: reason, persistAcrossBackgrounding: true);
+      final ok = await auth.authenticate(
+        localizedReason: reason,
+        persistAcrossBackgrounding: true,
+      );
       return ok ? UnlockResult.success : UnlockResult.failed;
     } on LocalAuthException catch (e) {
       return switch (e.code) {

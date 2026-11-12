@@ -10,7 +10,10 @@ void main() {
       expect(formatMoney(b(5)), '₪0.05');
       expect(formatMoney(b(0)), '₪0.00');
       expect(formatMoney(b(123456789)), '₪1,234,567.89');
-      expect(formatMoney(BigInt.parse('99999999999999999999')), '₪999,999,999,999,999,999.99');
+      expect(
+        formatMoney(BigInt.parse('99999999999999999999')),
+        '₪999,999,999,999,999,999.99',
+      );
     });
     test('negative and trimmed', () {
       expect(formatMoney(b(-5000)), '-₪50.00');

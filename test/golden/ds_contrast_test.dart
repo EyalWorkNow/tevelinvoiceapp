@@ -8,7 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/ui/theme.dart';
 
 double _lum(Color c) {
-  double ch(double v) => v <= 0.03928 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
+  double ch(double v) =>
+      v <= 0.03928 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
   return 0.2126 * ch(c.r) + 0.7152 * ch(c.g) + 0.0722 * ch(c.b);
 }
 
@@ -19,11 +20,20 @@ double contrast(Color a, Color b) {
 
 void main() {
   test('contrast() matches known WCAG values', () {
-    expect(contrast(const Color(0xFF000000), const Color(0xFFFFFFFF)), closeTo(21, 0.01));
-    expect(contrast(const Color(0xFF777777), const Color(0xFFFFFFFF)), closeTo(4.48, 0.02));
+    expect(
+      contrast(const Color(0xFF000000), const Color(0xFFFFFFFF)),
+      closeTo(21, 0.01),
+    );
+    expect(
+      contrast(const Color(0xFF777777), const Color(0xFFFFFFFF)),
+      closeTo(4.48, 0.02),
+    );
   });
 
-  for (final (name, p) in [('light', AppPalette.light), ('dark', AppPalette.dark)]) {
+  for (final (name, p) in [
+    ('light', AppPalette.light),
+    ('dark', AppPalette.dark),
+  ]) {
     test('$name palette: every DS text pair is ≥4.5:1', () {
       final dark = name == 'dark';
       final pairs = <String, (Color, Color)>{
@@ -35,7 +45,10 @@ void main() {
         'ink/line (offline primary)': (p.ink, p.line),
         'onDanger/danger (destructive primary)': (p.onDanger, p.danger),
         'onCharcoal/charcoal': (p.onCharcoal, p.charcoal),
-        'onCharcoalMuted/charcoal (money card label)': (p.onCharcoalMuted, p.charcoal),
+        'onCharcoalMuted/charcoal (money card label)': (
+          p.onCharcoalMuted,
+          p.charcoal,
+        ),
         'dangerOnCharcoal/charcoal (overdue)': (p.dangerOnCharcoal, p.charcoal),
         'accent/charcoal (money card amount)': (p.accent, p.charcoal),
         'danger/surface (destructive menu item)': (p.danger, p.surface),
@@ -48,7 +61,10 @@ void main() {
           ('danger', p.danger),
           ('info', p.info),
           ('muted', p.muted),
-        ]) ...{'$tone/tint (status pill, banner)': (c, p.tint(c)), '$tone/canvas': (c, p.canvas)},
+        ]) ...{
+          '$tone/tint (status pill, banner)': (c, p.tint(c)),
+          '$tone/canvas': (c, p.canvas),
+        },
       };
       final failing = {
         for (final e in pairs.entries)

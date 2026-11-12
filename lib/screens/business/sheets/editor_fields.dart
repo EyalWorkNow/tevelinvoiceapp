@@ -70,6 +70,7 @@ class EditorField {
 
   final String key;
   final String label;
+
   /// Optional visual group for long forms; it does not affect saved data.
   final String? section;
   final FieldKind kind;

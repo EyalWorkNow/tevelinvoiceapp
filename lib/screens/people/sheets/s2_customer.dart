@@ -420,7 +420,8 @@ class _CustomerSheetState extends State<CustomerSheet> {
         : [
             for (final e in [
               ...entries,
-              for (final c in q.trim().isEmpty ? const <Customer>[] : _serverHits)
+              for (final c
+                  in q.trim().isEmpty ? const <Customer>[] : _serverHits)
                 if (!entries.any((e) => e.id == c.id)) _Entry.customer(c),
             ])
               if ((q.trim().isEmpty ? !e.archived : true) &&

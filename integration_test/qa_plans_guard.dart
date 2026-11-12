@@ -18,7 +18,8 @@ final _closed = Expando<bool>();
 /// Call once in a suite's main(), after the binding is initialised.
 void dismissPlansDuringTests() {
   _guard ??= Timer.periodic(const Duration(milliseconds: 250), (_) {
-    if (WidgetsBinding.instance.rootElement == null) return; // before the first pumpWidget/runApp
+    if (WidgetsBinding.instance.rootElement == null)
+      return; // before the first pumpWidget/runApp
     for (final el in find.byType(PlansSheet).evaluate().toList()) {
       if (!el.mounted || _closed[el] == true) continue;
       final sheet = el.widget as PlansSheet;

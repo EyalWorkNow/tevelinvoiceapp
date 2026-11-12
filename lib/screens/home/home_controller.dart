@@ -45,7 +45,11 @@ class HomeController extends ChangeNotifier {
       final cached = await readCachedHome();
       if (generation != _generation) return;
       if (cached != null) {
-        data = filterHome(cached, caps: businessContext.caps, dismissedSetup: await readDismissedSetup());
+        data = filterHome(
+          cached,
+          caps: businessContext.caps,
+          dismissedSetup: await readDismissedSetup(),
+        );
         _logFirstData();
         notifyListeners();
       }
@@ -54,7 +58,10 @@ class HomeController extends ChangeNotifier {
     notifyListeners();
     try {
       if (refreshMe) await session.refreshBusiness();
-      final fresh = await fetchHome(caps: businessContext.caps, now: now?.call());
+      final fresh = await fetchHome(
+        caps: businessContext.caps,
+        now: now?.call(),
+      );
       if (generation != _generation) return;
       data = fresh;
       error = null;
@@ -81,7 +88,8 @@ class HomeController extends ChangeNotifier {
   bool businessChanged() => session.business?.businessId != _business;
 
   /// §4.6 live role change: the caps differ from those [data] was filtered with.
-  bool capsChanged() => _capsKey != null && capsKey(businessContext.caps) != _capsKey;
+  bool capsChanged() =>
+      _capsKey != null && capsKey(businessContext.caps) != _capsKey;
 
   /// Drops at once what the new caps may not see (amounts, cards) — before the
   /// reload that brings what they may now see.

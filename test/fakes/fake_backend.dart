@@ -75,11 +75,14 @@ class FakeBackend {
       on(method, pattern, (_) => FakeResponse.error(status, code));
 
   /// Removes a route (next call → 404 NOT_FOUND).
-  void off(String method, String pattern) => _routes.remove('${method.toUpperCase()} $pattern');
+  void off(String method, String pattern) =>
+      _routes.remove('${method.toUpperCase()} $pattern');
 
   /// Requests that matched "METHOD pattern" (pattern as registered).
-  List<FakeRequest> calls(String method, String pattern) =>
-      [for (final r in requests) if (r.method == method.toUpperCase() && r.pattern == pattern) r];
+  List<FakeRequest> calls(String method, String pattern) => [
+    for (final r in requests)
+      if (r.method == method.toUpperCase() && r.pattern == pattern) r,
+  ];
 
   FakeRequest? last(String method, String pattern) {
     final c = calls(method, pattern);
@@ -110,10 +113,17 @@ class FakeBackend {
   static http.Response _encode(FakeResponse r) {
     final body = r.body;
     if (body is List<int>) {
-      return http.Response.bytes(body, r.status, headers: {'content-type': 'application/pdf'});
+      return http.Response.bytes(
+        body,
+        r.status,
+        headers: {'content-type': 'application/pdf'},
+      );
     }
-    return http.Response(jsonEncode(body), r.status,
-        headers: {'content-type': 'application/json; charset=utf-8'});
+    return http.Response(
+      jsonEncode(body),
+      r.status,
+      headers: {'content-type': 'application/json; charset=utf-8'},
+    );
   }
 
   /// '/documents/:id' vs '/documents/d1' → {id: d1}; null when no match.

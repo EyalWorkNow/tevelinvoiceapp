@@ -41,7 +41,11 @@ Future<T> withMoneyErrors<T>(Future<T> Function() call) async {
 bool paymentNeedsReceipt(String documentType) =>
     documentType == 'TAX_INVOICE' || documentType == 'TRANSACTION_INVOICE';
 
-const Set<String> _payable = {'TRANSACTION_INVOICE', 'TAX_INVOICE', 'TAX_INVOICE_RECEIPT'};
+const Set<String> _payable = {
+  'TRANSACTION_INVOICE',
+  'TAX_INVOICE',
+  'TAX_INVOICE_RECEIPT',
+};
 const Set<String> _issued = {'FINALIZED', 'SIGNED', 'ARCHIVED', 'SENT'};
 
 /// S5 is offered on an issued 300/305/320 with an open balance.
@@ -86,8 +90,9 @@ Future<PaymentsOutcome> recordPayments(
   DocumentDetail doc,
   List<PaymentEntry> entries, {
   PassphrasePrompt? askPassphrase,
-}) =>
-    withMoneyErrors(() => _recordPayments(doc, entries, askPassphrase: askPassphrase));
+}) => withMoneyErrors(
+  () => _recordPayments(doc, entries, askPassphrase: askPassphrase),
+);
 
 Future<PaymentsOutcome> _recordPayments(
   DocumentDetail doc,
@@ -98,14 +103,20 @@ Future<PaymentsOutcome> _recordPayments(
   final saved = await AppCache.read(name);
   final p = saved is Map<String, dynamic>
       ? saved
-      : <String, dynamic>{'receiptKey': ApiClient.newIdempotencyKey(), 'slots': <Object>[]};
+      : <String, dynamic>{
+          'receiptKey': ApiClient.newIdempotencyKey(),
+          'slots': <Object>[],
+        };
   Future<void> save() => AppCache.write(name, p);
-  final old = [for (final s in (p['slots'] as List? ?? const [])) Map<String, dynamic>.from(s as Map)];
+  final old = [
+    for (final s in (p['slots'] as List? ?? const []))
+      Map<String, dynamic>.from(s as Map),
+  ];
   // Slots that never reached the server follow the current input; recorded
   // payments stay whatever S5 says now.
   final slots = [
     for (var i = 0; i < old.length; i++)
-      if (i < entries.length || old[i]['paymentId'] != null) old[i]
+      if (i < entries.length || old[i]['paymentId'] != null) old[i],
   ];
   p['slots'] = slots;
   for (var i = 0; i < entries.length; i++) {
@@ -153,13 +164,16 @@ Future<PaymentsOutcome> _recordPayments(
     allocatedSum += amount;
     if (s['allocated'] == true) continue;
     try {
-      await _api.post('/documents/${doc.id}/payments',
-          {'paymentId': s['paymentId'], 'amountMinor': amount.toString()});
+      await _api.post('/documents/${doc.id}/payments', {
+        'paymentId': s['paymentId'],
+        'amountMinor': amount.toString(),
+      });
     } on ApiException catch (e) {
       // A lost response of an allocation that did happen: the paid total
       // already includes this payment.
       if (e.code != 'PAYMENT_OVERALLOCATED' ||
-          (await fetchDocument(doc.id)).paidTotalMinor < paidBefore + allocatedSum) {
+          (await fetchDocument(doc.id)).paidTotalMinor <
+              paidBefore + allocatedSum) {
         rethrow;
       }
     }
@@ -172,15 +186,14 @@ Future<PaymentsOutcome> _recordPayments(
   var signingPending = false;
   if (paymentNeedsReceipt(doc.documentType)) {
     if (p['receiptId'] == null) {
-      final json = await _api.post(
-          '/receipts',
-          {
-            'paymentIds': [for (final id in ids) {'id': id}],
-            'scopeKey': doc.numberingScopeKey ?? 'default',
-            'forDocumentId': doc.id,
-            'customerId': ?doc.customerId,
-          },
-          p['receiptKey'] as String);
+      final json = await _api.post('/receipts', {
+        'paymentIds': [
+          for (final id in ids) {'id': id},
+        ],
+        'scopeKey': doc.numberingScopeKey ?? 'default',
+        'forDocumentId': doc.id,
+        'customerId': ?doc.customerId,
+      }, p['receiptKey'] as String);
       final outcome = json['outcome'] as Map<String, dynamic>? ?? const {};
       p['receiptId'] = json['receiptDocumentId'];
       p['receiptStatus'] = outcome['status'];
@@ -190,11 +203,16 @@ Future<PaymentsOutcome> _recordPayments(
     if (p['receiptStatus'] == 'FINALIZED' && p['receiptArtifact'] != true) {
       final id = p['receiptId'] as String;
       if (askPassphrase != null) {
-        signingPending = !await issueSignedOriginal(id, askPassphrase: askPassphrase);
+        signingPending = !await issueSignedOriginal(
+          id,
+          askPassphrase: askPassphrase,
+        );
       } else {
-        signingPending = await createOriginalArtifact(id) == ArtifactSigning.locked;
+        signingPending =
+            await createOriginalArtifact(id) == ArtifactSigning.locked;
       }
-      p['receiptArtifact'] = true; // sealed; a pending signature is D row 6 of the receipt
+      p['receiptArtifact'] =
+          true; // sealed; a pending signature is D row 6 of the receipt
       await save();
     }
   }
@@ -213,7 +231,9 @@ Future<PaymentsOutcome> _recordPayments(
 Future<void> discardPendingPayments(String documentId) async {
   final saved = await AppCache.read(_cacheName(documentId));
   if (saved is Map<String, dynamic> &&
-      (saved['slots'] as List? ?? const []).any((s) => (s as Map)['paymentId'] != null)) {
+      (saved['slots'] as List? ?? const []).any(
+        (s) => (s as Map)['paymentId'] != null,
+      )) {
     return; // money already recorded: the next "רשום" must finish it
   }
   await AppCache.remove(_cacheName(documentId));
@@ -228,19 +248,26 @@ Future<PaymentPage> fetchPaymentsPage({
   int limit = 50,
   bool includeVoided = false,
 }) async {
-  final json = await _api.get('/payments', query: {
-    'from': ?from,
-    'to': ?to,
-    'method': ?method,
-    'offset': '$offset',
-    'limit': '$limit',
-    if (includeVoided) 'includeVoided': '1',
-  });
+  final json = await _api.get(
+    '/payments',
+    query: {
+      'from': ?from,
+      'to': ?to,
+      'method': ?method,
+      'offset': '$offset',
+      'limit': '$limit',
+      if (includeVoided) 'includeVoided': '1',
+    },
+  );
   final rows = [
     for (final r in (json['payments'] as List? ?? const []))
-      PaymentRow.fromJson(r as Map<String, dynamic>)
+      PaymentRow.fromJson(r as Map<String, dynamic>),
   ];
-  return PaymentPage(total: jInt(json['total'] ?? rows.length), offset: offset, rows: rows);
+  return PaymentPage(
+    total: jInt(json['total'] ?? rows.length),
+    offset: offset,
+    rows: rows,
+  );
 }
 
 /// BE-11 rows only (first page).
@@ -253,6 +280,8 @@ Future<List<PaymentRow>> fetchPayments({String? from, String? to}) async =>
 Future<void> voidPayment(String paymentId, String reason) async {
   final r = reason.trim();
   if (r.isEmpty) throw ArgumentError.value(reason, 'reason', 'required');
-  await withMoneyErrors(() => _api.post('/payments/$paymentId/void', {'reason': r}));
+  await withMoneyErrors(
+    () => _api.post('/payments/$paymentId/void', {'reason': r}),
+  );
   notifyDocumentsChanged();
 }

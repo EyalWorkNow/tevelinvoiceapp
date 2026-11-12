@@ -6,10 +6,13 @@ import 'package:invoice/ui/widgets/notch_notice.dart';
 /// showed a notice must unmount cleanly; before the fix its lazy controllers
 /// were first created in dispose() and the TickerMode lookup threw there.
 void main() {
-  testWidgets('a host that never showed a notice unmounts without errors', (tester) async {
+  testWidgets('a host that never showed a notice unmounts without errors', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
-        builder: (context, child) => NotchNoticeHost(key: notchNoticeKey, child: child!),
+        builder: (context, child) =>
+            NotchNoticeHost(key: notchNoticeKey, child: child!),
         home: const Scaffold(body: Text('Home')),
       ),
     );

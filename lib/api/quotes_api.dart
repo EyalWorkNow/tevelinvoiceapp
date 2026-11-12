@@ -21,7 +21,7 @@ Future<List<Quote>> fetchQuotes() async {
   final json = await _api.get('/quotes');
   return [
     for (final q in (json['quotes'] as List? ?? const []))
-      if (q is Map<String, dynamic>) Quote.fromJson(q)
+      if (q is Map<String, dynamic>) Quote.fromJson(q),
   ];
 }
 
@@ -92,7 +92,8 @@ Future<String> createQuoteShareLink(String id) async {
 }
 
 /// `<origin>/d/<token>` → `<origin>/q/<token>` (API-MOBILE: share /q/ for quotes).
-String quoteAcceptUrl(String url) => url.replaceFirst(RegExp(r'/d/(?=[^/]+/?$)'), '/q/');
+String quoteAcceptUrl(String url) =>
+    url.replaceFirst(RegExp(r'/d/(?=[^/]+/?$)'), '/q/');
 
 /// GET /quotes/:id/pdf (BE-06; rendered on demand, never stored).
 Future<Uint8List> fetchQuotePdf(String id) => _api.getBytes('/quotes/$id/pdf');
@@ -114,11 +115,16 @@ Future<void> setQuoteStatus(String id, String to) async {
 /// [documentType]: TAX_INVOICE (305) or, for exempt / nonprofit,
 /// TRANSACTION_INVOICE (300); [taxRateBasisPoints]: the business rate (exempt 0).
 /// A retry after a lost response returns the document the first call made.
-Future<String> convertQuote(String id,
-    {required String documentType, required int taxRateBasisPoints}) async {
+Future<String> convertQuote(
+  String id, {
+  required String documentType,
+  required int taxRateBasisPoints,
+}) async {
   try {
-    final json = await _api.post('/quotes/$id/convert',
-        {'documentType': documentType, 'taxRateBasisPoints': taxRateBasisPoints});
+    final json = await _api.post('/quotes/$id/convert', {
+      'documentType': documentType,
+      'taxRateBasisPoints': taxRateBasisPoints,
+    });
     notifyDocumentsChanged();
     return json['documentId'] as String;
   } on ApiException catch (e) {
@@ -132,11 +138,18 @@ Future<String> convertQuote(String id,
 /// "הפוך לחשבונית" (§6.D 11–13, AT-20/20b): DRAFT → convert; SENT → ACCEPTED
 /// then convert (one tap, two calls); ACCEPTED → convert; CONVERTED → the
 /// existing document.
-Future<String> convertQuoteToInvoice(Quote quote,
-    {required String documentType, required int taxRateBasisPoints}) async {
+Future<String> convertQuoteToInvoice(
+  Quote quote, {
+  required String documentType,
+  required int taxRateBasisPoints,
+}) async {
   if (quote.status == 'CONVERTED' && quote.convertedDocumentId != null) {
     return quote.convertedDocumentId!;
   }
   if (quote.status == 'SENT') await setQuoteStatus(quote.id, 'ACCEPTED');
-  return convertQuote(quote.id, documentType: documentType, taxRateBasisPoints: taxRateBasisPoints);
+  return convertQuote(
+    quote.id,
+    documentType: documentType,
+    taxRateBasisPoints: taxRateBasisPoints,
+  );
 }

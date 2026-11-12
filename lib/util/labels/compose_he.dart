@@ -33,11 +33,11 @@ abstract final class ComposeHe {
 
   /// The AppBar echoes the home intent, never the document type (F1).
   static String titleFor(String intent) => switch (intent) {
-        intentPaid => titlePaid,
-        intentRequest => titleRequest,
-        intentQuote => titleQuote,
-        _ => titleNew,
-      };
+    intentPaid => titlePaid,
+    intentRequest => titleRequest,
+    intentQuote => titleQuote,
+    _ => titleNew,
+  };
   static const chooseCustomer = 'בחר לקוח';
   static const editCustomer = 'החלף לקוח';
   static const moreDetails = 'פרטים נוספים';
@@ -63,8 +63,8 @@ abstract final class ComposeHe {
   static const resumeDraftTitle = 'יש טיוטה שלא הסתיימה';
   static String resumeDraftBody(String? customer, String amount) =>
       customer == null || customer.isEmpty
-          ? '\u2066$amount\u2069'
-          : '$customer · \u2066$amount\u2069';
+      ? '\u2066$amount\u2069'
+      : '$customer · \u2066$amount\u2069';
   static const resumeDraft = 'המשך טיוטה';
   static const startNew = 'התחל חדש';
 
@@ -72,12 +72,14 @@ abstract final class ComposeHe {
   static String bigAmountTitle(BigInt total) =>
       'להפיק מסמך על ${formatMoney(total, trimZeroAgorot: true)}?';
   static const bigAmountBody = 'סכום גבוה במיוחד. בדוק שהסכום נכון לפני ההפקה.';
-  static String vatDealerQuestion(String customer) => '$customer הוא עוסק מורשה?';
+  static String vatDealerQuestion(String customer) =>
+      '$customer הוא עוסק מורשה?';
   static const vatDealerYes = 'כן';
   static const vatDealerNo = 'לא, לקוח פרטי';
   static const vatNumber = 'מספר עוסק מורשה';
   static const signingTitle = 'סיסמת החתימה';
-  static const signingBody = 'פעם אחת בלבד: הסיסמה נשמרת במכשיר ונפתחת ב-Face ID.';
+  static const signingBody =
+      'פעם אחת בלבד: הסיסמה נשמרת במכשיר ונפתחת ב-Face ID.';
   static const signingSaveFaceId = 'שמור עם Face ID';
   static const signingReason = 'חתימה על המסמך';
   static const signingWrong = 'סיסמת החתימה שגויה';
@@ -91,7 +93,8 @@ abstract final class ComposeHe {
   static const waitingSignature = 'ממתין לחתימה';
   static const quoteSent = 'ההצעה נשלחה ✓';
   static const quoteNotSent = 'ההצעה נשמרה ולא נשלחה. אפשר לשלוח אותה מההצעה.';
-  static const issuedShareFailed = 'המסמך הופק. השיתוף נכשל – אפשר לשתף מהמסמך.';
+  static const issuedShareFailed =
+      'המסמך הופק. השיתוף נכשל – אפשר לשתף מהמסמך.';
   static const issuedWhatsAppOpened = 'המסמך הופק. WhatsApp נפתח לשיתוף.';
   static String issuedDeliveryFailed(String reason) =>
       'המסמך הופק. המשלוח לא הושלם: $reason';
@@ -144,12 +147,12 @@ const Map<DocKind, String> kindLabels = {
 };
 
 String actionLabel(ComposerAction a) => switch (a) {
-      ComposerAction.submit => ComposeHe.submit,
-      ComposerAction.sendQuoteWhatsApp => ComposeHe.sendQuoteWhatsApp,
-      ComposerAction.sendQuote => ComposeHe.sendQuote,
-      ComposerAction.issueAndWhatsApp => ComposeHe.issueAndWhatsApp,
-      ComposerAction.issue => ComposeHe.issue,
-    };
+  ComposerAction.submit => ComposeHe.submit,
+  ComposerAction.sendQuoteWhatsApp => ComposeHe.sendQuoteWhatsApp,
+  ComposerAction.sendQuote => ComposeHe.sendQuote,
+  ComposerAction.issueAndWhatsApp => ComposeHe.issueAndWhatsApp,
+  ComposerAction.issue => ComposeHe.issue,
+};
 
 /// "מסמך מ-₪5,000 כולל מע״מ דורש אישור" (§4.5 rule 2).
 String approvalNote(BigInt thresholdMinor) =>
@@ -202,6 +205,8 @@ String quoteWhatsAppText({
   for (final (d, amount) in lines) {
     b.writeln('• $d – ${formatMoney(amount, trimZeroAgorot: true)}');
   }
-  b.write('סה״כ ${formatMoney(totalMinor, trimZeroAgorot: true)}, בתוקף עד $validUntil.');
+  b.write(
+    'סה״כ ${formatMoney(totalMinor, trimZeroAgorot: true)}, בתוקף עד $validUntil.',
+  );
   return b.toString();
 }

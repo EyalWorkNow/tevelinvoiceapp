@@ -23,12 +23,13 @@ import '../../util/labels/labels.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 /// S14 "+ עסק נוסף" (BE-40): A setup for another business (route /setup).
-Future<void> openNewBusiness(BuildContext context) => Navigator.of(context).push<void>(
-  MaterialPageRoute(
-    settings: const RouteSettings(name: '/setup'),
-    builder: (_) => const OnboardingScreen(newBusiness: true),
-  ),
-);
+Future<void> openNewBusiness(BuildContext context) =>
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        settings: const RouteSettings(name: '/setup'),
+        builder: (_) => const OnboardingScreen(newBusiness: true),
+      ),
+    );
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key, this.newBusiness = false});
@@ -69,7 +70,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _locked = profile?.identityLocked ?? false;
     if (profile != null) {
       // The self-signup placeholder ("העסק של …") is not a real name.
-      if (!profile.legalName.startsWith('העסק של ')) _name.text = profile.legalName;
+      if (!profile.legalName.startsWith('העסק של '))
+        _name.text = profile.legalName;
       _taxId.text = profile.taxId ?? '';
       _description.text = profile.defaultLineDescription ?? '';
       if (_locked || profile.onboardingCompleted) _type = profile.businessType;
@@ -96,7 +98,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     });
   }
 
-  String? get _nameError => _validate && _name.text.trim().length < 2 ? AuthHe.nameRequired : null;
+  String? get _nameError =>
+      _validate && _name.text.trim().length < 2 ? AuthHe.nameRequired : null;
 
   String? get _taxIdError {
     if (!_validate || _locked) return null;
@@ -146,7 +149,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           legalName: _name.text,
           taxId: _taxId.text,
         );
-        await session.selectBusiness(Business(businessId: id, legalName: _name.text.trim(), role: 'OWNER'));
+        await session.selectBusiness(
+          Business(businessId: id, legalName: _name.text.trim(), role: 'OWNER'),
+        );
       }
       await saveOnboardingProfile(
         legalName: _name.text,
@@ -155,11 +160,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         defaultLineDescription: _description.text,
         includeIdentity: !_locked,
       );
-      if (_continues == true) await setStartingNumber(int.parse(_startNumber.text.trim()));
+      if (_continues == true)
+        await setStartingNumber(int.parse(_startNumber.text.trim()));
       await completeOnboarding();
       HapticFeedback.mediumImpact();
       try {
-        await Future.wait([session.refreshBusiness(), session.refreshAccount()]);
+        await Future.wait([
+          session.refreshBusiness(),
+          session.refreshAccount(),
+        ]);
       } on ApiException {
         // Saved on the server; home refreshes on its own.
       }
@@ -199,7 +208,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         appBar: AppBar(
           automaticallyImplyLeading: false,
           leading: showBack
-              ? IconButton(tooltip: AuthHe.back, icon: const BackButtonIcon(), onPressed: _back)
+              ? IconButton(
+                  tooltip: AuthHe.back,
+                  icon: const BackButtonIcon(),
+                  onPressed: _back,
+                )
               : canPop
               ? IconButton(
                   tooltip: CommonHe.close,
@@ -207,7 +220,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   onPressed: () => Navigator.of(context).pop(),
                 )
               : null,
-          title: Text(_locked ? BusinessHe.profile : AuthHe.setupStep(_step + 1)),
+          title: Text(
+            _locked ? BusinessHe.profile : AuthHe.setupStep(_step + 1),
+          ),
         ),
         body: SafeArea(
           bottom: _step == 0,
@@ -239,9 +254,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       key: const ValueKey('type'),
       padding: const EdgeInsets.all(Space.page),
       children: [
-        Semantics(header: true, child: const Text(AuthHe.whichBusiness, style: AppText.title)),
+        Semantics(
+          header: true,
+          child: const Text(AuthHe.whichBusiness, style: AppText.title),
+        ),
         const SizedBox(height: Space.xs),
-        Text(AuthHe.whichBusinessHint, style: AppText.body.copyWith(color: p.muted)),
+        Text(
+          AuthHe.whichBusinessHint,
+          style: AppText.body.copyWith(color: p.muted),
+        ),
         const SizedBox(height: Space.xl),
         for (final t in [...main, if (_showOther) 'PARTNERSHIP'])
           _TypeCard(
@@ -270,9 +291,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       padding: const EdgeInsets.all(Space.page),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
-        Semantics(header: true, child: const Text(BusinessHe.profile, style: AppText.title)),
+        Semantics(
+          header: true,
+          child: const Text(BusinessHe.profile, style: AppText.title),
+        ),
         const SizedBox(height: Space.xs),
-        Text(businessTypeLabels[type] ?? type, style: AppText.body.copyWith(color: p.muted)),
+        Text(
+          businessTypeLabels[type] ?? type,
+          style: AppText.body.copyWith(color: p.muted),
+        ),
         const SizedBox(height: Space.xl),
         TextField(
           controller: _name,
@@ -280,7 +307,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           textCapitalization: TextCapitalization.words,
           autofillHints: const [AutofillHints.organizationName],
           onChanged: (_) => _validate ? setState(() {}) : null,
-          decoration: InputDecoration(labelText: AuthHe.businessName, errorText: _nameError),
+          decoration: InputDecoration(
+            labelText: AuthHe.businessName,
+            errorText: _nameError,
+          ),
         ),
         const SizedBox(height: Space.m),
         TextField(
@@ -289,7 +319,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           keyboardType: TextInputType.number,
           textInputAction: TextInputAction.next,
           textDirection: TextDirection.ltr,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(9)],
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(9),
+          ],
           onChanged: (_) => _validate ? setState(() {}) : null,
           decoration: InputDecoration(
             labelText: taxIdLabelFor(type),
@@ -303,11 +336,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           controller: _description,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _next(),
-          decoration: const InputDecoration(labelText: AuthHe.defaultDescription, hintText: 'שירותים'),
+          decoration: const InputDecoration(
+            labelText: AuthHe.defaultDescription,
+            hintText: 'שירותים',
+          ),
         ),
         if (!_locked) ...[
           const SizedBox(height: Space.l),
-          Text(AuthHe.identityHint, style: AppText.secondary.copyWith(color: p.muted)),
+          Text(
+            AuthHe.identityHint,
+            style: AppText.secondary.copyWith(color: p.muted),
+          ),
         ],
         if (_locked) _errorText(context),
       ],
@@ -320,11 +359,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       key: const ValueKey('numbering'),
       padding: const EdgeInsets.all(Space.page),
       children: [
-        Semantics(header: true, child: const Text(AuthHe.numberingQuestion, style: AppText.title)),
+        Semantics(
+          header: true,
+          child: const Text(AuthHe.numberingQuestion, style: AppText.title),
+        ),
         const SizedBox(height: Space.xl),
         ChipRow<bool>(
           padding: EdgeInsets.zero,
-          options: const [ChipOption(false, AuthHe.numberingNo), ChipOption(true, AuthHe.numberingYes)],
+          options: const [
+            ChipOption(false, AuthHe.numberingNo),
+            ChipOption(true, AuthHe.numberingYes),
+          ],
           selected: _continues,
           onSelected: (v) => setState(() => _continues = v),
         ),
@@ -336,7 +381,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             autofocus: true,
             keyboardType: TextInputType.number,
             textDirection: TextDirection.ltr,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(9)],
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(9),
+            ],
             onChanged: (_) => _validate ? setState(() {}) : null,
             decoration: InputDecoration(
               labelText: AuthHe.numberingFrom,
@@ -346,7 +394,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
         ],
         const SizedBox(height: Space.l),
-        Text(AuthHe.identityHint, style: AppText.secondary.copyWith(color: p.muted)),
+        Text(
+          AuthHe.identityHint,
+          style: AppText.secondary.copyWith(color: p.muted),
+        ),
         _errorText(context),
       ],
     );
@@ -358,7 +409,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           padding: const EdgeInsets.only(top: Space.l),
           child: Semantics(
             liveRegion: true,
-            child: Text(errorTextHe(_error!), style: AppText.body.copyWith(color: context.palette.danger)),
+            child: Text(
+              errorTextHe(_error!),
+              style: AppText.body.copyWith(color: context.palette.danger),
+            ),
           ),
         );
 }
@@ -401,7 +455,10 @@ class _TypeCard extends StatelessWidget {
           color: p.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(Radii.card),
-            side: BorderSide(color: selected ? p.ink : p.line, width: selected ? 2 : 1),
+            side: BorderSide(
+              color: selected ? p.ink : p.line,
+              width: selected ? 2 : 1,
+            ),
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(Radii.card),
@@ -423,7 +480,10 @@ class _TypeCard extends StatelessWidget {
                       children: [
                         Text(title, style: AppText.headline),
                         const SizedBox(height: 2),
-                        Text(subtitle, style: AppText.body.copyWith(color: p.muted)),
+                        Text(
+                          subtitle,
+                          style: AppText.body.copyWith(color: p.muted),
+                        ),
                       ],
                     ),
                   ),

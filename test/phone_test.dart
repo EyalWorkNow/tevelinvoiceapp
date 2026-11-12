@@ -32,16 +32,33 @@ void main() {
   });
 
   test('unusable input → null', () {
-    for (final raw in [null, '', '   ', 'abc', '050-123', '05012345678', '1234', '+972 12']) {
+    for (final raw in [
+      null,
+      '',
+      '   ',
+      'abc',
+      '050-123',
+      '05012345678',
+      '1234',
+      '+972 12',
+    ]) {
       expect(waPhone(raw), isNull, reason: '$raw');
     }
   });
 
   test('wa.me uri with and without a phone, text percent-encoded', () {
-    final withPhone = whatsAppUri(phone: '972501234567', text: 'שלום דנה: https://x.test/d/a?b=1&c');
-    expect(withPhone.toString(),
-        startsWith('https://wa.me/972501234567?text=%D7%A9%D7%9C%D7%95%D7%9D'));
-    expect(withPhone.queryParameters['text'], 'שלום דנה: https://x.test/d/a?b=1&c');
+    final withPhone = whatsAppUri(
+      phone: '972501234567',
+      text: 'שלום דנה: https://x.test/d/a?b=1&c',
+    );
+    expect(
+      withPhone.toString(),
+      startsWith('https://wa.me/972501234567?text=%D7%A9%D7%9C%D7%95%D7%9D'),
+    );
+    expect(
+      withPhone.queryParameters['text'],
+      'שלום דנה: https://x.test/d/a?b=1&c',
+    );
     final picker = whatsAppUri(text: 'hi there');
     expect(picker.toString(), 'https://wa.me/?text=hi%20there');
   });

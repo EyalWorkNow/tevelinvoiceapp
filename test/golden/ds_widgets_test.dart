@@ -29,7 +29,10 @@ void main() {
     };
     cases.remove(99999999999); // too long to read as one case; covered below
     for (final e in cases.entries) {
-      test('${e.key} → ${e.value}', () => expect(spokenAmountHe(BigInt.from(e.key)), e.value));
+      test(
+        '${e.key} → ${e.value}',
+        () => expect(spokenAmountHe(BigInt.from(e.key)), e.value),
+      );
     }
     test('keypad max reads as words', () {
       expect(
@@ -40,19 +43,27 @@ void main() {
     });
   });
 
-  testWidgets('AmountDisplay(118000): VoiceOver reads Hebrew words, text stays LTR', (
+  testWidgets(
+    'AmountDisplay(118000): VoiceOver reads Hebrew words, text stays LTR',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        dsApp(AmountDisplay(amountMinor: BigInt.from(118000))),
+      );
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('אלף מאה שמונים שקלים'), findsOneWidget);
+      expect(find.text('₪1,180'), findsOneWidget);
+      expect(
+        Directionality.of(tester.element(find.text('₪1,180'))),
+        TextDirection.ltr,
+      );
+      handle.dispose();
+    },
+  );
+
+  testWidgets('"הסתר סכומים" hides money card, rows and inbox amounts', (
     tester,
   ) async {
-    final handle = tester.ensureSemantics();
-    await tester.pumpWidget(dsApp(AmountDisplay(amountMinor: BigInt.from(118000))));
-    await tester.pumpAndSettle();
-    expect(find.bySemanticsLabel('אלף מאה שמונים שקלים'), findsOneWidget);
-    expect(find.text('₪1,180'), findsOneWidget);
-    expect(Directionality.of(tester.element(find.text('₪1,180'))), TextDirection.ltr);
-    handle.dispose();
-  });
-
-  testWidgets('"הסתר סכומים" hides money card, rows and inbox amounts', (tester) async {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(
       dsApp(
@@ -66,7 +77,11 @@ void main() {
               amountMinor: BigInt.from(118000),
               status: const StatusPill.doc(DocStatus.paid),
             ),
-            PersonRow(name: 'דנה', amountLabel: 'חייב לך', amountMinor: BigInt.from(5000)),
+            PersonRow(
+              name: 'דנה',
+              amountLabel: 'חייב לך',
+              amountMinor: BigInt.from(5000),
+            ),
           ],
         ),
       ),
@@ -77,32 +92,48 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('moneyInline isolates the amount for Hebrew sentences', (tester) async {
+  testWidgets('moneyInline isolates the amount for Hebrew sentences', (
+    tester,
+  ) async {
     expect(moneyInline(BigInt.from(500000)), '\u2066₪5,000\u2069');
   });
 
   group('PrimaryButton', () {
-    testWidgets('tap fires; offline shows "אין חיבור" and is the only disabled state', (
-      tester,
-    ) async {
-      var taps = 0;
-      await tester.pumpWidget(dsApp(PrimaryButton(label: 'הפק', onPressed: () => taps++)));
-      await tester.tap(find.text('הפק'));
-      expect(taps, 1);
-      expect(tester.getSize(find.byType(PrimaryButton)).height, greaterThanOrEqualTo(56));
+    testWidgets(
+      'tap fires; offline shows "אין חיבור" and is the only disabled state',
+      (tester) async {
+        var taps = 0;
+        await tester.pumpWidget(
+          dsApp(PrimaryButton(label: 'הפק', onPressed: () => taps++)),
+        );
+        await tester.tap(find.text('הפק'));
+        expect(taps, 1);
+        expect(
+          tester.getSize(find.byType(PrimaryButton)).height,
+          greaterThanOrEqualTo(56),
+        );
 
-      await tester.pumpWidget(
-        dsApp(PrimaryButton(label: 'הפק', offline: true, onPressed: () => taps++)),
-      );
-      expect(find.text('הפק'), findsNothing);
-      await tester.tap(find.text('אין חיבור'));
-      expect(taps, 1);
-    });
+        await tester.pumpWidget(
+          dsApp(
+            PrimaryButton(label: 'הפק', offline: true, onPressed: () => taps++),
+          ),
+        );
+        expect(find.text('הפק'), findsNothing);
+        await tester.tap(find.text('אין חיבור'));
+        expect(taps, 1);
+      },
+    );
 
     testWidgets('loading shows the step text and blocks taps', (tester) async {
       var taps = 0;
       await tester.pumpWidget(
-        dsApp(PrimaryButton(label: 'הפק', loadingText: 'חותם…', onPressed: () => taps++)),
+        dsApp(
+          PrimaryButton(
+            label: 'הפק',
+            loadingText: 'חותם…',
+            onPressed: () => taps++,
+          ),
+        ),
       );
       expect(find.text('חותם…'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -110,7 +141,9 @@ void main() {
       expect(taps, 0);
     });
 
-    testWidgets('two in one screen trips the debug assert (F2)', (tester) async {
+    testWidgets('two in one screen trips the debug assert (F2)', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         dsApp(
           Column(
@@ -124,7 +157,9 @@ void main() {
       expect(tester.takeException(), isAssertionError);
     });
 
-    testWidgets('separate PrimaryScopes and sheets each allow one', (tester) async {
+    testWidgets('separate PrimaryScopes and sheets each allow one', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         dsApp(
           Column(
@@ -161,35 +196,46 @@ void main() {
     });
   });
 
-  testWidgets('MoreMenu: nothing when empty; destructive item last; runs after close', (
+  testWidgets(
+    'MoreMenu: nothing when empty; destructive item last; runs after close',
+    (tester) async {
+      await tester.pumpWidget(dsApp(const MoreMenu(items: [])));
+      expect(find.byType(IconButton), findsNothing);
+
+      final chosen = <String>[];
+      await tester.pumpWidget(
+        dsApp(
+          MoreMenu(
+            items: [
+              MoreMenuItem(
+                label: 'בטל / זכה',
+                destructive: true,
+                onSelected: () => chosen.add('x'),
+              ),
+              MoreMenuItem(label: 'שתף', onSelected: () => chosen.add('share')),
+              MoreMenuItem(label: 'שכפל', onSelected: () => chosen.add('dup')),
+            ],
+          ),
+        ),
+      );
+      await tester.tap(find.byTooltip('עוד'));
+      await tester.pumpAndSettle();
+      final ys = [
+        'שתף',
+        'שכפל',
+        'בטל / זכה',
+      ].map((t) => tester.getCenter(find.text(t)).dy).toList();
+      expect(ys[0] < ys[1] && ys[1] < ys[2], isTrue);
+      await tester.tap(find.text('שכפל'));
+      await tester.pumpAndSettle();
+      expect(chosen, ['dup']);
+      expect(find.text('שתף'), findsNothing);
+    },
+  );
+
+  testWidgets('ChipRow: single select, 44pt targets, selected in semantics', (
     tester,
   ) async {
-    await tester.pumpWidget(dsApp(const MoreMenu(items: [])));
-    expect(find.byType(IconButton), findsNothing);
-
-    final chosen = <String>[];
-    await tester.pumpWidget(
-      dsApp(
-        MoreMenu(
-          items: [
-            MoreMenuItem(label: 'בטל / זכה', destructive: true, onSelected: () => chosen.add('x')),
-            MoreMenuItem(label: 'שתף', onSelected: () => chosen.add('share')),
-            MoreMenuItem(label: 'שכפל', onSelected: () => chosen.add('dup')),
-          ],
-        ),
-      ),
-    );
-    await tester.tap(find.byTooltip('עוד'));
-    await tester.pumpAndSettle();
-    final ys = ['שתף', 'שכפל', 'בטל / זכה'].map((t) => tester.getCenter(find.text(t)).dy).toList();
-    expect(ys[0] < ys[1] && ys[1] < ys[2], isTrue);
-    await tester.tap(find.text('שכפל'));
-    await tester.pumpAndSettle();
-    expect(chosen, ['dup']);
-    expect(find.text('שתף'), findsNothing);
-  });
-
-  testWidgets('ChipRow: single select, 44pt targets, selected in semantics', (tester) async {
     String? picked;
     await tester.pumpWidget(
       dsApp(
@@ -204,8 +250,13 @@ void main() {
     expect(picked, isNull); // already selected
     await tester.tap(find.text('לא שולם'));
     expect(picked, 'b');
-    expect(tester.getSize(find.text('לא שולם').hitTestable()).height, lessThan(44));
-    final chip = find.ancestor(of: find.text('לא שולם'), matching: find.byType(Material)).first;
+    expect(
+      tester.getSize(find.text('לא שולם').hitTestable()).height,
+      lessThan(44),
+    );
+    final chip = find
+        .ancestor(of: find.text('לא שולם'), matching: find.byType(Material))
+        .first;
     expect(tester.getSize(chip).height, greaterThanOrEqualTo(44));
   });
 
@@ -259,14 +310,18 @@ void main() {
     expect(find.byTooltip('סגור'), findsOneWidget);
     await tester.tap(find.text('פתח'));
     expect(acted, 1);
-    await tester.tap(find.text('2 ממתינים לאישורך')); // card body is tappable too
+    await tester.tap(
+      find.text('2 ממתינים לאישורך'),
+    ); // card body is tappable too
     expect(acted, 2);
     await tester.tap(find.byTooltip('סגור'));
     expect((acted, dismissed), (2, 1)); // ✕ does not run the action
     expect(find.text('₪7,400'), findsOneWidget);
   });
 
-  testWidgets('DocRow: ≥64pt, swipe runs the shortcut and snaps back', (tester) async {
+  testWidgets('DocRow: ≥64pt, swipe runs the shortcut and snaps back', (
+    tester,
+  ) async {
     var swiped = 0;
     await tester.pumpWidget(
       dsApp(
@@ -281,14 +336,23 @@ void main() {
         ),
       ),
     );
-    expect(tester.getSize(find.byType(DocRow)).height, greaterThanOrEqualTo(64));
-    await tester.fling(find.text('דנה כהן'), const Offset(-500, 0), 2000); // RTL start→end
+    expect(
+      tester.getSize(find.byType(DocRow)).height,
+      greaterThanOrEqualTo(64),
+    );
+    await tester.fling(
+      find.text('דנה כהן'),
+      const Offset(-500, 0),
+      2000,
+    ); // RTL start→end
     await tester.pumpAndSettle();
     expect(swiped, 1);
     expect(find.text('דנה כהן'), findsOneWidget);
   });
 
-  testWidgets('200% text on a 320pt phone: no overflow in any component', (tester) async {
+  testWidgets('200% text on a 320pt phone: no overflow in any component', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(320, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -315,7 +379,11 @@ void main() {
                   ),
                 ),
                 Expanded(
-                  child: IntentButton(icon: Iconsax.send_2, label: 'בקש תשלום', onPressed: () {}),
+                  child: IntentButton(
+                    icon: Iconsax.send_2,
+                    label: 'בקש תשלום',
+                    onPressed: () {},
+                  ),
                 ),
               ],
             ),

@@ -264,9 +264,10 @@ class _MoreDetailsSheetState extends State<MoreDetailsSheet> {
       });
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showNotchNotice(SnackBar(content: Text(e.messageHe)), motion: NoticeMotion.error);
+        ScaffoldMessenger.of(context).showNotchNotice(
+          SnackBar(content: Text(e.messageHe)),
+          motion: NoticeMotion.error,
+        );
       }
     } finally {
       _savingItem = false;

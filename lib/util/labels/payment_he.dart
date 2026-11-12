@@ -29,14 +29,26 @@ const Map<String, String> paymentMethodLabels = {
 };
 
 /// Chips shown first; the rest sit behind "עוד".
-const List<String> primaryPaymentMethods = ['CASH', 'BANK_TRANSFER', 'CREDIT_CARD', 'CHECK'];
+const List<String> primaryPaymentMethods = [
+  'CASH',
+  'BANK_TRANSFER',
+  'CREDIT_CARD',
+  'CHECK',
+];
 const List<String> morePaymentMethods = [
-  if (extendedPaymentMethodsEnabled) ...['BIT', 'PAYBOX', 'WITHHOLDING_TAX', 'APPLE_PAY', 'GOOGLE_PAY'],
+  if (extendedPaymentMethodsEnabled) ...[
+    'BIT',
+    'PAYBOX',
+    'WITHHOLDING_TAX',
+    'APPLE_PAY',
+    'GOOGLE_PAY',
+  ],
   'DIRECT_DEBIT',
   'OTHER',
 ];
 
-String paymentMethodLabel(String method) => paymentMethodLabels[method] ?? method;
+String paymentMethodLabel(String method) =>
+    paymentMethodLabels[method] ?? method;
 
 /// S5 wording (F11: imperative verbs only on buttons).
 abstract final class PaymentHe {

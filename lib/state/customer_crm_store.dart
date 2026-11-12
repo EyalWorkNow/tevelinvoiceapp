@@ -398,6 +398,7 @@ class CustomerCrmStore extends ChangeNotifier with WidgetsBindingObserver {
   bool get remoteActive => !_previewLocal && (remote?.enabled ?? false);
   int get pendingCount => _pending.length;
   bool get readyForEdits => !remoteActive || _cloudInitialized;
+
   /// A stored record that could not be read is kept aside in
   /// `<key>_quarantine` and stays read-only, so it never overwrites the server.
   bool isQuarantined(String customerId) => _quarantined.contains(customerId);

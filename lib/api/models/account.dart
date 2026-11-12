@@ -5,13 +5,17 @@ import 'json.dart';
 
 /// A business the user belongs to: {businessId, legalName, role}.
 class Business {
-  const Business({required this.businessId, required this.legalName, required this.role});
+  const Business({
+    required this.businessId,
+    required this.legalName,
+    required this.role,
+  });
 
   factory Business.fromJson(Map<String, dynamic> json) => Business(
-        businessId: json['businessId'] as String,
-        legalName: json['legalName'] as String,
-        role: json['role'] as String,
-      );
+    businessId: json['businessId'] as String,
+    legalName: json['legalName'] as String,
+    role: json['role'] as String,
+  );
 
   final String businessId;
   final String legalName;
@@ -20,24 +24,31 @@ class Business {
   /// in S14); capabilities come from /me via caps.dart.
   final String role;
 
-  Map<String, dynamic> toJson() =>
-      {'businessId': businessId, 'legalName': legalName, 'role': role};
+  Map<String, dynamic> toJson() => {
+    'businessId': businessId,
+    'legalName': legalName,
+    'role': role,
+  };
 }
 
 /// GET /mobile/session (CONTRACT C).
 class MobileAccount {
-  const MobileAccount(
-      {required this.userId, required this.email, this.displayName, required this.businesses});
+  const MobileAccount({
+    required this.userId,
+    required this.email,
+    this.displayName,
+    required this.businesses,
+  });
 
   factory MobileAccount.fromJson(Map<String, dynamic> json) => MobileAccount(
-        userId: json['userId'] as String,
-        email: json['email'] as String,
-        displayName: jStr(json['displayName']),
-        businesses: [
-          for (final b in (json['businesses'] as List? ?? const []))
-            Business.fromJson(b as Map<String, dynamic>)
-        ],
-      );
+    userId: json['userId'] as String,
+    email: json['email'] as String,
+    displayName: jStr(json['displayName']),
+    businesses: [
+      for (final b in (json['businesses'] as List? ?? const []))
+        Business.fromJson(b as Map<String, dynamic>),
+    ],
+  );
 
   final String userId;
   final String email;
@@ -45,11 +56,11 @@ class MobileAccount {
   final List<Business> businesses;
 
   Map<String, dynamic> toJson() => {
-        'userId': userId,
-        'email': email,
-        'displayName': displayName,
-        'businesses': [for (final b in businesses) b.toJson()],
-      };
+    'userId': userId,
+    'email': email,
+    'displayName': displayName,
+    'businesses': [for (final b in businesses) b.toJson()],
+  };
 }
 
 /// GET /business/profile → {profile, canConfigure} (camelCase). Readable by
@@ -68,7 +79,8 @@ class BusinessProfile {
     required this.raw,
   });
 
-  factory BusinessProfile.fromJson(Map<String, dynamic> profile) => BusinessProfile(
+  factory BusinessProfile.fromJson(Map<String, dynamic> profile) =>
+      BusinessProfile(
         legalName: jStr(profile['legalName']) ?? '',
         tradingName: jStr(profile['tradingName']),
         businessType: jStr(profile['businessType']) ?? 'OSEK_MURSHE',
@@ -110,7 +122,8 @@ class BusinessProfile {
   String? get accountantEmail => jStr(jMap(raw['accountant'])['email']);
 
   /// No VAT on documents (עוסק פטור / עמותה).
-  bool get isVatExempt => businessType == 'OSEK_PATUR' || businessType == 'NONPROFIT';
+  bool get isVatExempt =>
+      businessType == 'OSEK_PATUR' || businessType == 'NONPROFIT';
 
   String get displayName => tradingName ?? legalName;
 

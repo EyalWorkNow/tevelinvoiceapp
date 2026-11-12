@@ -24,7 +24,11 @@ class Rejection {
 
   static Rejection? fromJsonOrNull(Object? v) {
     if (v is! Map<String, dynamic>) return null;
-    return Rejection(reason: jStr(v['reason']) ?? '', by: jStr(v['by']), at: jStr(v['at']));
+    return Rejection(
+      reason: jStr(v['reason']) ?? '',
+      by: jStr(v['by']),
+      at: jStr(v['at']),
+    );
   }
 
   final String reason;
@@ -59,29 +63,31 @@ class DocumentSummary {
     this.amountHidden = false,
   });
 
-  factory DocumentSummary.fromJson(Map<String, dynamic> json) => DocumentSummary(
-        id: json['id'] as String,
-        documentType: jPick(json, ['documentType', 'document_type']) as String,
-        status: json['status'] as String,
-        documentNumber: jStr(jPick(json, ['documentNumber', 'document_number'])),
-        customerId: jStr(jPick(json, ['customerId', 'customer_id'])),
-        customerName: jStr(jPick(json, ['customerName', 'customer_name'])),
-        issueDate: jStr(jPick(json, ['issueDate', 'issue_date'])),
-        dueDate: jStr(jPick(json, ['dueDate', 'due_date'])),
-        currency: jStr(json['currency']) ?? 'ILS',
-        totalMinor: jBig(jPick(json, ['totalMinor', 'total_minor'])),
-        amountHidden: jPick(json, ['totalMinor', 'total_minor']) == null,
-        balanceMinor: jBigOrNull(jPick(json, ['balanceMinor', 'balance_minor'])),
-        creditedMinor: jBigOrNull(jPick(json, ['creditedMinor', 'credited_minor'])),
-        openMinorRaw: jBigOrNull(jPick(json, ['openMinor', 'open_minor'])),
-        createdBy: jStr(jPick(json, ['createdBy', 'created_by'])),
-        submittedBy: jStr(jPick(json, ['submittedBy', 'submitted_by'])),
-        sentAt: jStr(jPick(json, ['sentAt', 'sent_at'])),
-        voidedAt: jStr(jPick(json, ['voidedAt', 'voided_at'])),
-        rejection: Rejection.fromJsonOrNull(json['rejection']),
-        notes: jStr(json['notes']),
-        overdue: json['overdue'] is bool ? json['overdue'] as bool : null,
-      );
+  factory DocumentSummary.fromJson(
+    Map<String, dynamic> json,
+  ) => DocumentSummary(
+    id: json['id'] as String,
+    documentType: jPick(json, ['documentType', 'document_type']) as String,
+    status: json['status'] as String,
+    documentNumber: jStr(jPick(json, ['documentNumber', 'document_number'])),
+    customerId: jStr(jPick(json, ['customerId', 'customer_id'])),
+    customerName: jStr(jPick(json, ['customerName', 'customer_name'])),
+    issueDate: jStr(jPick(json, ['issueDate', 'issue_date'])),
+    dueDate: jStr(jPick(json, ['dueDate', 'due_date'])),
+    currency: jStr(json['currency']) ?? 'ILS',
+    totalMinor: jBig(jPick(json, ['totalMinor', 'total_minor'])),
+    amountHidden: jPick(json, ['totalMinor', 'total_minor']) == null,
+    balanceMinor: jBigOrNull(jPick(json, ['balanceMinor', 'balance_minor'])),
+    creditedMinor: jBigOrNull(jPick(json, ['creditedMinor', 'credited_minor'])),
+    openMinorRaw: jBigOrNull(jPick(json, ['openMinor', 'open_minor'])),
+    createdBy: jStr(jPick(json, ['createdBy', 'created_by'])),
+    submittedBy: jStr(jPick(json, ['submittedBy', 'submitted_by'])),
+    sentAt: jStr(jPick(json, ['sentAt', 'sent_at'])),
+    voidedAt: jStr(jPick(json, ['voidedAt', 'voided_at'])),
+    rejection: Rejection.fromJsonOrNull(json['rejection']),
+    notes: jStr(json['notes']),
+    overdue: json['overdue'] is bool ? json['overdue'] as bool : null,
+  );
 
   final String id;
   final String documentType;
@@ -123,26 +129,30 @@ class DocumentSummary {
   bool get isOpen => openMinor != null && openMinor! > BigInt.zero;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'documentType': documentType,
-        'status': status,
-        'documentNumber': documentNumber,
-        'customerId': customerId,
-        'customerName': customerName,
-        'issueDate': issueDate,
-        'dueDate': dueDate,
-        'currency': currency,
-        'totalMinor': amountHidden ? null : totalMinor.toString(),
-        'balanceMinor': balanceMinor?.toString(),
-        'creditedMinor': creditedMinor?.toString(),
-        'openMinor': openMinorRaw?.toString(),
-        'createdBy': createdBy,
-        'submittedBy': submittedBy,
-        'sentAt': sentAt,
-        'voidedAt': voidedAt,
-        if (rejection != null)
-          'rejection': {'reason': rejection!.reason, 'by': rejection!.by, 'at': rejection!.at},
-      };
+    'id': id,
+    'documentType': documentType,
+    'status': status,
+    'documentNumber': documentNumber,
+    'customerId': customerId,
+    'customerName': customerName,
+    'issueDate': issueDate,
+    'dueDate': dueDate,
+    'currency': currency,
+    'totalMinor': amountHidden ? null : totalMinor.toString(),
+    'balanceMinor': balanceMinor?.toString(),
+    'creditedMinor': creditedMinor?.toString(),
+    'openMinor': openMinorRaw?.toString(),
+    'createdBy': createdBy,
+    'submittedBy': submittedBy,
+    'sentAt': sentAt,
+    'voidedAt': voidedAt,
+    if (rejection != null)
+      'rejection': {
+        'reason': rejection!.reason,
+        'by': rejection!.by,
+        'at': rejection!.at,
+      },
+  };
 }
 
 /// GET /documents/:id → {document, lines} (both snake_case).
@@ -204,24 +214,25 @@ class DocumentDetail {
       rejection: Rejection.fromJsonOrNull(json['rejection'] ?? d['rejection']),
       notes: jStr(d['notes']),
       supplierId: jStr(jPick(d, ['supplier_id', 'supplierId'])),
-      convertedFromDocumentId:
-          jStr(jPick(d, ['converted_from_document_id', 'convertedFromDocumentId'])),
+      convertedFromDocumentId: jStr(
+        jPick(d, ['converted_from_document_id', 'convertedFromDocumentId']),
+      ),
       overdue: d['overdue'] is bool ? d['overdue'] as bool : null,
       payments: [
         for (final p in (d['payments'] as List? ?? const []))
-          if (p is Map<String, dynamic>) DocumentPaymentRef.fromJson(p)
+          if (p is Map<String, dynamic>) DocumentPaymentRef.fromJson(p),
       ],
       linkedDocuments: [
         for (final l in (d['linkedDocuments'] as List? ?? const []))
-          if (l is Map<String, dynamic>) LinkedDocument.fromJson(l)
+          if (l is Map<String, dynamic>) LinkedDocument.fromJson(l),
       ],
       timeline: [
         for (final t in (d['timeline'] as List? ?? const []))
-          if (t is Map<String, dynamic>) TimelineEntry.fromJson(t)
+          if (t is Map<String, dynamic>) TimelineEntry.fromJson(t),
       ],
       lines: [
         for (final l in (json['lines'] as List? ?? const []))
-          DocumentLine.fromJson(l as Map<String, dynamic>)
+          DocumentLine.fromJson(l as Map<String, dynamic>),
       ],
       amountHidden: d['total_minor'] == null,
     );
@@ -279,7 +290,8 @@ class DocumentDetail {
   bool get isDraft => status == 'DRAFT' || status == 'REJECTED';
 
   /// Has a stored original PDF (share-link / send / credit need this).
-  bool get hasOriginal => status == 'ARCHIVED' || status == 'SENT' || status == 'SIGNED';
+  bool get hasOriginal =>
+      status == 'ARCHIVED' || status == 'SENT' || status == 'SIGNED';
 }
 
 /// A document line (snake_case from GET /documents/:id).
@@ -298,17 +310,17 @@ class DocumentLine {
   });
 
   factory DocumentLine.fromJson(Map<String, dynamic> json) => DocumentLine(
-        position: jInt(json['position']),
-        itemId: jStr(json['item_id']),
-        description: jStr(json['description']) ?? '',
-        quantityMicros: jBig(json['quantity_micros']),
-        unitPriceMinor: jBig(json['unit_price_minor']),
-        discountMinor: jBig(json['discount_minor']),
-        subtotalMinor: jBig(json['subtotal_minor']),
-        taxRateBasisPoints: jInt(json['tax_rate_basis_points'] ?? 0),
-        taxAmountMinor: jBig(json['tax_amount_minor']),
-        totalMinor: jBig(json['total_minor']),
-      );
+    position: jInt(json['position']),
+    itemId: jStr(json['item_id']),
+    description: jStr(json['description']) ?? '',
+    quantityMicros: jBig(json['quantity_micros']),
+    unitPriceMinor: jBig(json['unit_price_minor']),
+    discountMinor: jBig(json['discount_minor']),
+    subtotalMinor: jBig(json['subtotal_minor']),
+    taxRateBasisPoints: jInt(json['tax_rate_basis_points'] ?? 0),
+    taxAmountMinor: jBig(json['tax_amount_minor']),
+    totalMinor: jBig(json['total_minor']),
+  );
 
   final int position;
   final String? itemId;
@@ -337,7 +349,8 @@ class DocumentPaymentRef {
     this.voidedAt,
   });
 
-  factory DocumentPaymentRef.fromJson(Map<String, dynamic> j) => DocumentPaymentRef(
+  factory DocumentPaymentRef.fromJson(Map<String, dynamic> j) =>
+      DocumentPaymentRef(
         id: jStr(j['id']) ?? '',
         method: jStr(j['method']) ?? 'OTHER',
         amountMinor: jBig(j['amountMinor']),
@@ -362,14 +375,19 @@ class DocumentPaymentRef {
 /// this one's point of view: RECEIPT | CREDIT | CONVERTED_TO (it points here)
 /// or RECEIPT_FOR | CREDIT_FOR | CONVERTED_FROM (this one points there).
 class LinkedDocument {
-  const LinkedDocument({required this.id, required this.relation, this.type, this.number});
+  const LinkedDocument({
+    required this.id,
+    required this.relation,
+    this.type,
+    this.number,
+  });
 
   factory LinkedDocument.fromJson(Map<String, dynamic> j) => LinkedDocument(
-        id: jStr(j['id']) ?? '',
-        relation: jStr(j['relation']) ?? '',
-        type: jStr(jPick(j, ['type', 'documentType'])),
-        number: jStr(jPick(j, ['number', 'documentNumber'])),
-      );
+    id: jStr(j['id']) ?? '',
+    relation: jStr(j['relation']) ?? '',
+    type: jStr(jPick(j, ['type', 'documentType'])),
+    number: jStr(jPick(j, ['number', 'documentNumber'])),
+  );
 
   final String id;
   final String relation;
@@ -379,15 +397,23 @@ class LinkedDocument {
 
 /// BE-12 `timeline[]`: {at, event (raw audit type), by, byEmail, detail}.
 class TimelineEntry {
-  const TimelineEntry({required this.at, required this.event, this.by, this.byEmail, this.detail = const {}});
+  const TimelineEntry({
+    required this.at,
+    required this.event,
+    this.by,
+    this.byEmail,
+    this.detail = const {},
+  });
 
   factory TimelineEntry.fromJson(Map<String, dynamic> j) => TimelineEntry(
-        at: jStr(j['at']) ?? '',
-        event: jStr(j['event']) ?? '',
-        by: jStr(j['by']),
-        byEmail: jStr(j['byEmail']),
-        detail: j['detail'] is Map<String, dynamic> ? j['detail'] as Map<String, dynamic> : const {},
-      );
+    at: jStr(j['at']) ?? '',
+    event: jStr(j['event']) ?? '',
+    by: jStr(j['by']),
+    byEmail: jStr(j['byEmail']),
+    detail: j['detail'] is Map<String, dynamic>
+        ? j['detail'] as Map<String, dynamic>
+        : const {},
+  );
 
   final String at;
   final String event;

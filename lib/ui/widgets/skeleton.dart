@@ -18,7 +18,10 @@ class SkeletonList extends StatelessWidget {
       widthFactor: widthFactor,
       child: Container(
         height: height,
-        decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(6)),
+        decoration: BoxDecoration(
+          color: c,
+          borderRadius: BorderRadius.circular(6),
+        ),
       ),
     );
     return Semantics(
@@ -31,7 +34,10 @@ class SkeletonList extends StatelessWidget {
             SizedBox(
               height: Hit.row,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Space.page, vertical: Space.m),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Space.page,
+                  vertical: Space.m,
+                ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [bar(i.isEven ? 0.6 : 0.45, 14), bar(0.3, 10)],

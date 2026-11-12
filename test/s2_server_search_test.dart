@@ -34,47 +34,57 @@ void main() {
 
   Future<void> flush(WidgetTester tester) async {
     for (var i = 0; i < 10; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
       await tester.pump();
     }
     await tester.pump(const Duration(milliseconds: 400));
   }
 
-  testWidgets('capped list: a search finds a customer beyond the 500 on the server', (tester) async {
-    installPeopleFakes(backend, be09: true);
-    backend.on('GET', '/customers', (r) {
-      if ((r.raw.url.queryParameters['q'] ?? '').isNotEmpty) {
+  testWidgets(
+    'capped list: a search finds a customer beyond the 500 on the server',
+    (tester) async {
+      installPeopleFakes(backend, be09: true);
+      backend.on('GET', '/customers', (r) {
+        if ((r.raw.url.queryParameters['q'] ?? '').isNotEmpty) {
+          return FakeResponse(200, {
+            'customers': [customerJson('far', 'רחוק מאוד', be09: true)],
+          });
+        }
         return FakeResponse(200, {
-          'customers': [customerJson('far', 'רחוק מאוד', be09: true)],
+          'customers': [
+            for (var i = 0; i < 500; i++)
+              customerJson('c$i', 'לקוח $i', be09: true),
+          ],
         });
-      }
-      return FakeResponse(200, {
-        'customers': [for (var i = 0; i < 500; i++) customerJson('c$i', 'לקוח $i', be09: true)],
       });
-    });
-    tester.view.physicalSize = const Size(1170, 2532);
-    tester.view.devicePixelRatio = 3;
-    addTearDown(tester.view.reset);
-    await tester.runAsync(() => signInAs(backend, Preset.owner));
-    await tester.pumpWidget(
-      MaterialApp(
-        navigatorKey: navigatorKey,
-        locale: const Locale('he', 'IL'),
-        supportedLocales: const [Locale('he', 'IL')],
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: buildTheme(Brightness.light),
-        home: const Scaffold(body: Text('root')),
-      ),
-    );
-    Customer? picked;
-    unawaited(showCustomerSheet(navigatorKey.currentContext!).then((c) => picked = c));
-    await flush(tester);
+      tester.view.physicalSize = const Size(1170, 2532);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.runAsync(() => signInAs(backend, Preset.owner));
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigatorKey,
+          locale: const Locale('he', 'IL'),
+          supportedLocales: const [Locale('he', 'IL')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          theme: buildTheme(Brightness.light),
+          home: const Scaffold(body: Text('root')),
+        ),
+      );
+      Customer? picked;
+      unawaited(
+        showCustomerSheet(navigatorKey.currentContext!).then((c) => picked = c),
+      );
+      await flush(tester);
 
-    await tester.enterText(find.byKey(const Key('s2-search')), 'רחוק');
-    await flush(tester);
-    expect(backend.last('GET', '/customers')!.query['q'], 'רחוק');
-    await tester.tap(find.byKey(const Key('s2-row-far')));
-    await flush(tester);
-    expect(picked?.id, 'far');
-  });
+      await tester.enterText(find.byKey(const Key('s2-search')), 'רחוק');
+      await flush(tester);
+      expect(backend.last('GET', '/customers')!.query['q'], 'רחוק');
+      await tester.tap(find.byKey(const Key('s2-row-far')));
+      await flush(tester);
+      expect(picked?.id, 'far');
+    },
+  );
 }

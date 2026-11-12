@@ -15,7 +15,10 @@ final _api = ApiClient.instance;
 const String supportEmail = 'support@tevel.space';
 
 /// Shown in B·חשבון "גרסה". Override at build time: --dart-define=APP_VERSION=2.0.0+1
-const String appVersion = String.fromEnvironment('APP_VERSION', defaultValue: '2.0.0');
+const String appVersion = String.fromEnvironment(
+  'APP_VERSION',
+  defaultValue: '2.0.0',
+);
 
 // ---- business profile (§13.1) ------------------------------------------------
 
@@ -49,7 +52,8 @@ bool isValidIsraeliPhone(String raw) => RegExp(
 ).hasMatch(raw.replaceAll(RegExp(r'[\s\-()]'), ''));
 
 /// Server rule `isValidEmail`.
-bool isValidEmail(String raw) => RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$').hasMatch(raw.trim());
+bool isValidEmail(String raw) =>
+    RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$').hasMatch(raw.trim());
 
 // ---- approvals (§13.6) --------------------------------------------------------
 
@@ -78,7 +82,9 @@ Future<int> setStartingNumber(int nextNumber) async {
   for (final s in (json['sequences'] as List? ?? const [])) {
     final row = s as Map<String, dynamic>;
     if (row['next_number']?.toString() != '1') continue;
-    await _api.put('/sequences/${row['numbering_scope_key']}/start', {'nextNumber': nextNumber});
+    await _api.put('/sequences/${row['numbering_scope_key']}/start', {
+      'nextNumber': nextNumber,
+    });
     n++;
   }
   return n;
@@ -104,7 +110,9 @@ Future<void> sendWebHandoff(String topic, String topicLabel) async {
 
 const _hideAmountsKey = 'hide_amounts';
 const _prefs = FlutterSecureStorage(
-  iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device),
+  iOptions: IOSOptions(
+    accessibility: KeychainAccessibility.first_unlock_this_device,
+  ),
 );
 
 /// "הסתר סכומים" (default off). INT wraps the app root in
@@ -161,11 +169,18 @@ Future<bool> usedAppleSignIn() async {
 /// (password or Apple identity token) plus, for an Apple account, the one-time
 /// [appleAuthorizationCode] the server revokes at appleid.apple.com.
 /// Throws ApiException (CONFIRMATION_REQUIRED / REAUTH_REQUIRED / REAUTH_FAILED…).
-Future<void> deleteAccount({String? password, String? appleIdentityToken, String? appleAuthorizationCode}) async {
+Future<void> deleteAccount({
+  String? password,
+  String? appleIdentityToken,
+  String? appleAuthorizationCode,
+}) async {
   final usePassword = password != null && password.isNotEmpty;
   await _api.post('/mobile/account/delete', {
     'confirm': 'DELETE',
-    if (usePassword) 'password': password else 'appleIdentityToken': ?appleIdentityToken,
+    if (usePassword)
+      'password': password
+    else
+      'appleIdentityToken': ?appleIdentityToken,
     if (appleAuthorizationCode != null && appleAuthorizationCode.isNotEmpty)
       'appleAuthorizationCode': appleAuthorizationCode,
   });
@@ -180,7 +195,8 @@ Future<void> deleteAccount({String? password, String? appleIdentityToken, String
 /// Hebrew for the codes only account deletion can return.
 String deleteAccountErrorHe(ApiException e) => switch (e.code) {
   'CONFIRMATION_REQUIRED' => 'יש להקליד את מילת האישור כדי למחוק את החשבון',
-  'REAUTH_REQUIRED' => 'כדי למחוק את החשבון יש לאמת שוב את הזהות (סיסמה או Apple)',
+  'REAUTH_REQUIRED' =>
+    'כדי למחוק את החשבון יש לאמת שוב את הזהות (סיסמה או Apple)',
   'REAUTH_FAILED' => 'לא הצלחנו לאמת את הזהות — בדוק את הסיסמה ונסה שוב',
   _ => e.messageHe,
 };
@@ -201,10 +217,15 @@ final Map<String, bool> _probes = {};
 /// Test hook / business switch: forget every feature probe.
 void resetFeatureProbes() => _probes.clear();
 
-bool isMissingRoute(Object e) => e is ApiException && e.status == 404 && e.code == 'NOT_FOUND';
+bool isMissingRoute(Object e) =>
+    e is ApiException && e.status == 404 && e.code == 'NOT_FOUND';
 
 /// Write routes that ship with the V2 server (BE-40, BE-43, BE-49).
-const Set<String> v2PostRoutes = {'/businesses', '/business/type-change', '/business/ownership/transfer'};
+const Set<String> v2PostRoutes = {
+  '/businesses',
+  '/business/type-change',
+  '/business/ownership/transfer',
+};
 
 /// True when the server routes `POST [path]`.
 ///
@@ -213,7 +234,8 @@ const Set<String> v2PostRoutes = {'/businesses', '/business/type-change', '/busi
 /// opening never POSTs to a mutating endpoint. Only an older server (none of
 /// these routes: the empty POST meets the 404 fallback) is still probed.
 Future<bool> serverHasPost(String path) async {
-  if (v2PostRoutes.contains(path) && (businessContext.me?.readGating ?? false)) return true;
+  if (v2PostRoutes.contains(path) && (businessContext.me?.readGating ?? false))
+    return true;
   final key = '${session.business?.businessId}|POST $path';
   final known = _probes[key];
   if (known != null) return known;
@@ -274,7 +296,11 @@ Future<void> saveAccountantAutomation(AccountantAutomation a) async {
 
 /// `{sendReports:{every:"MONTH|BIMONTH", dayOfMonth}|null, forwardEveryDocument}`.
 class AccountantAutomation {
-  const AccountantAutomation({this.every, this.dayOfMonth = 10, this.forwardEveryDocument = false});
+  const AccountantAutomation({
+    this.every,
+    this.dayOfMonth = 10,
+    this.forwardEveryDocument = false,
+  });
 
   factory AccountantAutomation.fromJson(Map<String, dynamic> json) {
     final s = json['sendReports'];
@@ -291,7 +317,9 @@ class AccountantAutomation {
   final bool forwardEveryDocument;
 
   Map<String, dynamic> toJson() => {
-    'sendReports': every == null ? null : {'every': every, 'dayOfMonth': dayOfMonth},
+    'sendReports': every == null
+        ? null
+        : {'every': every, 'dayOfMonth': dayOfMonth},
     'forwardEveryDocument': forwardEveryDocument,
   };
 }
@@ -299,7 +327,13 @@ class AccountantAutomation {
 // ---- BE-43: business type change with an effective date (§13.1) ---------------
 
 /// פטור → מורשה from [effectiveDate] (yyyy-mm-dd). Reloads the profile.
-Future<void> requestBusinessTypeChange(String newType, String effectiveDate) async {
-  await _api.post('/business/type-change', {'newType': newType, 'effectiveDate': effectiveDate});
+Future<void> requestBusinessTypeChange(
+  String newType,
+  String effectiveDate,
+) async {
+  await _api.post('/business/type-change', {
+    'newType': newType,
+    'effectiveDate': effectiveDate,
+  });
   await session.refreshBusiness();
 }

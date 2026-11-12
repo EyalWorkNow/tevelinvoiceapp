@@ -32,7 +32,10 @@ import 'package:invoice/state/session.dart';
 import 'package:path_provider/path_provider.dart';
 import 'qa_plans_guard.dart';
 
-const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'http://127.0.0.1:3031');
+const apiBase = String.fromEnvironment(
+  'API_BASE',
+  defaultValue: 'http://127.0.0.1:3031',
+);
 
 /// Host folder the dev server writes e-mails to (EMAIL_MODE=file). The
 /// simulator app can read the host file system.
@@ -66,10 +69,13 @@ class ApiResult {
   final String contentType;
 
   dynamic get json => bytes.isEmpty ? null : jsonDecode(utf8.decode(bytes));
-  Map<String, dynamic> get map => json is Map<String, dynamic> ? json as Map<String, dynamic> : const {};
+  Map<String, dynamic> get map =>
+      json is Map<String, dynamic> ? json as Map<String, dynamic> : const {};
   String? get error => map['error'] as String?;
-  List<Map<String, dynamic>> list(String key) =>
-      [for (final e in (map[key] as List? ?? const [])) Map<String, dynamic>.from(e as Map)];
+  List<Map<String, dynamic>> list(String key) => [
+    for (final e in (map[key] as List? ?? const []))
+      Map<String, dynamic>.from(e as Map),
+  ];
 
   @override
   String toString() =>
@@ -86,8 +92,15 @@ class DevApi {
   final http.Client _http = http.Client();
   String? _userId;
 
-  Future<ApiResult> send(String method, String path,
-      {Object? body, Map<String, String>? query, Uint8List? bytes, String? contentType, String? idem}) async {
+  Future<ApiResult> send(
+    String method,
+    String path, {
+    Object? body,
+    Map<String, String>? query,
+    Uint8List? bytes,
+    String? contentType,
+    String? idem,
+  }) async {
     final uri = Uri.parse('$apiBase$path').replace(queryParameters: query);
     final req = http.Request(method, uri)
       ..headers['authorization'] = 'Bearer $token'
@@ -101,22 +114,32 @@ class DevApi {
       req.body = jsonEncode(body ?? const {});
     }
     final res = await http.Response.fromStream(await _http.send(req));
-    return ApiResult(res.statusCode, res.bodyBytes, res.headers['content-type'] ?? '');
+    return ApiResult(
+      res.statusCode,
+      res.bodyBytes,
+      res.headers['content-type'] ?? '',
+    );
   }
 
-  Future<ApiResult> get(String path, [Map<String, String>? query]) => send('GET', path, query: query);
-  Future<ApiResult> post(String path, [Object? body, String? idem]) => send('POST', path, body: body, idem: idem);
-  Future<ApiResult> patch(String path, Object body) => send('PATCH', path, body: body);
+  Future<ApiResult> get(String path, [Map<String, String>? query]) =>
+      send('GET', path, query: query);
+  Future<ApiResult> post(String path, [Object? body, String? idem]) =>
+      send('POST', path, body: body, idem: idem);
+  Future<ApiResult> patch(String path, Object body) =>
+      send('PATCH', path, body: body);
   Future<ApiResult> delete(String path) => send('DELETE', path);
 
   /// [r] must have [status] (or any 2xx when null); otherwise the test fails with the body.
   static ApiResult expectOk(ApiResult r, [int? status]) {
-    final ok = status == null ? r.status >= 200 && r.status < 300 : r.status == status;
+    final ok = status == null
+        ? r.status >= 200 && r.status < 300
+        : r.status == status;
     if (!ok) fail('expected ${status ?? '2xx'}, got $r');
     return r;
   }
 
-  Future<String> userId() async => _userId ??= expectOk(await get('/me')).map['userId'] as String;
+  Future<String> userId() async =>
+      _userId ??= expectOk(await get('/me')).map['userId'] as String;
 
   Future<void> logout() async {
     try {
@@ -129,32 +152,54 @@ class DevApi {
 
   // ---- setup shortcuts ---------------------------------------------------------
 
-  Future<String> createCustomer(String name, {String? email, String? phone, bool consent = false}) async {
-    final r = expectOk(await post('/customers',
-        {'name': name, 'customerType': 'INDIVIDUAL', 'email': email, 'phone': phone}));
+  Future<String> createCustomer(
+    String name, {
+    String? email,
+    String? phone,
+    bool consent = false,
+  }) async {
+    final r = expectOk(
+      await post('/customers', {
+        'name': name,
+        'customerType': 'INDIVIDUAL',
+        'email': email,
+        'phone': phone,
+      }),
+    );
     final id = r.map['id'] as String;
-    if (consent) expectOk(await post('/customers/$id/consent', {'method': 'VERBAL_IN_APP'}));
+    if (consent)
+      expectOk(
+        await post('/customers/$id/consent', {'method': 'VERBAL_IN_APP'}),
+      );
     return id;
   }
 
   /// Finalized 305 (TAX_INVOICE) of [netMinor] + 18% VAT, with its original PDF.
-  Future<String> issueTaxInvoice(String customerId, {int netMinor = 10000}) async {
-    final draft = expectOk(await post('/documents', {
-      'documentType': 'TAX_INVOICE',
-      'customerId': customerId,
-      'currency': 'ILS',
-      'fiscalContext': 'default',
-      'lines': [
-        {
-          'description': 'בדיקת QA $runTag',
-          'quantityMicros': '1000000',
-          'unitPriceMinor': '$netMinor',
-          'taxRateBasisPoints': 1800,
-        }
-      ],
-    }), 201);
+  Future<String> issueTaxInvoice(
+    String customerId, {
+    int netMinor = 10000,
+  }) async {
+    final draft = expectOk(
+      await post('/documents', {
+        'documentType': 'TAX_INVOICE',
+        'customerId': customerId,
+        'currency': 'ILS',
+        'fiscalContext': 'default',
+        'lines': [
+          {
+            'description': 'בדיקת QA $runTag',
+            'quantityMicros': '1000000',
+            'unitPriceMinor': '$netMinor',
+            'taxRateBasisPoints': 1800,
+          },
+        ],
+      }),
+      201,
+    );
     final id = draft.map['id'] as String;
-    final fin = expectOk(await post('/documents/$id/finalize', {'scopeKey': 'default'}, newUuid()));
+    final fin = expectOk(
+      await post('/documents/$id/finalize', {'scopeKey': 'default'}, newUuid()),
+    );
     expect(fin.map['status'], 'FINALIZED', reason: '$fin');
     expectOk(await post('/documents/$id/artifact'));
     return id;
@@ -162,20 +207,33 @@ class DevApi {
 
   /// Upload [jpeg] like the app does (initiate → bytes → complete → poll).
   /// Returns the final upload JSON (`status`, `expenseId`).
-  Future<Map<String, dynamic>> uploadExpense(Uint8List jpeg, {String contentType = 'image/jpeg'}) async {
-    final init = expectOk(await post('/expenses/uploads/initiate', {
-      'filename': 'qa-$runTag.jpg',
-      'contentType': contentType,
-      'sizeBytes': jpeg.length,
-      'sha256': sha256.convert(jpeg).toString(),
-    }));
+  Future<Map<String, dynamic>> uploadExpense(
+    Uint8List jpeg, {
+    String contentType = 'image/jpeg',
+  }) async {
+    final init = expectOk(
+      await post('/expenses/uploads/initiate', {
+        'filename': 'qa-$runTag.jpg',
+        'contentType': contentType,
+        'sizeBytes': jpeg.length,
+        'sha256': sha256.convert(jpeg).toString(),
+      }),
+    );
     final uploadId = init.map['uploadId'] as String;
     final target = init.map['upload'] as Map<String, dynamic>;
     expect(target['kind'], 'api', reason: 'dev stores uploads through the API');
-    expectOk(await send('PUT', target['url'] as String, bytes: jpeg, contentType: contentType));
+    expectOk(
+      await send(
+        'PUT',
+        target['url'] as String,
+        bytes: jpeg,
+        contentType: contentType,
+      ),
+    );
     var r = await post('/expenses/uploads/$uploadId/complete');
     var json = r.map;
-    if (r.status >= 300) return {'status': 'REFUSED', 'error': r.error, 'uploadId': uploadId};
+    if (r.status >= 300)
+      return {'status': 'REFUSED', 'error': r.error, 'uploadId': uploadId};
     final end = DateTime.now().add(const Duration(seconds: 30));
     while (json['status'] == 'SCAN_PENDING' && DateTime.now().isBefore(end)) {
       await Future<void>.delayed(const Duration(seconds: 1));
@@ -185,7 +243,8 @@ class DevApi {
   }
 
   Future<String> firstExpenseCategoryId() async =>
-      expectOk(await get('/expense-categories')).list('categories').first['id'] as String;
+      expectOk(await get('/expense-categories')).list('categories').first['id']
+          as String;
 
   /// The "OCR read it" fixture: what a successful extraction would store.
   Future<void> applyOcrFixture(String expenseId, OcrValues v) async {
@@ -198,12 +257,14 @@ class DevApi {
   }
 
   /// GET /expenses?q= rows (BE-44); [status] e.g. DELETED.
-  Future<Map<String, dynamic>?> findExpense(String id, {String? q, String? status}) async {
-    final r = expectOk(await get('/expenses', {
-      'limit': '200',
-      'q': ?q,
-      'status': ?status,
-    }));
+  Future<Map<String, dynamic>?> findExpense(
+    String id, {
+    String? q,
+    String? status,
+  }) async {
+    final r = expectOk(
+      await get('/expenses', {'limit': '200', 'q': ?q, 'status': ?status}),
+    );
     for (final e in r.list('expenses')) {
       if (e['id'] == id) return e;
     }
@@ -213,8 +274,12 @@ class DevApi {
 
 /// Values the OCR fixture "reads" (subtotal + VAT = total, like a real receipt).
 class OcrValues {
-  OcrValues({required this.supplierName, required this.categoryId, this.totalMinor = 23600, this.vatMinor = 3600})
-      : documentNumber = 'QA-$runTag-${Random().nextInt(1 << 20)}';
+  OcrValues({
+    required this.supplierName,
+    required this.categoryId,
+    this.totalMinor = 23600,
+    this.vatMinor = 3600,
+  }) : documentNumber = 'QA-$runTag-${Random().nextInt(1 << 20)}';
 
   final String supplierName;
   final String categoryId;
@@ -223,7 +288,10 @@ class OcrValues {
   final String documentNumber;
 
   Map<String, dynamic> draftJson() {
-    Map<String, String> money(int v) => {'amountMinor': '$v', 'currency': 'ILS'};
+    Map<String, String> money(int v) => {
+      'amountMinor': '$v',
+      'currency': 'ILS',
+    };
     return {
       'supplierName': supplierName,
       'documentNumber': documentNumber,
@@ -251,15 +319,24 @@ String newUuid() {
 List<Map<String, dynamic>> mailsTo(String to, DateTime since) {
   final dir = Directory(mailDir);
   if (mailDir.isEmpty || !dir.existsSync()) return const [];
-  final files = dir
-      .listSync()
-      .whereType<File>()
-      .where((f) => f.path.endsWith('.json') && !f.statSync().modified.isBefore(since))
-      .toList()
-    ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+  final files =
+      dir
+          .listSync()
+          .whereType<File>()
+          .where(
+            (f) =>
+                f.path.endsWith('.json') &&
+                !f.statSync().modified.isBefore(since),
+          )
+          .toList()
+        ..sort(
+          (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
+        );
   return [
     for (final f in files)
-      if (jsonDecode(f.readAsStringSync()) case final Map<String, dynamic> m when m['to'] == to) m
+      if (jsonDecode(f.readAsStringSync()) case final Map<String, dynamic> m
+          when m['to'] == to)
+        m,
   ];
 }
 
@@ -269,27 +346,40 @@ Future<DevApi> signInApi(String email) async {
   String? cookie;
   String? csrf;
   Future<ApiResult> post(String path, Object body) async {
-    final r = await c.post(Uri.parse('$apiBase$path'),
-        headers: {
-          'content-type': 'application/json',
-          'cookie': ?cookie,
-          'x-csrf-token': ?csrf,
-        },
-        body: jsonEncode(body));
+    final r = await c.post(
+      Uri.parse('$apiBase$path'),
+      headers: {
+        'content-type': 'application/json',
+        'cookie': ?cookie,
+        'x-csrf-token': ?csrf,
+      },
+      body: jsonEncode(body),
+    );
     final setCookie = r.headers['set-cookie'];
-    final m = setCookie == null ? null : RegExp(r'tvl_session=([^;,]+)').firstMatch(setCookie);
+    final m = setCookie == null
+        ? null
+        : RegExp(r'tvl_session=([^;,]+)').firstMatch(setCookie);
     if (m != null) cookie = 'tvl_session=${m[1]}';
-    final res = ApiResult(r.statusCode, r.bodyBytes, r.headers['content-type'] ?? '');
+    final res = ApiResult(
+      r.statusCode,
+      r.bodyBytes,
+      r.headers['content-type'] ?? '',
+    );
     final token = res.map['csrfToken'];
     if (token is String) csrf = token;
     return res;
   }
 
   try {
-    final login = DevApi.expectOk(await post('/auth/login', {'email': email, 'password': devPassword}));
+    final login = DevApi.expectOk(
+      await post('/auth/login', {'email': email, 'password': devPassword}),
+    );
     Future<void> mfa(String purpose) async {
       final since = DateTime.now().subtract(const Duration(seconds: 2));
-      if (mailDir.isEmpty) fail('$email needs MFA: run with --dart-define=MAILDIR=<dev outgoing-emails>');
+      if (mailDir.isEmpty)
+        fail(
+          '$email needs MFA: run with --dart-define=MAILDIR=<dev outgoing-emails>',
+        );
       var sent = await post('/auth/mfa/email/send', {'purpose': purpose});
       if (sent.error == 'MFA_EMAIL_THROTTLED') {
         await Future<void>.delayed(const Duration(seconds: 46));
@@ -308,7 +398,12 @@ Future<DevApi> signInApi(String email) async {
         }
       }
       if (code == null) fail('no MFA e-mail for $email in $mailDir');
-      DevApi.expectOk(await post('/auth/mfa/email/verify', {'code': code, if (purpose == 'ENROLL') 'purpose': purpose}));
+      DevApi.expectOk(
+        await post('/auth/mfa/email/verify', {
+          'code': code,
+          if (purpose == 'ENROLL') 'purpose': purpose,
+        }),
+      );
     }
 
     if (login.map['status'] == 'MFA_REQUIRED') await mfa('LOGIN');
@@ -327,8 +422,11 @@ Future<DevApi> signInApi(String email) async {
 
 // ---- the app ------------------------------------------------------------------
 
-const _storage =
-    FlutterSecureStorage(iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device));
+const _storage = FlutterSecureStorage(
+  iOptions: IOSOptions(
+    accessibility: KeychainAccessibility.first_unlock_this_device,
+  ),
+);
 
 /// Cold-starts the real app signed in as [who] (Keychain token → splash →
 /// GET /mobile/session + /me → AppShell on "בית").
@@ -347,7 +445,12 @@ Future<void> launchAppAs(WidgetTester tester, DevApi who) async {
   resetStatementProbe();
   AppRouter.instance.install();
   await tester.pumpWidget(const TevelApp());
-  await pumpUntil(tester, find.byType(AppShell), timeout: const Duration(seconds: 40), what: 'AppShell as ${who.email}');
+  await pumpUntil(
+    tester,
+    find.byType(AppShell),
+    timeout: const Duration(seconds: 40),
+    what: 'AppShell as ${who.email}',
+  );
   await pumpFor(tester, const Duration(seconds: 1));
 }
 
@@ -358,7 +461,8 @@ Future<void> closeApp(WidgetTester tester) async {
 }
 
 /// Runs [open] (a router helper) on the root navigator's context.
-void atRoot(void Function(BuildContext context) open) => open(navigatorKey.currentContext!);
+void atRoot(void Function(BuildContext context) open) =>
+    open(navigatorKey.currentContext!);
 
 Future<void> pumpFor(WidgetTester tester, Duration d) async {
   final end = DateTime.now().add(d);
@@ -368,18 +472,27 @@ Future<void> pumpFor(WidgetTester tester, Duration d) async {
 }
 
 /// Pumps (real time) until [finder] finds something.
-Future<void> pumpUntil(WidgetTester tester, Finder finder,
-    {Duration timeout = const Duration(seconds: 20), String? what}) async {
+Future<void> pumpUntil(
+  WidgetTester tester,
+  Finder finder, {
+  Duration timeout = const Duration(seconds: 20),
+  String? what,
+}) async {
   final end = DateTime.now().add(timeout);
   while (finder.evaluate().isEmpty) {
-    if (DateTime.now().isAfter(end)) fail('timed out waiting for ${what ?? finder}');
+    if (DateTime.now().isAfter(end))
+      fail('timed out waiting for ${what ?? finder}');
     await tester.pump(const Duration(milliseconds: 150));
   }
 }
 
 /// Pumps until [finder] finds nothing (a sheet / dialog closed).
-Future<void> pumpUntilGone(WidgetTester tester, Finder finder,
-    {Duration timeout = const Duration(seconds: 20), String? what}) async {
+Future<void> pumpUntilGone(
+  WidgetTester tester,
+  Finder finder, {
+  Duration timeout = const Duration(seconds: 20),
+  String? what,
+}) async {
   final end = DateTime.now().add(timeout);
   while (finder.evaluate().isNotEmpty) {
     if (DateTime.now().isAfter(end)) fail('still showing ${what ?? finder}');
@@ -388,8 +501,11 @@ Future<void> pumpUntilGone(WidgetTester tester, Finder finder,
 }
 
 /// Polls [check] (API) until it returns non-null.
-Future<T> eventually<T extends Object>(Future<T?> Function() check,
-    {Duration timeout = const Duration(seconds: 20), required String what}) async {
+Future<T> eventually<T extends Object>(
+  Future<T?> Function() check, {
+  Duration timeout = const Duration(seconds: 20),
+  required String what,
+}) async {
   final end = DateTime.now().add(timeout);
   while (true) {
     final v = await check();
@@ -400,7 +516,9 @@ Future<T> eventually<T extends Object>(Future<T?> Function() check,
 }
 
 String fieldText(WidgetTester tester, Finder field) => tester
-    .widget<EditableText>(find.descendant(of: field, matching: find.byType(EditableText)).first)
+    .widget<EditableText>(
+      find.descendant(of: field, matching: find.byType(EditableText)).first,
+    )
     .controller
     .text;
 
@@ -440,29 +558,37 @@ Uint8List uniqueJpeg() {
   img.fill(im, color: img.ColorRgb8(240, 240, 235));
   for (var i = 0; i < 24; i++) {
     final x = r.nextInt(320), y = r.nextInt(440);
-    img.fillRect(im,
-        x1: x,
-        y1: y,
-        x2: x + 8 + r.nextInt(60),
-        y2: y + 4 + r.nextInt(12),
-        color: img.ColorRgb8(r.nextInt(120), r.nextInt(120), r.nextInt(120)));
+    img.fillRect(
+      im,
+      x1: x,
+      y1: y,
+      x2: x + 8 + r.nextInt(60),
+      y2: y + 4 + r.nextInt(12),
+      color: img.ColorRgb8(r.nextInt(120), r.nextInt(120), r.nextInt(120)),
+    );
   }
   return img.encodeJpg(im, quality: 90);
 }
 
-const _pickImageChannel = 'dev.flutter.pigeon.image_picker_ios.ImagePickerApi.pickImage';
+const _pickImageChannel =
+    'dev.flutter.pigeon.image_picker_ios.ImagePickerApi.pickImage';
 
 /// The camera (image_picker_ios) answers with [jpeg] instead of opening.
 Future<void> mockCamera(WidgetTester tester, Uint8List jpeg) async {
   final dir = await getTemporaryDirectory();
-  final file = File('${dir.path}/qa-people-$runTag-${Random().nextInt(1 << 30)}.jpg');
+  final file = File(
+    '${dir.path}/qa-people-$runTag-${Random().nextInt(1 << 30)}.jpg',
+  );
   await file.writeAsBytes(jpeg, flush: true);
   tester.binding.defaultBinaryMessenger.setMockMessageHandler(
-      _pickImageChannel, (_) async => const StandardMessageCodec().encodeMessage(<Object?>[file.path]));
+    _pickImageChannel,
+    (_) async =>
+        const StandardMessageCodec().encodeMessage(<Object?>[file.path]),
+  );
 }
 
-void unmockCamera(WidgetTester tester) =>
-    tester.binding.defaultBinaryMessenger.setMockMessageHandler(_pickImageChannel, null);
+void unmockCamera(WidgetTester tester) => tester.binding.defaultBinaryMessenger
+    .setMockMessageHandler(_pickImageChannel, null);
 
 /// Wraps the app's HTTP client: `POST /expenses/:id/extract` (no OCR provider
 /// on dev → 503) becomes a successful read whose values [fixture] stores on
@@ -482,8 +608,11 @@ class OcrFixtureClient extends http.BaseClient {
     if (request.method == 'POST' && m != null) {
       extracted.add(m[1]!);
       await fixture(m[1]!);
-      return http.StreamedResponse(Stream.value(utf8.encode('{"status":"EXTRACTED"}')), 200,
-          headers: {'content-type': 'application/json'});
+      return http.StreamedResponse(
+        Stream.value(utf8.encode('{"status":"EXTRACTED"}')),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
     }
     return inner.send(request);
   }

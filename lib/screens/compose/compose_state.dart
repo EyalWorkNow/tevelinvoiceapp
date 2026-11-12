@@ -14,16 +14,21 @@ import '../../util/vat.dart';
 /// One extra line (S3): description, quantity, unit price (as typed), the
 /// catalog item it came from (BE-15) and its own "ללא מע״מ" (per-line VAT).
 class ComposeLine {
-  ComposeLine(
-      {this.description = '', this.quantityText = '1', this.priceText = '', this.itemId, this.vatNone = false});
+  ComposeLine({
+    this.description = '',
+    this.quantityText = '1',
+    this.priceText = '',
+    this.itemId,
+    this.vatNone = false,
+  });
 
   factory ComposeLine.fromJson(Map<String, dynamic> j) => ComposeLine(
-        description: j['description'] as String? ?? '',
-        quantityText: j['quantityText'] as String? ?? '1',
-        priceText: j['priceText'] as String? ?? '',
-        itemId: j['itemId'] as String?,
-        vatNone: j['vatNone'] == true,
-      );
+    description: j['description'] as String? ?? '',
+    quantityText: j['quantityText'] as String? ?? '1',
+    priceText: j['priceText'] as String? ?? '',
+    itemId: j['itemId'] as String?,
+    vatNone: j['vatNone'] == true,
+  );
 
   String description;
   String quantityText;
@@ -40,19 +45,26 @@ class ComposeLine {
   }
 
   bool get isEmpty => description.trim().isEmpty && priceText.trim().isEmpty;
-  bool get isValid => description.trim().isNotEmpty && quantityMicros != null && priceMinor != null;
+  bool get isValid =>
+      description.trim().isNotEmpty &&
+      quantityMicros != null &&
+      priceMinor != null;
 
   Map<String, dynamic> toJson() => {
-        'description': description,
-        'quantityText': quantityText,
-        'priceText': priceText,
-        'itemId': itemId,
-        'vatNone': vatNone,
-      };
+    'description': description,
+    'quantityText': quantityText,
+    'priceText': priceText,
+    'itemId': itemId,
+    'vatNone': vatNone,
+  };
 }
 
 class ComposeState extends ChangeNotifier {
-  ComposeState({required this.kind, required this.businessType, required this.vatBasisPoints});
+  ComposeState({
+    required this.kind,
+    required this.businessType,
+    required this.vatBasisPoints,
+  });
 
   DocKind kind;
   String businessType;
@@ -93,7 +105,8 @@ class ComposeState extends ChangeNotifier {
   String? pickedDueDate;
 
   /// BE-07 due date sent with collect kinds (305 / 300), 'YYYY-MM-DD'.
-  String get dueDate => pickedDueDate ?? dueDateForTerms(customerTerms, DateTime.now());
+  String get dueDate =>
+      pickedDueDate ?? dueDateForTerms(customerTerms, DateTime.now());
   bool requestAllocation = false;
 
   /// Quote "בתוקף עד" (+14 days).
@@ -119,7 +132,8 @@ class ComposeState extends ChangeNotifier {
 
   BigInt get amountMinor => keypadToAgorot(amountText);
   BigInt get discountInput => parseAmount(discountText) ?? BigInt.zero;
-  List<ComposeLine> get usedExtraLines => extraLines.where((l) => !l.isEmpty).toList();
+  List<ComposeLine> get usedExtraLines =>
+      extraLines.where((l) => !l.isEmpty).toList();
 
   BigInt _net(BigInt typed, [int? rate]) {
     final r = rate ?? taxRate;
@@ -127,7 +141,8 @@ class ComposeState extends ChangeNotifier {
   }
 
   /// Net unit price of an extra line (what a catalog item stores).
-  BigInt? lineNetPrice(ComposeLine l) => l.priceMinor == null ? null : _net(l.priceMinor!, lineRate(l));
+  BigInt? lineNetPrice(ComposeLine l) =>
+      l.priceMinor == null ? null : _net(l.priceMinor!, lineRate(l));
 
   /// Lines exactly as sent to POST /documents (net unit prices).
   List<Map<String, dynamic>> get requestLines {
@@ -154,13 +169,15 @@ class ComposeState extends ChangeNotifier {
     ];
   }
 
-  String get mainDescription => description.trim().isEmpty ? '' : description.trim();
+  String get mainDescription =>
+      description.trim().isEmpty ? '' : description.trim();
 
   /// Local preview of the server totals (sum of calculateLine).
   LineAmounts get totals {
     var sum = LineAmounts.zero;
     for (final l in requestLines) {
-      sum = sum +
+      sum =
+          sum +
           calculateLine(
             quantityMicros: BigInt.parse(l['quantityMicros'] as String),
             unitPriceMinor: BigInt.parse(l['unitPriceMinor'] as String),
@@ -180,7 +197,12 @@ class ComposeState extends ChangeNotifier {
 
   bool get checkValid =>
       method != 'CHECK' ||
-      [bankNumber, branchNumber, accountNumber, checkNumber].every((v) => v.trim().isNotEmpty);
+      [
+        bankNumber,
+        branchNumber,
+        accountNumber,
+        checkNumber,
+      ].every((v) => v.trim().isNotEmpty);
 
   bool get donorValid =>
       config.counterparty != Counterparty.donor ||
@@ -201,32 +223,32 @@ class ComposeState extends ChangeNotifier {
 
   /// POST /documents body.
   Map<String, dynamic> requestBody() => {
-        'documentType': config.serverType,
-        if (config.counterparty == Counterparty.supplier)
-          'supplierId': customer?.id
-        else
-          'customerId': customer?.id,
-        'currency': 'ILS',
-        'fiscalContext': 'default',
-        'issueDate': todayIso(),
-        'lines': requestLines,
-        // BE-07: absent keeps the stored value, null clears it.
-        if (hasNotes) 'notes': notes.trim().isEmpty ? null : notes.trim(),
-        if (hasDueDate) 'dueDate': dueDate,
-      };
+    'documentType': config.serverType,
+    if (config.counterparty == Counterparty.supplier)
+      'supplierId': customer?.id
+    else
+      'customerId': customer?.id,
+    'currency': 'ILS',
+    'fiscalContext': 'default',
+    'issueDate': todayIso(),
+    'lines': requestLines,
+    // BE-07: absent keeps the stored value, null clears it.
+    if (hasNotes) 'notes': notes.trim().isEmpty ? null : notes.trim(),
+    if (hasDueDate) 'dueDate': dueDate,
+  };
 
   /// Quote lines (net; the rate is applied on convert).
   List<QuoteLine> get quoteLines => [
-        for (final l in requestLines)
-          QuoteLine(
-            description: l['description'] as String,
-            quantityMicros: BigInt.parse(l['quantityMicros'] as String),
-            unitPriceMinor: BigInt.parse(l['unitPriceMinor'] as String),
-            discountMinor: BigInt.tryParse(l['discountMinor'] as String? ?? ''),
-            taxRateBasisPoints: l['taxRateBasisPoints'] as int, // BE-06
-            itemId: l['itemId'] as String?,
-          )
-      ];
+    for (final l in requestLines)
+      QuoteLine(
+        description: l['description'] as String,
+        quantityMicros: BigInt.parse(l['quantityMicros'] as String),
+        unitPriceMinor: BigInt.parse(l['unitPriceMinor'] as String),
+        discountMinor: BigInt.tryParse(l['discountMinor'] as String? ?? ''),
+        taxRateBasisPoints: l['taxRateBasisPoints'] as int, // BE-06
+        itemId: l['itemId'] as String?,
+      ),
+  ];
 
   PaymentInput? get payment => !config.paid
       ? null
@@ -249,39 +271,45 @@ class ComposeState extends ChangeNotifier {
     if (firstIsUnit) {
       amountText = agorotToKeypadText(first.unitPriceMinor);
       description = first.description;
-      discountText = first.discountMinor > BigInt.zero ? agorotToKeypadText(first.discountMinor) : '';
+      discountText = first.discountMinor > BigInt.zero
+          ? agorotToKeypadText(first.discountMinor)
+          : '';
     }
     for (final l in firstIsUnit ? lines.skip(1) : lines) {
-      extraLines.add(ComposeLine(
+      extraLines.add(
+        ComposeLine(
           description: l.description,
           quantityText: formatQuantity(l.quantityMicros),
           priceText: agorotToKeypadText(l.unitPriceMinor),
           itemId: l.itemId,
-          vatNone: l.taxRateBasisPoints == 0));
+          vatNone: l.taxRateBasisPoints == 0,
+        ),
+      );
     }
     if (!firstIsUnit) description = first.description;
     vatNone = showVat && lines.every((l) => l.taxRateBasisPoints == 0);
     // Mixed rates (a line at 0% next to taxed ones) → per-line mode.
-    vatPerLine = showVat && !vatNone && lines.any((l) => l.taxRateBasisPoints == 0);
+    vatPerLine =
+        showVat && !vatNone && lines.any((l) => l.taxRateBasisPoints == 0);
     notifyListeners();
   }
 
   /// Quote lines (BE-06 GET /quotes/:id) → the same prefill as a document.
   void loadQuoteLines(List<QuoteLine> lines) => loadLines([
-        for (var i = 0; i < lines.length; i++)
-          DocumentLine(
-            position: i + 1,
-            itemId: lines[i].itemId,
-            description: lines[i].description,
-            quantityMicros: lines[i].quantityMicros,
-            unitPriceMinor: lines[i].unitPriceMinor,
-            discountMinor: lines[i].discountMinor ?? BigInt.zero,
-            subtotalMinor: BigInt.zero,
-            taxRateBasisPoints: lines[i].taxRateBasisPoints ?? vatBasisPoints,
-            taxAmountMinor: BigInt.zero,
-            totalMinor: BigInt.zero,
-          )
-      ]);
+    for (var i = 0; i < lines.length; i++)
+      DocumentLine(
+        position: i + 1,
+        itemId: lines[i].itemId,
+        description: lines[i].description,
+        quantityMicros: lines[i].quantityMicros,
+        unitPriceMinor: lines[i].unitPriceMinor,
+        discountMinor: lines[i].discountMinor ?? BigInt.zero,
+        subtotalMinor: BigInt.zero,
+        taxRateBasisPoints: lines[i].taxRateBasisPoints ?? vatBasisPoints,
+        taxAmountMinor: BigInt.zero,
+        totalMinor: BigInt.zero,
+      ),
+  ]);
 
   void setKind(DocKind next) {
     kind = next;
@@ -290,27 +318,27 @@ class ComposeState extends ChangeNotifier {
   }
 
   Map<String, dynamic> toJson() => {
-        'kind': kind.name,
-        'customer': customer?.toJson(),
-        'amountText': amountText,
-        'inclusive': inclusive,
-        'description': description,
-        'method': method,
-        'bankNumber': bankNumber,
-        'branchNumber': branchNumber,
-        'accountNumber': accountNumber,
-        'checkNumber': checkNumber,
-        'extraLines': [for (final l in extraLines) l.toJson()],
-        'discountText': discountText,
-        'vatNone': vatNone,
-        'vatPerLine': vatPerLine,
-        'notes': notes,
-        'customerTerms': customerTerms,
-        'pickedDueDate': pickedDueDate,
-        'requestAllocation': requestAllocation,
-        'validUntil': validUntil,
-        'donorTaxId': donorTaxId,
-      };
+    'kind': kind.name,
+    'customer': customer?.toJson(),
+    'amountText': amountText,
+    'inclusive': inclusive,
+    'description': description,
+    'method': method,
+    'bankNumber': bankNumber,
+    'branchNumber': branchNumber,
+    'accountNumber': accountNumber,
+    'checkNumber': checkNumber,
+    'extraLines': [for (final l in extraLines) l.toJson()],
+    'discountText': discountText,
+    'vatNone': vatNone,
+    'vatPerLine': vatPerLine,
+    'notes': notes,
+    'customerTerms': customerTerms,
+    'pickedDueDate': pickedDueDate,
+    'requestAllocation': requestAllocation,
+    'validUntil': validUntil,
+    'donorTaxId': donorTaxId,
+  };
 
   void restore(Map<String, dynamic> j) {
     final k = j['kind'];
@@ -318,7 +346,9 @@ class ComposeState extends ChangeNotifier {
       if (v.name == k) kind = v;
     }
     final c = j['customer'];
-    customer = c is Map ? Customer.fromJson(Map<String, dynamic>.from(c)) : null;
+    customer = c is Map
+        ? Customer.fromJson(Map<String, dynamic>.from(c))
+        : null;
     amountText = j['amountText'] as String? ?? '';
     inclusive = j['inclusive'] != false;
     description = j['description'] as String? ?? '';
@@ -331,7 +361,7 @@ class ComposeState extends ChangeNotifier {
       ..clear()
       ..addAll([
         for (final l in (j['extraLines'] as List? ?? const []))
-          ComposeLine.fromJson(Map<String, dynamic>.from(l as Map))
+          ComposeLine.fromJson(Map<String, dynamic>.from(l as Map)),
       ]);
     discountText = j['discountText'] as String? ?? '';
     vatNone = j['vatNone'] == true;

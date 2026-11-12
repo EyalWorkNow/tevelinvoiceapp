@@ -19,7 +19,12 @@ class ReportPeriod {
 
   /// [vatReporting]: MONTHLY | BIMONTHLY | NONE | null; [exempt] = no VAT
   /// periods (פטור / עמותה) → the calendar year.
-  static ReportPeriod of(PeriodKey key, {String? vatReporting, bool exempt = false, DateTime? now}) {
+  static ReportPeriod of(
+    PeriodKey key, {
+    String? vatReporting,
+    bool exempt = false,
+    DateTime? now,
+  }) {
     final n = now ?? DateTime.now();
     if (key == PeriodKey.year || exempt || vatReporting == 'NONE') {
       final year = key == PeriodKey.previous ? n.year - 1 : n.year;
@@ -43,8 +48,10 @@ class ReportPeriod {
   }
 
   /// URL value for /reports?period=.
-  static PeriodKey parse(String? v) =>
-      PeriodKey.values.firstWhere((k) => k.name == v, orElse: () => PeriodKey.current);
+  static PeriodKey parse(String? v) => PeriodKey.values.firstWhere(
+    (k) => k.name == v,
+    orElse: () => PeriodKey.current,
+  );
 
   String get fromIso => _iso(from);
   String get toIso => _iso(to);
@@ -63,7 +70,11 @@ class ReportPeriod {
 
 /// The part of GET /dashboard that R shows in P0 (BE-01 fields).
 class DashboardKpis {
-  const DashboardKpis({required this.monthIncome, required this.unpaidTotal, required this.overdueTotal});
+  const DashboardKpis({
+    required this.monthIncome,
+    required this.unpaidTotal,
+    required this.overdueTotal,
+  });
 
   factory DashboardKpis.fromJson(Map<String, dynamic> json) {
     final s = jMap(json['summary']);
@@ -86,7 +97,10 @@ class ReportKpi {
   /// BE-18 sends {key, label, type: 'money', value}; older shapes
   /// {valueMinor | amountMinor}.
   factory ReportKpi.fromJson(Map<String, dynamic> json) {
-    final v = json['valueMinor'] ?? json['amountMinor'] ?? (json['type'] == 'money' ? json['value'] : null);
+    final v =
+        json['valueMinor'] ??
+        json['amountMinor'] ??
+        (json['type'] == 'money' ? json['value'] : null);
     return ReportKpi(
       label: jStr(json['label']) ?? '',
       key: jStr(json['key']),
@@ -104,7 +118,11 @@ class ReportKpi {
 }
 
 class ReportColumn {
-  const ReportColumn({required this.key, required this.label, this.money = false});
+  const ReportColumn({
+    required this.key,
+    required this.label,
+    this.money = false,
+  });
 
   factory ReportColumn.fromJson(Map<String, dynamic> json) => ReportColumn(
     key: jStr(json['key']) ?? '',
@@ -119,11 +137,16 @@ class ReportColumn {
 
 /// GET /reports/:kind (BE-18).
 class ReportData {
-  const ReportData({this.kpis = const [], this.columns = const [], this.rows = const []});
+  const ReportData({
+    this.kpis = const [],
+    this.columns = const [],
+    this.rows = const [],
+  });
 
   factory ReportData.fromJson(Map<String, dynamic> json) => ReportData(
     kpis: [
-      for (final k in (json['kpis'] as List? ?? const [])) ReportKpi.fromJson(k as Map<String, dynamic>),
+      for (final k in (json['kpis'] as List? ?? const []))
+        ReportKpi.fromJson(k as Map<String, dynamic>),
     ],
     columns: [
       for (final c in (json['columns'] as List? ?? const []))

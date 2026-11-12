@@ -205,24 +205,27 @@ void main() {
     },
   );
 
-  test('resume refresh updates records in place without clearing the screen', () async {
-    final store = fresh();
-    await store.loadForBusiness('a');
-    await store.addNote('c1', 'mine');
-    await store.sync();
-    remote.records['c2'] = const CrmRemoteRecord(
-      customerId: 'c2',
-      revision: 1,
-      record: {'stage': 'active', 'notes': [], 'jobs': [], 'reminders': []},
-    );
-    final loadedAtEachNotify = <bool>[];
-    store.addListener(() => loadedAtEachNotify.add(store.isLoadedFor('a')));
-    await store.refresh();
-    expect(loadedAtEachNotify, isNotEmpty);
-    expect(loadedAtEachNotify, everyElement(isTrue));
-    expect(store.entryFor('c2').stage, CustomerCrmStage.active);
-    expect(store.entryFor('c1').notes.single.text, 'mine');
-  });
+  test(
+    'resume refresh updates records in place without clearing the screen',
+    () async {
+      final store = fresh();
+      await store.loadForBusiness('a');
+      await store.addNote('c1', 'mine');
+      await store.sync();
+      remote.records['c2'] = const CrmRemoteRecord(
+        customerId: 'c2',
+        revision: 1,
+        record: {'stage': 'active', 'notes': [], 'jobs': [], 'reminders': []},
+      );
+      final loadedAtEachNotify = <bool>[];
+      store.addListener(() => loadedAtEachNotify.add(store.isLoadedFor('a')));
+      await store.refresh();
+      expect(loadedAtEachNotify, isNotEmpty);
+      expect(loadedAtEachNotify, everyElement(isTrue));
+      expect(store.entryFor('c2').stage, CustomerCrmStage.active);
+      expect(store.entryFor('c1').notes.single.text, 'mine');
+    },
+  );
 
   test('an edit made while a refresh is loading is never dropped', () async {
     final store = fresh();
@@ -267,63 +270,64 @@ void main() {
     expect(store.rejectedCount, 0);
   });
 
-  test('one unreadable customer is quarantined, the rest still loads', () async {
-    remote.offline = true;
-    disk['customer_crm_a'] = {
-      'customers': {
-        'c1': {
-          'stage': 'active',
-          'notes': [],
-          'jobs': [],
-          'reminders': [],
+  test(
+    'one unreadable customer is quarantined, the rest still loads',
+    () async {
+      remote.offline = true;
+      disk['customer_crm_a'] = {
+        'customers': {
+          'c1': {'stage': 'active', 'notes': [], 'jobs': [], 'reminders': []},
+          'c2': {
+            'jobs': [
+              {'id': 'j1'},
+            ],
+          },
         },
-        'c2': {
-          'jobs': [
-            {'id': 'j1'},
-          ],
-        },
-      },
-      'pending': [
-        {'broken': true},
-      ],
-      'cloudInitialized': true,
-    };
-    final store = fresh();
-    await store.loadForBusiness('a');
-    expect(store.isLoadedFor('a'), isTrue);
-    expect(store.entryFor('c1').stage, CustomerCrmStage.active);
-    expect(store.isQuarantined('c2'), isTrue);
-    final quarantine = disk['customer_crm_a_quarantine']! as Map;
-    expect((quarantine['customers'] as Map).keys, ['c2']);
-    expect(quarantine['mutations'], hasLength(1));
-    await expectLater(store.addNote('c2', 'x'), throwsStateError);
-  });
+        'pending': [
+          {'broken': true},
+        ],
+        'cloudInitialized': true,
+      };
+      final store = fresh();
+      await store.loadForBusiness('a');
+      expect(store.isLoadedFor('a'), isTrue);
+      expect(store.entryFor('c1').stage, CustomerCrmStage.active);
+      expect(store.isQuarantined('c2'), isTrue);
+      final quarantine = disk['customer_crm_a_quarantine']! as Map;
+      expect((quarantine['customers'] as Map).keys, ['c2']);
+      expect(quarantine['mutations'], hasLength(1));
+      await expectLater(store.addNote('c2', 'x'), throwsStateError);
+    },
+  );
 
-  test('the legacy device file is marked as migrated to the first user', () async {
-    remote.identity = 'user-one';
-    disk['customer_crm_a'] = {
-      'customers': {
-        'c1': {
-          'stage': 'lead',
-          'notes': [
-            {'id': 'n1', 'text': 'old', 'createdAt': '2026-01-01T00:00:00Z'},
-          ],
-          'jobs': [],
-          'reminders': [],
+  test(
+    'the legacy device file is marked as migrated to the first user',
+    () async {
+      remote.identity = 'user-one';
+      disk['customer_crm_a'] = {
+        'customers': {
+          'c1': {
+            'stage': 'lead',
+            'notes': [
+              {'id': 'n1', 'text': 'old', 'createdAt': '2026-01-01T00:00:00Z'},
+            ],
+            'jobs': [],
+            'reminders': [],
+          },
         },
-      },
-    };
-    final store = fresh();
-    await store.loadForBusiness('a');
-    expect((disk['customer_crm_a']! as Map)['migratedToUser'], 'user-one');
-    expect(remote.records['c1']!.record['notes'], hasLength(1));
-    remote.identity = 'user-two';
-    remote.records.clear();
-    final other = fresh();
-    await other.loadForBusiness('a');
-    expect(other.entryFor('c1').notes, isEmpty);
-    expect(remote.records, isEmpty);
-  });
+      };
+      final store = fresh();
+      await store.loadForBusiness('a');
+      expect((disk['customer_crm_a']! as Map)['migratedToUser'], 'user-one');
+      expect(remote.records['c1']!.record['notes'], hasLength(1));
+      remote.identity = 'user-two';
+      remote.records.clear();
+      final other = fresh();
+      await other.loadForBusiness('a');
+      expect(other.entryFor('c1').notes, isEmpty);
+      expect(remote.records, isEmpty);
+    },
+  );
 }
 
 class _Unavailable extends Remote {

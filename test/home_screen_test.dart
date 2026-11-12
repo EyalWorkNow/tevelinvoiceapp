@@ -658,7 +658,10 @@ void main() {
         find.byKey(const Key('home-business-name')),
       );
       expect(name.data, isNotEmpty);
-      expect(find.byKey(const Key('home-business-name')).hitTestable(), findsOneWidget);
+      expect(
+        find.byKey(const Key('home-business-name')).hitTestable(),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('home-role-tag')), findsNothing); // owner
 
       resetSession();

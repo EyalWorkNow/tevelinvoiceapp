@@ -71,7 +71,10 @@ class _TeamPageState extends State<TeamPage> {
       final gated = businessContext.me?.readGating ?? false;
       // P0 accountants: offered (not applied) — the owner confirms each move
       // to ACCOUNTANT_REP; nothing is written on a screen view.
-      final upgrades = gated && businessContext.can(Cap.teamManage) && accountantRepMaybeSupported
+      final upgrades =
+          gated &&
+              businessContext.can(Cap.teamManage) &&
+              accountantRepMaybeSupported
           ? p0Accountants(team)
           : const <TeamMember>[];
       final pending = await pendingGrantEmails();
@@ -118,7 +121,10 @@ class _TeamPageState extends State<TeamPage> {
       builder: (context) => AlertDialog(
         content: Text(TeamHe.upgradeConfirm(m.name)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text(CommonHe.cancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(CommonHe.cancel),
+          ),
           TextButton(
             key: const Key('confirm-upgrade'),
             onPressed: () => Navigator.pop(context, true),
@@ -132,24 +138,32 @@ class _TeamPageState extends State<TeamPage> {
       final asRep = await migrateP0Accountant(m);
       if (mounted) {
         final text = asRep ? TeamHe.upgraded : TeamHe.upgradeUnsupported;
-        ScaffoldMessenger.of(context).showNotchNotice(SnackBar(content: Text(text)));
+        ScaffoldMessenger.of(
+          context,
+        ).showNotchNotice(SnackBar(content: Text(text)));
       }
     }, '');
   }
 
-  Future<void> _act(Future<void> Function() action, String done) => _guarded(() async {
-    try {
-      await action();
-      if (mounted && done.isNotEmpty) {
-        ScaffoldMessenger.of(context).showNotchNotice(SnackBar(content: Text(done)));
-      }
-      await _load();
-    } on Object catch (e) {
-      if (mounted) showErrorSnack(context, e);
-    }
-  });
+  Future<void> _act(Future<void> Function() action, String done) =>
+      _guarded(() async {
+        try {
+          await action();
+          if (mounted && done.isNotEmpty) {
+            ScaffoldMessenger.of(
+              context,
+            ).showNotchNotice(SnackBar(content: Text(done)));
+          }
+          await _load();
+        } on Object catch (e) {
+          if (mounted) showErrorSnack(context, e);
+        }
+      });
 
-  List<MoreMenuItem> _invitationMenu(TeamInvitation i, {required bool expired}) => [
+  List<MoreMenuItem> _invitationMenu(
+    TeamInvitation i, {
+    required bool expired,
+  }) => [
     MoreMenuItem(
       label: TeamHe.resend,
       icon: Iconsax.refresh,
@@ -164,7 +178,9 @@ class _TeamPageState extends State<TeamPage> {
           final url = r.shareUrl;
           if (url == null) return;
           final text = TeamHe.waText(businessContext.displayName, url);
-          await launchAllowed(Uri.parse('https://wa.me/?text=${Uri.encodeComponent(text)}'));
+          await launchAllowed(
+            Uri.parse('https://wa.me/?text=${Uri.encodeComponent(text)}'),
+          );
         }, TeamHe.resent),
       ),
     if (!expired)
@@ -172,7 +188,12 @@ class _TeamPageState extends State<TeamPage> {
         label: TeamHe.revokeInvite,
         destructive: true,
         onSelected: () async {
-          if (await confirmDanger(context, TeamHe.revokeInviteConfirm, i.email, TeamHe.revokeInvite)) {
+          if (await confirmDanger(
+            context,
+            TeamHe.revokeInviteConfirm,
+            i.email,
+            TeamHe.revokeInvite,
+          )) {
             await _act(() => revokeInvitation(i.id), TeamHe.revokeInvite);
           }
         },
@@ -223,7 +244,9 @@ class _TeamPageState extends State<TeamPage> {
           for (final m in team.active) _memberRow(m),
           for (final i in team.invitations) _invitationRow(i, expired: false),
           for (final i in team.expired) _invitationRow(i, expired: true),
-          if (team.active.length <= 1 && team.invitations.isEmpty && team.expired.isEmpty)
+          if (team.active.length <= 1 &&
+              team.invitations.isEmpty &&
+              team.expired.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: Space.xl),
               child: EmptyState(
@@ -251,7 +274,9 @@ class _TeamPageState extends State<TeamPage> {
       label: m.isSelf ? '${m.name} ${TeamHe.you}' : m.name,
       value: m.name == m.email ? tag : '${ltrIsolate(m.email)} · $tag',
       icon: Iconsax.user,
-      onTap: editable && !session.offline && !_busy ? () => _openMember(m) : null,
+      onTap: editable && !session.offline && !_busy
+          ? () => _openMember(m)
+          : null,
     );
   }
 
@@ -263,7 +288,9 @@ class _TeamPageState extends State<TeamPage> {
       label: ltrIsolate(i.email),
       value: '${PresetHe.label(i.preset)} · $status',
       icon: Iconsax.sms,
-      trailing: session.offline || _busy ? null : MoreMenu(items: _invitationMenu(i, expired: expired)),
+      trailing: session.offline || _busy
+          ? null
+          : MoreMenu(items: _invitationMenu(i, expired: expired)),
     );
   }
 }

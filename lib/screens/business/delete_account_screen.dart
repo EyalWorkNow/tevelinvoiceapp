@@ -55,8 +55,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
     super.dispose();
   }
 
-  bool get _hasProof =>
-      _appleAccount ? _appleToken != null : (_password.text.isNotEmpty || _appleToken != null);
+  bool get _hasProof => _appleAccount
+      ? _appleToken != null
+      : (_password.text.isNotEmpty || _appleToken != null);
   bool get _typed => _confirm.text.trim() == deleteConfirmWord;
 
   Future<void> _verifyWithApple() async {
@@ -65,7 +66,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       _error = null;
     });
     try {
-      final credential = await SignInWithApple.getAppleIDCredential(scopes: const []);
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: const [],
+      );
       if (!mounted) return;
       setState(() {
         _appleToken = credential.identityToken;
@@ -128,9 +131,17 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       appBar: AppBar(title: const Text('מחיקת חשבון')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(Space.page, Space.s, Space.page, Space.xl),
+          padding: const EdgeInsets.fromLTRB(
+            Space.page,
+            Space.s,
+            Space.page,
+            Space.xl,
+          ),
           children: [
-            Text('המחיקה סופית ואי אפשר לבטל אותה.', style: AppText.title.copyWith(color: p.danger)),
+            Text(
+              'המחיקה סופית ואי אפשר לבטל אותה.',
+              style: AppText.title.copyWith(color: p.danger),
+            ),
             const SizedBox(height: Space.l),
             _Box(
               icon: Iconsax.trash,
@@ -183,7 +194,10 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                     Icon(Iconsax.shield_tick, color: p.ok),
                     const SizedBox(width: Space.s),
                     Expanded(
-                      child: Text('אומת עם Apple', style: AppText.body.copyWith(color: p.ok)),
+                      child: Text(
+                        'אומת עם Apple',
+                        style: AppText.body.copyWith(color: p.ok),
+                      ),
                     ),
                     TextButton(
                       onPressed: () => setState(() {
@@ -219,12 +233,18 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
               const SizedBox(height: Space.m),
               Semantics(
                 liveRegion: true,
-                child: Text(_error!, style: AppText.body.copyWith(color: p.danger)),
+                child: Text(
+                  _error!,
+                  style: AppText.body.copyWith(color: p.danger),
+                ),
               ),
             ],
             if (offline) ...[
               const SizedBox(height: Space.m),
-              Text('אין חיבור — אפשר למחוק רק כשיש אינטרנט.', style: AppText.caption.copyWith(color: p.warn)),
+              Text(
+                'אין חיבור — אפשר למחוק רק כשיש אינטרנט.',
+                style: AppText.caption.copyWith(color: p.warn),
+              ),
             ],
             const SizedBox(height: Space.xl),
             BigButton(
@@ -236,7 +256,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
             const SizedBox(height: Space.s),
             TextButton(
               onPressed: _deleting ? null : () => Navigator.pop(context),
-              style: TextButton.styleFrom(minimumSize: const Size.fromHeight(Hit.min)),
+              style: TextButton.styleFrom(
+                minimumSize: const Size.fromHeight(Hit.min),
+              ),
               child: const Text(AuthHe.notNow),
             ),
           ],
@@ -247,7 +269,12 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
 }
 
 class _Box extends StatelessWidget {
-  const _Box({required this.icon, required this.color, required this.title, required this.lines});
+  const _Box({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.lines,
+  });
 
   final IconData icon;
   final Color color;

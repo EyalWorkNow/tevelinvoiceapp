@@ -14,7 +14,8 @@ String? waPhone(String? raw) {
 
   if (digits.startsWith('972')) {
     var national = digits.substring(3);
-    if (national.startsWith('0')) national = national.substring(1); // +972 (0)50…
+    if (national.startsWith('0'))
+      national = national.substring(1); // +972 (0)50…
     return _validIsraeli(national) ? '972$national' : null;
   }
   if (international) {
@@ -31,8 +32,8 @@ bool _validIsraeli(String national) =>
 
 /// wa.me link: a chat with [phone] (already from [waPhone]) or, without a
 /// number, WhatsApp's own contact picker with the [text] pre-filled.
-Uri whatsAppUri({String? phone, required String text}) => Uri.parse(
-    'https://wa.me/${phone ?? ''}?text=${Uri.encodeComponent(text)}');
+Uri whatsAppUri({String? phone, required String text}) =>
+    Uri.parse('https://wa.me/${phone ?? ''}?text=${Uri.encodeComponent(text)}');
 
 /// Israeli display format: '0521807547' → '052-1807547'.
 String formatPhoneHe(String? raw) {
@@ -43,7 +44,13 @@ String formatPhoneHe(String? raw) {
   if (d.length == 10 && d.startsWith('05')) {
     return '${d.substring(0, 3)}-${d.substring(3)}';
   }
-  if (d.length == 9 && (d.startsWith('02') || d.startsWith('03') || d.startsWith('04') || d.startsWith('08') || d.startsWith('09') || d.startsWith('07'))) {
+  if (d.length == 9 &&
+      (d.startsWith('02') ||
+          d.startsWith('03') ||
+          d.startsWith('04') ||
+          d.startsWith('08') ||
+          d.startsWith('09') ||
+          d.startsWith('07'))) {
     return '${d.substring(0, 2)}-${d.substring(2)}';
   }
   return raw;

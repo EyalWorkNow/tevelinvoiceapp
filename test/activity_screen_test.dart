@@ -124,40 +124,39 @@ void main() {
     return c;
   }
 
-  testWidgets(
-    'six fixed chips, month groups, F10 words, no PrimaryButton',
-    (tester) async {
-      await pumpActivity(tester);
-      for (final chip in [
-        'הכל',
-        'לא שולם',
-        'טיוטות',
-        'הצעות',
-        'שולם',
-        'לטיפול',
-      ]) {
-        expect(
-          find.descendant(
-            of: find.byKey(const Key('activity-chips')),
-            matching: find.text(chip),
-          ),
-          findsOneWidget,
-        );
-      }
-      expect(find.byKey(const Key('activity-chips')), findsOneWidget);
-      expect(find.text('אוקטובר 2026'), findsOneWidget);
-      expect(find.text('ספטמבר 2026'), findsOneWidget);
-      expect(find.text('ממתין לתשלום'), findsNWidgets(2));
-      expect(find.text('באיחור'), findsOneWidget); // issue + 30 < today
-      expect(find.text('שולם'), findsNWidgets(2)); // filter chip + paid row
-      expect(find.text('טיוטה'), findsOneWidget);
-      expect(find.text('נשלח'), findsOneWidget); // attribute, not status
-      expect(find.byType(PrimaryButton), findsNothing);
-      expect(find.byKey(const Key('activity-capped')), findsNothing);
-      // One page; the 500 cap only for a server that does not page (2.5).
-      expect(backend.last('GET', '/documents')!.query['limit'], '100');
-    },
-  );
+  testWidgets('six fixed chips, month groups, F10 words, no PrimaryButton', (
+    tester,
+  ) async {
+    await pumpActivity(tester);
+    for (final chip in [
+      'הכל',
+      'לא שולם',
+      'טיוטות',
+      'הצעות',
+      'שולם',
+      'לטיפול',
+    ]) {
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('activity-chips')),
+          matching: find.text(chip),
+        ),
+        findsOneWidget,
+      );
+    }
+    expect(find.byKey(const Key('activity-chips')), findsOneWidget);
+    expect(find.text('אוקטובר 2026'), findsOneWidget);
+    expect(find.text('ספטמבר 2026'), findsOneWidget);
+    expect(find.text('ממתין לתשלום'), findsNWidgets(2));
+    expect(find.text('באיחור'), findsOneWidget); // issue + 30 < today
+    expect(find.text('שולם'), findsNWidgets(2)); // filter chip + paid row
+    expect(find.text('טיוטה'), findsOneWidget);
+    expect(find.text('נשלח'), findsOneWidget); // attribute, not status
+    expect(find.byType(PrimaryButton), findsNothing);
+    expect(find.byKey(const Key('activity-capped')), findsNothing);
+    // One page; the 500 cap only for a server that does not page (2.5).
+    expect(backend.last('GET', '/documents')!.query['limit'], '100');
+  });
 
   testWidgets(
     'chips: לא שולם = ?unpaid=1 rows; טיוטות; הצעות with quote words',
@@ -526,7 +525,9 @@ void main() {
     expect(find.byKey(const Key('doc-open')), findsOneWidget);
     await tester.tap(find.byKey(const Key('activity-filter-type')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('activity-type-TAX_INVOICE_RECEIPT')));
+    await tester.tap(
+      find.byKey(const Key('activity-type-TAX_INVOICE_RECEIPT')),
+    );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('doc-paid')), findsOneWidget);
     expect(find.byKey(const Key('doc-open')), findsNothing);
@@ -535,18 +536,19 @@ void main() {
     expect(find.byKey(const Key('doc-open')), findsOneWidget);
   });
 
-  test('2.5: date range keeps issue dates inside it (inclusive), drops drafts', () {
-    final rows = [
-      for (final j in docs()) DocumentSummary.fromJson(j),
-    ];
-    final kept = filterDocuments(
-      rows,
-      range: DateTimeRange(
-        start: DateTime(2026, 10, 27),
-        end: DateTime(2026, 10, 28),
-      ),
-    );
-    expect([for (final d in kept) d.id], ['open', 'sent']);
-    expect(filterDocuments(rows), same(rows));
-  });
+  test(
+    '2.5: date range keeps issue dates inside it (inclusive), drops drafts',
+    () {
+      final rows = [for (final j in docs()) DocumentSummary.fromJson(j)];
+      final kept = filterDocuments(
+        rows,
+        range: DateTimeRange(
+          start: DateTime(2026, 10, 27),
+          end: DateTime(2026, 10, 28),
+        ),
+      );
+      expect([for (final d in kept) d.id], ['open', 'sent']);
+      expect(filterDocuments(rows), same(rows));
+    },
+  );
 }

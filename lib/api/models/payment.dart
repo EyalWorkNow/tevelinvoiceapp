@@ -33,15 +33,19 @@ class PaymentEntry {
 
   /// POST /payments body.
   Map<String, Object> toJson() => {
-        'method': method,
-        'amountMinor': amountMinor.toString(),
-        'currency': 'ILS',
-        'paymentDate': paymentDate,
-        if (isCheck && reference != null && reference!.isNotEmpty) 'reference': reference!,
-        if (isCheck && bankNumber != null && bankNumber!.isNotEmpty) 'bankNumber': bankNumber!,
-        if (isCheck && branchNumber != null && branchNumber!.isNotEmpty) 'branchNumber': branchNumber!,
-        if (isCheck && accountNumber != null && accountNumber!.isNotEmpty) 'accountNumber': accountNumber!,
-      };
+    'method': method,
+    'amountMinor': amountMinor.toString(),
+    'currency': 'ILS',
+    'paymentDate': paymentDate,
+    if (isCheck && reference != null && reference!.isNotEmpty)
+      'reference': reference!,
+    if (isCheck && bankNumber != null && bankNumber!.isNotEmpty)
+      'bankNumber': bankNumber!,
+    if (isCheck && branchNumber != null && branchNumber!.isNotEmpty)
+      'branchNumber': branchNumber!,
+    if (isCheck && accountNumber != null && accountNumber!.isNotEmpty)
+      'accountNumber': accountNumber!,
+  };
 
   PaymentEntry copyWith({
     String? method,
@@ -51,16 +55,15 @@ class PaymentEntry {
     String? bankNumber,
     String? branchNumber,
     String? accountNumber,
-  }) =>
-      PaymentEntry(
-        method: method ?? this.method,
-        amountMinor: amountMinor ?? this.amountMinor,
-        paymentDate: paymentDate ?? this.paymentDate,
-        reference: reference ?? this.reference,
-        bankNumber: bankNumber ?? this.bankNumber,
-        branchNumber: branchNumber ?? this.branchNumber,
-        accountNumber: accountNumber ?? this.accountNumber,
-      );
+  }) => PaymentEntry(
+    method: method ?? this.method,
+    amountMinor: amountMinor ?? this.amountMinor,
+    paymentDate: paymentDate ?? this.paymentDate,
+    reference: reference ?? this.reference,
+    bankNumber: bankNumber ?? this.bankNumber,
+    branchNumber: branchNumber ?? this.branchNumber,
+    accountNumber: accountNumber ?? this.accountNumber,
+  );
 
   /// §9.1 "+ צ'ק נוסף": same bank/branch/account, cheque number + 1, one
   /// month later (clamped to the month's last day).
@@ -70,14 +73,20 @@ class PaymentEntry {
     String? date;
     if (d != null) {
       final lastDay = DateTime(d.year, d.month + 2, 0).day;
-      final next = DateTime(d.year, d.month + 1, d.day > lastDay ? lastDay : d.day);
+      final next = DateTime(
+        d.year,
+        d.month + 1,
+        d.day > lastDay ? lastDay : d.day,
+      );
       date = isoDay(next);
     }
     return PaymentEntry(
       method: 'CHECK',
       amountMinor: amountMinor,
       paymentDate: date ?? paymentDate,
-      reference: n == null ? reference : (n + 1).toString().padLeft(reference!.length, '0'),
+      reference: n == null
+          ? reference
+          : (n + 1).toString().padLeft(reference!.length, '0'),
       bankNumber: bankNumber,
       branchNumber: branchNumber,
       accountNumber: accountNumber,
@@ -107,22 +116,24 @@ class PaymentRow {
   });
 
   factory PaymentRow.fromJson(Map<String, dynamic> json) => PaymentRow(
-        id: json['id'] as String,
-        method: jStr(json['method']) ?? 'OTHER',
-        amountMinor: jBig(jPick(json, ['amountMinor', 'amount_minor'])),
-        paymentDate: jStr(jPick(json, ['paymentDate', 'payment_date'])),
-        reference: jStr(json['reference']),
-        customerId: jStr(json['customerId']),
-        customerName: jStr(json['customerName']),
-        receiptDocumentId: jStr(jPick(json, ['receiptDocumentId', 'receipt_document_id'])),
-        receiptDocumentNumber: jStr(json['receiptDocumentNumber']),
-        allocatedDocumentIds: [
-          for (final a in (json['allocations'] as List? ?? const []))
-            if (a is Map && a['documentId'] != null) a['documentId'].toString()
-        ],
-        voidedAt: jStr(jPick(json, ['voidedAt', 'voided_at'])),
-        voidReason: jStr(json['voidReason']),
-      );
+    id: json['id'] as String,
+    method: jStr(json['method']) ?? 'OTHER',
+    amountMinor: jBig(jPick(json, ['amountMinor', 'amount_minor'])),
+    paymentDate: jStr(jPick(json, ['paymentDate', 'payment_date'])),
+    reference: jStr(json['reference']),
+    customerId: jStr(json['customerId']),
+    customerName: jStr(json['customerName']),
+    receiptDocumentId: jStr(
+      jPick(json, ['receiptDocumentId', 'receipt_document_id']),
+    ),
+    receiptDocumentNumber: jStr(json['receiptDocumentNumber']),
+    allocatedDocumentIds: [
+      for (final a in (json['allocations'] as List? ?? const []))
+        if (a is Map && a['documentId'] != null) a['documentId'].toString(),
+    ],
+    voidedAt: jStr(jPick(json, ['voidedAt', 'voided_at'])),
+    voidReason: jStr(json['voidReason']),
+  );
 
   final String id;
   final String method;
@@ -146,7 +157,11 @@ class PaymentRow {
 
 /// One page of GET /payments.
 class PaymentPage {
-  const PaymentPage({required this.total, required this.offset, required this.rows});
+  const PaymentPage({
+    required this.total,
+    required this.offset,
+    required this.rows,
+  });
 
   final int total;
   final int offset;
@@ -173,15 +188,15 @@ class DocPayment {
   });
 
   factory DocPayment.fromJson(Map<String, dynamic> j) => DocPayment(
-        id: j['id'].toString(),
-        method: jStr(j['method']) ?? 'OTHER',
-        amountMinor: jBig(j['amountMinor']),
-        allocatedMinor: jBigOrNull(j['allocatedMinor']),
-        paymentDate: jStr(j['paymentDate']),
-        reference: jStr(j['reference']),
-        receiptDocumentId: jStr(j['receiptDocumentId']),
-        voidedAt: jStr(j['voidedAt']),
-      );
+    id: j['id'].toString(),
+    method: jStr(j['method']) ?? 'OTHER',
+    amountMinor: jBig(j['amountMinor']),
+    allocatedMinor: jBigOrNull(j['allocatedMinor']),
+    paymentDate: jStr(j['paymentDate']),
+    reference: jStr(j['reference']),
+    receiptDocumentId: jStr(j['receiptDocumentId']),
+    voidedAt: jStr(j['voidedAt']),
+  );
 
   final String id;
   final String method;
@@ -207,13 +222,13 @@ class DocLink {
   });
 
   factory DocLink.fromJson(Map<String, dynamic> j) => DocLink(
-        id: j['id'].toString(),
-        documentType: jStr(j['type']) ?? '',
-        relation: jStr(j['relation']) ?? '',
-        documentNumber: jStr(j['number']),
-        status: jStr(j['status']),
-        totalMinor: jBigOrNull(j['totalMinor']),
-      );
+    id: j['id'].toString(),
+    documentType: jStr(j['type']) ?? '',
+    relation: jStr(j['relation']) ?? '',
+    documentNumber: jStr(j['number']),
+    status: jStr(j['status']),
+    totalMinor: jBigOrNull(j['totalMinor']),
+  );
 
   final String id;
   final String documentType;
@@ -225,14 +240,19 @@ class DocLink {
 
 /// `timeline[]` (BE-12): the document's audit trail, oldest first.
 class TimelineEvent {
-  const TimelineEvent({required this.at, required this.event, this.byEmail, this.detail = const {}});
+  const TimelineEvent({
+    required this.at,
+    required this.event,
+    this.byEmail,
+    this.detail = const {},
+  });
 
   factory TimelineEvent.fromJson(Map<String, dynamic> j) => TimelineEvent(
-        at: jStr(j['at']) ?? '',
-        event: jStr(j['event']) ?? '',
-        byEmail: jStr(j['byEmail']),
-        detail: jMap(j['detail']),
-      );
+    at: jStr(j['at']) ?? '',
+    event: jStr(j['event']) ?? '',
+    byEmail: jStr(j['byEmail']),
+    detail: jMap(j['detail']),
+  );
 
   final String at;
 
@@ -257,8 +277,10 @@ class DocumentExtras {
 
   factory DocumentExtras.fromJson(Map<String, dynamic> json) {
     final d = jMap(json['document']);
-    List<T> list<T>(Object? v, T Function(Map<String, dynamic>) f) =>
-        [for (final e in (v is List ? v : const [])) if (e is Map<String, dynamic>) f(e)];
+    List<T> list<T>(Object? v, T Function(Map<String, dynamic>) f) => [
+      for (final e in (v is List ? v : const []))
+        if (e is Map<String, dynamic>) f(e),
+    ];
     return DocumentExtras(
       payments: list(d['payments'], DocPayment.fromJson),
       linked: list(d['linkedDocuments'], DocLink.fromJson),
@@ -320,5 +342,8 @@ class DocumentExtras {
     return null;
   }
 
-  List<DocPayment> get livePayments => [for (final p in payments) if (p.voidedAt == null) p];
+  List<DocPayment> get livePayments => [
+    for (final p in payments)
+      if (p.voidedAt == null) p,
+  ];
 }

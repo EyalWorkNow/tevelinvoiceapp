@@ -805,28 +805,35 @@ void main() {
   });
 
   group('QA 2026-11-12', () {
-    testWidgets('U0: ✕ with an amount → "לשמור טיוטה?" → מחק closes, no draft kept', (
-      tester,
-    ) async {
-      await open(tester, intent: 'PAID');
-      await type(tester, '50');
-      await tester.tap(find.byKey(const Key('compose-close')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('save-draft-dialog')), findsOneWidget);
-      await tester.tap(find.byKey(const Key('save-draft-discard')));
-      await flush(tester);
-      await tester.pumpAndSettle();
-      expect(find.byType(ComposeScreen), findsNothing, reason: 'one tap out, no loop back to S2');
-      final draft = await tester.runAsync(() => loadLocalDraft('PAID'));
-      expect(draft, isNull);
-    });
+    testWidgets(
+      'U0: ✕ with an amount → "לשמור טיוטה?" → מחק closes, no draft kept',
+      (tester) async {
+        await open(tester, intent: 'PAID');
+        await type(tester, '50');
+        await tester.tap(find.byKey(const Key('compose-close')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('save-draft-dialog')), findsOneWidget);
+        await tester.tap(find.byKey(const Key('save-draft-discard')));
+        await flush(tester);
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(ComposeScreen),
+          findsNothing,
+          reason: 'one tap out, no loop back to S2',
+        );
+        final draft = await tester.runAsync(() => loadLocalDraft('PAID'));
+        expect(draft, isNull);
+      },
+    );
 
     testWidgets('U1: the primary ignores taps for 400ms after it appears', (
       tester,
     ) async {
       await open(tester, intent: 'PAID');
       await tester.tap(
-        find.descendant(of: find.byType(Keypad), matching: find.text('5')).first,
+        find
+            .descendant(of: find.byType(Keypad), matching: find.text('5'))
+            .first,
       );
       await tester.pump();
       await tester.tap(primary()); // where the 0 key used to be
@@ -841,27 +848,31 @@ void main() {
       tester,
     ) async {
       await open(tester, intent: 'PAID');
-      final zero = find.descendant(of: find.byType(Keypad), matching: find.text('0'));
+      final zero = find.descendant(
+        of: find.byType(Keypad),
+        matching: find.text('0'),
+      );
       final before = tester.getCenter(zero);
       await type(tester, '1');
       expect(primary(), findsOneWidget);
       expect(tester.getCenter(zero), before);
     });
 
-    testWidgets('1.3: share fails after issue → "הופק, השיתוף נכשל", D + S6 open', (
-      tester,
-    ) async {
-      backend.error('POST', '/documents/:id/share-link', 500, 'INTERNAL');
-      await open(tester, intent: 'PAID');
-      await type(tester, '100');
-      expect(primaryLabel(tester), ComposeHe.issueAndWhatsApp);
-      await tap(tester, primary());
-      expect(backend.calls('POST', '/documents/:id/finalize'), hasLength(1));
-      expect(routes, contains('/doc/d1'));
-      await tester.pump();
-      expect(routes, contains('S6 d1'));
-      expect(find.text(ComposeHe.issuedShareFailed), findsOneWidget);
-    });
+    testWidgets(
+      '1.3: share fails after issue → "הופק, השיתוף נכשל", D + S6 open',
+      (tester) async {
+        backend.error('POST', '/documents/:id/share-link', 500, 'INTERNAL');
+        await open(tester, intent: 'PAID');
+        await type(tester, '100');
+        expect(primaryLabel(tester), ComposeHe.issueAndWhatsApp);
+        await tap(tester, primary());
+        expect(backend.calls('POST', '/documents/:id/finalize'), hasLength(1));
+        expect(routes, contains('/doc/d1'));
+        await tester.pump();
+        expect(routes, contains('S6 d1'));
+        expect(find.text(ComposeHe.issuedShareFailed), findsOneWidget);
+      },
+    );
 
     testWidgets('1.3: quote share sheet dismissed → not marked SENT', (
       tester,
@@ -875,31 +886,37 @@ void main() {
       expect(find.text(ComposeHe.quoteNotSent), findsOneWidget);
     });
 
-    testWidgets('U5: a local draft is offered ("המשך טיוטה"), not restored silently', (
-      tester,
-    ) async {
-      await tester.runAsync(() => signInAs(backend, Preset.owner));
-      await tester.runAsync(
-        () => saveLocalDraft('PAID', {
-          'kind': 'taxInvoiceReceipt',
-          'customer': dana.toJson(),
-          'amountText': '77',
-          'description': 'ייעוץ',
-        }),
-      );
-      await open(tester, intent: 'PAID', customer: null);
-      expect(find.byKey(const Key('resume-draft-dialog')), findsOneWidget);
-      expect(find.byType(Keypad), findsNothing);
-      await tester.tap(find.byKey(const Key('resume-draft-continue')));
-      await flush(tester);
-      expect(
-        find.descendant(of: find.byKey(const Key('compose-customer')), matching: find.text(dana.name)),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('compose-amount')), findsOneWidget);
-      final amount = tester.widget<AmountDisplay>(find.byKey(const Key('compose-amount')));
-      expect(amount.keypadText, '77');
-    });
+    testWidgets(
+      'U5: a local draft is offered ("המשך טיוטה"), not restored silently',
+      (tester) async {
+        await tester.runAsync(() => signInAs(backend, Preset.owner));
+        await tester.runAsync(
+          () => saveLocalDraft('PAID', {
+            'kind': 'taxInvoiceReceipt',
+            'customer': dana.toJson(),
+            'amountText': '77',
+            'description': 'ייעוץ',
+          }),
+        );
+        await open(tester, intent: 'PAID', customer: null);
+        expect(find.byKey(const Key('resume-draft-dialog')), findsOneWidget);
+        expect(find.byType(Keypad), findsNothing);
+        await tester.tap(find.byKey(const Key('resume-draft-continue')));
+        await flush(tester);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('compose-customer')),
+            matching: find.text(dana.name),
+          ),
+          findsOneWidget,
+        );
+        expect(find.byKey(const Key('compose-amount')), findsOneWidget);
+        final amount = tester.widget<AmountDisplay>(
+          find.byKey(const Key('compose-amount')),
+        );
+        expect(amount.keypadText, '77');
+      },
+    );
   });
 }
 

@@ -50,7 +50,8 @@ String validationMessageHe(String? raw) {
 
 const Map<String, String> _mobileMessages = {
   'SUPABASE_AUTH_DISABLED': 'שירות ההתחברות עדיין לא הוגדר. פנו לתמיכה.',
-  'SUPABASE_AUTH_UNAVAILABLE': 'שירות ההתחברות לא זמין זמנית. נסו שוב בעוד רגע.',
+  'SUPABASE_AUTH_UNAVAILABLE':
+      'שירות ההתחברות לא זמין זמנית. נסו שוב בעוד רגע.',
   'SUPABASE_TOKEN_INVALID': 'לא ניתן לאמת את ההתחברות. נסו להתחבר שוב.',
   'SUPABASE_EMAIL_NOT_CONFIRMED':
       'כתובת האימייל עדיין לא אושרה. פתחו את הקישור שנשלח אליכם ואז התחברו.',
@@ -94,7 +95,8 @@ const Map<String, String> _mobileMessages = {
   'WHATSAPP_DELIVERY_UNKNOWN':
       'מצב המשלוח עדיין בבדיקה אצל הספק. אין צורך לשלוח שוב.',
   // QA 2026-11-12 (report 04 · M1): server codes the app did not map.
-  'CUSTOMER_PHONE_INVALID': 'מספר הטלפון של הלקוח אינו תקין. יש לתקן אותו בכרטיס הלקוח.',
+  'CUSTOMER_PHONE_INVALID':
+      'מספר הטלפון של הלקוח אינו תקין. יש לתקן אותו בכרטיס הלקוח.',
   'WHATSAPP_SEND_FAILED':
       'הודעת ה-WhatsApp לא נשלחה אצל הספק. אפשר לשלוח שוב או לשתף בקישור.',
   'BILLING_CONSENT_REQUIRED': 'יש לאשר את פרטי המסלול לפני ההמשך.',

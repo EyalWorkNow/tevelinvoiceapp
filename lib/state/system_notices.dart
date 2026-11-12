@@ -99,7 +99,8 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
       (syncError as ApiException).code == 'PUSH_MFA_REQUIRED';
 
   /// Hebrew text for [syncError] when it is more specific than "connection".
-  String? get problemHe => mfaRequired ? (syncError as ApiException).messageHe : null;
+  String? get problemHe =>
+      mfaRequired ? (syncError as ApiException).messageHe : null;
 
   /// Explicit sign-out: remove this device's push rows in every business it
   /// registered for, while the bearer is still valid (SessionController hook).

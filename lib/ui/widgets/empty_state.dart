@@ -49,8 +49,13 @@ class EmptyState extends StatelessWidget {
                   foregroundColor: p.ink,
                   side: BorderSide(color: p.line, width: 1.5),
                   minimumSize: const Size(Hit.min * 3, Hit.min + 4),
-                  padding: const EdgeInsets.symmetric(horizontal: Space.xl, vertical: Space.s),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.button)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Space.xl,
+                    vertical: Space.s,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(Radii.button),
+                  ),
                   textStyle: AppText.button,
                 ),
                 child: Text(actionLabel!, textAlign: TextAlign.center),

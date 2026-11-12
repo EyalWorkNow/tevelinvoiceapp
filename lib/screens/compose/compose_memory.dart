@@ -66,7 +66,8 @@ Future<Customer?> findCustomer(String id) async {
   Customer? from(Object? list) {
     if (list is! List) return null;
     for (final c in list) {
-      if (c is Map<String, dynamic> && c['id'] == id) return Customer.fromJson(c);
+      if (c is Map<String, dynamic> && c['id'] == id)
+        return Customer.fromJson(c);
     }
     return null;
   }
@@ -86,13 +87,18 @@ Future<Customer?> findCustomer(String id) async {
 /// F8: last description for [customerId] on this device → the customer's
 /// last line on the server ([lastOnServer], BE-09 `lastLineDescription`) →
 /// [businessDefault] (BE-25) → "שירותים".
-Future<String> defaultDescription(String? customerId,
-    {String? lastOnServer, String? businessDefault}) async {
+Future<String> defaultDescription(
+  String? customerId, {
+  String? lastOnServer,
+  String? businessDefault,
+}) async {
   final map = await _read('nd_desc_by_customer_$_bid');
   final last = customerId != null && map is Map ? map[customerId] : null;
   if (last is String && last.trim().isNotEmpty) return last;
-  if (lastOnServer != null && lastOnServer.trim().isNotEmpty) return lastOnServer.trim();
-  if (businessDefault != null && businessDefault.trim().isNotEmpty) return businessDefault;
+  if (lastOnServer != null && lastOnServer.trim().isNotEmpty)
+    return lastOnServer.trim();
+  if (businessDefault != null && businessDefault.trim().isNotEmpty)
+    return businessDefault;
   return ComposeHe.defaultDescription;
 }
 
@@ -110,7 +116,8 @@ Future<String> lastPaymentMethod() async {
   return v is String ? v : 'CASH';
 }
 
-Future<void> rememberPaymentMethod(String method) => cacheWrite('nd_last_method_$_bid', method);
+Future<void> rememberPaymentMethod(String method) =>
+    cacheWrite('nd_last_method_$_bid', method);
 
 /// True exactly once per device: the first successful issue (§6.C step 5).
 Future<bool> takeFirstIssueFlag() async {

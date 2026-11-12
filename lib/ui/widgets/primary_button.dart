@@ -55,7 +55,9 @@ class _PrimaryButtonState extends State<PrimaryButton> {
 
   void _register() {
     final Object? scope =
-        PrimaryScope._of(context) ?? Scaffold.maybeOf(context) ?? ModalRoute.of(context);
+        PrimaryScope._of(context) ??
+        Scaffold.maybeOf(context) ??
+        ModalRoute.of(context);
     if (identical(scope, _scope)) return;
     _unregister();
     if (scope == null) return;
@@ -66,9 +68,13 @@ class _PrimaryButtonState extends State<PrimaryButton> {
       // Reported, not thrown: throwing mid-build corrupts the element tree.
       FlutterError.reportError(
         FlutterErrorDetails(
-          exception: AssertionError('Spec F2: at most one PrimaryButton per screen or sheet.'),
+          exception: AssertionError(
+            'Spec F2: at most one PrimaryButton per screen or sheet.',
+          ),
           library: 'design system',
-          context: ErrorDescription('while registering PrimaryButton "${widget.label}"'),
+          context: ErrorDescription(
+            'while registering PrimaryButton "${widget.label}"',
+          ),
         ),
       );
     }
@@ -97,7 +103,9 @@ class _PrimaryButtonState extends State<PrimaryButton> {
         : widget.destructive
         ? (p.danger, p.onDanger)
         : (p.accent, p.accentInk);
-    final label = widget.offline ? CommonHe.offlineButton : (widget.loadingText ?? widget.label);
+    final label = widget.offline
+        ? CommonHe.offlineButton
+        : (widget.loadingText ?? widget.label);
     return Semantics(
       button: true,
       enabled: enabled,
@@ -105,7 +113,10 @@ class _PrimaryButtonState extends State<PrimaryButton> {
       label: label,
       excludeSemantics: true,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: Hit.primary, minWidth: double.infinity),
+        constraints: const BoxConstraints(
+          minHeight: Hit.primary,
+          minWidth: double.infinity,
+        ),
         child: Material(
           color: bg,
           borderRadius: BorderRadius.circular(Radii.button),
@@ -118,14 +129,20 @@ class _PrimaryButtonState extends State<PrimaryButton> {
                   }
                 : null,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Space.l, vertical: Space.m),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.l,
+                vertical: Space.m,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (loading) ...[
                     SizedBox.square(
                       dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2.5, color: fg),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: fg,
+                      ),
                     ),
                     const SizedBox(width: Space.m),
                   ] else if (widget.offline) ...[
@@ -170,7 +187,8 @@ class _PrimaryScopeState extends State<PrimaryScope> {
   final Object _token = Object();
 
   @override
-  Widget build(BuildContext context) => _PrimaryScopeMarker(token: _token, child: widget.child);
+  Widget build(BuildContext context) =>
+      _PrimaryScopeMarker(token: _token, child: widget.child);
 }
 
 class _PrimaryScopeMarker extends InheritedWidget {
@@ -179,7 +197,8 @@ class _PrimaryScopeMarker extends InheritedWidget {
   final Object token;
 
   @override
-  bool updateShouldNotify(_PrimaryScopeMarker oldWidget) => token != oldWidget.token;
+  bool updateShouldNotify(_PrimaryScopeMarker oldWidget) =>
+      token != oldWidget.token;
 }
 
 /// Bottom area for the primary button: safe area + 16, optional one-line

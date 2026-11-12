@@ -8,11 +8,16 @@ import 'models/models.dart';
 final _api = ApiClient.instance;
 
 /// GET /shaam/status (same field names as /me.shaam, BE-02).
-Future<ShaamState> fetchShaamStatus() async => ShaamState.fromJson(await _api.get('/shaam/status'));
+Future<ShaamState> fetchShaamStatus() async =>
+    ShaamState.fromJson(await _api.get('/shaam/status'));
 
 /// GET /settings/signing → what the status line needs.
 class SigningStatus {
-  const SigningStatus({required this.available, required this.configured, required this.unlocked});
+  const SigningStatus({
+    required this.available,
+    required this.configured,
+    required this.unlocked,
+  });
 
   factory SigningStatus.fromJson(Map<String, dynamic> json) => SigningStatus(
     available: json['available'] != false,

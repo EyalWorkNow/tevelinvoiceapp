@@ -25,25 +25,24 @@ Map<String, dynamic> customerJson(
   String? lastDocumentAt,
   bool walkIn = false,
   bool consent = false,
-}) =>
-    {
-      'id': id,
-      'name': name,
-      'tax_id': taxId,
-      'email': email,
-      'phone': phone,
-      'archived_at': archived ? '2026-10-01T00:00:00Z' : null,
-      'vat_dealer_status': 'UNKNOWN',
-      'customer_type': taxId == null ? 'INDIVIDUAL' : 'BUSINESS',
-      if (be09) ...{
-        'balanceMinor': balance,
-        'creditMinor': '0',
-        'lastDocumentAt': lastDocumentAt,
-        'lastLineDescription': null,
-        'isWalkIn': walkIn,
-        'consent': {'granted': consent},
-      },
-    };
+}) => {
+  'id': id,
+  'name': name,
+  'tax_id': taxId,
+  'email': email,
+  'phone': phone,
+  'archived_at': archived ? '2026-10-01T00:00:00Z' : null,
+  'vat_dealer_status': 'UNKNOWN',
+  'customer_type': taxId == null ? 'INDIVIDUAL' : 'BUSINESS',
+  if (be09) ...{
+    'balanceMinor': balance,
+    'creditMinor': '0',
+    'lastDocumentAt': lastDocumentAt,
+    'lastLineDescription': null,
+    'isWalkIn': walkIn,
+    'consent': {'granted': consent},
+  },
+};
 
 /// GET /expenses/inbox row.
 Map<String, dynamic> expenseJson(
@@ -57,25 +56,24 @@ Map<String, dynamic> expenseJson(
   String? duplicateOf,
   String? extractionSource,
   String filename = 'r.jpg',
-}) =>
-    {
-      'id': id,
-      'status': status,
-      'supplier_name': supplierName,
-      'supplier_tax_id': null,
-      'external_document_number': null,
-      'expense_date': date,
-      'currency': 'ILS',
-      'subtotal_minor': null,
-      'vat_minor': vat,
-      'total_minor': total,
-      'duplicate_of_expense_id': duplicateOf,
-      'supplier_id': null,
-      'category_id': categoryId,
-      'allocation_number': null,
-      'extraction_source': extractionSource,
-      'original_filename': filename,
-    };
+}) => {
+  'id': id,
+  'status': status,
+  'supplier_name': supplierName,
+  'supplier_tax_id': null,
+  'external_document_number': null,
+  'expense_date': date,
+  'currency': 'ILS',
+  'subtotal_minor': null,
+  'vat_minor': vat,
+  'total_minor': total,
+  'duplicate_of_expense_id': duplicateOf,
+  'supplier_id': null,
+  'category_id': categoryId,
+  'allocation_number': null,
+  'extraction_source': extractionSource,
+  'original_filename': filename,
+};
 
 /// Live state of the people fakes (tests read and change it).
 class PeopleFakeState {
@@ -118,51 +116,84 @@ PeopleFakeState installPeopleFakes(
     ..items.addAll(items)
     ..expenses.addAll(expenses)
     ..documents.addAll(documents)
-    ..categories.addAll(categories ??
-        [
-          {'id': 'cat-1', 'name': 'משרד', 'is_default': true},
-          {'id': 'cat-2', 'name': 'רכב', 'is_default': true},
-        ]);
+    ..categories.addAll(
+      categories ??
+          [
+            {'id': 'cat-1', 'name': 'משרד', 'is_default': true},
+            {'id': 'cat-2', 'name': 'רכב', 'is_default': true},
+          ],
+    );
 
   backend
-    ..on('GET', '/customers', (_) => FakeResponse(200, {'customers': s.customers}))
+    ..on(
+      'GET',
+      '/customers',
+      (_) => FakeResponse(200, {'customers': s.customers}),
+    )
     ..on('POST', '/customers', (r) {
       final id = s.nextId('c');
-      s.customers.add(customerJson(id, r.body['name'] as String,
+      s.customers.add(
+        customerJson(
+          id,
+          r.body['name'] as String,
           phone: r.body['phone'] as String?,
           email: r.body['email'] as String?,
           taxId: r.body['taxId'] as String?,
-          be09: be09));
+          be09: be09,
+        ),
+      );
       final vat = r.body['vatDealerStatus'];
       if (vat != null) s.customers.last['vat_dealer_status'] = vat;
       return FakeResponse(201, {'id': id});
     })
     ..on('PATCH', '/customers/:id', (r) {
-      final c = s.customers.firstWhere((c) => c['id'] == r.params['id'], orElse: () => {});
+      final c = s.customers.firstWhere(
+        (c) => c['id'] == r.params['id'],
+        orElse: () => {},
+      );
       if (c.isEmpty) return FakeResponse.error(404, 'CUSTOMER_NOT_FOUND');
       for (final e in r.body.entries) {
-        c[switch (e.key) { 'taxId' => 'tax_id', 'customerType' => 'customer_type', 'vatDealerStatus' => 'vat_dealer_status', _ => e.key }] = e.value;
+        c[switch (e.key) {
+              'taxId' => 'tax_id',
+              'customerType' => 'customer_type',
+              'vatDealerStatus' => 'vat_dealer_status',
+              _ => e.key,
+            }] =
+            e.value;
       }
       return FakeResponse(200, {'id': c['id']});
     })
     ..on('POST', '/customers/:id/archive', (r) {
       for (final c in s.customers) {
-        if (c['id'] == r.params['id']) c['archived_at'] = '2026-10-30T00:00:00Z';
+        if (c['id'] == r.params['id'])
+          c['archived_at'] = '2026-10-30T00:00:00Z';
       }
       return const FakeResponse(200, {'archived': true});
     })
-    ..on('POST', '/customers/:id/consent', (_) => const FakeResponse(201, {'consentId': 'k1'}))
+    ..on(
+      'POST',
+      '/customers/:id/consent',
+      (_) => const FakeResponse(201, {'consentId': 'k1'}),
+    )
     ..on('GET', '/documents', (r) {
       final q = r.query;
       final rows = [
         for (final d in s.documents)
           if ((q['customerId'] == null || d['customerId'] == q['customerId']) &&
-              (q['unpaid'] != '1' || BigInt.parse('${d['openMinor'] ?? d['balanceMinor'] ?? '0'}') > BigInt.zero))
-            d
+              (q['unpaid'] != '1' ||
+                  BigInt.parse(
+                        '${d['openMinor'] ?? d['balanceMinor'] ?? '0'}',
+                      ) >
+                      BigInt.zero))
+            d,
       ];
       return FakeResponse(200, {'total': rows.length, 'documents': rows});
     })
-    ..on('GET', '/suppliers', (_) => FakeResponse(200, {'suppliers': s.suppliers}))
+    ..on(
+      'GET',
+      '/suppliers',
+      (_) => FakeResponse(200, {'suppliers': s.suppliers}),
+    )
     ..on('POST', '/suppliers', (r) {
       final id = s.nextId('s');
       s.suppliers.add({
@@ -190,9 +221,21 @@ PeopleFakeState installPeopleFakes(
       });
       return FakeResponse(201, {'id': id});
     })
-    ..on('GET', '/expenses/inbox', (_) => FakeResponse(200, {'expenses': s.expenses}))
-    ..on('GET', '/expense-categories', (_) => FakeResponse(200, {'categories': s.categories}))
-    ..on('POST', '/expenses/:id/extract', (_) => FakeResponse.error(503, 'EXTRACTION_UNAVAILABLE'))
+    ..on(
+      'GET',
+      '/expenses/inbox',
+      (_) => FakeResponse(200, {'expenses': s.expenses}),
+    )
+    ..on(
+      'GET',
+      '/expense-categories',
+      (_) => FakeResponse(200, {'categories': s.categories}),
+    )
+    ..on(
+      'POST',
+      '/expenses/:id/extract',
+      (_) => FakeResponse.error(503, 'EXTRACTION_UNAVAILABLE'),
+    )
     ..on('PATCH', '/expenses/:id/draft', (r) {
       final e = s.expense(r.params['id']!);
       if (e == null) return FakeResponse.error(404, 'EXPENSE_NOT_FOUND');
@@ -207,14 +250,23 @@ PeopleFakeState installPeopleFakes(
         ..['category_id'] = b['categoryId']
         ..['external_document_number'] = b['documentNumber']
         ..['extraction_source'] = 'MANUAL';
-      final ready = b['supplierName'] != null && b['total'] != null && b['documentDate'] != null;
+      final ready =
+          b['supplierName'] != null &&
+          b['total'] != null &&
+          b['documentDate'] != null;
       e['status'] = ready ? 'READY_TO_APPROVE' : 'NEEDS_REVIEW';
-      return FakeResponse(200, {'status': e['status'], 'errors': [], 'warnings': [], 'taxIdValid': null});
+      return FakeResponse(200, {
+        'status': e['status'],
+        'errors': [],
+        'warnings': [],
+        'taxIdValid': null,
+      });
     })
     ..on('POST', '/expenses/:id/approve', (r) {
       final e = s.expense(r.params['id']!);
       if (e == null) return FakeResponse.error(404, 'EXPENSE_NOT_FOUND');
-      if (e['status'] != 'READY_TO_APPROVE') return FakeResponse.error(422, 'EXPENSE_VALIDATION_FAILED');
+      if (e['status'] != 'READY_TO_APPROVE')
+        return FakeResponse.error(422, 'EXPENSE_VALIDATION_FAILED');
       e['status'] = 'APPROVED';
       return const FakeResponse(200, {'status': 'APPROVED'});
     })
@@ -230,11 +282,18 @@ PeopleFakeState installPeopleFakes(
       s.expense(r.params['id']!)?['status'] = 'NEEDS_REVIEW';
       return const FakeResponse(200, {'status': 'NEEDS_REVIEW'});
     })
-    ..on('GET', '/expenses/:id/source', (_) => const FakeResponse(200, <int>[0x25, 0x50, 0x44, 0x46]));
+    ..on(
+      'GET',
+      '/expenses/:id/source',
+      (_) => const FakeResponse(200, <int>[0x25, 0x50, 0x44, 0x46]),
+    );
 
   if (be09) {
     backend.on('GET', '/customers/:id', (r) {
-      final c = s.customers.firstWhere((c) => c['id'] == r.params['id'], orElse: () => {});
+      final c = s.customers.firstWhere(
+        (c) => c['id'] == r.params['id'],
+        orElse: () => {},
+      );
       if (c.isEmpty) return FakeResponse.error(404, 'CUSTOMER_NOT_FOUND');
       return FakeResponse(200, {
         'customer': {
@@ -244,7 +303,11 @@ PeopleFakeState installPeopleFakes(
           'paymentTerms': c['paymentTerms'] ?? 'EOM_30',
           'notes': c['notes'],
           'accountKey': c['accountKey'],
-          'consent': {'granted': c['consent']?['granted'] ?? false, 'method': null, 'at': null},
+          'consent': {
+            'granted': c['consent']?['granted'] ?? false,
+            'method': null,
+            'at': null,
+          },
         },
         'stats': {
           'openMinor': c['balanceMinor'] ?? '0',
@@ -267,7 +330,9 @@ PeopleFakeState installPeopleFakes(
     backend
       ..on('GET', '/suppliers/:id', (r) {
         final x = supplier(r.params['id']);
-        return x == null ? FakeResponse.error(404, 'SUPPLIER_NOT_FOUND') : FakeResponse(200, {'supplier': x});
+        return x == null
+            ? FakeResponse.error(404, 'SUPPLIER_NOT_FOUND')
+            : FakeResponse(200, {'supplier': x});
       })
       ..on('PATCH', '/suppliers/:id', (r) {
         final x = supplier(r.params['id']);
@@ -284,10 +349,25 @@ PeopleFakeState installPeopleFakes(
   }
   if (be17) {
     backend
-      ..on('GET', '/customers/:id/statement',
-          (r) => FakeResponse(200, {'customerId': r.params['id'], 'openingMinor': '0', 'lines': []}))
-      ..on('GET', '/customers/:id/statement.pdf', (_) => const FakeResponse(200, <int>[0x25, 0x50, 0x44, 0x46]))
-      ..on('POST', '/customers/:id/statement/send', (_) => const FakeResponse(202, {'deliveryId': 'dl-1'}));
+      ..on(
+        'GET',
+        '/customers/:id/statement',
+        (r) => FakeResponse(200, {
+          'customerId': r.params['id'],
+          'openingMinor': '0',
+          'lines': [],
+        }),
+      )
+      ..on(
+        'GET',
+        '/customers/:id/statement.pdf',
+        (_) => const FakeResponse(200, <int>[0x25, 0x50, 0x44, 0x46]),
+      )
+      ..on(
+        'POST',
+        '/customers/:id/statement/send',
+        (_) => const FakeResponse(202, {'deliveryId': 'dl-1'}),
+      );
   }
   if (be44) {
     backend
@@ -298,14 +378,15 @@ PeopleFakeState installPeopleFakes(
             if (e['status'] != 'DELETED' &&
                 (r.query['mine'] != '1' || e['created_by'] == 'u-me') &&
                 (q.isEmpty || '${e['supplier_name'] ?? ''}'.contains(q)))
-              e
+              e,
         ];
         return FakeResponse(200, {'total': rows.length, 'expenses': rows});
       })
       ..on('PATCH', '/expenses/:id', (r) {
         final e = s.expense(r.params['id']!);
         if (e == null) return FakeResponse.error(404, 'EXPENSE_NOT_FOUND');
-        String? amount(String k) => (r.body[k] as Map?)?['amountMinor'] as String?;
+        String? amount(String k) =>
+            (r.body[k] as Map?)?['amountMinor'] as String?;
         e
           ..['supplier_name'] = r.body['supplierName']
           ..['expense_date'] = r.body['documentDate']

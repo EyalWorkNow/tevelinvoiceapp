@@ -220,11 +220,19 @@ Future<void> runInboxAction(
   }
 }
 
-void _toast(BuildContext context, String text, {SnackBarAction? action, NoticeMotion motion = NoticeMotion.saved}) {
+void _toast(
+  BuildContext context,
+  String text, {
+  SnackBarAction? action,
+  NoticeMotion motion = NoticeMotion.saved,
+}) {
   if (!context.mounted) return;
   ScaffoldMessenger.of(context)
     ..hideCurrentNotchNotice()
-    ..showNotchNotice(SnackBar(content: Text(text), action: action), motion: motion);
+    ..showNotchNotice(
+      SnackBar(content: Text(text), action: action),
+      motion: motion,
+    );
 }
 
 Future<void> _retryAllocation(
@@ -236,7 +244,8 @@ Future<void> _retryAllocation(
     await retryAllocation(c.documentIds);
     if (context.mounted) _toast(context, InboxHe.allocationRetried);
   } on ApiException catch (e) {
-    if (context.mounted) _toast(context, e.messageHe, motion: NoticeMotion.error);
+    if (context.mounted)
+      _toast(context, e.messageHe, motion: NoticeMotion.error);
   }
   onChanged();
 }
@@ -260,7 +269,8 @@ Future<void> _signAll(
       _toast(context, InboxHe.signedDone(signed), motion: NoticeMotion.signed);
     }
   } on ApiException catch (e) {
-    if (context.mounted) _toast(context, e.messageHe, motion: NoticeMotion.error);
+    if (context.mounted)
+      _toast(context, e.messageHe, motion: NoticeMotion.error);
   }
   onChanged();
 }
@@ -269,9 +279,11 @@ Future<void> _signAll(
 Future<void> _continueOnComputer(BuildContext context) async {
   try {
     await sendWebHandoff('TAX_AUTHORITY', InboxHe.handoffShaam);
-    if (context.mounted) _toast(context, InboxHe.handoffSent, motion: NoticeMotion.sent);
+    if (context.mounted)
+      _toast(context, InboxHe.handoffSent, motion: NoticeMotion.sent);
   } on ApiException catch (e) {
-    if (context.mounted) _toast(context, e.messageHe, motion: NoticeMotion.error);
+    if (context.mounted)
+      _toast(context, e.messageHe, motion: NoticeMotion.error);
   }
 }
 
@@ -286,7 +298,8 @@ Future<void> runReminders(
   try {
     overdue = await fetchOverdueDocuments();
   } on ApiException catch (e) {
-    if (context.mounted) _toast(context, e.messageHe, motion: NoticeMotion.error);
+    if (context.mounted)
+      _toast(context, e.messageHe, motion: NoticeMotion.error);
     return;
   }
   if (!context.mounted) return;
@@ -306,7 +319,8 @@ Future<void> runReminders(
       only: chosen,
     );
   } on ApiException catch (e) {
-    if (context.mounted) _toast(context, e.messageHe, motion: NoticeMotion.error);
+    if (context.mounted)
+      _toast(context, e.messageHe, motion: NoticeMotion.error);
     return;
   }
   if (!context.mounted) return;
@@ -412,7 +426,11 @@ Future<void> showWhatsAppReminders(
                     );
                   } on ApiException catch (e) {
                     if (dialogContext.mounted) {
-                      _toast(dialogContext, e.messageHe, motion: NoticeMotion.error);
+                      _toast(
+                        dialogContext,
+                        e.messageHe,
+                        motion: NoticeMotion.error,
+                      );
                     }
                   }
                 },

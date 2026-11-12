@@ -71,24 +71,31 @@ void main() {
     expect(line, '₪12.71 + ₪2.29 \u2067מע״מ\u2069 = ₪15');
   });
 
-  test('/tax-rates is cache-first: a slow server does not hold the Composer', () async {
-    await signInAs(backend, Preset.owner);
-    backend.json('GET', '/tax-rates', {
-      'rates': [
-        {'tax_code': 'VAT', 'rate_basis_points': 1700},
-      ],
-    });
-    expect(await fetchVatRate(), 1700, reason: 'nothing cached: the server');
+  test(
+    '/tax-rates is cache-first: a slow server does not hold the Composer',
+    () async {
+      await signInAs(backend, Preset.owner);
+      backend.json('GET', '/tax-rates', {
+        'rates': [
+          {'tax_code': 'VAT', 'rate_basis_points': 1700},
+        ],
+      });
+      expect(await fetchVatRate(), 1700, reason: 'nothing cached: the server');
 
-    final never = Completer<FakeResponse>();
-    backend.on('GET', '/tax-rates', (_) => never.future);
-    final rate = await fetchVatRate().timeout(
-      const Duration(seconds: 2),
-      onTimeout: () => -1,
-    );
-    expect(rate, 1700, reason: 'cached rate returned without waiting');
-    await Future<void>.delayed(const Duration(milliseconds: 20));
-    never.complete(const FakeResponse(200, {'rates': []}));
-    expect(backend.calls('GET', '/tax-rates'), hasLength(2), reason: 'refreshed in the background');
-  });
+      final never = Completer<FakeResponse>();
+      backend.on('GET', '/tax-rates', (_) => never.future);
+      final rate = await fetchVatRate().timeout(
+        const Duration(seconds: 2),
+        onTimeout: () => -1,
+      );
+      expect(rate, 1700, reason: 'cached rate returned without waiting');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      never.complete(const FakeResponse(200, {'rates': []}));
+      expect(
+        backend.calls('GET', '/tax-rates'),
+        hasLength(2),
+        reason: 'refreshed in the background',
+      );
+    },
+  );
 }

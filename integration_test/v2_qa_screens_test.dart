@@ -33,7 +33,10 @@ import 'package:invoice/ui/widgets/keypad.dart';
 import 'package:invoice/state/session.dart';
 import 'qa_plans_guard.dart';
 
-const email = String.fromEnvironment('EMAIL', defaultValue: 'mobile-owner@tevel.test');
+const email = String.fromEnvironment(
+  'EMAIL',
+  defaultValue: 'mobile-owner@tevel.test',
+);
 const mailDir = String.fromEnvironment('MAILDIR');
 const password = 'Mobile12345678';
 
@@ -53,13 +56,21 @@ Future<void> shot(WidgetTester tester, String name) async {
 String? latestCode(String to, DateTime since) {
   final dir = Directory(mailDir);
   if (mailDir.isEmpty || !dir.existsSync()) return null;
-  final files = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.json')).toList()
-    ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+  final files =
+      dir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.json'))
+          .toList()
+        ..sort(
+          (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
+        );
   for (final f in files) {
     if (f.statSync().modified.isBefore(since)) break;
     final m = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
     final subject = '${m['subject']}';
-    if (m['to'] == to && RegExp(r'^\d{6}').hasMatch(subject)) return subject.substring(0, 6);
+    if (m['to'] == to && RegExp(r'^\d{6}').hasMatch(subject))
+      return subject.substring(0, 6);
   }
   return null;
 }
@@ -71,7 +82,11 @@ Future<void> back(WidgetTester tester) async {
   await pumpFor(tester, const Duration(seconds: 1));
 }
 
-Future<String?> firstId(String path, String key, bool Function(Map<String, dynamic>) where) async {
+Future<String?> firstId(
+  String path,
+  String key,
+  bool Function(Map<String, dynamic>) where,
+) async {
   try {
     final json = await ApiClient.instance.get(path);
     for (final r in (json[key] as List? ?? const [])) {
@@ -129,15 +144,20 @@ void main() {
         }
         expect(code, isNotNull, reason: 'no MFA e-mail for $email in $mailDir');
         await shot(tester, '02-mfa');
-        final field = find.descendant(of: find.byType(CodeBoxes), matching: find.byType(TextField));
+        final field = find.descendant(
+          of: find.byType(CodeBoxes),
+          matching: find.byType(TextField),
+        );
         await tester.enterText(field, code!);
         mfaDone = true;
       }
       if (find.byType(SwitchBusinessSheet).evaluate().isNotEmpty) {
         await shot(tester, '03-s14-switch');
-        final rows = find.byWidgetPredicate((w) =>
-            w.key is ValueKey<String> &&
-            (w.key! as ValueKey<String>).value.startsWith('s14-3b773037'));
+        final rows = find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              (w.key! as ValueKey<String>).value.startsWith('s14-3b773037'),
+        );
         await tester.tap(rows.first, warnIfMissed: false);
       }
     }
@@ -167,7 +187,10 @@ void main() {
       if (intent == 'PAID') {
         // An amount (typed, never submitted) reveals the summary with "פרטים נוספים".
         for (final ch in '1180'.split('')) {
-          final key = find.descendant(of: find.byType(Keypad), matching: find.text(ch));
+          final key = find.descendant(
+            of: find.byType(Keypad),
+            matching: find.text(ch),
+          );
           if (key.evaluate().isNotEmpty) await tester.tap(key.first);
           await tester.pump(const Duration(milliseconds: 80));
         }
@@ -185,8 +208,12 @@ void main() {
     await composeShots('PAID', '07-compose-paid');
     await composeShots('REQUEST', '08-compose-request');
 
-    final docId = await firstId('/documents', 'documents',
-        (m) => m['documentType'] == 'TAX_INVOICE_RECEIPT' && m['status'] != 'DRAFT');
+    final docId = await firstId(
+      '/documents',
+      'documents',
+      (m) =>
+          m['documentType'] == 'TAX_INVOICE_RECEIPT' && m['status'] != 'DRAFT',
+    );
     if (docId != null) {
       unawaited(openDocument(ctx, docId));
       await shot(tester, '09-document');
@@ -200,10 +227,14 @@ void main() {
     }
 
     // S5 / S6 / S8 over an open חשבונית מס (opened only; nothing is submitted).
-    final openId = await firstId('/documents?limit=200', 'documents', (m) =>
-        const {'FINALIZED', 'ARCHIVED', 'SENT'}.contains(m['status']) &&
-        m['documentType'] == 'TAX_INVOICE' &&
-        (num.tryParse('${m['openMinor'] ?? 0}') ?? 0) > 0);
+    final openId = await firstId(
+      '/documents?limit=200',
+      'documents',
+      (m) =>
+          const {'FINALIZED', 'ARCHIVED', 'SENT'}.contains(m['status']) &&
+          m['documentType'] == 'TAX_INVOICE' &&
+          (num.tryParse('${m['openMinor'] ?? 0}') ?? 0) > 0,
+    );
     if (openId != null) {
       for (final (name, open) in <(String, Future<Object?> Function())>[
         ('09b-s5-payment', () => showPaymentSheet(ctx, documentId: openId)),
@@ -242,9 +273,15 @@ void main() {
 
     await tester.tap(find.byKey(const Key('tab-business')));
     await shot(tester, '15-business');
-    for (final s in [BusinessSection.team, BusinessSection.profile, BusinessSection.branding,
-      BusinessSection.approvals, BusinessSection.shaam, BusinessSection.account,
-      BusinessSection.desktop]) {
+    for (final s in [
+      BusinessSection.team,
+      BusinessSection.profile,
+      BusinessSection.branding,
+      BusinessSection.approvals,
+      BusinessSection.shaam,
+      BusinessSection.account,
+      BusinessSection.desktop,
+    ]) {
       unawaited(openBusinessSection(ctx, s));
       await shot(tester, '16-business-${s.name}');
       await back(tester);

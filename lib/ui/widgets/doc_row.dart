@@ -325,7 +325,11 @@ class _InitialsAvatar extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: initials.isEmpty
-          ? const Icon(Icons.person_outline_rounded, size: 20, color: Colors.black87)
+          ? const Icon(
+              Icons.person_outline_rounded,
+              size: 20,
+              color: Colors.black87,
+            )
           : Text(
               initials,
               maxLines: 1,

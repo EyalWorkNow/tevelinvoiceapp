@@ -7,18 +7,31 @@ import 'json.dart';
 import 'me.dart';
 
 /// The 4 presets an owner can pick in an invitation (§4.3), in display order.
-const List<Preset> invitablePresets = [Preset.employee, Preset.partner, Preset.accountantRep, Preset.viewer];
+const List<Preset> invitablePresets = [
+  Preset.employee,
+  Preset.partner,
+  Preset.accountantRep,
+  Preset.viewer,
+];
 
 /// Server role + explicit grants for a preset (P0, §4.3; BE-41 sends both).
 /// [issuer] only matters for [Preset.employee] ("מפיק בעצמו").
-(String role, List<String> grants) presetToServer(Preset preset, {bool issuer = false}) => switch (preset) {
+(String role, List<String> grants) presetToServer(
+  Preset preset, {
+  bool issuer = false,
+}) => switch (preset) {
   Preset.partner => ('ADMIN', const []),
   Preset.employee || Preset.employeeIssuer => (
     'EMPLOYEE',
     // + allocation:request (BE-03: retry / manual allocation number is gated on it).
-    issuer || preset == Preset.employeeIssuer ? const ['document:finalize', 'payment:record', 'allocation:request'] : const [],
+    issuer || preset == Preset.employeeIssuer
+        ? const ['document:finalize', 'payment:record', 'allocation:request']
+        : const [],
   ),
-  Preset.accountantRep => ('READ_ONLY', const ['expense:record', 'expense:approve']),
+  Preset.accountantRep => (
+    'READ_ONLY',
+    const ['expense:record', 'expense:approve'],
+  ),
   Preset.viewer => ('READ_ONLY', const []),
   Preset.accountantFull => ('ACCOUNTANT', const []),
   Preset.owner => ('OWNER', const []),
@@ -26,17 +39,27 @@ const List<Preset> invitablePresets = [Preset.employee, Preset.partner, Preset.a
 
 /// Preset of a server role + explicit grants (same derivation as the app's own caps).
 Preset presetOf(String role, List<String> grants) => Caps.fromMe(
-  Me(userId: '', role: role, permissions: {...?rolePermissionsFallback[role], ...grants}.toList()),
+  Me(
+    userId: '',
+    role: role,
+    permissions: {...?rolePermissionsFallback[role], ...grants}.toList(),
+  ),
 ).preset;
 
 /// True when [grants] are not exactly what [presetOf] implies (§12.4 "מותאם אישית").
 bool hasCustomGrants(String role, List<String> grants) {
   final base = (rolePermissionsFallback[role] ?? const <String>[]).toSet();
   // ACCOUNTANT_REP (BE-04) already holds the accountant grants in its role.
-  final expected = presetToServer(presetOf(role, grants)).$2.toSet().difference(base);
+  final expected = presetToServer(
+    presetOf(role, grants),
+  ).$2.toSet().difference(base);
   // A pre-BE-03 self-issuer (no allocation:request yet) is still the preset.
   final extra = grants.toSet().difference(base)
-    ..addAll(expected.contains('allocation:request') ? const ['allocation:request'] : const []);
+    ..addAll(
+      expected.contains('allocation:request')
+          ? const ['allocation:request']
+          : const [],
+    );
   return extra.length != expected.length || !extra.containsAll(expected);
 }
 
@@ -76,7 +99,8 @@ class TeamMember {
   final String? lastLoginAt;
   final bool isSelf;
 
-  String get name => (displayName ?? '').trim().isEmpty ? email : displayName!.trim();
+  String get name =>
+      (displayName ?? '').trim().isEmpty ? email : displayName!.trim();
   Preset get preset => presetOf(role, grants);
   bool get custom => hasCustomGrants(role, grants);
   bool get isOwner => preset == Preset.owner;
@@ -125,11 +149,16 @@ class TeamInvitation {
 
 /// GET /business/members.
 class TeamList {
-  const TeamList({this.members = const [], this.invitations = const [], this.expired = const []});
+  const TeamList({
+    this.members = const [],
+    this.invitations = const [],
+    this.expired = const [],
+  });
 
   factory TeamList.fromJson(Map<String, dynamic> json) => TeamList(
     members: [
-      for (final m in (json['members'] as List? ?? const [])) TeamMember.fromJson(m as Map<String, dynamic>),
+      for (final m in (json['members'] as List? ?? const []))
+        TeamMember.fromJson(m as Map<String, dynamic>),
     ],
     invitations: [
       for (final i in (json['invitations'] as List? ?? const []))
@@ -161,13 +190,20 @@ class TeamList {
 
 /// POST /business/members/invite and /business/invitations/:id/resend.
 class InviteResult {
-  const InviteResult({required this.invitationId, this.inviteUrl, this.link, this.grantsStored});
+  const InviteResult({
+    required this.invitationId,
+    this.inviteUrl,
+    this.link,
+    this.grantsStored,
+  });
 
   factory InviteResult.fromJson(Map<String, dynamic> json) => InviteResult(
     invitationId: jStr(json['invitationId']) ?? '',
     inviteUrl: jStr(json['inviteUrl']),
     link: jStr(json['link']),
-    grantsStored: json['permissions'] is List ? jStrings(json['permissions']) : null,
+    grantsStored: json['permissions'] is List
+        ? jStrings(json['permissions'])
+        : null,
   );
 
   final String invitationId;
@@ -195,14 +231,15 @@ class InvitationPreview {
     required this.accountExists,
   });
 
-  factory InvitationPreview.fromJson(Map<String, dynamic> json) => InvitationPreview(
-    email: jStr(json['email']) ?? '',
-    role: jStr(json['role']) ?? 'EMPLOYEE',
-    grants: jStrings(json['permissions']),
-    businessName: jStr(json['businessName']) ?? '',
-    inviterName: jStr(json['inviterName']) ?? '',
-    accountExists: jBool(json['accountExists']),
-  );
+  factory InvitationPreview.fromJson(Map<String, dynamic> json) =>
+      InvitationPreview(
+        email: jStr(json['email']) ?? '',
+        role: jStr(json['role']) ?? 'EMPLOYEE',
+        grants: jStrings(json['permissions']),
+        businessName: jStr(json['businessName']) ?? '',
+        inviterName: jStr(json['inviterName']) ?? '',
+        accountExists: jBool(json['accountExists']),
+      );
 
   final String email;
   final String role;

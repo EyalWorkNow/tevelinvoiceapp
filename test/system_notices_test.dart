@@ -26,16 +26,21 @@ void main() {
     },
   );
 
-  test('push refused for a device token without MFA gets its own clear code', () {
-    final mapped = SystemNotices.pushRegistrationError(ApiException(
-      400,
-      'VALIDATION',
-      'x',
-      serverMessage: 'a current device credential is required',
-    ));
-    expect(mapped.code, 'PUSH_MFA_REQUIRED');
-    expect(mapped.messageHe, contains('אימות דו-שלבי'));
-    final other = ApiException(503, 'SERVICE_UNAVAILABLE', 'x');
-    expect(SystemNotices.pushRegistrationError(other), same(other));
-  });
+  test(
+    'push refused for a device token without MFA gets its own clear code',
+    () {
+      final mapped = SystemNotices.pushRegistrationError(
+        ApiException(
+          400,
+          'VALIDATION',
+          'x',
+          serverMessage: 'a current device credential is required',
+        ),
+      );
+      expect(mapped.code, 'PUSH_MFA_REQUIRED');
+      expect(mapped.messageHe, contains('אימות דו-שלבי'));
+      final other = ApiException(503, 'SERVICE_UNAVAILABLE', 'x');
+      expect(SystemNotices.pushRegistrationError(other), same(other));
+    },
+  );
 }

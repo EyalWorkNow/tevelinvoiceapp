@@ -274,10 +274,8 @@ class _BrandingScreenState extends State<BrandingScreen> {
     ),
   );
   @override
-  Widget build(BuildContext context) => UnsavedChangesGuard(
-    dirty: _dirty,
-    child: _page(context),
-  );
+  Widget build(BuildContext context) =>
+      UnsavedChangesGuard(dirty: _dirty, child: _page(context));
 
   Widget _page(BuildContext context) => Scaffold(
     body: SafeArea(

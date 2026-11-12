@@ -67,10 +67,18 @@ class ExpenseReviewCard extends StatefulWidget {
 class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
   late ExpenseDraft _draft = ExpenseDraft.fromRow(widget.row);
   late final _amount = TextEditingController(
-      text: widget.row.totalMinor == null ? '' : agorotToKeypadText(widget.row.totalMinor!));
+    text: widget.row.totalMinor == null
+        ? ''
+        : agorotToKeypadText(widget.row.totalMinor!),
+  );
   late final _vat = TextEditingController(
-      text: widget.row.vatMinor == null ? '' : agorotToKeypadText(widget.row.vatMinor!));
-  late final _docNumber = TextEditingController(text: widget.row.documentNumber ?? '');
+    text: widget.row.vatMinor == null
+        ? ''
+        : agorotToKeypadText(widget.row.vatMinor!),
+  );
+  late final _docNumber = TextEditingController(
+    text: widget.row.documentNumber ?? '',
+  );
   late final Future<Uint8List> _source = widget.loadSource(widget.row.id);
   bool _more = false;
   bool _attempted = false;
@@ -81,7 +89,11 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
     super.initState();
     final hint = captureSupplierHints[widget.row.id];
     if (hint != null && (_draft.supplierName ?? '').isEmpty) {
-      _draft = _draft.copyWith(supplierId: hint.id, supplierName: hint.name, supplierTaxId: hint.taxId);
+      _draft = _draft.copyWith(
+        supplierId: hint.id,
+        supplierName: hint.name,
+        supplierTaxId: hint.taxId,
+      );
     }
     if (_draft.categoryId == null && !widget.editApproved) _prefillCategory();
   }
@@ -95,7 +107,9 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
     setState(() {
       _draft = ExpenseDraft(
         supplierId: _draft.supplierId ?? r.supplierId,
-        supplierName: (_draft.supplierName ?? '').isEmpty ? r.supplierName : _draft.supplierName,
+        supplierName: (_draft.supplierName ?? '').isEmpty
+            ? r.supplierName
+            : _draft.supplierName,
         supplierTaxId: _draft.supplierTaxId ?? r.supplierTaxId,
         documentNumber: _draft.documentNumber ?? r.documentNumber,
         documentDate: _draft.documentDate ?? r.expenseDate,
@@ -105,16 +119,20 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
         allocationNumber: r.allocationNumber,
         currency: r.currency,
       );
-      if (_amount.text.isEmpty && r.totalMinor != null) _amount.text = agorotToKeypadText(r.totalMinor!);
-      if (_vat.text.isEmpty && r.vatMinor != null) _vat.text = agorotToKeypadText(r.vatMinor!);
-      if (_docNumber.text.isEmpty && r.documentNumber != null) _docNumber.text = r.documentNumber!;
+      if (_amount.text.isEmpty && r.totalMinor != null)
+        _amount.text = agorotToKeypadText(r.totalMinor!);
+      if (_vat.text.isEmpty && r.vatMinor != null)
+        _vat.text = agorotToKeypadText(r.vatMinor!);
+      if (_docNumber.text.isEmpty && r.documentNumber != null)
+        _docNumber.text = r.documentNumber!;
     });
   }
 
   Future<void> _prefillCategory() async {
     final id = await lastExpenseCategory(_draft.supplierName);
     if (id == null || !mounted || _draft.categoryId != null) return;
-    if (widget.categories.any((c) => c.id == id)) setState(() => _draft = _draft.copyWith(categoryId: id));
+    if (widget.categories.any((c) => c.id == id))
+      setState(() => _draft = _draft.copyWith(categoryId: id));
   }
 
   @override
@@ -157,7 +175,8 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
     final draft = _current;
     final missing = draft.missing();
     final vat = draft.vatMinor;
-    final vatBad = vat != null && draft.totalMinor != null && vat > draft.totalMinor!;
+    final vatBad =
+        vat != null && draft.totalMinor != null && vat > draft.totalMinor!;
     if (missing.isNotEmpty || vatBad) {
       HapticFeedback.heavyImpact();
       setState(() {
@@ -166,9 +185,19 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
       });
       ScaffoldMessenger.of(context)
         ..hideCurrentNotchNotice()
-        ..showNotchNotice(SnackBar(
-            content: Text(ExpenseHe.missing(
-                [for (final m in missing) _fieldWords[m]!, if (vatBad) ExpenseHe.vat].join(', ')))), motion: NoticeMotion.error);
+        ..showNotchNotice(
+          SnackBar(
+            content: Text(
+              ExpenseHe.missing(
+                [
+                  for (final m in missing) _fieldWords[m]!,
+                  if (vatBad) ExpenseHe.vat,
+                ].join(', '),
+              ),
+            ),
+          ),
+          motion: NoticeMotion.error,
+        );
       return;
     }
     setState(() => _busy = true);
@@ -180,13 +209,16 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
       } else {
         await saveExpenseDraft(widget.row.id, draft);
       }
-      if (draft.categoryId != null) await rememberExpenseCategory(draft.supplierName, draft.categoryId!);
+      if (draft.categoryId != null)
+        await rememberExpenseCategory(draft.supplierName, draft.categoryId!);
       HapticFeedback.mediumImpact();
-      widget.onDone(widget.editApproved
-          ? ExpenseHe.updated
-          : widget.approver
-              ? ExpenseHe.approved
-              : ExpenseHe.saved);
+      widget.onDone(
+        widget.editApproved
+            ? ExpenseHe.updated
+            : widget.approver
+            ? ExpenseHe.approved
+            : ExpenseHe.saved,
+      );
     } on Object catch (e) {
       HapticFeedback.heavyImpact();
       if (!mounted) return;
@@ -198,7 +230,13 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
   Future<void> _chooseSupplier() async {
     final s = await showSupplierSheet(context);
     if (s == null || !mounted) return;
-    setState(() => _draft = _draft.copyWith(supplierId: s.id, supplierName: s.name, supplierTaxId: s.taxId));
+    setState(
+      () => _draft = _draft.copyWith(
+        supplierId: s.id,
+        supplierName: s.name,
+        supplierTaxId: s.taxId,
+      ),
+    );
     if (_draft.categoryId == null) _prefillCategory();
   }
 
@@ -213,8 +251,11 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
     );
     if (picked == null || !mounted) return;
     String two(int n) => n.toString().padLeft(2, '0');
-    setState(() => _draft = _draft.copyWith(
-        documentDate: '${picked.year}-${two(picked.month)}-${two(picked.day)}'));
+    setState(
+      () => _draft = _draft.copyWith(
+        documentDate: '${picked.year}-${two(picked.month)}-${two(picked.day)}',
+      ),
+    );
   }
 
   void _zoom(Uint8List bytes) {
@@ -224,7 +265,10 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
         child: Stack(
           children: [
             Positioned.fill(
-              child: InteractiveViewer(maxScale: 6, child: Image.memory(bytes, fit: BoxFit.contain)),
+              child: InteractiveViewer(
+                maxScale: 6,
+                child: Image.memory(bytes, fit: BoxFit.contain),
+              ),
             ),
             PositionedDirectional(
               top: Space.xl,
@@ -250,63 +294,80 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
     final showForm = !processing && !error && !duplicate;
     // Each card is its own "screen" for the one-primary rule: during the
     // swap to the next card both are briefly in the tree.
-    return PrimaryScope(child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(Space.page, Space.s, Space.page, Space.l),
-            children: [
-              _image(context),
-              const SizedBox(height: Space.l),
-              if (processing) ...[
-                Semantics(
-                  liveRegion: true,
-                  child: Text(row.status == 'SCANNING' ? ExpenseHe.scanning : ExpenseHe.reading,
-                      textAlign: TextAlign.center, style: AppText.headline),
-                ),
-                const SkeletonList(rows: 4),
-              ],
-              if (error)
-                AppCard(
-                  color: context.palette.tint(context.palette.danger),
-                  child: Text(ExpenseHe.errorCard, style: AppText.body),
-                ),
-              if (duplicate) _duplicateBanner(context),
-              if (showForm) ..._fields(context),
-            ],
-          ),
-        ),
-        if (showForm)
-          BottomActionArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    return PrimaryScope(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(
+                Space.page,
+                Space.s,
+                Space.page,
+                Space.l,
+              ),
               children: [
-                PrimaryButton(
-                  key: const Key('expense-primary'),
-                  label: _approves ? ExpenseHe.approve : ExpenseHe.save,
-                  loadingText: _busy ? (_approves ? ExpenseHe.approving : PeopleHe.saving) : null,
-                  offline: businessContext.offline,
-                  onPressed: _submit,
-                ),
-                if (!widget.editApproved)
-                  TextButton(
-                    key: const Key('expense-skip'),
-                    onPressed: _busy ? null : widget.onSkip,
-                    child: const Text(ExpenseHe.skip),
+                _image(context),
+                const SizedBox(height: Space.l),
+                if (processing) ...[
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      row.status == 'SCANNING'
+                          ? ExpenseHe.scanning
+                          : ExpenseHe.reading,
+                      textAlign: TextAlign.center,
+                      style: AppText.headline,
+                    ),
                   ),
+                  const SkeletonList(rows: 4),
+                ],
+                if (error)
+                  AppCard(
+                    color: context.palette.tint(context.palette.danger),
+                    child: Text(ExpenseHe.errorCard, style: AppText.body),
+                  ),
+                if (duplicate) _duplicateBanner(context),
+                if (showForm) ..._fields(context),
               ],
             ),
-          )
-        else
-          SafeArea(
-            top: false,
-            child: TextButton(
-                key: const Key('expense-skip'), onPressed: widget.onSkip, child: const Text(ExpenseHe.skip)),
           ),
-      ],
-    ));
+          if (showForm)
+            BottomActionArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  PrimaryButton(
+                    key: const Key('expense-primary'),
+                    label: _approves ? ExpenseHe.approve : ExpenseHe.save,
+                    loadingText: _busy
+                        ? (_approves ? ExpenseHe.approving : PeopleHe.saving)
+                        : null,
+                    offline: businessContext.offline,
+                    onPressed: _submit,
+                  ),
+                  if (!widget.editApproved)
+                    TextButton(
+                      key: const Key('expense-skip'),
+                      onPressed: _busy ? null : widget.onSkip,
+                      child: const Text(ExpenseHe.skip),
+                    ),
+                ],
+              ),
+            )
+          else
+            SafeArea(
+              top: false,
+              child: TextButton(
+                key: const Key('expense-skip'),
+                onPressed: widget.onSkip,
+                child: const Text(ExpenseHe.skip),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _image(BuildContext context) {
@@ -314,7 +375,9 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
     if (widget.row.isPdf) {
       return Semantics(
         label: ExpenseHe.pdf,
-        child: AppCard(child: Icon(Iconsax.document_text, size: 56, color: p.muted)),
+        child: AppCard(
+          child: Icon(Iconsax.document_text, size: 56, color: p.muted),
+        ),
       );
     }
     return FutureBuilder<Uint8List>(
@@ -335,7 +398,12 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
                 alignment: Alignment.center,
                 child: bytes == null
                     ? Icon(Iconsax.receipt_item, size: 48, color: p.muted)
-                    : Image.memory(bytes, fit: BoxFit.contain, width: double.infinity, gaplessPlayback: true),
+                    : Image.memory(
+                        bytes,
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                        gaplessPlayback: true,
+                      ),
               ),
             ),
           ),
@@ -353,8 +421,12 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(date == null ? ExpenseHe.duplicateUnknown : ExpenseHe.duplicateOf(formatDateHe(date)),
-              style: AppText.body),
+          Text(
+            date == null
+                ? ExpenseHe.duplicateUnknown
+                : ExpenseHe.duplicateOf(formatDateHe(date)),
+            style: AppText.body,
+          ),
           const SizedBox(height: Space.s),
           Row(
             children: [
@@ -378,13 +450,16 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
   List<Widget> _fields(BuildContext context) {
     final p = context.palette;
     final d = _draft;
-    String? need(bool missing) => _attempted && missing ? ExpenseHe.required : null;
+    String? need(bool missing) =>
+        _attempted && missing ? ExpenseHe.required : null;
     final cats = widget.categories;
     return [
       _FieldRow(
         key: const Key('expense-supplier'),
         label: ExpenseHe.supplier,
-        value: (d.supplierName ?? '').isEmpty ? ExpenseHe.chooseSupplier : d.supplierName!,
+        value: (d.supplierName ?? '').isEmpty
+            ? ExpenseHe.chooseSupplier
+            : d.supplierName!,
         error: need((d.supplierName ?? '').trim().isEmpty),
         onTap: _chooseSupplier,
       ),
@@ -407,19 +482,25 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
       _FieldRow(
         key: const Key('expense-date'),
         label: ExpenseHe.date,
-        value: d.documentDate == null ? ExpenseHe.chooseDate : formatDateHe(d.documentDate),
+        value: d.documentDate == null
+            ? ExpenseHe.chooseDate
+            : formatDateHe(d.documentDate),
         error: need(d.documentDate == null),
         onTap: _chooseDate,
       ),
       if (cats.isNotEmpty) ...[
         const SizedBox(height: Space.l),
-        Text(ExpenseHe.category, style: AppText.secondary.copyWith(color: p.muted)),
+        Text(
+          ExpenseHe.category,
+          style: AppText.secondary.copyWith(color: p.muted),
+        ),
         const SizedBox(height: Space.s),
         ChipRow<String>(
           padding: EdgeInsets.zero,
           options: [for (final c in cats) ChipOption(c.id, c.name)],
           selected: d.categoryId,
-          onSelected: (id) => setState(() => _draft = _draft.copyWith(categoryId: id)),
+          onSelected: (id) =>
+              setState(() => _draft = _draft.copyWith(categoryId: id)),
         ),
       ],
       const SizedBox(height: Space.s),
@@ -446,7 +527,10 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           textDirection: TextDirection.ltr,
           textAlign: TextAlign.right,
-          decoration: const InputDecoration(labelText: ExpenseHe.vat, prefixText: '₪ '),
+          decoration: const InputDecoration(
+            labelText: ExpenseHe.vat,
+            prefixText: '₪ ',
+          ),
         ),
       ],
     ];
@@ -455,7 +539,13 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
 
 /// A tappable value row with a label (supplier / date): looks like a field.
 class _FieldRow extends StatelessWidget {
-  const _FieldRow({super.key, required this.label, required this.value, required this.onTap, this.error});
+  const _FieldRow({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onTap,
+    this.error,
+  });
 
   final String label;
   final String value;
