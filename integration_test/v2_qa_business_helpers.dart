@@ -380,6 +380,12 @@ List<String> keysTopDown(WidgetTester tester, String prefix) {
   return [for (final e in els) (e.widget.key! as ValueKey<String>).value];
 }
 
+/// The owner's own billing entry (B row "subscription", 2026-11-05 product
+/// decision) is the one sanctioned use of "מסלול"; AT-96 still holds for
+/// every other text. The SPEC-v2 AT-96 wording predates that row (open item
+/// for PM, docs/qa-2026-11-12/09-FINAL-REPORT-he.md, round 3).
+const billingEntryLabels = {'המסלול של העסק'};
+
 /// AT-90 + AT-49 + AT-96 on whatever is on stage now: ≤1 PrimaryButton, none
 /// disabled while online, no "אין הרשאה", no subscription words.
 /// [scope] limits the PrimaryButton count to one sheet (the page under a modal
@@ -410,7 +416,11 @@ void expectScreenRules(String where, {Finder? scope}) {
     reason: 'AT-49 $where',
   );
   for (final w in const ['מנוי', 'מסלול', 'שדרג']) {
-    expect(find.textContaining(w), findsNothing, reason: 'AT-96 $where: "$w"');
+    final hits = find.textContaining(w).evaluate().where((e) {
+      final widget = e.widget;
+      return widget is! Text || !billingEntryLabels.contains(widget.data);
+    });
+    expect(hits, isEmpty, reason: 'AT-96 $where: "$w"');
   }
 }
 
