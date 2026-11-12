@@ -31,6 +31,7 @@ import 'package:invoice/screens/document/sheets/s6_share.dart';
 import 'package:invoice/screens/document/sheets/s8_cancel.dart';
 import 'package:invoice/ui/widgets/keypad.dart';
 import 'package:invoice/state/session.dart';
+import 'qa_plans_guard.dart';
 
 const email = String.fromEnvironment('EMAIL', defaultValue: 'mobile-owner@tevel.test');
 const mailDir = String.fromEnvironment('MAILDIR');
@@ -85,6 +86,7 @@ Future<String?> firstId(String path, String key, bool Function(Map<String, dynam
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  dismissPlansDuringTests();
 
   testWidgets('V2 main screens ($email)', (tester) async {
     const storage = FlutterSecureStorage();

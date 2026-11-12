@@ -28,6 +28,7 @@ import 'package:invoice/ui/money_text.dart' show ltrIsolate;
 import 'package:invoice/util/biometric.dart';
 import 'package:invoice/util/errors_he.dart';
 import 'package:invoice/util/labels/labels.dart';
+import 'qa_plans_guard.dart';
 
 const String apiBase = String.fromEnvironment('API_BASE', defaultValue: 'http://127.0.0.1:3031');
 const String mailDir = String.fromEnvironment('MAILDIR');
@@ -322,7 +323,12 @@ Future<void> pumpUntilScrolled(WidgetTester tester, Finder finder,
       await tester.pump(const Duration(milliseconds: 200));
       return;
     }
-    final lists = find.byType(Scrollable);
+    // The screen's main list: a vertical one that is on screen and hit-testable
+    // (the tab PageView and the quick-action strips scroll sideways; the
+    // other tabs' lists are off screen).
+    final lists = find
+        .byWidgetPredicate((w) => w is Scrollable && axisDirectionToAxis(w.axisDirection) == Axis.vertical)
+        .hitTestable();
     if (lists.evaluate().isEmpty) continue;
     final list = lists.last;
     final pos = tester.state<ScrollableState>(list).position;
@@ -360,6 +366,7 @@ class TapCounter {
     await pumpUntil(tester, finder);
     await tester.ensureVisible(finder.first);
     await tester.pump(const Duration(milliseconds: 100));
+    await uncover(tester, finder.first);
     await tester.tap(finder.first);
     count++;
     await tester.pump(const Duration(milliseconds: 300));

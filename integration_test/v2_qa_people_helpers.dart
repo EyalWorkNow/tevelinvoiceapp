@@ -30,6 +30,7 @@ import 'package:invoice/router.dart';
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/session.dart';
 import 'package:path_provider/path_provider.dart';
+import 'qa_plans_guard.dart';
 
 const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'http://127.0.0.1:3031');
 
@@ -413,6 +414,7 @@ class TapCounter {
   Future<void> tap(WidgetTester tester, Finder finder, String what) async {
     await tester.ensureVisible(finder.first);
     await tester.pump(const Duration(milliseconds: 100));
+    await uncover(tester, finder.first);
     await tester.tap(finder.first);
     count++;
     log.add(what);

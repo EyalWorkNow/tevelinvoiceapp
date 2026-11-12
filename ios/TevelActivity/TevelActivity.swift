@@ -72,7 +72,6 @@ private func symbol(_ kind: String) -> String {
   switch kind {
   case "approved": return "checkmark.seal.fill"
   case "payment": return "shekelsign.circle.fill"
-  case "reminder": return "bell.badge.fill"
   case "rejected", "error": return "exclamationmark.circle.fill"
   case "viewed": return "eye.fill"
   case "expense": return "receipt.fill"

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/models/models.dart';
 import 'package:invoice/api/team_api.dart';
 import 'package:invoice/app_shell.dart';
+import 'package:invoice/screens/business/business_template.dart';
 import 'package:invoice/screens/business/team_page.dart';
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
@@ -70,6 +71,13 @@ void main() {
     await pumpAs(tester, backend, Preset.owner, const AppShell());
     final taps = Taps();
     await taps.tap(tester, find.byKey(const Key('tab-business')));
+    // The quick actions above the rows can push צוות below the fold of the
+    // lazy list; scrolling to it is not a tap (F3.1).
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('brow-team')),
+      200,
+      scrollable: find.descendant(of: find.byType(BusinessPage), matching: find.byType(Scrollable)).first,
+    );
     await taps.tap(tester, find.byKey(const Key('brow-team')));
     expect(find.byType(TeamPage), findsOneWidget);
     expect(find.byType(PrimaryButton), findsOneWidget); // AT-90

@@ -17,6 +17,7 @@ import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/widgets/primary_button.dart';
 import 'package:local_auth/local_auth.dart';
+import 'qa_plans_guard.dart';
 
 const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'http://127.0.0.1:3031');
 const mailDir = String.fromEnvironment('MFA_MAIL_DIR',
@@ -250,6 +251,7 @@ class TapCounter {
   Future<void> tap(WidgetTester tester, Finder f) async {
     await tester.ensureVisible(f.first);
     await tester.pump(const Duration(milliseconds: 200));
+    await uncover(tester, f.first);
     await tester.tap(f.first);
     taps++;
     await pumpFor(tester, const Duration(milliseconds: 900));

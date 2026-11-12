@@ -193,6 +193,10 @@ class _CustomerSheetState extends State<CustomerSheet> {
   List<String> _recentPaymentIds = const [];
   List<Customer> _customers = const [];
   bool _be09 = false;
+  // Over 500 customers the list is capped: a search asks the server too
+  // (as P does), or a customer outside the 500 can never be picked.
+  bool _capped = false;
+  List<Customer> _serverHits = const [];
   Object? _loadError;
   bool _busy = false;
 
@@ -280,6 +284,9 @@ class _CustomerSheetState extends State<CustomerSheet> {
       if (cached != null && mounted) _setCustomers(cached.customers);
       final list = await fetchCustomerList();
       _be09 = list.be09;
+      _capped = list.capped;
+      _search.removeListener(_searchServer); // _load runs again on retry
+      if (_capped && _be09) _search.addListener(_searchServer);
       if (mounted) _setCustomers(list.customers);
     } on Object catch (e) {
       if (mounted && _entries == null) setState(() => _loadError = e);
@@ -294,6 +301,24 @@ class _CustomerSheetState extends State<CustomerSheet> {
     ).map(_Entry.customer).toList();
     _loadError = null;
   });
+
+  Future<void> _searchServer() async {
+    final q = _search.text.trim();
+    if (q.isEmpty) {
+      if (_serverHits.isNotEmpty) setState(() => _serverHits = const []);
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!mounted || _search.text.trim() != q) return;
+    try {
+      final hits = await searchCustomers(q);
+      if (mounted && _search.text.trim() == q) {
+        setState(() => _serverHits = hits);
+      }
+    } on Object {
+      // The local results stay.
+    }
+  }
 
   // §4.4: an employee creates a supplier from an expense (expense:record).
   bool get _canCreate => _sup
@@ -393,7 +418,11 @@ class _CustomerSheetState extends State<CustomerSheet> {
     final shown = entries == null
         ? const <_Entry>[]
         : [
-            for (final e in entries)
+            for (final e in [
+              ...entries,
+              for (final c in q.trim().isEmpty ? const <Customer>[] : _serverHits)
+                if (!entries.any((e) => e.id == c.id)) _Entry.customer(c),
+            ])
               if ((q.trim().isEmpty ? !e.archived : true) &&
                   !(q.trim().isEmpty && recentPaymentIds.contains(e.id)) &&
                   personMatches(

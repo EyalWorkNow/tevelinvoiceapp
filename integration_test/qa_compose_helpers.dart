@@ -26,6 +26,7 @@ import 'package:invoice/state/cache.dart';
 import 'package:invoice/api/client.dart' show ApiClient;
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/ds.dart';
+import 'qa_plans_guard.dart';
 
 const String apiBase = String.fromEnvironment('API_BASE', defaultValue: 'http://127.0.0.1:3031');
 
@@ -312,6 +313,7 @@ class TapCounter {
     expect(f, findsWidgets, reason: 'tap target missing${why == null ? '' : ' ($why)'}: $f');
     await tester.ensureVisible(f.first);
     await tester.pump(const Duration(milliseconds: 100));
+    await uncover(tester, f.first);
     taps++;
     await tester.tap(f.first, warnIfMissed: false);
     await pumpFor(tester, const Duration(milliseconds: 600));
