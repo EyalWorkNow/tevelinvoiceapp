@@ -16,8 +16,12 @@ class CustomerCrmFinanceCard extends StatefulWidget {
     required this.jobs,
     required this.onOpenJob,
     this.compact = false,
+    this.documentsOpenMinor,
   });
   final List<CustomerCrmJob> jobs;
+
+  /// The balance from the issued documents (customer card only).
+  final BigInt? documentsOpenMinor;
   final ValueChanged<CustomerCrmJob> onOpenJob;
   final bool compact;
   @override
@@ -30,6 +34,7 @@ class _CustomerCrmFinanceCardState extends State<CustomerCrmFinanceCard> {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    final documents = widget.documentsOpenMinor;
     final summary = CustomerCrmInsights(
       widget.jobs,
       month: _month,
@@ -38,18 +43,38 @@ class _CustomerCrmFinanceCardState extends State<CustomerCrmFinanceCard> {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (documents != null) ...[
+          const SizedBox(height: Space.m),
+          Text(
+            CustomerCrmHe.documentsBalance,
+            style: AppText.body.copyWith(color: p.muted),
+          ),
+          const SizedBox(height: Space.xs),
+          Text(
+            formatMoney(documents, trimZeroAgorot: true),
+            key: const Key('crm-documents-balance'),
+            textDirection: TextDirection.ltr,
+            textAlign: TextAlign.right,
+            style: AppText.title.copyWith(
+              fontSize: 36,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -1,
+            ),
+          ),
+        ],
         const SizedBox(height: Space.m),
         Text(
-          CustomerCrmHe.remaining,
+          CustomerCrmHe.remainingEstimate,
           style: AppText.body.copyWith(color: p.muted),
         ),
         const SizedBox(height: Space.xs),
         Text(
           crmMoney(summary.remainingMinor),
+          key: const Key('crm-tracked-remaining'),
           textDirection: TextDirection.ltr,
           textAlign: TextAlign.right,
           style: AppText.title.copyWith(
-            fontSize: 36,
+            fontSize: documents != null ? 24 : 36,
             fontWeight: FontWeight.w600,
             letterSpacing: -1,
           ),
@@ -91,27 +116,32 @@ class _CustomerCrmFinanceCardState extends State<CustomerCrmFinanceCard> {
           ),
         ],
         const SizedBox(height: Space.xl),
+        // Previous month at the start (right in RTL), next at the end; the
+        // chevrons follow the text direction.
         Row(
           children: [
-            Expanded(
-              child: Text(
-                DateFormat('MMMM yyyy', 'he').format(_month),
-                style: AppText.headline,
-              ),
-            ),
             IconButton(
+              key: const Key('crm-month-previous'),
               tooltip: CustomerCrmHe.previousMonth,
               onPressed: () => setState(
                 () => _month = DateTime(_month.year, _month.month - 1),
               ),
-              icon: const Icon(Icons.chevron_right, size: 20),
+              icon: const Icon(Icons.chevron_left, size: 20),
+            ),
+            Expanded(
+              child: Text(
+                DateFormat('MMMM yyyy', 'he').format(_month),
+                textAlign: TextAlign.center,
+                style: AppText.headline,
+              ),
             ),
             IconButton(
+              key: const Key('crm-month-next'),
               tooltip: CustomerCrmHe.nextMonth,
               onPressed: () => setState(
                 () => _month = DateTime(_month.year, _month.month + 1),
               ),
-              icon: const Icon(Icons.chevron_left, size: 20),
+              icon: const Icon(Icons.chevron_right, size: 20),
             ),
           ],
         ),

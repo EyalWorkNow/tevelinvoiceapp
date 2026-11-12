@@ -6,7 +6,6 @@ abstract final class CustomerCrmHe {
   static const useServerVersion = 'שימוש בגרסת השרת';
   static const useDeviceVersion = 'שימוש בגרסת המכשיר';
   static const chooseVersion = 'בחירת גרסה';
-  static const refreshAction = 'רענון';
   static const markOpenAction = 'סמן כפתוח';
   static const markDoneAction = 'סמן כהושלם';
   static const hideCompletedFollowups = 'הסתרת מעקבים שהושלמו';
@@ -66,10 +65,11 @@ abstract final class CustomerCrmHe {
   static const repeatHint =
       'קביעת ביקור נוסף יוצרת עבודה חדשה לאישור, לפי התדירות שנבחרה.';
   static const remaining = 'נותר לגבייה';
+  static const remainingEstimate = 'נותר לגבייה לפי המעקב (הערכה)';
+  static const documentsBalance = 'יתרה פתוחה לפי המסמכים';
   static const contribution = 'נשאר אחרי עלויות ישירות';
   static const hourly = 'לשעת עבודה, אחרי עלויות';
   static const missingCost = 'יש להשלים עלות כדי לחשב כמה נשאר';
-  static const moneyEdit = 'עדכון מחיר וגבייה';
   static const thisMonth = 'החודש';
   static const previousMonth = 'החודש הקודם';
   static const nextMonth = 'החודש הבא';
