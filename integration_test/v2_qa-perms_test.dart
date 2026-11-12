@@ -30,7 +30,6 @@ import 'package:invoice/app_shell.dart';
 import 'package:invoice/router.dart';
 import 'package:invoice/screens/business/business_screen.dart';
 import 'package:invoice/screens/compose/compose_screen.dart';
-import 'package:invoice/screens/compose/sheets/s1_create.dart';
 import 'package:invoice/screens/document/document_screen.dart';
 import 'package:invoice/screens/home/home_screen.dart';
 import 'package:invoice/screens/reports/reports_screen.dart';
@@ -413,7 +412,8 @@ void qaPermsSuite() {
 
         // Tabs.
         expect(find.byKey(const Key('tab-home')), findsOneWidget);
-        expect(find.byKey(const Key('tab-people')), findsOneWidget);
+        // The bottom bar has no "לקוחות" tab any more (ניהול → לקוחות).
+        expect(find.byKey(const Key('tab-people')), findsNothing);
         expect(find.byKey(const Key('tab-business')), findsOneWidget);
         expect(
           find.byKey(const Key('tab-create')),
@@ -462,17 +462,19 @@ void qaPermsSuite() {
           if (find.byType(ReportsScreen).evaluate().isNotEmpty) 'R',
         };
 
-        // ＋ → S1 tiles.
+        // ＋ opens the composer directly (S1 was removed from the UI; the
+        // other S1 tiles live in ניהול's quick actions, recorded below).
         var s1 = <String>{};
         if (p.createTab) {
           await tester.tap(find.byKey(const Key('tab-create')));
-          expect(await pumpUntil(tester, find.byType(CreateSheet)), isTrue);
+          expect(await pumpUntil(tester, find.byType(ComposeScreen)), isTrue);
           await pumpFor(tester, const Duration(milliseconds: 600));
-          s1 = keysWithPrefix('s1-');
-          expect(s1, p.s1Tiles, reason: 'S1 tiles ${p.key}');
-          expectHiddenNotDisabled(tester, '${p.key} S1');
-          Navigator.of(tester.element(find.byType(CreateSheet))).pop();
-          await pumpFor(tester, const Duration(milliseconds: 600));
+          s1 = {'compose'};
+          // Nothing typed: closing the composer (and its "ממי?" page) keeps
+          // no draft.
+          navigatorKey.currentState!.popUntil((r) => r.isFirst);
+          await pumpFor(tester, const Duration(milliseconds: 800));
+          expect(find.byType(ComposeScreen, skipOffstage: false), findsNothing);
         }
 
         // B rows.
@@ -485,6 +487,8 @@ void qaPermsSuite() {
         );
         expect(rows, p.businessRows, reason: 'B rows ${p.key}');
         expectHiddenNotDisabled(tester, '${p.key} B');
+        final quick = keysWithPrefix('management-action-');
+        debugPrint('QUICK:${p.key} ${(quick.toList()..sort()).join(',')}');
 
         final golden =
             'GOLDEN:${p.key} tabs=${p.createTab ? 'H·P·＋·B' : 'H·P·B'} '
@@ -622,6 +626,8 @@ void qaPermsSuite() {
           find.byKey(const Key('s2-walkin')),
           timeout: const Duration(seconds: 5),
         )) {
+          await tester.ensureVisible(find.byKey(const Key('s2-walkin')));
+          await tester.pump(const Duration(milliseconds: 200));
           await tester.tap(find.byKey(const Key('s2-walkin')));
           await pumpFor(tester, const Duration(seconds: 1));
         }
