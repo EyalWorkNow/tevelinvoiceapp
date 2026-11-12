@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../state/customer_crm_store.dart';
 import '../../ui/ds.dart';
+import '../../util/errors_he.dart' show crmRejectedNoticeHe;
 
 class CustomerCrmSyncStatus extends StatelessWidget {
   const CustomerCrmSyncStatus({super.key, required this.store});
@@ -44,9 +45,12 @@ class CustomerCrmSyncStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!store.remoteActive) return const SizedBox.shrink();
-    final problem = store.syncError != null;
+    final rejected = store.rejectedCount > 0 && !store.syncing;
+    final problem = store.syncError != null || rejected;
     final text = store.syncing
         ? 'מסנכרן עם השרת…'
+        : rejected
+        ? crmRejectedNoticeHe(store.rejectedCount)
         : store.hasConflict
         ? 'השינויים שלך שמורים. נדרשת בחירת גרסה.'
         : problem
@@ -76,11 +80,15 @@ class CustomerCrmSyncStatus extends StatelessWidget {
         ),
         if (!store.syncing)
           TextButton(
-            onPressed: store.hasConflict
+            onPressed: rejected
+                ? store.acknowledgeRejected
+                : store.hasConflict
                 ? () => _resolve(context)
                 : store.refresh,
             child: Text(
-              store.hasConflict
+              rejected
+                  ? CommonHe.close
+                  : store.hasConflict
                   ? CustomerCrmHe.chooseVersion
                   : CustomerCrmHe.refreshAction,
             ),

@@ -16,6 +16,11 @@ String errorMessageHe(String code, {String? serverMessage, int status = 0}) {
   return 'שגיאה לא צפויה ($code)';
 }
 
+/// CRM changes the server refused for good (kept in a backup file on the device).
+String crmRejectedNoticeHe(int count) => count == 1
+    ? 'שינוי אחד בתיק הלקוח נדחה על ידי השרת ולא נשמר. עותק נשמר במכשיר.'
+    : '$count שינויים בתיקי לקוחות נדחו על ידי השרת ולא נשמרו. עותק נשמר במכשיר.';
+
 /// VALIDATION carries a meaningful English server message; the common ones in Hebrew.
 String validationMessageHe(String? raw) {
   final text = (raw ?? '').replaceFirst(RegExp(r'^VALIDATION:\s*'), '').trim();

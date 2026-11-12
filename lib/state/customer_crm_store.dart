@@ -390,11 +390,26 @@ class CustomerCrmStore extends ChangeNotifier with WidgetsBindingObserver {
   bool _previewLocal = false;
   bool _installed = false;
   Future<void>? _syncFuture;
+  Set<String> _quarantined = {};
+  int _rejectedCount = 0;
+  int _localEdits = 0;
   Object? syncError;
   bool syncing = false;
   bool get remoteActive => !_previewLocal && (remote?.enabled ?? false);
   int get pendingCount => _pending.length;
   bool get readyForEdits => !remoteActive || _cloudInitialized;
+  /// A stored record that could not be read is kept aside in
+  /// `<key>_quarantine` and stays read-only, so it never overwrites the server.
+  bool isQuarantined(String customerId) => _quarantined.contains(customerId);
+
+  /// Changes the server refused for good (4xx), moved to `<key>_rejected`.
+  int get rejectedCount => _rejectedCount;
+  void acknowledgeRejected() {
+    if (_rejectedCount == 0) return;
+    _rejectedCount = 0;
+    notifyListeners();
+  }
+
   bool get hasConflict =>
       syncError is ApiException &&
       (syncError as ApiException).code == 'CRM_CONFLICT';
@@ -421,12 +436,127 @@ class CustomerCrmStore extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// Flushes the queue, then replaces records in place from the server. The
+  /// loaded state is never cleared, and an edit made meanwhile always wins.
   Future<void> refresh() async {
     final business = _businessId;
     if (business == null || !remoteActive) return;
+    if (!_loaded) {
+      if (loadError != null) await loadForBusiness(business, force: true);
+      return;
+    }
     await sync();
-    if (_pending.isEmpty && _businessId == business) {
-      await loadForBusiness(business, force: true);
+    if (_businessId == business && _loaded && _pending.isEmpty) {
+      await _reloadInPlace();
+    }
+  }
+
+  /// Server records over the loaded ones: all of them, or only [only]
+  /// (customers whose rejected changes must be undone on screen).
+  Future<void> _reloadInPlace({Set<String>? only}) async {
+    final business = _businessId, storageKey = _storageKey;
+    if (business == null || storageKey == null || remote == null) return;
+    final identity = _loadedUserId, generation = _generation;
+    final edits = _localEdits;
+    try {
+      final server = await remote!.load(business);
+      final result = _writes.then((_) async {
+        if (_generation != generation ||
+            remote?.userId != identity ||
+            (only == null && (_localEdits != edits || _pending.isNotEmpty))) {
+          return;
+        }
+        final quarantine = <String, Object?>{};
+        final decoded = _decodeCustomers(
+          server.map((item) => MapEntry(item.customerId, item.record)),
+          quarantine,
+        );
+        final serverRevisions = {
+          for (final item in server) item.customerId: item.revision,
+        };
+        final entries = Map<String, CustomerCrmEntry>.of(_entries);
+        final revisions = Map<String, int>.of(_revisions);
+        final quarantined = Set<String>.of(_quarantined);
+        final ids = only ?? {...entries.keys, ...serverRevisions.keys};
+        for (final id in ids) {
+          if (_pending.any((item) => item.customerId == id)) continue;
+          final entry = decoded[id];
+          entry == null ? entries.remove(id) : entries[id] = entry;
+          final revision = serverRevisions[id];
+          revision == null ? revisions.remove(id) : revisions[id] = revision;
+          quarantine.containsKey(id)
+              ? quarantined.add(id)
+              : quarantined.remove(id);
+        }
+        await _saveQuarantine(storageKey, quarantine, const []);
+        await _write(
+          storageKey,
+          _snapshot(entries, revisions, _pending, _cloudInitialized),
+        );
+        if (_generation != generation) return;
+        _entries = entries;
+        _revisions = revisions;
+        _quarantined = quarantined;
+        if (only == null) syncError = null;
+        notifyListeners();
+      });
+      _writes = result.catchError((Object _) {});
+      await result;
+    } on Object catch (error) {
+      if (_generation == generation) {
+        syncError = error;
+        notifyListeners();
+      }
+    }
+  }
+
+  /// One unreadable customer must not block the whole CRM: it is skipped and
+  /// returned in [quarantine] (raw), everything else loads.
+  static Map<String, CustomerCrmEntry> _decodeCustomers(
+    Iterable<MapEntry<Object?, Object?>> items,
+    Map<String, Object?> quarantine,
+  ) {
+    final decoded = <String, CustomerCrmEntry>{};
+    for (final item in items) {
+      final key = item.key;
+      try {
+        if (key is! String || item.value is! Map) {
+          throw const FormatException('Invalid CRM customer');
+        }
+        final entry = CustomerCrmEntry.fromJson(item.value);
+        for (final job in entry.jobs) {
+          _validateJob(key, job);
+        }
+        decoded[key] = entry;
+      } on Object {
+        quarantine['$key'] = item.value;
+      }
+    }
+    return decoded;
+  }
+
+  Future<void> _saveQuarantine(
+    String storageKey,
+    Map<String, Object?> customers,
+    List<Object?> pending,
+  ) async {
+    if (customers.isEmpty && pending.isEmpty) return;
+    try {
+      final name = '${storageKey}_quarantine';
+      final old = await _read(name);
+      final previous = old is Map && old['customers'] is Map
+          ? Map<String, Object?>.from(old['customers'] as Map)
+          : <String, Object?>{};
+      final previousQueue = old is Map && old['mutations'] is List
+          ? old['mutations'] as List
+          : const <Object?>[];
+      await _write(name, {
+        'savedAt': DateTime.now().toUtc().toIso8601String(),
+        'customers': {...previous, ...customers},
+        'mutations': [...previousQueue, ...pending],
+      });
+    } on Object {
+      // The copy is a courtesy; loading the readable records matters more.
     }
   }
 
@@ -463,43 +593,53 @@ class CustomerCrmStore extends ChangeNotifier with WidgetsBindingObserver {
     try {
       await _writes;
       var raw = await _read(storageKey);
+      Map? legacyRaw;
       if (raw == null && useRemote && userId != null) {
         final legacy = await _read(_cacheKey(businessId));
         if (legacy is Map &&
             legacy['migratedToUser'] == null &&
             (legacy['pending'] is! List ||
                 (legacy['pending'] as List).isEmpty)) {
-          raw = legacy;
+          raw = legacyRaw = legacy;
         }
       }
       var decoded = <String, CustomerCrmEntry>{};
       var revisions = <String, int>{};
       var pending = <_PendingCrmMutation>[];
       var initialized = false;
+      final quarantine = <String, Object?>{};
+      final badPending = <Object?>[];
       if (raw != null) {
+        // A file that is not a CRM file at all stays a load error (edits
+        // blocked, nothing overwritten); only single records are skipped.
         if (raw is! Map || raw['customers'] is! Map) {
           throw const FormatException('Invalid CRM records');
-        }
-        for (final item in (raw['customers'] as Map).entries) {
-          if (item.key is! String || item.value is! Map) {
-            throw const FormatException('Invalid CRM customer');
+        } else {
+          decoded = _decodeCustomers(
+            (raw['customers'] as Map).entries,
+            quarantine,
+          );
+          if (raw['revisions'] is Map) {
+            revisions = {
+              for (final item in (raw['revisions'] as Map).entries)
+                if (item.key is String && item.value is int)
+                  item.key as String: item.value as int,
+            };
           }
-          final entry = CustomerCrmEntry.fromJson(item.value);
-          for (final job in entry.jobs) {
-            _validateJob(item.key as String, job);
+          if (raw['pending'] is List) {
+            for (final item in raw['pending'] as List) {
+              try {
+                pending.add(_PendingCrmMutation.fromJson(item));
+              } on Object {
+                badPending.add(item);
+              }
+            }
           }
-          decoded[item.key as String] = entry;
+          initialized = raw['cloudInitialized'] == true;
         }
-        if (raw['revisions'] is Map) {
-          revisions = Map<String, int>.from(raw['revisions'] as Map);
-        }
-        if (raw['pending'] is List) {
-          pending = (raw['pending'] as List)
-              .map(_PendingCrmMutation.fromJson)
-              .toList();
-        }
-        initialized = raw['cloudInitialized'] == true;
       }
+      await _saveQuarantine(storageKey, quarantine, badPending);
+      var quarantined = quarantine.keys.toSet();
       if (useRemote && pending.isEmpty) {
         try {
           var server = await remote!.load(businessId);
@@ -517,10 +657,13 @@ class CustomerCrmStore extends ChangeNotifier with WidgetsBindingObserver {
             }
             server = await remote!.load(businessId);
           }
-          decoded = {
-            for (final item in server)
-              item.customerId: CustomerCrmEntry.fromJson(item.record),
-          };
+          final serverQuarantine = <String, Object?>{};
+          decoded = _decodeCustomers(
+            server.map((item) => MapEntry(item.customerId, item.record)),
+            serverQuarantine,
+          );
+          await _saveQuarantine(storageKey, serverQuarantine, const []);
+          quarantined = serverQuarantine.keys.toSet();
           revisions = {
             for (final item in server) item.customerId: item.revision,
           };
@@ -529,6 +672,13 @@ class CustomerCrmStore extends ChangeNotifier with WidgetsBindingObserver {
             storageKey,
             _snapshot(decoded, revisions, pending, initialized),
           );
+          // The unscoped pre-account file now belongs to this user only.
+          if (legacyRaw != null) {
+            await _write(_cacheKey(businessId), {
+              ...legacyRaw,
+              'migratedToUser': userId,
+            });
+          }
         } on ApiException catch (error) {
           // Only a network outage may use an existing cache; a missing/forbidden API is visible.
           if (!error.isNetwork || raw == null) rethrow;
@@ -539,6 +689,7 @@ class CustomerCrmStore extends ChangeNotifier with WidgetsBindingObserver {
       _entries = decoded;
       _revisions = revisions;
       _pending = pending;
+      _quarantined = quarantined;
       _cloudInitialized = initialized;
       _remoteWasEnabled = useRemote;
       _credentialAtLoad = credential;
@@ -583,6 +734,7 @@ class CustomerCrmStore extends ChangeNotifier with WidgetsBindingObserver {
     final storageKey = _storageKey!;
     final identity = _loadedUserId;
     final generation = _generation;
+    final dropped = <String>{};
     final result = _writes.then((_) async {
       if (_generation != generation) return;
       syncing = true;
@@ -596,13 +748,39 @@ class CustomerCrmStore extends ChangeNotifier with WidgetsBindingObserver {
             throw StateError('CRM_ACCOUNT_CHANGED');
           }
           final pending = _pending.first;
-          final saved = await remote!.write(
-            businessId,
-            pending.customerId,
-            pending.record,
-            pending.expectedRevision,
-            pending.mutationId,
-          );
+          final CrmRemoteRecord saved;
+          try {
+            saved = await remote!.write(
+              businessId,
+              pending.customerId,
+              pending.record,
+              pending.expectedRevision,
+              pending.mutationId,
+            );
+          } on ApiException catch (error) {
+            if (!_isRejected(error)) rethrow;
+            // A change the server refuses for good must not block the queue
+            // forever: it (and later changes built on it) goes to a backup file.
+            final rejected = [
+              for (final item in _pending)
+                if (item.customerId == pending.customerId) item,
+            ];
+            final remaining = [
+              for (final item in _pending)
+                if (item.customerId != pending.customerId) item,
+            ];
+            await _backupRejected(storageKey, rejected, error);
+            await _write(
+              storageKey,
+              _snapshot(_entries, _revisions, remaining, true),
+            );
+            if (_generation != generation) return;
+            _pending = remaining;
+            _rejectedCount += rejected.length;
+            dropped.add(pending.customerId);
+            notifyListeners();
+            continue;
+          }
           if (_generation != generation || remote?.userId != identity) return;
           final remaining = _pending.skip(1).toList();
           final revisions = {..._revisions, pending.customerId: saved.revision};
@@ -633,7 +811,45 @@ class CustomerCrmStore extends ChangeNotifier with WidgetsBindingObserver {
       }
     });
     _writes = result.catchError((Object _) {});
-    return result;
+    return result.then((_) async {
+      if (dropped.isNotEmpty && _generation == generation) {
+        await _reloadInPlace(only: dropped);
+      }
+    });
+  }
+
+  /// 4xx that no retry can fix. 401 (session), 408, 409 (conflict, the user
+  /// chooses) and 429 stay queued.
+  static bool _isRejected(ApiException error) =>
+      error.status >= 400 &&
+      error.status < 500 &&
+      !const {401, 408, 409, 429}.contains(error.status);
+
+  Future<void> _backupRejected(
+    String storageKey,
+    List<_PendingCrmMutation> rejected,
+    ApiException error,
+  ) async {
+    final name = '${storageKey}_rejected';
+    Object? old;
+    try {
+      old = await _read(name);
+    } on Object {
+      old = null;
+    }
+    final items = old is Map && old['items'] is List
+        ? [...old['items'] as List]
+        : <Object?>[];
+    final at = DateTime.now().toUtc().toIso8601String();
+    for (final item in rejected) {
+      items.add({
+        ...item.toJson(),
+        'rejectedAt': at,
+        'status': error.status,
+        'code': error.code,
+      });
+    }
+    await _write(name, {'items': items});
   }
 
   /// Explicit user choice after a conflict; only locally changed customer records are replaced.
@@ -768,7 +984,7 @@ class CustomerCrmStore extends ChangeNotifier with WidgetsBindingObserver {
     );
   });
 
-  void _validateJob(String customerId, CustomerCrmJob job) {
+  static void _validateJob(String customerId, CustomerCrmJob job) {
     if (job.customerId != customerId ||
         job.title.trim().isEmpty ||
         job.title.length > 120 ||
@@ -932,6 +1148,9 @@ class CustomerCrmStore extends ChangeNotifier with WidgetsBindingObserver {
       if (remoteActive && !_cloudInitialized) {
         throw StateError('CRM_INITIAL_SYNC_REQUIRED');
       }
+      if (_quarantined.contains(customerId)) {
+        throw StateError('CRM_RECORD_QUARANTINED');
+      }
       final next = Map<String, CustomerCrmEntry>.of(_entries)
         ..[customerId] = update(entryFor(customerId));
       final pending = [..._pending];
@@ -954,6 +1173,7 @@ class CustomerCrmStore extends ChangeNotifier with WidgetsBindingObserver {
       if (_generation != generation) return;
       _entries = next;
       _pending = pending;
+      _localEdits++;
       notifyListeners();
     });
     // Queue recovery only: the caller still receives and displays the failed save.
