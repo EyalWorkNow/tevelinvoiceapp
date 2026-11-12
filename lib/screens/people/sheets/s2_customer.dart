@@ -230,25 +230,6 @@ class _CustomerSheetState extends State<CustomerSheet> {
     for (final c in [_search, _name, _phone, _taxId]) {
       c.addListener(() => setState(() {}));
     }
-    _search.addListener(_searchServer);
-  }
-
-  Future<void> _searchServer() async {
-    final q = _search.text.trim();
-    if (_sup || !_capped || !_be09 || q.isEmpty) {
-      if (_serverHits.isNotEmpty) setState(() => _serverHits = const []);
-      return;
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    if (!mounted || _search.text.trim() != q) return;
-    try {
-      final hits = await searchCustomers(q);
-      if (mounted && _search.text.trim() == q) {
-        setState(() => _serverHits = hits);
-      }
-    } on Object {
-      // The local results stay.
-    }
   }
 
   @override
@@ -285,6 +266,8 @@ class _CustomerSheetState extends State<CustomerSheet> {
       final list = await fetchCustomerList();
       _be09 = list.be09;
       _capped = list.capped;
+      _search.removeListener(_searchServer); // _load runs again on retry
+      if (_capped && _be09) _search.addListener(_searchServer);
       if (mounted) _setCustomers(list.customers);
     } on Object catch (e) {
       if (mounted && _entries == null) setState(() => _loadError = e);
@@ -299,6 +282,24 @@ class _CustomerSheetState extends State<CustomerSheet> {
     ).map(_Entry.customer).toList();
     _loadError = null;
   });
+
+  Future<void> _searchServer() async {
+    final q = _search.text.trim();
+    if (q.isEmpty) {
+      if (_serverHits.isNotEmpty) setState(() => _serverHits = const []);
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!mounted || _search.text.trim() != q) return;
+    try {
+      final hits = await searchCustomers(q);
+      if (mounted && _search.text.trim() == q) {
+        setState(() => _serverHits = hits);
+      }
+    } on Object {
+      // The local results stay.
+    }
+  }
 
   // §4.4: an employee creates a supplier from an expense (expense:record).
   bool get _canCreate => _sup
