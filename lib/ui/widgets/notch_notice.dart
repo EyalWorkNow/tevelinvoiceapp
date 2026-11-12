@@ -64,15 +64,11 @@ class NotchNoticeHost extends StatefulWidget {
 
 class NotchNoticeHostState extends State<NotchNoticeHost>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  late final _expand = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 620),
-    reverseDuration: const Duration(milliseconds: 280),
-  );
-  late final _ink = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 2400),
-  );
+  // Created in initState, not lazily: a host that never showed a notice
+  // would otherwise create its first ticker inside dispose(), where the
+  // TickerMode lookup throws and the unmount of the whole app is cut short.
+  late final AnimationController _expand;
+  late final AnimationController _ink;
   final _queue = Queue<_Notice>();
   _Notice? _active;
   Timer? _timer;
@@ -81,6 +77,15 @@ class NotchNoticeHostState extends State<NotchNoticeHost>
   @override
   void initState() {
     super.initState();
+    _expand = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 620),
+      reverseDuration: const Duration(milliseconds: 280),
+    );
+    _ink = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    );
     WidgetsBinding.instance.addObserver(this);
   }
 
