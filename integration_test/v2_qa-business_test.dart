@@ -34,6 +34,7 @@ import 'package:invoice/util/biometric.dart';
 import 'package:invoice/util/labels/labels.dart';
 
 import 'v2_qa_business_helpers.dart';
+import 'qa_plans_guard.dart';
 
 const ownerEmail = 'mobile-owner@tevel.test';
 const staffEmail = 'mobile-staff@tevel.test';
@@ -120,6 +121,7 @@ String? periodLabel(WidgetTester tester) {
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  dismissPlansDuringTests();
   Biometric.instance.auth = AlwaysUnlock();
 
   setUpAll(() async {

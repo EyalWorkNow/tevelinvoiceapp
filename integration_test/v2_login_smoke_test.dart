@@ -28,6 +28,7 @@ import 'package:invoice/screens/business/sheets/s14_switch.dart';
 import 'package:invoice/screens/home/home_screen.dart';
 import 'package:invoice/screens/reports/reports_screen.dart';
 import 'package:invoice/state/session.dart';
+import 'qa_plans_guard.dart';
 
 const email = String.fromEnvironment('EMAIL', defaultValue: 'mobile-staff@tevel.test');
 const mailDir = String.fromEnvironment('MAILDIR');
@@ -64,6 +65,7 @@ String? latestCode(String to, DateTime since) {
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  dismissPlansDuringTests();
 
   testWidgets('V2 sign-in → home ($email)', (tester) async {
     // Start signed out (a stale Keychain token would open the app lock).

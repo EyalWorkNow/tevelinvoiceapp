@@ -37,6 +37,7 @@ import 'package:invoice/util/errors_he.dart';
 import 'package:invoice/util/labels/labels.dart';
 
 import 'v2_qa_gate_helpers.dart';
+import 'qa_plans_guard.dart';
 
 Finder byKey(String k) => find.byKey(Key(k));
 
@@ -64,6 +65,7 @@ String expectedVatPeriodLabel(String? vatReporting, DateTime now) {
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  dismissPlansDuringTests();
 
   late DevSession owner;
   final invitationIds = <String>[];
@@ -193,6 +195,7 @@ void main() {
     final email = uniqueEmail('j8');
     final taps = TapCounter();
     await taps.tap(tester, byKey('tab-business')); // (1) עסק
+    await pumpUntilScrolled(tester, byKey('brow-team')); // below the quick actions; scrolling is not a tap
     await taps.tap(tester, byKey('brow-team')); // (2) צוות והרשאות
     await taps.tap(tester, byKey('team-invite')); // (3) + הזמן
     await pumpUntil(tester, byKey('text-email'));
@@ -217,6 +220,7 @@ void main() {
     final email = uniqueEmail('j8b');
     final taps = TapCounter();
     await taps.tap(tester, byKey('tab-business')); // (1)
+    await pumpUntilScrolled(tester, byKey('brow-team'));
     await taps.tap(tester, byKey('brow-team')); // (2)
     await taps.tap(tester, byKey('team-invite-accountant')); // (3) הזמן רואה חשבון
     await pumpUntil(tester, byKey('text-email'));
@@ -287,6 +291,7 @@ void main() {
     await launchSignedInAs(tester, ownerEmail);
     await pumpUntil(tester, find.byType(HomeScreen), reason: 'home');
     await tapOn(tester, byKey('tab-business'));
+    await pumpUntilScrolled(tester, byKey('brow-team'));
     await tapOn(tester, byKey('brow-team'));
     // The dev team list keeps growing (deleted QA accounts stay listed), so the
     // tester's row can be below the fold of the lazy list: scroll to it first.
@@ -421,6 +426,7 @@ void main() {
     await pumpUntil(tester, homeBusinessName(testerBusinessName!));
 
     await tapOn(tester, byKey('tab-business'));
+    await pumpUntilScrolled(tester, byKey('brow-account'));
     await tapOn(tester, byKey('brow-account'));
     await pumpUntilScrolled(tester, byKey('account-delete')); // last row of a lazy list
     await tapOn(tester, byKey('account-delete'));

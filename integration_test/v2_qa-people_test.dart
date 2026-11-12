@@ -35,9 +35,11 @@ import 'package:invoice/util/labels/common_he.dart';
 import 'package:invoice/util/labels/people_he.dart';
 
 import 'v2_qa_people_helpers.dart';
+import 'qa_plans_guard.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  dismissPlansDuringTests();
 
   late DevApi owner;
   late DevApi staff;

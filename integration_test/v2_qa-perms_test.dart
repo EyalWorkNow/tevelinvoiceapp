@@ -46,9 +46,11 @@ import 'package:invoice/util/labels/compose_he.dart';
 import 'package:invoice/util/labels/document_he.dart';
 
 import 'v2_qa_perms_helpers.dart';
+import 'qa_plans_guard.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  dismissPlansDuringTests();
   qaPermsSuite();
 }
 

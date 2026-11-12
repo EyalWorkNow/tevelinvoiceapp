@@ -34,6 +34,7 @@ import 'package:invoice/util/status_map.dart' show DocStatus;
 
 import '../test/fakes/fake_launcher.dart';
 import 'qa_compose_helpers.dart';
+import 'qa_plans_guard.dart';
 
 const bool qaSigning = bool.fromEnvironment('QA_SIGNING');
 const String qaSigningPass = String.fromEnvironment('QA_SIGNING_PASS');
@@ -44,6 +45,7 @@ const Key docPrimary = Key('doc-primary');
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  dismissPlansDuringTests();
   late FakeLauncher launcher;
   final shared = <String>[];
 

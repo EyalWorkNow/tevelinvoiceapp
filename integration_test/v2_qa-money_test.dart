@@ -26,6 +26,7 @@ import 'package:invoice/util/labels/labels.dart';
 
 import '../test/fakes/fake_launcher.dart';
 import 'qa_money_helpers.dart';
+import 'qa_plans_guard.dart';
 
 const openFromList = 1; // the tap on the row that opens D in a journey
 
@@ -33,6 +34,7 @@ Finder inSheet(Finder f) => find.descendant(of: find.byType(BottomSheet), matchi
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  dismissPlansDuringTests();
   qaMoneySuite();
 }
 

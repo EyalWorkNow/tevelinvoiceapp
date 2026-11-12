@@ -322,7 +322,9 @@ Future<void> pumpUntilScrolled(WidgetTester tester, Finder finder,
       await tester.pump(const Duration(milliseconds: 200));
       return;
     }
-    final lists = find.byType(Scrollable);
+    // The screen's main list: the last vertical one (the tab PageView and
+    // the quick-action strips scroll sideways).
+    final lists = find.byWidgetPredicate((w) => w is Scrollable && axisDirectionToAxis(w.axisDirection) == Axis.vertical);
     if (lists.evaluate().isEmpty) continue;
     final list = lists.last;
     final pos = tester.state<ScrollableState>(list).position;
