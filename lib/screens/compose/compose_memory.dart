@@ -13,6 +13,7 @@
 import 'dart:async';
 
 import '../../api/client.dart';
+import '../../api/customers_api.dart' show fetchCustomerDetail;
 import '../../api/issue_api.dart' show cacheWrite, currentBusinessId;
 import '../../api/models/models.dart';
 import '../../state/cache.dart';
@@ -61,13 +62,16 @@ Future<int?> _refreshVatRate(String key) async {
   return null;
 }
 
-/// The customer with [id] (cached list first, then GET /customers).
+/// The customer with [id]: the list row (GET /customers, it carries the
+/// BE-09 extras such as `lastLineDescription`), else GET /customers/:id — the
+/// list is paged at 500, so on a big book a newer customer is not on it
+/// (AT-20). Offline: the device copy. Null when the customer does not exist.
 Future<Customer?> findCustomer(String id) async {
   Customer? from(Object? list) {
     if (list is! List) return null;
     for (final c in list) {
-      if (c is Map<String, dynamic> && c['id'] == id) {
-        return Customer.fromJson(c);
+      if (c is Map && c['id'] == id) {
+        return Customer.fromJson(Map<String, dynamic>.from(c));
       }
     }
     return null;
@@ -78,10 +82,15 @@ Future<Customer?> findCustomer(String id) async {
     final json = await _api.get('/customers');
     final list = json['customers'] as List? ?? const [];
     await cacheWrite(key, list);
-    return from(list);
+    final listed = from(list);
+    if (listed != null) return listed;
+    final detail = await fetchCustomerDetail(id);
+    await cacheWrite(key, [...list, detail.customer.toJson()]);
+    return detail.customer;
   } on ApiException catch (e) {
-    if (!e.isNetwork) rethrow;
-    return from(await _read(key));
+    if (e.isNetwork) return from(await _read(key));
+    if (e.status == 404 || e.code == 'CUSTOMER_NOT_FOUND') return null;
+    rethrow;
   }
 }
 

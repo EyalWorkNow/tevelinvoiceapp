@@ -98,4 +98,32 @@ void main() {
       );
     },
   );
+
+  test(
+    'AT-20: a customer past the 500-row list page is found by GET /customers/:id',
+    () async {
+      await signInAs(backend, Preset.owner);
+      backend
+        ..json('GET', '/customers', {
+          'customers': [
+            {'id': 'c-listed', 'name': 'ברשימה'},
+          ],
+        })
+        ..on(
+          'GET',
+          '/customers/:id',
+          (r) => r.params['id'] == 'c-new'
+              ? const FakeResponse(200, {
+                  'customer': {'id': 'c-new', 'name': 'לקוח חדש'},
+                  'stats': {},
+                })
+              : FakeResponse.error(404, 'CUSTOMER_NOT_FOUND'),
+        );
+
+      expect((await findCustomer('c-listed'))?.name, 'ברשימה');
+      expect(backend.calls('GET', '/customers/:id'), isEmpty);
+      expect((await findCustomer('c-new'))?.name, 'לקוח חדש');
+      expect(await findCustomer('c-gone'), isNull);
+    },
+  );
 }
