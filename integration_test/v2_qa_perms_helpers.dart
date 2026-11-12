@@ -22,6 +22,7 @@ import 'package:invoice/api/client.dart';
 import 'package:invoice/api/models/models.dart';
 import 'package:invoice/app_shell.dart';
 import 'package:invoice/router.dart' show navigatorKey;
+import 'package:invoice/screens/business/business_screen.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/widgets/primary_button.dart';
@@ -770,6 +771,21 @@ Future<Set<String>> keysWithPrefixScrolling(
 /// back to B.
 Future<Set<String>> openMoreSettingsRows(WidgetTester tester) async {
   final more = find.byKey(const Key('brow-more'));
+  // B is a lazy list: after keysWithPrefixScrolling went back to the top the
+  // last row ("עוד הגדרות") is not built, so scroll down until it is.
+  if (more.evaluate().isEmpty) {
+    await tester.dragUntilVisible(
+      more,
+      find
+          .descendant(
+            of: find.byType(BusinessScreen),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+      const Offset(0, -250),
+      maxIteration: 30,
+    );
+  }
   await tester.ensureVisible(more);
   await tester.pump(const Duration(milliseconds: 200));
   await tester.tap(more);
