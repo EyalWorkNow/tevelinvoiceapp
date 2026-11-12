@@ -454,7 +454,37 @@ Future<void> launchAppAs(WidgetTester tester, DevApi who) async {
     timeout: const Duration(seconds: 40),
     what: 'AppShell as ${who.email}',
   );
+  // QA 3.5 (A8): the OCR consent prompt is covered by widget tests; here the
+  // consent was already given, so the J4 tap budgets stay as specified.
+  await AppCache.writeUserData('expense_ocr_consent', true);
   await pumpFor(tester, const Duration(seconds: 1));
+}
+
+/// The people list. The bottom bar no longer has a "לקוחות" tab (QA 1.5 /
+/// SPEC §5 decision pending): ניהול → "לקוחות". With [taps], both count.
+Future<void> openPeopleTab(WidgetTester tester, {TapCounter? taps}) async {
+  final manage = find.byKey(const Key('tab-business'));
+  final customers = find.byKey(const Key('management-action-customers'));
+  if (taps != null) {
+    await taps.tap(tester, manage, 'ניהול');
+  } else {
+    await tester.tap(manage);
+  }
+  await pumpUntil(tester, customers, what: 'ניהול → לקוחות');
+  await pumpFor(tester, const Duration(milliseconds: 400));
+  if (taps != null) {
+    await taps.tap(tester, customers, 'לקוחות');
+  } else {
+    await tester.ensureVisible(customers);
+    await tester.pump();
+    await tester.tap(customers);
+  }
+  await pumpUntil(
+    tester,
+    find.byKey(const Key('people-search')),
+    what: 'people list',
+  );
+  await pumpFor(tester, const Duration(milliseconds: 800)); // push transition
 }
 
 /// Leaves the app without revoking anything (tokens are revoked in tearDownAll).
@@ -484,10 +514,131 @@ Future<void> pumpUntil(
   final end = DateTime.now().add(timeout);
   while (finder.evaluate().isEmpty) {
     if (DateTime.now().isAfter(end)) {
-      fail('timed out waiting for ${what ?? finder}');
+      fail('timed out waiting for ${what ?? finder}\n${screenDump()}');
     }
     await tester.pump(const Duration(milliseconds: 150));
   }
+}
+
+/// A user's tap: waits out a page transition, scrolls [finder] into view
+/// and clears a notch notice that covers it, then taps.
+Future<void> tapSafe(WidgetTester tester, Finder finder) async {
+  await tester.pump(const Duration(milliseconds: 300));
+  // ensureVisible also moves the tab PageView (RTL), so only when needed.
+  if (finder.first.hitTestable().evaluate().isEmpty) {
+    await tester.ensureVisible(finder.first);
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  await uncover(tester, finder.first);
+  await tester.tap(finder.first);
+  await tester.pump(const Duration(milliseconds: 150));
+}
+
+/// Saving in S2 now opens the new card; a user goes back to the list.
+Future<void> backToPeopleList(WidgetTester tester) async {
+  if (find
+      .byKey(const Key('people-search'))
+      .hitTestable()
+      .evaluate()
+      .isNotEmpty) {
+    return;
+  }
+  navigatorKey.currentState!.popUntil((r) => r.isFirst);
+  await pumpFor(tester, const Duration(milliseconds: 600));
+  if (find.byKey(const Key('people-search')).hitTestable().evaluate().isEmpty) {
+    final customers = find.byKey(const Key('management-action-customers'));
+    await pumpUntil(tester, customers, what: 'ניהול → לקוחות');
+    await tapUntil(
+      tester,
+      customers,
+      find.byKey(const Key('people-search')).hitTestable(),
+    );
+  }
+  await pumpUntil(
+    tester,
+    find.byKey(const Key('people-search')).hitTestable(),
+    what: 'people list after back',
+  );
+  await pumpFor(tester, const Duration(milliseconds: 500));
+}
+
+/// Taps [target] (again, if a fast tap was lost in a rebuild) until [until]
+/// shows.
+Future<void> tapUntil(
+  WidgetTester tester,
+  Finder target,
+  Finder until, {
+  int attempts = 3,
+}) async {
+  for (var i = 0; i < attempts; i++) {
+    if (target.evaluate().isNotEmpty) await tapSafe(tester, target);
+    final end = DateTime.now().add(const Duration(seconds: 4));
+    while (DateTime.now().isBefore(end)) {
+      await tester.pump(const Duration(milliseconds: 150));
+      if (until.evaluate().isNotEmpty) return;
+    }
+  }
+  fail('timed out waiting for $until\n${screenDump()}');
+}
+
+/// What is on screen (texts and keys), for a failure message.
+String screenDump() {
+  final texts = find
+      .byType(Text)
+      .hitTestable()
+      .evaluate()
+      .map((e) => (e.widget as Text).data)
+      .whereType<String>()
+      .take(40)
+      .join(' | ');
+  final keys = find
+      .byWidgetPredicate((w) => w.key is ValueKey<String>)
+      .hitTestable()
+      .evaluate()
+      .map((e) => (e.widget.key! as ValueKey<String>).value)
+      .take(40)
+      .join(', ');
+  final routes = <String>[];
+  navigatorKey.currentState?.popUntil((r) {
+    routes.add(r.settings.name ?? '?');
+    return true;
+  });
+  return 'SCREEN tab=${currentTab.value} routes=$routes\nSCREEN texts: $texts\nSCREEN keys: $keys';
+}
+
+/// Like [pumpUntil] for a row of a lazy ListView that may be below the fold:
+/// scrolls the screen's main list down step by step (then back up) until
+/// [finder] is built, then makes it visible.
+Future<void> pumpUntilScrolled(
+  WidgetTester tester,
+  Finder finder, {
+  Duration timeout = const Duration(seconds: 30),
+  String? what,
+}) async {
+  final end = DateTime.now().add(timeout);
+  var down = true;
+  while (DateTime.now().isBefore(end)) {
+    await tester.pump(const Duration(milliseconds: 200));
+    if (finder.evaluate().isNotEmpty) {
+      await tester.ensureVisible(finder.first);
+      await tester.pump(const Duration(milliseconds: 200));
+      return;
+    }
+    final lists = find
+        .byWidgetPredicate(
+          (w) =>
+              w is Scrollable &&
+              axisDirectionToAxis(w.axisDirection) == Axis.vertical,
+        )
+        .hitTestable();
+    if (lists.evaluate().isEmpty) continue;
+    final list = lists.last;
+    final pos = tester.state<ScrollableState>(list).position;
+    if (down && pos.pixels >= pos.maxScrollExtent) down = false;
+    if (!down && pos.pixels <= pos.minScrollExtent) down = true;
+    await tester.drag(list, Offset(0, down ? -300 : 300), warnIfMissed: false);
+  }
+  fail('timed out waiting for ${what ?? finder}\n${screenDump()}');
 }
 
 /// Pumps until [finder] finds nothing (a sheet / dialog closed).

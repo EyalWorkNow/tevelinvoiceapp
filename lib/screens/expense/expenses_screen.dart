@@ -425,6 +425,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final menus = [
       if (editing != null)
         MoreMenu(
+          key: const Key('expense-more'),
           items: [
             MoreMenuItem(
               label: ExpenseHe.delete,
@@ -435,6 +436,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         ),
       if (canReject)
         MoreMenu(
+          key: const Key('expense-more'),
           items: [
             MoreMenuItem(
               label: ExpenseHe.reject,

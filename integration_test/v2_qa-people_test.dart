@@ -125,7 +125,7 @@ void main() {
       final since = DateTime.now().subtract(const Duration(seconds: 2));
       final taps = TapCounter();
 
-      await taps.tap(tester, find.byKey(const Key('tab-people')), 'לקוחות');
+      await openPeopleTab(tester, taps: taps);
       await pumpUntil(tester, find.byKey(const Key('people-search')));
       await tester.enterText(
         find.byKey(const Key('people-search')),
@@ -138,13 +138,18 @@ void main() {
       );
       await taps.tap(tester, find.byKey(Key('person-$debtorId')), 'לקוח');
 
-      await pumpUntil(
+      // The CRM panel pushes these rows below the fold of P2's lazy list.
+      await pumpUntilScrolled(
         tester,
         find.byKey(const Key('person-statement')),
         what: '"שלח כרטסת" (BE-17 probe)',
       );
       // P2: "חייב לך ₪118" and the one primary is "בקש תשלום" (balance > 0).
-      await pumpUntil(tester, find.byKey(const Key('person-owes')));
+      await pumpUntilScrolled(tester, find.byKey(const Key('person-owes')));
+      await pumpUntilScrolled(
+        tester,
+        find.byKey(const Key('person-statement')),
+      );
       expect(
         find.descendant(
           of: find.byKey(const Key('person-primary')),
@@ -163,7 +168,8 @@ void main() {
         find.text(PeopleHe.statementSent(debtorEmail)),
         what: 'sent toast',
       );
-      expect(taps.count, lessThanOrEqualTo(3), reason: '$taps');
+      // +1 for "ניהול": the bottom bar has no "לקוחות" tab any more.
+      expect(taps.count, lessThanOrEqualTo(4), reason: '$taps');
       expect(
         sharedPdfs,
         isEmpty,
@@ -185,14 +191,14 @@ void main() {
     '§6.P (P0b) owner: chip "חייבים" lists the debtor with "חייב לך"; "ספקים" chip present',
     (tester) async {
       await launchAppAs(tester, owner);
-      await tester.tap(find.byKey(const Key('tab-people')));
+      await openPeopleTab(tester);
       await pumpUntil(
         tester,
         find.text(PeopleHe.chipDebtors),
         what: 'debtors chip (BE-09 balances)',
       );
       expect(find.text(PeopleHe.chipSuppliers), findsOneWidget);
-      await tester.tap(find.text(PeopleHe.chipDebtors));
+      await tapSafe(tester, find.text(PeopleHe.chipDebtors));
       await tester.pump(const Duration(milliseconds: 300));
       await tester.enterText(
         find.byKey(const Key('people-search')),
@@ -218,7 +224,7 @@ void main() {
       final noConsentEmail = 'qa-noconsent-$runTag@example.test';
 
       await launchAppAs(tester, owner);
-      await tester.tap(find.byKey(const Key('tab-people')));
+      await openPeopleTab(tester);
       await pumpUntil(tester, find.byKey(const Key('people-add')));
 
       Future<void> addCustomer(
@@ -228,8 +234,11 @@ void main() {
       }) async {
         pickContact = () async =>
             PickedContact(name: name, phones: const ['0501234567']);
-        await tester.tap(find.byKey(const Key('people-add')));
-        await pumpUntil(tester, find.byKey(const Key('s2-save')));
+        await backToPeopleList(tester);
+        await tapSafe(tester, find.byKey(const Key('people-add')));
+        await pumpUntil(tester, find.byKey(const Key('s2-name')));
+        // QA 1.4 (A5): contacts are read only from "ייבוא מאנשי קשר".
+        await tapSafe(tester, find.byKey(const Key('s2-import-contact')));
         await pumpFor(
           tester,
           const Duration(milliseconds: 600),
@@ -242,11 +251,11 @@ void main() {
         await tester.enterText(find.byKey(const Key('s2-email')), email);
         if (consent) {
           await tester.ensureVisible(find.byKey(const Key('s2-consent')));
-          await tester.tap(find.byKey(const Key('s2-consent')));
+          await tapSafe(tester, find.byKey(const Key('s2-consent')));
           await tester.pump(const Duration(milliseconds: 200));
         }
         await tester.ensureVisible(find.byKey(const Key('s2-save')));
-        await tester.tap(find.byKey(const Key('s2-save')));
+        await tapSafe(tester, find.byKey(const Key('s2-save')));
         await pumpUntilGone(
           tester,
           find.byKey(const Key('s2-save')),
@@ -383,7 +392,7 @@ void main() {
 
       // עובד: no debtors / suppliers chips; P2 without edit, statement, ⋯, balance.
       await launchAppAs(tester, staff);
-      await tester.tap(find.byKey(const Key('tab-people')));
+      await openPeopleTab(tester);
       await pumpUntil(tester, find.byKey(const Key('people-search')));
       await pumpFor(tester, const Duration(seconds: 2));
       expect(find.text(PeopleHe.chipDebtors), findsNothing);
@@ -394,7 +403,7 @@ void main() {
         debtorName,
       );
       await pumpUntil(tester, find.byKey(Key('person-$debtorId')));
-      await tester.tap(find.byKey(Key('person-$debtorId')));
+      await tapSafe(tester, find.byKey(Key('person-$debtorId')));
       await pumpUntil(
         tester,
         find.byKey(const Key('person-mail')),
@@ -412,7 +421,7 @@ void main() {
 
       // צפייה בלבד: no "+ לקוח"; P2 read-only.
       await launchAppAs(tester, viewer);
-      await tester.tap(find.byKey(const Key('tab-people')));
+      await openPeopleTab(tester);
       await pumpUntil(tester, find.byKey(const Key('people-search')));
       expect(find.byKey(const Key('people-add')), findsNothing);
       await tester.enterText(
@@ -420,7 +429,7 @@ void main() {
         debtorName,
       );
       await pumpUntil(tester, find.byKey(Key('person-$debtorId')));
-      await tester.tap(find.byKey(Key('person-$debtorId')));
+      await tapSafe(tester, find.byKey(Key('person-$debtorId')));
       await pumpUntil(
         tester,
         find.byKey(const Key('person-mail')),
@@ -447,9 +456,9 @@ void main() {
         tester,
         const Duration(seconds: 1),
       ); // let the push transition finish (it hit off-screen)
-      await tester.tap(find.byTooltip(CommonHe.more).last);
+      await tapSafe(tester, find.byTooltip(CommonHe.more).last);
       await pumpUntil(tester, find.text(PeopleHe.archive));
-      await tester.tap(find.text(PeopleHe.archive).last);
+      await tapSafe(tester, find.text(PeopleHe.archive).last);
       final tail = PeopleHe.archiveWithBalance('§').split('§').last;
       await pumpUntil(
         tester,
@@ -457,7 +466,8 @@ void main() {
         what: 'archive-with-balance dialog',
       );
       expect(find.textContaining('118'), findsWidgets);
-      await tester.tap(
+      await tapSafe(
+        tester,
         find.descendant(
           of: find.byType(AlertDialog),
           matching: find.text(CommonHe.cancel),
@@ -481,11 +491,11 @@ void main() {
     (tester) async {
       final name = 'QA ספק $runTag';
       await launchAppAs(tester, owner);
-      await tester.tap(find.byKey(const Key('tab-people')));
+      await openPeopleTab(tester);
       await pumpUntil(tester, find.text(PeopleHe.chipSuppliers));
-      await tester.tap(find.text(PeopleHe.chipSuppliers));
+      await tapSafe(tester, find.text(PeopleHe.chipSuppliers));
       await pumpUntil(tester, find.text(PeopleHe.addSupplier));
-      await tester.tap(find.byKey(const Key('people-add')));
+      await tapSafe(tester, find.byKey(const Key('people-add')));
       await pumpUntil(tester, find.byKey(const Key('s2-name')));
       await pumpFor(tester, const Duration(milliseconds: 500));
       expect(
@@ -494,7 +504,7 @@ void main() {
         reason: 'suppliers have no consent switch',
       );
       await tester.enterText(find.byKey(const Key('s2-name')), name);
-      await tester.tap(find.byKey(const Key('s2-save')));
+      await tapSafe(tester, find.byKey(const Key('s2-save')));
       await pumpUntilGone(tester, find.byKey(const Key('s2-save')));
 
       final id = await eventually(() async {
@@ -503,19 +513,20 @@ void main() {
         return hit.isEmpty ? null : hit.first['id'] as String;
       }, what: 'supplier on the server');
 
+      await backToPeopleList(tester);
       await tester.enterText(find.byKey(const Key('people-search')), name);
       await pumpUntil(tester, find.byKey(Key('supplier-$id')));
-      await tester.tap(find.byKey(Key('supplier-$id')));
+      await tapSafe(tester, find.byKey(Key('supplier-$id')));
       await pumpUntil(
         tester,
         find.byKey(const Key('person-edit')),
         what: 'BE-16 "פרטים ועריכה"',
       );
-      await tester.tap(find.byKey(const Key('person-edit')));
+      await tapSafe(tester, find.byKey(const Key('person-edit')));
       await pumpUntil(tester, find.byKey(const Key('s2-phone')));
       await tester.enterText(find.byKey(const Key('s2-phone')), '0521234567');
       await tester.ensureVisible(find.byKey(const Key('s2-save')));
-      await tester.tap(find.byKey(const Key('s2-save')));
+      await tapSafe(tester, find.byKey(const Key('s2-save')));
       await pumpUntilGone(tester, find.byKey(const Key('s2-save')));
       await eventually(() async {
         final s =
@@ -528,11 +539,12 @@ void main() {
         tester,
         const Duration(seconds: 1),
       ); // let the push transition finish (it hit off-screen)
-      await tester.tap(find.byTooltip(CommonHe.more).last);
+      await tapSafe(tester, find.byTooltip(CommonHe.more).last);
       await pumpUntil(tester, find.text(PeopleHe.archive));
-      await tester.tap(find.text(PeopleHe.archive).last);
+      await tapSafe(tester, find.text(PeopleHe.archive).last);
       await pumpUntil(tester, find.text(PeopleHe.supplierArchiveConfirm));
-      await tester.tap(
+      await tapSafe(
+        tester,
         find.descendant(
           of: find.byType(AlertDialog),
           matching: find.text(PeopleHe.archive),
@@ -571,9 +583,18 @@ void main() {
       });
 
       final taps = TapCounter();
-      await taps.tap(tester, find.byKey(const Key('tab-create')), '＋');
-      await pumpUntil(tester, find.byKey(const Key('s1-expense')));
-      await taps.tap(tester, find.byKey(const Key('s1-expense')), 'הוצאה');
+      // S1 is gone: home "הוצאות" → overview → "העלאת הוצאה".
+      await taps.tap(
+        tester,
+        find.byKey(const Key('intent-expenses')),
+        'הוצאות',
+      );
+      await pumpUntil(tester, find.byKey(const Key('expense-upload-new')));
+      await taps.tap(
+        tester,
+        find.byKey(const Key('expense-upload-new')),
+        'הוצאה חדשה',
+      );
       taps.virtual(
         'צילום',
       ); // the camera opens by itself; the shutter is the user's tap
@@ -640,9 +661,12 @@ void main() {
       });
 
       final taps = TapCounter();
-      await taps.tap(tester, find.byKey(const Key('tab-create')), '＋');
-      await pumpUntil(tester, find.byKey(const Key('s1-expense')));
-      await taps.tap(tester, find.byKey(const Key('s1-expense')), 'הוצאה');
+      // S1 is gone: home "הוצאות" opens capture for a capture-only role.
+      await taps.tap(
+        tester,
+        find.byKey(const Key('intent-expenses')),
+        'הוצאות',
+      );
       taps.virtual('צילום');
       await pumpUntil(
         tester,
@@ -723,11 +747,12 @@ void main() {
         tester,
         const Duration(seconds: 1),
       ); // let the push transition finish (it hit off-screen)
-      await tester.tap(find.byTooltip(CommonHe.more).last);
+      await tapSafe(tester, find.byKey(const Key('expense-more')));
       await pumpUntil(tester, find.text(ExpenseHe.reject));
-      await tester.tap(find.text(ExpenseHe.reject).last);
+      await tapSafe(tester, find.text(ExpenseHe.reject).last);
       await pumpUntil(tester, find.byKey(const Key('expense-reject-confirm')));
-      await tester.tap(
+      await tapSafe(
+        tester,
         find.byKey(const Key('expense-reject-confirm')),
       ); // empty reason
       await pumpFor(tester, const Duration(milliseconds: 500));
@@ -740,7 +765,7 @@ void main() {
         find.byKey(const Key('expense-reject-reason')),
         'QA כפילות $runTag',
       );
-      await tester.tap(find.byKey(const Key('expense-reject-confirm')));
+      await tapSafe(tester, find.byKey(const Key('expense-reject-confirm')));
       await pumpUntil(tester, find.text(ExpenseHe.rejected));
       await eventually(
         () => owner.findExpense(id, status: 'REJECTED'),
@@ -768,7 +793,7 @@ void main() {
       await launchAppAs(tester, owner);
       atRoot((c) => openExpenses(c));
       await pumpUntil(tester, find.byKey(const Key('expense-mode')));
-      await tester.tap(find.byKey(const Key('expense-mode')));
+      await tapSafe(tester, find.byKey(const Key('expense-mode')));
       await pumpUntil(tester, find.byKey(const Key('expense-search')));
       await tester.enterText(
         find.byKey(const Key('expense-search')),
@@ -779,11 +804,14 @@ void main() {
         find.byKey(Key('expense-row-$id')),
         what: 'approved expense in the list',
       );
-      await tester.tap(find.byKey(Key('expense-row-$id')));
-      await pumpUntil(tester, find.byKey(ValueKey('edit-$id')));
+      await tapUntil(
+        tester,
+        find.byKey(Key('expense-row-$id')),
+        find.byKey(ValueKey('edit-$id')),
+      );
       await tester.enterText(find.byKey(const Key('expense-amount')), '300');
       await tester.ensureVisible(find.byKey(const Key('expense-primary')));
-      await tester.tap(find.byKey(const Key('expense-primary')));
+      await tapSafe(tester, find.byKey(const Key('expense-primary')));
       await pumpUntil(tester, find.text(ExpenseHe.updated));
       final edited = await eventually(() async {
         final r = await owner.findExpense(id, q: ocr.supplierName);
@@ -793,17 +821,20 @@ void main() {
       expect(edited['editedAfterApproval'], isTrue);
 
       await pumpUntil(tester, find.byKey(Key('expense-row-$id')));
-      await tester.tap(find.byKey(Key('expense-row-$id')));
-      await pumpUntil(tester, find.byKey(ValueKey('edit-$id')));
+      await tapUntil(
+        tester,
+        find.byKey(Key('expense-row-$id')),
+        find.byKey(ValueKey('edit-$id')),
+      );
       await pumpFor(
         tester,
         const Duration(seconds: 1),
       ); // let the push transition finish (it hit off-screen)
-      await tester.tap(find.byTooltip(CommonHe.more).last);
+      await tapSafe(tester, find.byKey(const Key('expense-more')));
       await pumpUntil(tester, find.text(ExpenseHe.delete));
-      await tester.tap(find.text(ExpenseHe.delete).last);
+      await tapSafe(tester, find.text(ExpenseHe.delete).last);
       await pumpUntil(tester, find.byKey(const Key('expense-delete-confirm')));
-      await tester.tap(find.byKey(const Key('expense-delete-confirm')));
+      await tapSafe(tester, find.byKey(const Key('expense-delete-confirm')));
       await pumpUntil(tester, find.text(ExpenseHe.deleted));
       await eventually(
         () => owner.findExpense(id, status: 'DELETED'),
@@ -934,7 +965,7 @@ void main() {
         timeout: const Duration(seconds: 30),
       );
       for (final d in ['1', '0', '0']) {
-        await tester.tap(find.text(d).last);
+        await tapSafe(tester, find.text(d).last);
         await tester.pump(const Duration(milliseconds: 80));
       }
       await pumpUntil(
@@ -943,10 +974,10 @@ void main() {
         timeout: const Duration(seconds: 30),
       );
       await tester.ensureVisible(find.byKey(const Key('compose-more-details')));
-      await tester.tap(find.byKey(const Key('compose-more-details')));
+      await tapSafe(tester, find.byKey(const Key('compose-more-details')));
       await pumpUntil(tester, find.byKey(const Key('s3-add-line')));
       await tester.ensureVisible(find.byKey(const Key('s3-add-line')));
-      await tester.tap(find.byKey(const Key('s3-add-line')));
+      await tapSafe(tester, find.byKey(const Key('s3-add-line')));
       await pumpUntil(tester, find.byKey(const Key('s3-line-0-description')));
       await tester.enterText(
         find.byKey(const Key('s3-line-0-description')),
@@ -957,7 +988,7 @@ void main() {
         find.text(catalogName),
         what: 'catalog suggestion',
       );
-      await tester.tap(find.text(catalogName).last);
+      await tapSafe(tester, find.text(catalogName).last);
       await tester.pump(const Duration(milliseconds: 300));
       expect(
         fieldText(tester, find.byKey(const Key('s3-line-0-price'))),
@@ -971,7 +1002,7 @@ void main() {
       );
 
       await tester.ensureVisible(find.byKey(const Key('s3-add-line')));
-      await tester.tap(find.byKey(const Key('s3-add-line')));
+      await tapSafe(tester, find.byKey(const Key('s3-add-line')));
       await pumpUntil(tester, find.byKey(const Key('s3-line-1-description')));
       await tester.enterText(
         find.byKey(const Key('s3-line-1-description')),
@@ -984,7 +1015,7 @@ void main() {
         what: '"לשמור כפריט?"',
       );
       await tester.ensureVisible(find.byKey(const Key('s3-line-1-save-item')));
-      await tester.tap(find.byKey(const Key('s3-line-1-save-item')));
+      await tapSafe(tester, find.byKey(const Key('s3-line-1-save-item')));
       await pumpUntil(
         tester,
         find.byKey(const Key('s3-line-1-item')),
