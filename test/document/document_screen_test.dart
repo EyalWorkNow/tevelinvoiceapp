@@ -1108,6 +1108,8 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       expect(find.text('דנה כהן'), findsWidgets);
+      await tester.ensureVisible(find.byKey(const Key('doc-customer')));
+      await tester.pump();
       await tester.tap(find.byKey(const Key('doc-customer')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
@@ -1237,5 +1239,63 @@ void main() {
         expect(primary(), findsNothing);
       },
     );
+  });
+
+  group('R7 allocation row', () {
+    testWidgets('an issued 305 with a number shows it', (tester) async {
+      backend
+        ..json(
+          'GET',
+          '/documents/:id',
+          docDetailJson(allocationNumber: '202611120001234567'),
+        )
+        ..json('GET', '/documents/:id/allocation', {
+          'state': 'APPROVED',
+          'allocationNumber': '202611120001234567',
+        });
+      await pumpDoc(tester, Preset.owner);
+      expect(find.byKey(const Key('doc-allocation')), findsOneWidget);
+      expect(find.textContaining('202611120001234567'), findsOneWidget);
+      expect(find.byKey(const Key('doc-allocation-retry')), findsNothing);
+    });
+
+    testWidgets(
+      'failed after issue → Hebrew status + "נסה שוב" requests again',
+      (tester) async {
+        backend.json('GET', '/documents/:id/allocation', {
+          'state': 'TECHNICAL_FAILURE',
+          'allocationNumber': null,
+        });
+        await pumpDoc(tester, Preset.owner);
+        expect(find.text('בקשת מספר ההקצאה נכשלה'), findsOneWidget);
+        await tap(tester, find.byKey(const Key('doc-allocation-retry')));
+        expect(
+          backend.calls('POST', '/documents/:id/allocation/request'),
+          hasLength(1),
+        );
+      },
+    );
+
+    testWidgets('not required → says so, no retry', (tester) async {
+      backend.json('GET', '/documents/:id/allocation', {
+        'state': 'OPTIONAL',
+        'allocationNumber': null,
+        'evaluation': {'requirement': 'OPTIONAL'},
+      });
+      await pumpDoc(tester, Preset.owner);
+      expect(find.text('לא נדרש מספר הקצאה'), findsOneWidget);
+      expect(find.byKey(const Key('doc-allocation-retry')), findsNothing);
+    });
+
+    testWidgets('a server without SHAAM (NOT_EVALUATED) → no row', (
+      tester,
+    ) async {
+      backend.json('GET', '/documents/:id/allocation', {
+        'state': 'NOT_EVALUATED',
+        'allocationNumber': null,
+      });
+      await pumpDoc(tester, Preset.owner);
+      expect(find.byKey(const Key('doc-allocation')), findsNothing);
+    });
   });
 }

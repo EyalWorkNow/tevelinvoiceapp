@@ -918,6 +918,35 @@ void main() {
       },
     );
   });
+
+  group('R7 allocation hint under the amount', () {
+    const dealer = Customer(
+      id: 'c9',
+      name: 'מוסך בע״מ',
+      taxId: '514000002',
+      vatDealerStatus: 'AUTHORIZED_DEALER',
+    );
+
+    testWidgets('dealer customer above ₪5,000 before VAT → one quiet line', (
+      tester,
+    ) async {
+      await open(tester, intent: 'REQUEST', customer: dealer);
+      await tester.tap(find.byKey(const Key('compose-customer')));
+      await flush(tester);
+      await type(tester, '6000'); // incl. 18% → ₪5,084.75 before VAT
+      expect(find.byKey(const Key('compose-allocation-hint')), findsOneWidget);
+      expect(find.text('המסמך יקבל מספר הקצאה מרשות המסים'), findsOneWidget);
+    });
+
+    testWidgets('below the threshold → nothing', (tester) async {
+      await open(tester, intent: 'REQUEST', customer: dealer);
+      await tester.tap(find.byKey(const Key('compose-customer')));
+      await flush(tester);
+      await type(tester, '5900'); // exactly ₪5,000 before VAT
+      expect(find.byKey(const Key('compose-allocation-hint')), findsNothing);
+      expect(find.byKey(const Key('compose-allocation-connect')), findsNothing);
+    });
+  });
 }
 
 void unawaited(Future<void> f) {}
