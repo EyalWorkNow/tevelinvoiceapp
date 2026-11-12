@@ -663,6 +663,9 @@ void main() {
       final src = await docDetail(owner, id);
       expect(src['cancelled'], isTrue);
       await openD(tester, id);
+      // D opens from its cache first (02 §cache-first) and then refreshes.
+      await pumpUntil(tester, find.descendant(of: find.byKey(const Key('doc-status-line')), matching: find.text('בוטל')),
+          reason: 'status line "בוטל" after the refresh');
       expect(find.descendant(of: find.byKey(const Key('doc-status-line')), matching: find.text('בוטל')),
           findsOneWidget);
     });
