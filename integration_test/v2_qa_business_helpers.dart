@@ -26,9 +26,12 @@ const apiBase = String.fromEnvironment(
   defaultValue: 'http://127.0.0.1:3031',
 );
 const mailDir = String.fromEnvironment(
-  'MFA_MAIL_DIR',
-  defaultValue:
-      '/Users/eyalatiya/invoiceproject-mobile-dev-storage/outgoing-emails',
+  'MAILDIR',
+  defaultValue: String.fromEnvironment(
+    'MFA_MAIL_DIR',
+    defaultValue:
+        '/Users/eyalatiya/invoiceproject-mobile-dev-storage/outgoing-emails',
+  ),
 );
 const devPassword = 'Mobile12345678';
 
