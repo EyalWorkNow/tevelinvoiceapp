@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -232,6 +233,51 @@ void main() {
     expect(events, [ApiEvent.sessionExpired, ApiEvent.mfaRequired]);
     await sub.cancel();
   });
+
+  test(
+    'QA 2.5: a large body is decoded off the UI isolate, a small one inline',
+    () async {
+      final original = ApiClient.backgroundDecoder;
+      final offloaded = <int>[];
+      ApiClient.backgroundDecoder = (bytes) async {
+        offloaded.add(bytes.length);
+        // A real isolate (flutter_test_config.dart decodes inline for widget tests).
+        return Isolate.run(() => jsonDecode(utf8.decode(bytes)));
+      };
+      addTearDown(() => ApiClient.backgroundDecoder = original);
+
+      respond(200, {'items': []});
+      expect(await api.get('/customers'), {'items': []});
+      expect(offloaded, isEmpty, reason: 'small payload stays synchronous');
+
+      final rows = [
+        for (var i = 0; i < 1200; i++) {'id': 'c$i', 'name': 'לקוח מספר $i'},
+      ];
+      respond(200, {'customers': rows});
+      final big = await api.get('/customers');
+      expect(offloaded, hasLength(1));
+      expect(
+        offloaded.single,
+        greaterThanOrEqualTo(ApiClient.backgroundDecodeBytes),
+      );
+      expect((big['customers'] as List).length, 1200);
+      expect((big['customers'] as List).last, {
+        'id': 'c1199',
+        'name': 'לקוח מספר 1199',
+      });
+
+      // A broken large body is still BAD_RESPONSE, not an isolate error.
+      api.httpClient = MockClient(
+        (_) async => http.Response('{"x":"${'a' * 60000}', 200),
+      );
+      await expectLater(
+        api.get('/customers'),
+        throwsA(
+          isA<ApiException>().having((e) => e.code, 'code', 'BAD_RESPONSE'),
+        ),
+      );
+    },
+  );
 
   test('network failure → NETWORK ApiException', () async {
     api.httpClient = MockClient(

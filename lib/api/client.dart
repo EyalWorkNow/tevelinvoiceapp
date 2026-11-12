@@ -4,7 +4,8 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kReleaseMode;
+import 'package:flutter/foundation.dart'
+    show compute, kReleaseMode, visibleForTesting;
 import 'package:http/http.dart' as http;
 
 import '../util/errors_he.dart';
@@ -181,7 +182,7 @@ class ApiClient {
         if (filename != null) 'X-Filename': Uri.encodeComponent(filename),
       },
     );
-    return _decode(response);
+    return await _decode(response);
   }
 
   /// Fresh UUID v4 for Idempotency-Key. Callers persist it with the pending
@@ -214,14 +215,27 @@ class ApiClient {
       idempotencyKey: idempotencyKey,
       businessOverride: businessOverride,
     );
-    return _decode(response);
+    return await _decode(response);
   }
 
-  Map<String, dynamic> _decode(http.Response response) {
-    if (response.bodyBytes.isEmpty) return <String, dynamic>{};
+  /// Bodies from this size up are decoded off the UI isolate (QA 2.5): a
+  /// 500-row list must not drop frames. Small bodies stay synchronous, where
+  /// an isolate hop costs more than it saves.
+  static const int backgroundDecodeBytes = 50 * 1024;
+
+  /// Decodes a large body on another isolate. Replaceable in tests.
+  @visibleForTesting
+  static Future<Object?> Function(Uint8List bytes) backgroundDecoder =
+      (bytes) => compute(_decodeJsonBytes, bytes);
+
+  Future<Map<String, dynamic>> _decode(http.Response response) async {
+    final bytes = response.bodyBytes;
+    if (bytes.isEmpty) return <String, dynamic>{};
     final Object? json;
     try {
-      json = jsonDecode(utf8.decode(response.bodyBytes));
+      json = bytes.length >= backgroundDecodeBytes
+          ? await backgroundDecoder(bytes)
+          : _decodeJsonBytes(bytes);
     } on FormatException {
       throw ApiException(
         response.statusCode,
@@ -365,6 +379,9 @@ class ApiClient {
     );
   }
 }
+
+/// UTF-8 JSON body → value. Top level so [compute] can run it on an isolate.
+Object? _decodeJsonBytes(Uint8List bytes) => jsonDecode(utf8.decode(bytes));
 
 /// The API origin for [base] (the API_BASE define). A bad define in a release
 /// build is a config error shown in Hebrew, never a raw [FormatException].
