@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import '../billing/billing_screen.dart';
+import '../../state/business_context.dart';
+import '../../state/caps.dart';
 import '../../ui/theme.dart';
 import '../business/account_page.dart';
 import '../business/business_screen.dart';
@@ -98,12 +100,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
   }
 
-  Widget _header(BuildContext context) => Column(
+  Widget _header(BuildContext context, {required bool plan}) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
       _switcher(context),
-      const SizedBox(height: 10),
-      _planButton(context),
+      if (plan) ...[const SizedBox(height: 10), _planButton(context)],
     ],
   );
 
@@ -183,8 +184,23 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final header = _header(context);
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: businessContext,
+    builder: (context, _) => _build(context),
+  );
+
+  Widget _build(BuildContext context) {
+    // The plan is the owner's (same rule as the "המסלול של העסק" row).
+    final plan = businessContext.can(Cap.owner);
+    // §4.4 / F5: the business form (13.1, bank, accountant) only for those who
+    // may edit it; everyone else gets their own account as "פרופיל".
+    if (!businessContext.can(Cap.settingsBusiness)) {
+      return AccountPage(
+        key: const ValueKey('settings'),
+        header: plan ? _planButton(context) : null,
+      );
+    }
+    final header = _header(context, plan: plan);
     return AnimatedSwitcher(
       duration: context.motion(280),
       switchInCurve: Curves.easeOutCubic,

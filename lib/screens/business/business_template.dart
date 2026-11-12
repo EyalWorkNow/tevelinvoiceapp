@@ -50,15 +50,16 @@ class BusinessPage extends StatelessWidget {
         ...children,
       ],
     );
+    // One look in every theme (the title row, not an AppBar). The back
+    // button only when there is somewhere to go back to: as a root tab
+    // (פרופיל → החשבון שלי) it would do nothing.
+    final canPop = ModalRoute.of(context)?.canPop ?? false;
     return Scaffold(
-      appBar: (showAppBar && !context.isDark)
-          ? AppBar(title: Text(title))
-          : null,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            if (showAppBar && context.isDark)
+            if (showAppBar)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   Space.page,
@@ -68,8 +69,13 @@ class BusinessPage extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Expanded(child: Text(title, style: AppText.displayTitle)),
-                    const DesignBackButton(),
+                    Expanded(
+                      child: Semantics(
+                        header: true,
+                        child: Text(title, style: AppText.displayTitle),
+                      ),
+                    ),
+                    if (canPop) const DesignBackButton(),
                   ],
                 ),
               ),

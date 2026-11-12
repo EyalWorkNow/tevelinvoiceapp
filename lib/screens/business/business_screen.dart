@@ -336,6 +336,8 @@ class _BusinessListState extends State<_BusinessList> {
     final currentBusinessId = businessContext.business?.businessId;
     final section46 =
         (businessContext.profile?.section46ApprovalNumber ?? '').isNotEmpty;
+    // Actions only: everything that is a settings row below (reports, team,
+    // branding, business details, numbering, …) lives there once (07·U9).
     final actions = <_ManagementAction>[
       _ManagementAction(
         id: 'customers',
@@ -386,56 +388,6 @@ class _BusinessListState extends State<_BusinessList> {
           onTap: () => _openNewCustomer(context),
         ),
       ],
-      if (caps.can(Cap.reportView) && !caps.homeIsReports)
-        _ManagementAction(
-          id: 'reports',
-          label: 'דוחות',
-          icon: Iconsax.chart_2,
-          orb: Icon(Iconsax.chart_2, color: const Color(0xFF385D55), size: 28),
-          color: const Color(0xFFCDEBDD),
-          onTap: () => openReports(context),
-        ),
-      if (caps.can(Cap.settingsDesign))
-        _ManagementAction(
-          id: 'branding',
-          label: 'עיצוב מסמכים',
-          icon: Iconsax.colorfilter,
-          orb: Icon(
-            Iconsax.colorfilter,
-            color: const Color(0xFF754F46),
-            size: 28,
-          ),
-          color: const Color(0xFFF5D6C8),
-          onTap: () => openBusinessSection(context, BusinessSection.branding),
-        ),
-      if (caps.can(Cap.teamManage))
-        _ManagementAction(
-          id: 'team',
-          label: 'צוות והרשאות',
-          icon: Iconsax.people,
-          orb: Icon(Iconsax.people, color: const Color(0xFF4A5680), size: 28),
-          color: const Color(0xFFD9E0F8),
-          onTap: () => openBusinessSection(context, BusinessSection.team),
-        ),
-      if (caps.can(Cap.settingsBusiness)) ...[
-        _ManagementAction(
-          id: 'integrations',
-          label: 'חיבורים',
-          icon: Iconsax.link,
-          orb: Icon(Iconsax.link, color: const Color(0xFF446A68), size: 28),
-          color: const Color(0xFFCDEBE7),
-          onTap: () =>
-              openBusinessSection(context, BusinessSection.integrations),
-        ),
-        _ManagementAction(
-          id: 'profile',
-          label: 'פרטי העסק',
-          icon: Iconsax.shop,
-          orb: Icon(Iconsax.shop, color: const Color(0xFF775A36), size: 28),
-          color: const Color(0xFFF1DEC2),
-          onTap: () => openBusinessSection(context, BusinessSection.profile),
-        ),
-      ],
       for (final kind in moreKinds(
         businessType,
         caps,
@@ -454,24 +406,6 @@ class _BusinessListState extends State<_BusinessList> {
           color: const Color(0xFFE8D9EF),
           onTap: () =>
               unawaited(openCompose(context, intent: typeIntent(kind))),
-        ),
-      if (caps.can(Cap.settingsNumbering))
-        _ManagementAction(
-          id: 'numbering',
-          label: 'מספור מסמכים',
-          icon: Iconsax.hashtag,
-          orb: Icon(Iconsax.hashtag, color: const Color(0xFF546150), size: 28),
-          color: const Color(0xFFDCE8D0),
-          onTap: () => showEditorSheet(context, instance: '13.3'),
-        ),
-      if (caps.can(Cap.settingsBusiness))
-        _ManagementAction(
-          id: 'desktop',
-          label: ComposeHe.moreOnComputer,
-          icon: Iconsax.monitor,
-          orb: const Icon(Iconsax.monitor, color: Color(0xFF775A36), size: 28),
-          color: const Color(0xFFF1DEC2),
-          onTap: () => openBusinessSection(context, BusinessSection.desktop),
         ),
     ];
 
