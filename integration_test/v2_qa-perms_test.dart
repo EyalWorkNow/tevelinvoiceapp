@@ -412,8 +412,13 @@ void qaPermsSuite() {
 
         // Tabs.
         expect(find.byKey(const Key('tab-home')), findsOneWidget);
-        // The bottom bar has no "לקוחות" tab any more (ניהול → לקוחות).
-        expect(find.byKey(const Key('tab-people')), findsNothing);
+        // "לקוחות" tab (PM 2026-11-12): every preset reads documents.
+        expect(
+          find.byKey(const Key('tab-people')),
+          p.permissions.contains('document:read')
+              ? findsOneWidget
+              : findsNothing,
+        );
         expect(find.byKey(const Key('tab-business')), findsOneWidget);
         expect(
           find.byKey(const Key('tab-create')),
@@ -480,11 +485,21 @@ void qaPermsSuite() {
         // B rows.
         await tester.tap(find.byKey(const Key('tab-business')));
         await pumpFor(tester, const Duration(seconds: 2));
-        final rows = await keysWithPrefixScrolling(
+        final listed = await keysWithPrefixScrolling(
           tester,
           find.byType(BusinessScreen),
           'brow-',
         );
+        // §6.B: ≤ 10 rows; the rarely used ones sit under "עוד הגדרות"
+        // (PM 2026-11-12) and count as B's destinations.
+        expect(listed.length, lessThanOrEqualTo(10), reason: 'B ${p.key}');
+        final rows = {...listed}..remove('more');
+        if (listed.contains('more')) {
+          final more = await openMoreSettingsRows(tester);
+          expect(more.length, greaterThanOrEqualTo(2), reason: '$more');
+          expect(rows.intersection(more), isEmpty);
+          rows.addAll(more);
+        }
         expect(rows, p.businessRows, reason: 'B rows ${p.key}');
         expectHiddenNotDisabled(tester, '${p.key} B');
         final quick = keysWithPrefix('management-action-');

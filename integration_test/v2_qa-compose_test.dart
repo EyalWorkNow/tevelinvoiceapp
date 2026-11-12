@@ -23,7 +23,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:invoice/api/client.dart';
 import 'package:invoice/api/signing_api.dart' as signing;
 import 'package:invoice/screens/business/business_screen.dart'
-    show businessRows;
+    show allBusinessRows;
 import 'package:invoice/screens/compose/compose_screen.dart';
 import 'package:invoice/screens/compose/compose_submit.dart' show shareText;
 import 'package:invoice/screens/document/document_screen.dart';
@@ -1448,9 +1448,12 @@ void main() {
           expect(kinds, isNot(contains(code)), reason: 'type $code is W');
         }
         expect(
-          businessRows(businessContext.caps, memberCount: 1).map((r) => r.key),
+          allBusinessRows(
+            businessContext.caps,
+            memberCount: 1,
+          ).map((r) => r.key),
           contains('desktop'),
-          reason: '"המשך במחשב" row in ניהול',
+          reason: '"המשך במחשב" reachable from ניהול (under "עוד הגדרות")',
         );
       },
     );

@@ -168,8 +168,8 @@ void main() {
         find.text(PeopleHe.statementSent(debtorEmail)),
         what: 'sent toast',
       );
-      // +1 for "ניהול": the bottom bar has no "לקוחות" tab any more.
-      expect(taps.count, lessThanOrEqualTo(4), reason: '$taps');
+      // J11 = 3 taps again: לקוחות is a tab (PM 2026-11-12).
+      expect(taps.count, lessThanOrEqualTo(3), reason: '$taps');
       expect(
         sharedPdfs,
         isEmpty,

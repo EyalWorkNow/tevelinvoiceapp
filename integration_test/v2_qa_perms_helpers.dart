@@ -21,9 +21,11 @@ import 'package:http/http.dart' as http;
 import 'package:invoice/api/client.dart';
 import 'package:invoice/api/models/models.dart';
 import 'package:invoice/app_shell.dart';
+import 'package:invoice/router.dart' show navigatorKey;
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/widgets/primary_button.dart';
+import 'package:invoice/util/labels/labels.dart' show BusinessHe;
 
 /// Same base the app uses (dart-define API_BASE; dev default :3031).
 String get qaApiBase => ApiClient.baseUrl;
@@ -497,9 +499,9 @@ const List<PresetSpec> presets = [
     email: 'mobile-cpa-full@tevel.test',
     preset: Preset.accountantFull,
     label: 'רו״ח – מלא',
-    // Home is R for accountants, and the shell shows ＋ only when home is H
-    // (app_shell.dart, WIP design); creation stays in ניהול's quick actions.
-    createTab: false,
+    // PM 2026-11-12: ＋ follows the caps (document:draft:write), not the home
+    // tab — the full accountant drafts and issues, so it has ＋ (§4.4).
+    createTab: true,
     homeIsReports: true,
     moneyCard: false,
     intents: false,
@@ -762,6 +764,21 @@ Future<Set<String>> keysWithPrefixScrolling(
   await tester.drag(scrollable, const Offset(0, 3000), warnIfMissed: false);
   await tester.pump(const Duration(milliseconds: 300));
   return seen;
+}
+
+/// The `brow-` rows of B's "עוד הגדרות" page: taps the row, collects, goes
+/// back to B.
+Future<Set<String>> openMoreSettingsRows(WidgetTester tester) async {
+  final more = find.byKey(const Key('brow-more'));
+  await tester.ensureVisible(more);
+  await tester.pump(const Duration(milliseconds: 200));
+  await tester.tap(more);
+  await pumpUntil(tester, find.text(BusinessHe.moreSettings));
+  await pumpFor(tester, const Duration(milliseconds: 600));
+  final rows = keysWithPrefix('brow-')..remove('more');
+  navigatorKey.currentState!.pop();
+  await pumpFor(tester, const Duration(milliseconds: 600));
+  return rows;
 }
 
 /// Labels of the PrimaryButtons on screen.

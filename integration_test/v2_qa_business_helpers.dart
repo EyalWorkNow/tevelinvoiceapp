@@ -13,9 +13,11 @@ import 'package:http/http.dart' as http;
 import 'package:invoice/api/client.dart';
 import 'package:invoice/app_shell.dart';
 import 'package:invoice/main.dart' as app;
+import 'package:invoice/router.dart' show navigatorKey;
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/widgets/primary_button.dart';
+import 'package:invoice/util/labels/labels.dart' show BusinessHe;
 import 'package:local_auth/local_auth.dart';
 import 'qa_plans_guard.dart';
 
@@ -466,6 +468,25 @@ Future<void> scrollUntilBuilt(
     );
   }
   throw TestFailure('never built: $f');
+}
+
+/// The rows of B's "עוד הגדרות" page (PM 2026-11-12, §6.B ≤ 10): opens it
+/// from B, collects its `brow-` keys and goes back. Empty without the row.
+Future<Set<String>> moreSettingsRowKeys(WidgetTester tester) async {
+  final more = find.byKey(const Key('brow-more'));
+  await scrollUntilBuilt(tester, more);
+  await tester.ensureVisible(more);
+  await tester.pump();
+  await tester.tap(more);
+  await waitFor(tester, find.text(BusinessHe.moreSettings));
+  await pumpFor(tester, const Duration(milliseconds: 600));
+  final out = {
+    for (final e in byKeyPrefix('brow-').evaluate())
+      (e.widget.key! as ValueKey<String>).value.substring(5),
+  }..remove('more');
+  navigatorKey.currentState!.pop();
+  await pumpFor(tester, const Duration(milliseconds: 600));
+  return out;
 }
 
 /// Every `brow-` row of B, scrolling the lazy list top to bottom.

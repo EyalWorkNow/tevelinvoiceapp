@@ -47,7 +47,8 @@ const roleEmail = 'qa-biz-role@tevel.test';
 const switchEmail = 'qa-biz-switch@tevel.test';
 const qaBizName = 'QA עסק שני';
 
-/// The 10 rows of §6.B (+ "מספור ואישורים" for the representing accountant).
+/// Every destination of B: the rows of §6.B (+ "מספור ואישורים" for the
+/// representing accountant), and the "עוד הגדרות" row with what it holds.
 const allBusinessRows = {
   'reports',
   'expenses',
@@ -62,6 +63,9 @@ const allBusinessRows = {
   // QA 1.5 (A4): integrations moved from quick actions to rows; the plan
   // row (owner) and system notices exist in the WIP base.
   'integrations', 'subscription', 'notifications',
+  // PM 2026-11-12: integrations / subscription / notifications / desktop sit
+  // under one "עוד הגדרות" row when two or more of them exist.
+  'more',
 };
 
 late QaUser owner, staff, viewer, accountant, cpaRep, roleUser, switchUser;
@@ -647,8 +651,8 @@ void main() {
           reason: 'AT-44: no ＋',
         );
         expect(find.byKey(const Key('tab-home')), findsOneWidget);
-        // No "לקוחות" tab any more (ניהול → לקוחות).
-        expect(find.byKey(const Key('tab-people')), findsNothing);
+        // "לקוחות" is a tab again (PM 2026-11-12); accountants read documents.
+        expect(find.byKey(const Key('tab-people')), findsOneWidget);
         expect(find.byKey(const Key('tab-business')), findsOneWidget);
 
         // §6.R: default period = the current VAT period (bimonthly unless MONTHLY; NONE/exempt = year).
@@ -711,11 +715,11 @@ void main() {
         const Duration(seconds: 2),
       ); // reminders switch (BE-19)
       final rows = await businessRowKeysScrolled(tester);
-      // SPEC §6.B said ≤10; after QA 1.5 the owner list holds 13 rows (open
-      // product question, see 09-FINAL-REPORT).
+      // SPEC §6.B: at most 10 rows (PM 2026-11-12: the rarely used ones are
+      // under "עוד הגדרות", nothing deleted).
       expect(
         rows.length,
-        lessThanOrEqualTo(13),
+        lessThanOrEqualTo(10),
         reason: 'owner sees at most 10 rows: $rows',
       );
       expect(
@@ -723,6 +727,20 @@ void main() {
         isTrue,
         reason: 'unknown row in $rows',
       );
+      expect(rows, contains('more'));
+      final more = await moreSettingsRowKeys(tester);
+      expect(
+        more,
+        containsAll([
+          'integrations',
+          'subscription',
+          'notifications',
+          'desktop',
+        ]),
+        reason: 'every destination stays reachable: $more',
+      );
+      expect(allBusinessRows.containsAll(more), isTrue, reason: '$more');
+      expect(rows.intersection(more), isEmpty);
       expect(
         rows,
         containsAll([

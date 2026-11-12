@@ -460,31 +460,22 @@ Future<void> launchAppAs(WidgetTester tester, DevApi who) async {
   await pumpFor(tester, const Duration(seconds: 1));
 }
 
-/// The people list. The bottom bar no longer has a "לקוחות" tab (QA 1.5 /
-/// SPEC §5 decision pending): ניהול → "לקוחות". With [taps], both count.
+/// The people list: the "לקוחות" tab of the bar (§5, PM 2026-11-12). With
+/// [taps], the tab tap counts.
 Future<void> openPeopleTab(WidgetTester tester, {TapCounter? taps}) async {
-  final manage = find.byKey(const Key('tab-business'));
-  final customers = find.byKey(const Key('management-action-customers'));
+  final tab = find.byKey(const Key('tab-people'));
+  await pumpUntil(tester, tab, what: 'tab לקוחות');
   if (taps != null) {
-    await taps.tap(tester, manage, 'ניהול');
+    await taps.tap(tester, tab, 'לקוחות');
   } else {
-    await tester.tap(manage);
-  }
-  await pumpUntil(tester, customers, what: 'ניהול → לקוחות');
-  await pumpFor(tester, const Duration(milliseconds: 400));
-  if (taps != null) {
-    await taps.tap(tester, customers, 'לקוחות');
-  } else {
-    await tester.ensureVisible(customers);
-    await tester.pump();
-    await tester.tap(customers);
+    await tester.tap(tab);
   }
   await pumpUntil(
     tester,
-    find.byKey(const Key('people-search')),
+    find.byKey(const Key('people-search')).hitTestable(),
     what: 'people list',
   );
-  await pumpFor(tester, const Duration(milliseconds: 800)); // push transition
+  await pumpFor(tester, const Duration(milliseconds: 600)); // page transition
 }
 
 /// Leaves the app without revoking anything (tokens are revoked in tearDownAll).
@@ -546,11 +537,11 @@ Future<void> backToPeopleList(WidgetTester tester) async {
   navigatorKey.currentState!.popUntil((r) => r.isFirst);
   await pumpFor(tester, const Duration(milliseconds: 600));
   if (find.byKey(const Key('people-search')).hitTestable().evaluate().isEmpty) {
-    final customers = find.byKey(const Key('management-action-customers'));
-    await pumpUntil(tester, customers, what: 'ניהול → לקוחות');
+    final tab = find.byKey(const Key('tab-people'));
+    await pumpUntil(tester, tab, what: 'tab לקוחות');
     await tapUntil(
       tester,
-      customers,
+      tab,
       find.byKey(const Key('people-search')).hitTestable(),
     );
   }
