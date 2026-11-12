@@ -25,6 +25,8 @@ import '../../util/allowed_urls.dart';
 import '../../util/errors_he.dart';
 import '../../util/labels/labels.dart';
 import '../../util/phone.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
+import '../compose/compose_memory.dart' show fetchVatRate;
 import 'dialogs.dart';
 import 'document_parts.dart';
 import 'next_action.dart';
@@ -61,6 +63,11 @@ class DocumentScreen extends StatefulWidget {
 
 const _commitToastFlag = 'doc_commit_toast_shown';
 
+/// The statutory VAT rate for a quote → invoice convert (the fallback of
+/// lines without their own rate): GET /tax-rates, cached (QA 0.6; was 1800
+/// fixed). Tests replace it.
+Future<int> Function() documentVatRate = fetchVatRate;
+
 class _DocumentScreenState extends State<DocumentScreen> {
   DocumentDetail? _doc;
   DocumentExtras _extras = DocumentExtras.empty;
@@ -78,6 +85,10 @@ class _DocumentScreenState extends State<DocumentScreen> {
   bool _triedCreate = false;
   Object? _error;
   bool _fromCache = false;
+
+  /// The device copy is on screen and the server's answer is on its way
+  /// (cache-first open, QA 02·5): actions wait for the fresh copy.
+  bool _stale = false;
   String? _busy;
   String? _banner;
   String? _receiptId;
@@ -147,7 +158,12 @@ class _DocumentScreenState extends State<DocumentScreen> {
         // The quote PDF is ownOrMoney (BE-03): not asked for when hidden.
         if (quoteHasLines(q) && !q.amountHidden) unawaited(_loadQuotePdf(q.id));
       } else {
-        final json = await fetchDocumentJson(widget.id);
+        final fetch = fetchDocumentJson(widget.id);
+        if (first && _doc == null) {
+          unawaited(fetch.then((_) {}, onError: (Object _) {})); // awaited below
+          await _showCached();
+        }
+        final json = await fetch;
         unawaited(AppCache.write(_cacheName, json).catchError((Object _) {})); // offline copy, best effort
         final doc = DocumentDetail.fromJson(json);
         final extras = DocumentExtras.fromJson(json);
@@ -166,6 +182,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
           _alloc = results[2] as AllocationState?;
           _error = null;
           _fromCache = false;
+          _stale = false;
         });
         unawaited(_loadPdf(doc));
       }
@@ -177,15 +194,46 @@ class _DocumentScreenState extends State<DocumentScreen> {
             _doc = DocumentDetail.fromJson(cached);
             _extras = DocumentExtras.fromJson(cached);
             _fromCache = true;
+            _stale = false;
           });
           return;
         }
       }
-      if (mounted) setState(() => _error = e);
+      if (!mounted) return;
+      setState(() {
+        if (_stale && e.isNetwork) {
+          _fromCache = true; // the device copy stays, with the offline banner
+        } else {
+          if (_stale) _doc = null; // refused / gone: the old copy is not shown
+          _error = e;
+        }
+        _stale = false;
+      });
     } on Object catch (e) {
-      if (mounted) setState(() => _error = e);
+      if (mounted) {
+        setState(() {
+          if (_stale) _doc = null;
+          _error = e;
+          _stale = false;
+        });
+      }
     }
     if (first && mounted) _afterFirstLoad();
+  }
+
+  /// Cache-first: the last copy on this device, shown while the server answers.
+  Future<void> _showCached() async {
+    try {
+      final cached = await AppCache.read(_cacheName);
+      if (cached is! Map<String, dynamic> || !mounted || _doc != null) return;
+      setState(() {
+        _doc = DocumentDetail.fromJson(cached);
+        _extras = DocumentExtras.fromJson(cached);
+        _stale = true;
+      });
+    } on Object {
+      // best effort: the network answer follows
+    }
   }
 
   void _afterFirstLoad() {
@@ -305,7 +353,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
       creditedMinor: d.creditedMinor ?? _row?.creditedMinor,
       paidMinor: d.paidTotalMinor,
       voidedAt: d.voidedAt ?? _row?.voidedAt,
-      sentAt: _extras.sentAt ?? _row?.sentAt,
+      sentAt: _sentAt,
       submittedBy: d.submittedBy,
       rejected: d.rejection != null,
       customerHasPhone: waPhone(_customer?.phone) != null,
@@ -315,6 +363,19 @@ class _DocumentScreenState extends State<DocumentScreen> {
       amountHidden: d.amountHidden,
       pdfMissing: _artifactMissing,
     );
+  }
+
+  /// Sent to the customer: a link / e-mail (BE-12, BE-10a), a WhatsApp
+  /// dispatch (`document.whatsapp_sent`) or the server status SENT (QA 1.1:
+  /// a sent document never offers "שלח" again as its main button).
+  String? get _sentAt {
+    final known = _extras.sentAt ?? _row?.sentAt;
+    if (known != null) return known;
+    for (final e in _extras.timeline) {
+      if (e.event == 'document.whatsapp_sent') return e.at;
+    }
+    final d = _doc;
+    return d?.status == 'SENT' ? (d!.issueDate ?? '') : null;
   }
 
   BigInt? get _openMinor =>
@@ -330,7 +391,9 @@ class _DocumentScreenState extends State<DocumentScreen> {
   // ---- actions ----------------------------------------------------------------
 
   Future<void> _guard(String busyText, Future<String?> Function() work) async {
-    if (_busy != null) return;
+    // A dialog before the guard may outlive the screen (QA 01: setState
+    // after await without mounted).
+    if (_busy != null || !mounted) return;
     setState(() => _busy = busyText);
     try {
       final message = await work();
@@ -350,6 +413,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
   Future<PassphraseAnswer?> _askPass() => askSigningPassphrase(context);
 
   Future<void> _do(DocAction a) async {
+    if (_stale) return; // the fresh copy decides (the button shows "מעדכן…")
     final doc = _doc;
     final quote = _quote;
     final label = docActionLabel(a, hasPhone: _facts.customerHasPhone);
@@ -439,8 +503,9 @@ class _DocumentScreenState extends State<DocumentScreen> {
       case DocAction.convertQuote:
         String? draftId;
         await _guard(label, () async {
+          final exempt = businessContext.isVatExempt;
           draftId = await quoteToInvoice(quote!,
-              vatExempt: businessContext.isVatExempt, vatRateBasisPoints: _vatRate());
+              vatExempt: exempt, vatRateBasisPoints: exempt ? 0 : await documentVatRate());
           return null;
         });
         if (draftId != null && mounted) {
@@ -493,8 +558,6 @@ class _DocumentScreenState extends State<DocumentScreen> {
     }
   }
 
-  /// The business VAT rate of the source lines (convert keeps it), else 18%.
-  int _vatRate() => 1800;
 
   Future<void> _openShare() async {
     final quote = _quote;
@@ -661,6 +724,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
                       action: _receiptId != null && businessContext.can(Cap.docSend) ? PaymentHe.sendReceipt : null,
                       onAction: _sendReceiptWhatsApp,
                     ),
+                  if (doc != null && _showIssued(doc)) _issuedCard(doc, next),
                   if (doc?.rejection != null)
                     DocBanner(
                       key: const Key('doc-rejection'),
@@ -676,13 +740,25 @@ class _DocumentScreenState extends State<DocumentScreen> {
                   if (doc != null) ...[
                     const SizedBox(height: Space.s),
                     DocStatusLine(
-                      state: docStateOf(doc, row: _row, extras: _extras),
+                      state: docStateOf(doc, row: _row, extras: _extras, sentAt: _sentAt),
                       openMinor: _openMinor,
                       dueDate: doc.dueDate,
                       allocationNumber: doc.allocationNumber,
                       expanded: _timeline,
                       onTap: () => setState(() => _timeline = !_timeline),
                     ),
+                    if (_customer != null)
+                      ListTile(
+                        key: const Key('doc-customer'),
+                        contentPadding: EdgeInsets.zero,
+                        minTileHeight: Hit.row,
+                        leading: const Icon(Iconsax.profile_circle),
+                        title: Text(_customer!.name, style: AppText.body),
+                        subtitle: Text(DocumentHe.goToCustomer,
+                            style: AppText.secondary.copyWith(color: context.palette.muted)),
+                        trailing: const Icon(Iconsax.arrow_left_2),
+                        onTap: () => openPerson(context, _customer!.id),
+                      ),
                     if (_timeline) ...[
                       DocTimeline(
                           entries: _extras.hasTimeline
@@ -707,13 +783,29 @@ class _DocumentScreenState extends State<DocumentScreen> {
 
   Widget? _bottom(NextAction next, bool offline) {
     if (next.primary != null) {
+      final primary = PrimaryButton(
+        key: const Key('doc-primary'),
+        label: next.label!,
+        offline: offline,
+        loadingText: _busy ?? (_stale ? DocumentHe.refreshing : null),
+        onPressed: () => _do(next.primary!),
+      );
+      final secondary = next.secondary;
+      // One tree shape with or without the second action: the PrimaryButton
+      // element is kept (F2 counts one per screen).
       return BottomActionArea(
-        child: PrimaryButton(
-          key: const Key('doc-primary'),
-          label: next.label!,
-          offline: offline,
-          loadingText: _busy,
-          onPressed: () => _do(next.primary!),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            primary,
+            if (secondary != null)
+              TextButton(
+                key: const Key('doc-secondary'),
+                onPressed: offline || _busy != null || _stale ? null : () => _do(secondary),
+                child: Text(docActionLabel(secondary, hasPhone: _facts.customerHasPhone)),
+              ),
+          ],
         ),
       );
     }
@@ -727,6 +819,68 @@ class _DocumentScreenState extends State<DocumentScreen> {
     }
     return null;
   }
+
+  /// Opened by the Composer right after issue (QA 1.2): one success state
+  /// with WhatsApp, copy link and "עוד" (S6) — instead of S6 popping up.
+  bool _showIssued(DocumentDetail doc) =>
+      widget.justIssued &&
+      _quote == null &&
+      _withPdf.contains(doc.status) &&
+      !doc.amountHidden &&
+      businessContext.can(Cap.docView);
+
+  Widget _issuedCard(DocumentDetail doc, NextAction next) {
+    final p = context.palette;
+    final canSend = businessContext.can(Cap.docSend);
+    final hasPhone = _facts.customerHasPhone;
+    final idle = _busy == null && !_stale && !businessContext.offline;
+    return AppCard(
+      key: const Key('doc-issued'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            liveRegion: true,
+            child: Text(DocumentHe.issuedTitle(docTitle(doc.documentType, doc.documentNumber)),
+                style: AppText.title.copyWith(color: p.ok)),
+          ),
+          if (canSend) Text(DocumentHe.issuedSendHint, style: AppText.secondary.copyWith(color: p.muted)),
+          const SizedBox(height: Space.s),
+          Wrap(
+            spacing: Space.s,
+            children: [
+              if (canSend && next.primary != DocAction.sendWhatsApp)
+                TextButton.icon(
+                  key: const Key('doc-issued-whatsapp'),
+                  onPressed: idle ? () => _do(DocAction.sendWhatsApp) : null,
+                  icon: const Icon(Iconsax.message),
+                  label: Text(docActionLabel(DocAction.sendWhatsApp, hasPhone: hasPhone)),
+                ),
+              if (canSend)
+                TextButton.icon(
+                  key: const Key('doc-issued-copy'),
+                  onPressed: idle ? _copyLink : null,
+                  icon: const Icon(Iconsax.link),
+                  label: const Text(DocumentHe.copyLink),
+                ),
+              TextButton.icon(
+                key: const Key('doc-issued-more'),
+                onPressed: idle ? _openShare : null,
+                icon: const Icon(Iconsax.more),
+                label: const Text(DocumentHe.shareMore),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _copyLink() => _guard(DocumentHe.copyLink, () async {
+        await Clipboard.setData(ClipboardData(text: await createShareLink(_doc!)));
+        if (mounted) toast(context, DocumentHe.linkCopied);
+        return null;
+      });
 
   /// BE-06 quote: its PDF (lines card while it loads or when it fails).
   Widget _quotePreview(Quote quote) {

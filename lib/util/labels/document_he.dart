@@ -66,7 +66,7 @@ abstract final class DocumentHe {
   // §6.D primary buttons (nextAction rows 1–16).
   static const approveAndIssue = 'אשר והפק';
   static const reject = 'דחה';
-  static const continueDraft = 'המשך';
+  static const continueDraft = 'המשך להפקה';
   static const fixAndResend = 'תקן ושלח שוב';
   static const retry = 'נסה שוב';
   static const signAndIssue = 'חתום והפק PDF';
@@ -80,6 +80,13 @@ abstract final class DocumentHe {
   static const customerRejected = 'הלקוח דחה';
   static const openInvoice = 'פתח חשבונית';
   static const share = 'שתף';
+
+  // After issue (QA 1.2): one success state on D.
+  static String issuedTitle(String title) => 'הופק ✓ · $title';
+  static const issuedSendHint = 'אפשר לשלוח ללקוח עכשיו';
+  static const shareMore = 'עוד';
+  static const goToCustomer = 'עבור ללקוח';
+  static const refreshing = 'מעדכן…';
 
   // Row 4 menu (allocation).
   static const manualAllocation = 'הזן מספר ידנית';
@@ -211,6 +218,7 @@ abstract final class DocumentHe {
     'document.share_downloaded': 'הלקוח צפה',
     'document.share_revoked': 'הקישור בוטל',
     'document.sent': 'נשלח במייל',
+    'document.whatsapp_sent': 'נשלח בווטסאפ',
     'document.send_failed': 'שליחת המייל נכשלה',
     'document.send_blocked_no_consent': 'המייל לא נשלח – אין הסכמה',
     'document.credited': 'זוכה',

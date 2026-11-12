@@ -40,9 +40,10 @@ class _PdfPreviewState extends State<_PdfPreview> {
 }
 
 /// §15.5 list state of [doc] ([extras]: BE-12 sent / viewed, BE-36 open;
-/// [row]: BE-10a for an older server).
+/// [row]: BE-10a for an older server; [sentAt]: D's own answer, which also
+/// counts a WhatsApp dispatch).
 DocListState docStateOf(DocumentDetail doc,
-        {DocumentSummary? row, DocumentExtras extras = DocumentExtras.empty}) =>
+        {DocumentSummary? row, DocumentExtras extras = DocumentExtras.empty, String? sentAt}) =>
     docListState(
       status: doc.status,
       documentType: doc.documentType,
@@ -53,7 +54,7 @@ DocListState docStateOf(DocumentDetail doc,
       voidedAt: doc.voidedAt ?? row?.voidedAt,
       dueDate: doc.dueDate ?? row?.dueDate,
       issueDate: doc.issueDate,
-      sentAt: extras.sentAt ?? row?.sentAt,
+      sentAt: sentAt ?? extras.sentAt ?? row?.sentAt,
       viewedAt: extras.viewedAt,
     );
 
