@@ -21,6 +21,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../state/cache.dart';
 import '../state/session.dart';
@@ -76,15 +77,29 @@ class IssueResult {
 // ---------------------------------------------------------------------------
 
 /// 'default' when configured, else the first scope from GET /sequences.
+/// Remembered per business for the app run (one round-trip less per issue);
+/// a refused finalize/receipt forgets it, so a removed scope is re-read.
 Future<String> resolveScopeKey() async {
+  final business = currentBusinessId;
+  final known = _scopeKeys[business];
+  if (known != null) return known;
   final json = await _api.get('/sequences');
   final list = [
     for (final s in (json['sequences'] as List? ?? const []))
       (s as Map<String, dynamic>)['numbering_scope_key'] as String
   ];
-  if (list.isEmpty || list.contains('default')) return 'default';
-  return list.first;
+  final key = list.isEmpty || list.contains('default') ? 'default' : list.first;
+  return _scopeKeys[business] = key;
 }
+
+final Map<String, String> _scopeKeys = {};
+
+void _forgetScopeKeyOn(ApiException e) {
+  if (!e.isNetwork) _scopeKeys.clear();
+}
+
+@visibleForTesting
+void resetScopeKeyCache() => _scopeKeys.clear();
 
 /// POST /documents/:id/sign (the original exists). Throws SIGNING_LOCKED
 /// while the business signing session is locked.
@@ -181,6 +196,7 @@ Future<IssueResult> _runDocument(PendingIssue p, void Function(IssueStage)? onSt
           {'scopeKey': p.scopeKey, if (p.requestAllocation) 'requestAllocation': true}, p.finalizeKey);
     } on ApiException catch (e) {
       if (e.code == 'APPROVAL_REQUIRED') return _submitResult(p);
+      _forgetScopeKeyOn(e);
       rethrow;
     }
     p.documentNumber = json['documentNumber']?.toString();
@@ -244,16 +260,22 @@ Future<IssueResult> _runReceipt(
     p.scopeKey ??= await resolveScopeKey();
     p.receiptKey ??= ApiClient.newIdempotencyKey();
     await save();
-    final json = await _api.post(
-        '/receipts',
-        {
-          'scopeKey': p.scopeKey,
-          'paymentIds': [
-            {'id': p.paymentId}
-          ],
-          if (p.body['customerId'] != null) 'customerId': p.body['customerId'],
-        },
-        p.receiptKey);
+    final Map<String, dynamic> json;
+    try {
+      json = await _api.post(
+          '/receipts',
+          {
+            'scopeKey': p.scopeKey,
+            'paymentIds': [
+              {'id': p.paymentId}
+            ],
+            if (p.body['customerId'] != null) 'customerId': p.body['customerId'],
+          },
+          p.receiptKey);
+    } on ApiException catch (e) {
+      _forgetScopeKeyOn(e);
+      rethrow;
+    }
     final outcome = json['outcome'] as Map<String, dynamic>? ?? const {};
     if (outcome['status'] == 'APPROVAL_REQUIRED') {
       // Before BE-37 a receipt above the threshold is refused (AT-45 edge case).
