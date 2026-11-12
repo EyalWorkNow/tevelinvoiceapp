@@ -428,3 +428,79 @@ Future<bool> scrollToFind(
   }
   return finder.evaluate().isNotEmpty;
 }
+
+/// The main vertical list on screen (B is lazy: rows below the fold are not
+/// built until scrolled to).
+Finder _mainList() => find
+    .byWidgetPredicate(
+      (w) =>
+          w is Scrollable &&
+          axisDirectionToAxis(w.axisDirection) == Axis.vertical,
+    )
+    .hitTestable();
+
+/// Scrolls the main list until [f] is built, then into view.
+Future<void> scrollUntilBuilt(
+  WidgetTester tester,
+  Finder f, {
+  int steps = 30,
+}) async {
+  var down = true;
+  for (var i = 0; i < steps; i++) {
+    await tester.pump(const Duration(milliseconds: 150));
+    if (f.evaluate().isNotEmpty) {
+      await tester.ensureVisible(f.first);
+      await tester.pump(const Duration(milliseconds: 200));
+      return;
+    }
+    final lists = _mainList();
+    if (lists.evaluate().isEmpty) continue;
+    final pos = tester.state<ScrollableState>(lists.last).position;
+    if (down && pos.pixels >= pos.maxScrollExtent) down = false;
+    if (!down && pos.pixels <= pos.minScrollExtent) down = true;
+    await tester.drag(
+      lists.last,
+      Offset(0, down ? -300 : 300),
+      warnIfMissed: false,
+    );
+  }
+  throw TestFailure('never built: $f');
+}
+
+/// Every `brow-` row of B, scrolling the lazy list top to bottom.
+Future<Set<String>> businessRowKeysScrolled(WidgetTester tester) async {
+  final out = <String>{};
+  void collect() {
+    for (final e
+        in find
+            .byWidgetPredicate(
+              (w) =>
+                  w.key is ValueKey<String> &&
+                  (w.key! as ValueKey<String>).value.startsWith('brow-'),
+            )
+            .evaluate()) {
+      out.add((e.widget.key! as ValueKey<String>).value.substring(5));
+    }
+  }
+
+  final lists = _mainList();
+  if (lists.evaluate().isEmpty) {
+    collect();
+    return out;
+  }
+  final pos = tester.state<ScrollableState>(lists.last).position;
+  pos.jumpTo(pos.minScrollExtent);
+  await tester.pump(const Duration(milliseconds: 200));
+  for (var i = 0; i < 30; i++) {
+    collect();
+    if (pos.pixels >= pos.maxScrollExtent) break;
+    pos.jumpTo(
+      (pos.pixels + 250).clamp(pos.minScrollExtent, pos.maxScrollExtent),
+    );
+    await tester.pump(const Duration(milliseconds: 150));
+  }
+  collect();
+  pos.jumpTo(pos.minScrollExtent);
+  await tester.pump(const Duration(milliseconds: 200));
+  return out;
+}
