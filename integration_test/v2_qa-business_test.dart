@@ -93,8 +93,16 @@ String today() => isoDay(DateTime.now());
 /// Open documents per BE-01: finalized 300/305 rows of `/documents?unpaid=1`.
 Future<({BigInt open, int count, BigInt overdue, int overdueCount, int total})>
 unpaidFromList(QaUser u) async {
-  final body = await u.ok('/documents?unpaid=1&limit=500');
-  final docs = (body['documents'] as List).cast<Map<String, dynamic>>();
+  // Paged (the list caps at 500 and the QA book keeps growing).
+  final docs = <Map<String, dynamic>>[];
+  late int total;
+  for (var offset = 0; ; offset += 500) {
+    final body = await u.ok('/documents?unpaid=1&limit=500&offset=$offset');
+    final page = (body['documents'] as List).cast<Map<String, dynamic>>();
+    total = body['total'] as int;
+    docs.addAll(page);
+    if (page.isEmpty || docs.length >= total) break;
+  }
   var open = BigInt.zero, overdue = BigInt.zero;
   var overdueCount = 0;
   final now = DateTime.now();
@@ -122,7 +130,7 @@ unpaidFromList(QaUser u) async {
     count: docs.length,
     overdue: overdue,
     overdueCount: overdueCount,
-    total: body['total'] as int,
+    total: total,
   );
 }
 
@@ -300,9 +308,9 @@ void main() {
             minor(money['overdueMinor']) == minor(s['overdue_total']);
         if (same || attempt == 3) {
           expect(
+            list.count,
             list.total,
-            lessThanOrEqualTo(500),
-            reason: 'more than 500 open documents: list cannot verify',
+            reason: 'every open document read (paged list)',
           );
           expect(
             minor(s['unpaid_total']),
