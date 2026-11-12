@@ -19,9 +19,9 @@ import '../../router.dart';
 import '../../state/business_context.dart';
 import '../../state/cache.dart';
 import '../../state/caps.dart';
-import '../../state/contacts_permission.dart';
 import '../../state/session.dart' show session;
 import '../../ui/ds.dart';
+import '../../ui/widgets/shell_inset.dart';
 import '../../util/labels/common_he.dart';
 import '../../util/labels/inbox_he.dart';
 import '../people/customer_crm_agenda_screen.dart';
@@ -60,9 +60,6 @@ class _HomeScreenState extends State<HomeScreen> {
     documentsVersion.addListener(_reload);
     if (_owned) unawaited(_c.load());
     unawaited(_loadProfileAvatar());
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(requestContactsPermissionOnEntry(context));
-    });
   }
 
   @override
@@ -164,7 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Space.page,
                     context.isDark ? 0 : 14,
                     Space.page,
-                    MediaQuery.paddingOf(context).bottom + Space.xl,
+                    shellListBottom(context),
                   ),
                   children: [
                     OfflineBanner(visible: _c.offline, onRetry: _reload),
@@ -188,8 +185,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: Space.s),
                     ],
-                    if (context.isDark ||
-                        caps.showIntentButtons ||
+                    if (caps.showIntentButtons ||
                         caps.can(Cap.docView) ||
                         caps.can(Cap.expenseCapture)) ...[
                       _IntentButtons(caps: caps),
@@ -242,7 +238,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _moneyCard(BuildContext context, HomeData data) {
     final amount = data.openMinor ?? BigInt.zero;
     final overdue = data.overdueMinor ?? BigInt.zero;
-    final late = !context.isDark && overdue > BigInt.zero;
+    final late = overdue > BigInt.zero;
     return MoneyCard(
       key: const Key('home-money'),
       label: InboxHe.moneyLabel,
@@ -480,12 +476,7 @@ class _Header extends StatelessWidget {
     final firstName = hasAccountName
         ? accountName.split(RegExp(r'\s+')).first
         : '';
-    final hour = DateTime.now().hour;
-    final salutation = hour < 12
-        ? 'בוקר טוב'
-        : hour < 17
-        ? 'צהריים טובים'
-        : 'ערב טוב';
+    final roleTag = presetTagLabels[businessContext.caps.preset];
     final initial = firstName.isEmpty
         ? 'ת'
         : String.fromCharCode(firstName.runes.first).toUpperCase();
@@ -607,21 +598,44 @@ class _Header extends StatelessWidget {
                 style: AppText.headline.copyWith(fontSize: 19),
                 overflow: TextOverflow.ellipsis,
               ),
-              Text(
-                salutation,
-                style: AppText.secondary.copyWith(color: p.muted),
+              // 1.8: which business this is and in which role, always.
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      businessContext.displayName,
+                      key: const Key('home-business-name'),
+                      style: AppText.secondary.copyWith(color: p.muted),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (roleTag != null) ...[
+                    const SizedBox(width: Space.s),
+                    Container(
+                      key: const Key('home-role-tag'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Space.s,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: p.surface,
+                        borderRadius: BorderRadius.circular(Radii.card),
+                        border: Border.all(color: p.line),
+                      ),
+                      child: Text(
+                        roleTag,
+                        style: AppText.secondary.copyWith(color: p.ink),
+                        maxLines: 1,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
         ),
         if (many) Icon(Iconsax.arrow_down_1, color: p.muted),
-        Offstage(
-          offstage: true,
-          child: Text(
-            businessContext.displayName,
-            key: const Key('home-business-name'),
-          ),
-        ),
       ],
     );
     if (!many) return Semantics(header: true, child: row);

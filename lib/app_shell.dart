@@ -1,5 +1,5 @@
 // The app shell owns root destinations and the floating glass navigation.
-// Invoice creation is available beside the navigation on the home screen only.
+// Invoice creation sits beside the navigation on every tab (1.5).
 
 import 'dart:async';
 import 'dart:ui' as ui;
@@ -145,8 +145,7 @@ class _AppShellState extends State<AppShell> {
       extendBody: true,
       bottomNavigationBar: _ShellBottomNavigation(
         current: tab,
-        showCreate:
-            tab == AppTab.home && !caps.homeIsReports && caps.showCreateTab,
+        showCreate: !caps.homeIsReports && caps.showCreateTab,
         onTab: (next) {
           HapticFeedback.selectionClick();
           currentTab.value = next;

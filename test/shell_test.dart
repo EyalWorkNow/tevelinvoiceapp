@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/client.dart';
 import 'package:invoice/app_shell.dart';
 import 'package:invoice/router.dart';
+import 'package:invoice/screens/auth/login_screen.dart';
 import 'package:invoice/screens/business/business_screen.dart';
 import 'package:invoice/screens/compose/compose_screen.dart';
 import 'package:invoice/screens/document/document_screen.dart';
@@ -16,6 +18,7 @@ import 'package:invoice/screens/profile/profile_settings_screen.dart';
 import 'package:invoice/screens/reports/reports_screen.dart';
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
+import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/theme.dart';
 
 import 'fakes/fake_api.dart';
@@ -40,6 +43,7 @@ void main() {
     WidgetTester tester,
     Preset preset, {
     bool contactsPermissionPrompted = true,
+    int businesses = 1,
   }) async {
     tester.view.physicalSize = const Size(1170, 2532);
     tester.view.devicePixelRatio = 3;
@@ -50,7 +54,9 @@ void main() {
         contactsPermissionPrompted,
       ),
     );
-    await tester.runAsync(() => signInAs(backend, preset));
+    await tester.runAsync(
+      () => signInAs(backend, preset, businesses: businesses),
+    );
     await tester.pumpWidget(
       MaterialApp(
         navigatorKey: navigatorKey,
@@ -66,7 +72,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('large reserved glass navigation; create action only at home', (
+  testWidgets('large reserved glass navigation; create action on every tab', (
     tester,
   ) async {
     await pumpShell(tester, Preset.owner);
@@ -102,11 +108,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(currentTab.value, AppTab.business);
     expect(find.byType(BusinessScreen), findsOneWidget);
-    expect(find.byKey(const Key('tab-create')), findsNothing);
+    expect(find.byKey(const Key('tab-create')), findsOneWidget); // 1.5
     await tester.tap(find.byKey(const Key('tab-profile')));
     await tester.pumpAndSettle();
     expect(currentTab.value, AppTab.profile);
     expect(find.byType(ProfileSettingsScreen), findsOneWidget);
+    expect(find.byKey(const Key('tab-create')), findsOneWidget);
     await tester.tap(find.byKey(const Key('tab-home')));
     await tester.pumpAndSettle();
     expect(currentTab.value, AppTab.home);
@@ -191,6 +198,65 @@ void main() {
       ); // sub-page gone, home tab shown
       expect(find.byType(HomeScreen), findsOneWidget);
       expect(AppRouter.instance.observer.stack, ['/home']);
+    },
+  );
+
+  testWidgets('1.4: entering home never asks for Contacts', (tester) async {
+    await pumpShell(tester, Preset.owner, contactsPermissionPrompted: false);
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.text('חיבור לאנשי הקשר'), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
+  });
+
+  testWidgets(
+    '1.11: a link closes an open dialog first; a forbidden one says so',
+    (tester) async {
+      await pumpShell(tester, Preset.employee);
+      unawaited(
+        showDialog<void>(
+          context: navigatorKey.currentContext!,
+          builder: (_) => const AlertDialog(content: Text('open dialog')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('open dialog'), findsOneWidget);
+      expect(await go('tevel://doc/d1'), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.text('open dialog', skipOffstage: false), findsNothing);
+      expect(find.byType(DocumentScreen), findsOneWidget);
+      expect(AppRouter.instance.observer.stack.last, 'tevel://doc/d1');
+      Navigator.of(tester.element(find.byType(DocumentScreen))).pop();
+      await tester.pumpAndSettle();
+
+      expect(await go('/reports'), isFalse);
+      await tester.pump();
+      expect(find.text('אין לך הרשאה למסך הזה'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    '1.12: tevel://gate is ignored while signed in; a businessId link asks first',
+    (tester) async {
+      await pumpShell(tester, Preset.owner, businesses: 2);
+      expect(await go('tevel://gate'), isFalse);
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginScreen), findsNothing);
+      expect(find.byType(HomeScreen), findsOneWidget);
+
+      final asked = <String>[];
+      final original = confirmBusinessSwitch;
+      addTearDown(() => confirmBusinessSwitch = original);
+      confirmBusinessSwitch = (name) async {
+        asked.add(name);
+        return false;
+      };
+      final before = session.business?.businessId;
+      final other = session.account!.businesses.firstWhere(
+        (b) => b.businessId != before,
+      );
+      expect(await go('/activity?businessId=${other.businessId}'), isFalse);
+      expect(asked, [other.legalName]);
+      expect(session.business?.businessId, before);
     },
   );
 }

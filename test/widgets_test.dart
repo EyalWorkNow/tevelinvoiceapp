@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/ui/theme.dart';
@@ -66,5 +67,31 @@ void main() {
     )));
     expect(find.textContaining('₪'), findsNothing);
     expect(find.bySemanticsLabel(RegExp('שקל')), findsNothing);
+  });
+
+  testWidgets('1.7: dark DocRow = initials, full type + number, one status', (tester) async {
+    // 600pt: the test font draws every glyph a full em wide.
+    tester.view.physicalSize = const Size(1800, 2532);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(
+      DocRow(
+        title: 'דנה כהן',
+        subtitle: 'חשבונית מס-קבלה · 710',
+        amountMinor: BigInt.from(1500),
+        status: StatusPill.doc(DocStatus.awaitingPayment),
+        attributes: const ['12.11.26', 'נשלח'],
+        meta: '12.11.26',
+      ),
+      brightness: Brightness.dark,
+    ));
+    expect(find.byType(Image), findsNothing); // no stock face
+    expect(find.text('דכ'), findsOneWidget);
+    final subtitle = find.text('חשבונית מס-קבלה · 710');
+    expect(subtitle, findsOneWidget);
+    expect(tester.renderObject<RenderParagraph>(subtitle).didExceedMaxLines, isFalse);
+    expect(find.byType(StatusPill), findsOneWidget);
+    expect(find.text('נשלח'), findsNothing); // a second status word
+    expect(find.text('12.11.26'), findsOneWidget);
   });
 }
