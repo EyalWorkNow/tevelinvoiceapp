@@ -99,7 +99,10 @@ class _MoreDetailsSheetState extends State<MoreDetailsSheet> {
               ),
             ],
           ),
-          for (var i = 0; i < s.extraLines.length; i++) _line(i),
+          // Keyed by the row object, not its index: removing row 1 must not
+          // leave row 2's fields showing row 1's values (H1).
+          for (var i = 0; i < s.extraLines.length; i++)
+            KeyedSubtree(key: ObjectKey(s.extraLines[i]), child: _line(i)),
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: TextButton(
@@ -113,6 +116,7 @@ class _MoreDetailsSheetState extends State<MoreDetailsSheet> {
             ComposeHe.discount,
             s.discountText,
             (v) => s.discountText = v,
+            error: s.discountValid ? null : ComposeHe.discountTooBig,
           ),
           if (s.showVat) ...[
             const SizedBox(height: Space.l),
@@ -243,7 +247,13 @@ class _MoreDetailsSheetState extends State<MoreDetailsSheet> {
       businessContext.can(Cap.itemManage) &&
       !_items.any((i) => i.name.trim() == l.description.trim());
 
+  /// One POST /items at a time: a second tap while it runs would create the
+  /// catalog item twice.
+  bool _savingItem = false;
+
   Future<void> _saveItem(ComposeLine l) async {
+    if (_savingItem) return;
+    _savingItem = true;
     final net = s.lineNetPrice(l);
     try {
       final item = await createItem(name: l.description, priceMinor: net);
@@ -258,6 +268,8 @@ class _MoreDetailsSheetState extends State<MoreDetailsSheet> {
           context,
         ).showNotchNotice(SnackBar(content: Text(e.messageHe)), motion: NoticeMotion.error);
       }
+    } finally {
+      _savingItem = false;
     }
   }
 
@@ -371,13 +383,14 @@ class _MoreDetailsSheetState extends State<MoreDetailsSheet> {
     String value,
     void Function(String) set, {
     Key? fieldKey,
+    String? error,
   }) {
     final field = TextFormField(
       key: fieldKey ?? key,
       initialValue: value,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       textDirection: TextDirection.ltr,
-      decoration: InputDecoration(labelText: label),
+      decoration: InputDecoration(labelText: label, errorText: error),
       onChanged: (v) {
         set(v);
         setState(() {});

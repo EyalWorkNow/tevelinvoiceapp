@@ -47,7 +47,7 @@ class Keypad extends StatelessWidget {
   }
 
   Widget _key(BuildContext context, String key) {
-    if (key == '.' && (context.isDark || !allowDecimal)) {
+    if (key == '.' && !allowDecimal) {
       return const SizedBox(height: Hit.keypad);
     }
     final p = context.palette;

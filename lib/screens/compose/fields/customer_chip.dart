@@ -27,9 +27,6 @@ class CustomerChip extends StatelessWidget {
             style: AppText.body.copyWith(color: context.palette.ink)),
           if (customer?.phone case final phone? when phone.isNotEmpty)
             Text(formatPhoneHe(phone), textDirection: TextDirection.ltr,
-              style: AppText.body.copyWith(color: context.palette.ink))
-          else if (context.isDark && name != null)
-            Text('052-0000111', textDirection: TextDirection.ltr,
               style: AppText.body.copyWith(color: context.palette.ink)),
         ]),
       ),
