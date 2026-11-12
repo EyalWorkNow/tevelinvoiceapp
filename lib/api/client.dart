@@ -13,12 +13,21 @@ import 'environment.dart';
 
 /// Server error mapped to Hebrew. [status] 0 = no HTTP response (network).
 class ApiException implements Exception {
-  ApiException(this.status, this.code, this.messageHe, {this.serverMessage});
+  ApiException(
+    this.status,
+    this.code,
+    this.messageHe, {
+    this.serverMessage,
+    this.details = const {},
+  });
 
   final int status;
   final String code;
   final String messageHe;
   final String? serverMessage;
+
+  /// The rest of the error body (e.g. `customerId` of 409 CUSTOMER_DUPLICATE).
+  final Map<String, dynamic> details;
 
   bool get isNetwork => status == 0;
 
@@ -344,11 +353,13 @@ class ApiClient {
     final status = response.statusCode;
     var code = 'ERROR';
     String? message;
+    var details = const <String, dynamic>{};
     try {
       final json = jsonDecode(utf8.decode(response.bodyBytes));
       if (json is Map<String, dynamic>) {
         if (json['error'] is String) code = json['error'] as String;
         if (json['message'] is String) message = json['message'] as String;
+        details = Map.unmodifiable(json);
       }
     } on FormatException {
       // Non-JSON error body (proxy page): fall back on the status.
@@ -376,6 +387,7 @@ class ApiClient {
       code,
       errorMessageHe(code, serverMessage: message, status: status),
       serverMessage: message,
+      details: details,
     );
   }
 }

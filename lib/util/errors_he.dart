@@ -32,6 +32,8 @@ String crmRejectedNoticeHe(int count) => count == 1
 String validationMessageHe(String? raw) {
   final text = (raw ?? '').replaceFirst(RegExp(r'^VALIDATION:\s*'), '').trim();
   if (text.isEmpty) return _webMessages['VALIDATION']!;
+  // QA 3.1/3.6: the server already wrote it in Hebrew (tax id, phone).
+  if (_hebrew.hasMatch(text) && text.length <= 300) return text;
   final exact = _validationMessages[text];
   if (exact != null) return exact;
   if (text.startsWith('logo image is too large')) {
@@ -58,6 +60,7 @@ const Map<String, String> _mobileMessages = {
   'SUPABASE_USER_BANNED': 'החשבון הזה חסום להתחברות. פנו לתמיכה.',
   'SUPABASE_LOGIN_INVALID_INPUT': 'יש להזין כתובת אימייל וסיסמה תקינות.',
   'SUPABASE_RECOVERY_SUPPORT_REQUIRED': 'לאיפוס הסיסמה בחשבון זה פנו לתמיכה.',
+  'CUSTOMER_DUPLICATE': 'לקוח עם אותו מספר ח.פ. / ת.ז. כבר קיים',
   'CRM_CONFLICT': 'המידע עודכן במכשיר אחר. השינויים שלך שמורים עד לבחירת גרסה.',
   'CRM_MUTATION_REUSED': 'לא ניתן לאשר את הסנכרון הזה. יש לרענן את תיק הלקוח.',
   'PAYMENT_METHOD_NOT_AVAILABLE':

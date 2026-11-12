@@ -746,6 +746,101 @@ void main() {
     );
 
     testWidgets(
+      'QA 3.1: 409 CUSTOMER_DUPLICATE → server text + "פתח לקוח קיים" opens P2; '
+      'without customerId only the text',
+      (tester) async {
+        installPeopleFakes(
+          backend,
+          customers: [customerJson('c9', 'מוסך הצפון')],
+        );
+        var withId = true;
+        backend.on(
+          'POST',
+          '/customers',
+          (_) => FakeResponse(409, {
+            'error': 'CUSTOMER_DUPLICATE',
+            'message': 'לקוח עם אותו מספר ח.פ. / ת.ז. כבר קיים',
+            if (withId) 'customerId': 'c9',
+          }),
+        );
+        Future<void> submit() async {
+          unawaited(
+            showCustomerSheet(navigatorKey.currentContext!, startOnNew: true),
+          );
+          await flush(tester);
+          await tester.enterText(find.byKey(const Key('s2-name')), 'מוסך');
+          await tester.enterText(
+            find.byKey(const Key('s2-taxid')),
+            '514713288',
+          );
+          await tap(tester, find.byKey(const Key('s2-save')));
+        }
+
+        await pump(tester, const Scaffold(body: Text('root')));
+        await submit();
+        expect(find.byKey(const Key('s2-server-duplicate')), findsOneWidget);
+        expect(
+          find.text('לקוח עם אותו מספר ח.פ. / ת.ז. כבר קיים'),
+          findsOneWidget,
+        );
+        await tap(tester, find.byKey(const Key('s2-open-existing')));
+        await flush(tester);
+        expect(find.byKey(const Key('s2-save')), findsNothing);
+        expect(find.byType(PersonScreen), findsOneWidget);
+        expect(tester.widget<PersonScreen>(find.byType(PersonScreen)).id, 'c9');
+
+        withId = false;
+        await pump(tester, const Scaffold(body: Text('root')));
+        await submit();
+        expect(find.byKey(const Key('s2-server-duplicate')), findsOneWidget);
+        expect(find.byKey(const Key('s2-open-existing')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'QA 3.1: 422 VALIDATION in Hebrew lands on its field; editing it clears',
+      (tester) async {
+        installPeopleFakes(backend);
+        backend.on(
+          'POST',
+          '/customers',
+          (_) => FakeResponse.error(422, 'VALIDATION', 'מספר הטלפון לא תקין'),
+        );
+        await pump(tester, const Scaffold(body: Text('root')));
+        unawaited(
+          showCustomerSheet(navigatorKey.currentContext!, startOnNew: true),
+        );
+        await flush(tester);
+        await tester.enterText(find.byKey(const Key('s2-name')), 'דנה');
+        await tester.enterText(find.byKey(const Key('s2-phone')), '0521112222');
+        await tap(tester, find.byKey(const Key('s2-save')));
+        final onPhone = find.descendant(
+          of: find.byKey(const Key('s2-phone')),
+          matching: find.text('מספר הטלפון לא תקין'),
+        );
+        expect(onPhone, findsOneWidget);
+        expect(find.text('מספר הטלפון לא תקין'), findsOneWidget); // no snack
+        await tester.enterText(find.byKey(const Key('s2-phone')), '0521112223');
+        await flush(tester);
+        expect(onPhone, findsNothing);
+      },
+    );
+
+    test('customerFieldOfValidation maps server texts to S2 fields', () {
+      expect(customerFieldOfValidation('מספר ח.פ. / ת.ז. לא תקין'), 'taxId');
+      expect(customerFieldOfValidation('מספר הטלפון לא תקין'), 'phone');
+      expect(
+        customerFieldOfValidation('name must be 1-200 characters'),
+        'name',
+      );
+      expect(
+        customerFieldOfValidation('email must be at most 254 characters'),
+        'email',
+      );
+      expect(customerFieldOfValidation('vatDealerStatus must be one of'), null);
+    });
+
+    testWidgets(
       'duplicate phone → "כבר קיים: X · השתמש בו" returns the existing one',
       (tester) async {
         installPeopleFakes(

@@ -22,6 +22,7 @@ import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import '../../../ui/widgets/notch_notice.dart';
+import '../../../api/client.dart' show ApiException;
 import '../../../api/customers_api.dart';
 import '../../../api/models/models.dart';
 import '../../../api/suppliers_api.dart';
@@ -31,7 +32,23 @@ import '../../../ui/ds.dart';
 import '../../../ui/app_page_route.dart';
 import '../../../util/labels/common_he.dart';
 import '../../../util/labels/people_he.dart';
+import '../../../router.dart' show openPerson;
 import '../confirm_discard.dart';
+
+/// The S2 field a 422 VALIDATION message is about (QA 3.1: the server's
+/// Hebrew tax-id / phone texts, and its English `<field> must …` texts), or
+/// null when it names none of them.
+String? customerFieldOfValidation(String? message) {
+  final m = (message ?? '').trim();
+  if (m.isEmpty) return null;
+  if (m.contains('ח.פ') || m.contains('ת.ז') || m.startsWith('taxId')) {
+    return 'taxId';
+  }
+  if (m.contains('טלפון') || m.startsWith('phone')) return 'phone';
+  if (m.contains('אימייל') || m.startsWith('email')) return 'email';
+  if (m.startsWith('name')) return 'name';
+  return null;
+}
 
 /// A contact from the system picker.
 class PickedContact {
@@ -200,6 +217,12 @@ class _CustomerSheetState extends State<CustomerSheet> {
   Object? _loadError;
   bool _busy = false;
 
+  /// 422 VALIDATION from the server, on its field ('name' | 'phone' | 'email' | 'taxId').
+  Map<String, String> _serverErrors = const {};
+
+  /// 409 CUSTOMER_DUPLICATE from POST/PATCH /customers (QA 3.1).
+  ApiException? _serverDuplicate;
+
   bool get _isEdit => widget.edit != null || widget.editSupplier != null;
   bool get _sup => widget.suppliers;
 
@@ -233,7 +256,27 @@ class _CustomerSheetState extends State<CustomerSheet> {
     for (final c in [_search, _name, _phone, _taxId]) {
       c.addListener(() => setState(() {}));
     }
+    _clearServerErrorOnEdit(_name, 'name');
+    _clearServerErrorOnEdit(_phone, 'phone');
+    _clearServerErrorOnEdit(_email, 'email');
+    _clearServerErrorOnEdit(_taxId, 'taxId');
     _formOpened = _formSignature;
+  }
+
+  void _clearServerErrorOnEdit(TextEditingController c, String field) {
+    var last = c.text;
+    c.addListener(() {
+      if (c.text == last) return; // selection / focus only
+      last = c.text;
+      if (!_serverErrors.containsKey(field) &&
+          (field != 'taxId' || _serverDuplicate == null)) {
+        return;
+      }
+      setState(() {
+        _serverErrors = {..._serverErrors}..remove(field);
+        if (field == 'taxId') _serverDuplicate = null;
+      });
+    });
   }
 
   /// The form as it was when it opened (empty for a new one).
@@ -612,7 +655,11 @@ class _CustomerSheetState extends State<CustomerSheet> {
     final phone = normalizePhoneInput(_phone.text);
     final email = _clean(_email);
     final taxId = _clean(_taxId);
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _serverErrors = const {};
+      _serverDuplicate = null;
+    });
     try {
       final Object saved;
       if (_sup && widget.editSupplier != null) {
@@ -706,6 +753,19 @@ class _CustomerSheetState extends State<CustomerSheet> {
       }
       HapticFeedback.mediumImpact();
       if (mounted) Navigator.of(context).pop(saved);
+    } on ApiException catch (e) {
+      HapticFeedback.heavyImpact();
+      if (!mounted) return;
+      final field = e.code == 'VALIDATION'
+          ? customerFieldOfValidation(e.serverMessage)
+          : null;
+      final duplicate = e.code == 'CUSTOMER_DUPLICATE';
+      setState(() {
+        _busy = false;
+        _serverDuplicate = duplicate ? e : null;
+        _serverErrors = field == null ? const {} : {field: e.messageHe};
+      });
+      if (!duplicate && field == null) showErrorSnack(context, e);
     } on Object catch (e) {
       HapticFeedback.heavyImpact();
       if (mounted) {
@@ -779,10 +839,11 @@ class _CustomerSheetState extends State<CustomerSheet> {
             enabled: !_busy,
             textInputAction: TextInputAction.next,
             maxLength: 200,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: PeopleHe.name,
-              prefixIcon: Icon(Icons.person_outline_rounded),
+              prefixIcon: const Icon(Icons.person_outline_rounded),
               counterText: '',
+              errorText: _serverErrors['name'],
             ),
             validator: (v) =>
                 (v ?? '').trim().isEmpty ? PeopleHe.nameRequired : null,
@@ -794,6 +855,7 @@ class _CustomerSheetState extends State<CustomerSheet> {
             TextInputType.phone,
             's2-phone',
             Icons.phone_outlined,
+            'phone',
             (v) => (v ?? '').trim().isEmpty || isValidPhoneInput(v!)
                 ? null
                 : PeopleHe.phoneInvalid,
@@ -805,6 +867,7 @@ class _CustomerSheetState extends State<CustomerSheet> {
             TextInputType.emailAddress,
             's2-email',
             Icons.alternate_email_rounded,
+            'email',
             (v) => (v ?? '').trim().isEmpty || isValidEmail(v!)
                 ? null
                 : PeopleHe.emailInvalid,
@@ -816,6 +879,7 @@ class _CustomerSheetState extends State<CustomerSheet> {
             TextInputType.number,
             's2-taxid',
             Icons.badge_outlined,
+            'taxId',
             (v) => (v ?? '').trim().isEmpty || isValidIsraeliId(v!.trim())
                 ? null
                 : PeopleHe.taxIdInvalid,
@@ -973,6 +1037,10 @@ class _CustomerSheetState extends State<CustomerSheet> {
               ),
             ),
           ],
+          if (_serverDuplicate != null) ...[
+            const SizedBox(height: Space.s),
+            _serverDuplicateCard(context, _serverDuplicate!),
+          ],
           if (_isEdit) ...[
             const SizedBox(height: Space.s),
             Text(
@@ -994,12 +1062,47 @@ class _CustomerSheetState extends State<CustomerSheet> {
     );
   }
 
+  /// 409 CUSTOMER_DUPLICATE: the server's Hebrew text, and "פתח לקוח קיים"
+  /// when the answer names the existing customer (not the one being edited).
+  Widget _serverDuplicateCard(BuildContext context, ApiException e) {
+    final p = context.palette;
+    final id = e.details['customerId'];
+    final existing = id is String && id.isNotEmpty && id != widget.edit?.id
+        ? id
+        : null;
+    return AppCard(
+      key: const Key('s2-server-duplicate'),
+      color: p.tint(p.warn),
+      child: Row(
+        children: [
+          Expanded(
+            child: Semantics(
+              liveRegion: true,
+              child: Text(e.messageHe, style: AppText.body),
+            ),
+          ),
+          if (existing != null)
+            TextButton(
+              key: const Key('s2-open-existing'),
+              onPressed: () {
+                final nav = Navigator.of(context);
+                nav.pop();
+                unawaited(openPerson(nav.context, existing));
+              },
+              child: const Text(PeopleHe.openExisting),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _ltr(
     TextEditingController c,
     String label,
     TextInputType keyboard,
     String key,
     IconData icon,
+    String serverField,
     FormFieldValidator<String> validator,
   ) {
     return TextFormField(
@@ -1011,7 +1114,11 @@ class _CustomerSheetState extends State<CustomerSheet> {
       textAlign: TextAlign.right,
       autocorrect: false,
       textInputAction: TextInputAction.next,
-      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        errorText: _serverErrors[serverField],
+      ),
       validator: validator,
     );
   }

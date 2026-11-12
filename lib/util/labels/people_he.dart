@@ -89,6 +89,7 @@ abstract final class PeopleHe {
   static const taxIdInvalid = 'המספר לא תקין — בדוק את הספרות';
   static String alreadyExists(String name) => 'כבר קיים: $name';
   static const useExisting = 'השתמש בו';
+  static const openExisting = 'פתח לקוח קיים';
   static const contactsFailed = 'לא הצלחנו לפתוח את אנשי הקשר';
   static const saving = 'שומר…';
   static const editNote = 'השינוי לא משנה מסמכים שכבר הופקו';
