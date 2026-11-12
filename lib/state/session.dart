@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -36,6 +39,11 @@ class SessionController extends ChangeNotifier {
   static const _kBusiness = 'business_id';
   static const _kAccountCache = 'account';
   static const _kBusinessCache = 'me_';
+
+  /// Fingerprint of the device token the cached account was loaded with. A
+  /// cache written under another token (another member signed in on this
+  /// device without a sign-out wipe) is never used to start the app.
+  static const _kCredential = 'credential';
 
   final FlutterSecureStorage _storage;
   final ApiClient _client;
@@ -221,7 +229,18 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  static String _credentialTag(String token) =>
+      sha256.convert(utf8.encode(token)).toString().substring(0, 16);
+
+  /// The cached account, or null when it is unreadable or belongs to another
+  /// device token (AT-46: a cache start must never borrow another member's
+  /// account, membership and /me). Entries from older versions have no tag.
   MobileAccount? _accountOrNull(Map<String, dynamic> json) {
+    final tag = json[_kCredential];
+    final token = _client.deviceToken;
+    if (tag is String && (token == null || tag != _credentialTag(token))) {
+      return null;
+    }
     try {
       return MobileAccount.fromJson(json);
     } on Object {
@@ -381,7 +400,11 @@ class SessionController extends ChangeNotifier {
   Future<void> _loadAccount({String? preferredBusinessId}) async {
     final json = await _client.get('/mobile/session');
     _setAccount(MobileAccount.fromJson(json));
-    await AppCache.write(_kAccountCache, account!.toJson());
+    final token = _client.deviceToken;
+    await AppCache.write(_kAccountCache, {
+      ...account!.toJson(),
+      if (token != null) _kCredential: _credentialTag(token),
+    });
     _selectFromAccount(preferredBusinessId);
   }
 

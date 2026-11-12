@@ -334,24 +334,25 @@ Future<void> launchAs(
   String? businessId,
 }) async {
   await AppCache.isFirstLaunch(); // consume the install marker so restore keeps our token
+  // AT-46: like a real device between two members — a local sign-out wipes the
+  // previous user's cache (account, /me), so the cold start cannot open from
+  // it. The server token of the previous user is not revoked.
+  await session.signOutLocally();
   await keychain.write(key: 'device_token', value: u.token);
   await keychain.write(key: 'business_id', value: businessId ?? u.businessId);
   ApiClient.instance.clearCredentials();
   session
     ..status = SessionStatus.unknown
-    ..expired = false
-    ..offline = false
-    ..account = null
-    ..business = null
-    ..me = null
-    ..profile = null
-    ..meFetchedAt = null;
+    ..expired = false;
   app.main();
   await waitFor(tester, find.byType(AppShell), seconds: 45);
   await waitUntil(
     tester,
-    () => session.business?.businessId == (businessId ?? u.businessId),
-    'business ${businessId ?? u.businessId} selected',
+    () =>
+        session.business?.businessId == (businessId ?? u.businessId) &&
+        session.account?.email == u.email &&
+        session.freshMe != null,
+    '${u.email} signed in to ${businessId ?? u.businessId} with a fresh /me',
   );
   await pumpFor(tester, const Duration(seconds: 3)); // cache → network
 }

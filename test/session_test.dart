@@ -258,6 +258,55 @@ void main() {
     },
   );
 
+  test('AT-46: a cache written under another device token is not a cache start '
+      '(no borrowed account, membership or /me)', () async {
+    FlutterSecureStorage.setMockInitialValues({
+      'device_token': 'inv_abc',
+      'business_id': 'b1',
+    });
+    api.httpClient = MockClient(
+      (r) async => switch (r.url.path) {
+        '/mobile/session' => _json(200, _account),
+        '/me' => _json(200, meJson),
+        '/business/profile' => _json(200, profileJson),
+        _ => _json(404, {'error': 'NOT_FOUND'}),
+      },
+    );
+    await SessionController(client: api).restore(); // u1 fills the cache
+
+    // Another member's token lands in the Keychain without a sign-out wipe.
+    final gate = Completer<void>();
+    FlutterSecureStorage.setMockInitialValues({
+      'device_token': 'inv_other',
+      'business_id': 'b1',
+    });
+    api.clearCredentials();
+    api.httpClient = MockClient((r) async {
+      await gate.future;
+      return switch (r.url.path) {
+        '/mobile/session' => _json(200, {
+          ..._account,
+          'userId': 'u2',
+          'email': 'other@b.c',
+        }),
+        '/me' => _json(200, {...meJson, 'role': 'READ_ONLY'}),
+        '/business/profile' => _json(200, profileJson),
+        _ => _json(404, {'error': 'NOT_FOUND'}),
+      };
+    });
+    final s = SessionController(client: api);
+    final restoring = s.restore();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(s.status, isNot(SessionStatus.signedIn));
+    expect(s.account?.userId, isNot('u1'));
+    gate.complete();
+    await restoring;
+    expect(s.restoredFromCache, isFalse);
+    expect(s.status, SessionStatus.signedIn);
+    expect(s.account?.userId, 'u2');
+    expect(s.me?.role, 'READ_ONLY');
+  });
+
   test(
     'explicit sign-out runs the push unregister hook before revoking the token',
     () async {

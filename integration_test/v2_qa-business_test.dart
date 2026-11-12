@@ -1067,6 +1067,9 @@ void main() {
     tester,
   ) async {
     await launchAs(tester, roleUser);
+    // Caps.none is also Preset.viewer: require a real /me of this user first.
+    expect(session.freshMe, isNotNull);
+    expect(session.account?.email, roleEmail);
     expect(businessContext.caps.preset, Preset.viewer);
     expect(find.byKey(const Key('intent-request')), findsNothing);
     try {
