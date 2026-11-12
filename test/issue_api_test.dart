@@ -78,13 +78,15 @@ class FakeServer {
           ],
         });
       case 'DELETE /documents/d1':
-        if (status != 'DRAFT')
+        if (status != 'DRAFT') {
           return _json(403, {'error': 'DOCUMENT_ACTION_FORBIDDEN'});
+        }
         status = 'NONE';
         return _json(200, {'status': 'deleted'});
       case 'PUT /documents/d1':
-        if (status != 'DRAFT')
+        if (status != 'DRAFT') {
           return _json(409, {'error': 'DOCUMENT_ALREADY_FINALIZED'});
+        }
         return _json(200, {'id': 'd1'});
       case 'GET /sequences':
         return _json(200, {
@@ -121,10 +123,11 @@ class FakeServer {
         status = 'PENDING_APPROVAL';
         return _json(200, {'status': 'PENDING_APPROVAL'});
       case 'POST /documents/d1/artifact':
-        if (artifact)
+        if (artifact) {
           return _json(409, {
             'error': 'ORIGINAL_ARTIFACT_REGENERATION_FORBIDDEN',
           });
+        }
         artifact = true;
         status = 'ARCHIVED';
         return _json(201, {'artifactId': 'a1'});
@@ -139,8 +142,9 @@ class FakeServer {
         final amount = BigInt.parse(
           (jsonDecode(r.body) as Map)['amountMinor'] as String,
         );
-        if (paid + amount > BigInt.from(118000))
+        if (paid + amount > BigInt.from(118000)) {
           return _json(409, {'error': 'PAYMENT_OVERALLOCATED'});
+        }
         paid += amount;
         return _json(200, {'allocated': true});
       case 'GET /documents/d1':

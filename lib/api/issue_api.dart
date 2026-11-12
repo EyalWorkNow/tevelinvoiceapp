@@ -535,8 +535,9 @@ Future<void> _ensureDraft(PendingIssue p) async {
       await save();
     } on ApiException catch (e) {
       if (e.code != 'DOCUMENT_ALREADY_FINALIZED' &&
-          e.code != 'DOCUMENT_INVALID_TRANSITION')
+          e.code != 'DOCUMENT_INVALID_TRANSITION') {
         rethrow;
+      }
     }
   }
 }
@@ -555,8 +556,9 @@ Future<String?> _cloneLinked(PendingIssue p) async {
     final missingRoute = e.status == 404 && e.code == 'NOT_FOUND';
     if (!missingRoute &&
         e.code != 'DOCUMENT_NOT_FINAL' &&
-        e.code != 'CLONE_TYPE_NOT_ALLOWED')
+        e.code != 'CLONE_TYPE_NOT_ALLOWED') {
       rethrow;
+    }
     p
       ..cloneFrom = null
       ..createAttemptTotal = null;

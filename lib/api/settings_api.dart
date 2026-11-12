@@ -234,8 +234,10 @@ const Set<String> v2PostRoutes = {
 /// opening never POSTs to a mutating endpoint. Only an older server (none of
 /// these routes: the empty POST meets the 404 fallback) is still probed.
 Future<bool> serverHasPost(String path) async {
-  if (v2PostRoutes.contains(path) && (businessContext.me?.readGating ?? false))
+  if (v2PostRoutes.contains(path) &&
+      (businessContext.me?.readGating ?? false)) {
     return true;
+  }
   final key = '${session.business?.businessId}|POST $path';
   final known = _probes[key];
   if (known != null) return known;

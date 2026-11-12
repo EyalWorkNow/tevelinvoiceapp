@@ -141,8 +141,9 @@ EditorConfig memberEditor(
     ],
     onSave: (v) async {
       final p = _preset(v['preset']);
-      if (p == Preset.accountantFull)
+      if (p == Preset.accountantFull) {
         return; // existing tag kept as is (§19 q2)
+      }
       await saveMemberPreset(m, p, issuer: v.flag('issuer'));
     },
     more: [
@@ -152,8 +153,9 @@ EditorConfig memberEditor(
           icon: Iconsax.key,
           onSelected: () async {
             final nav = Navigator.of(context);
-            if (await transferOwnershipFlow(context, m) && nav.mounted)
+            if (await transferOwnershipFlow(context, m) && nav.mounted) {
               nav.pop(true);
+            }
           },
         ),
       MoreMenuItem(

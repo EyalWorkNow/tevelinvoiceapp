@@ -120,8 +120,9 @@ List<String> _scale(int n, String one) => switch (n) {
 /// Cardinal number in Hebrew words, without conjunctions ('אלף מאה שמונים').
 String hebrewNumberWords(BigInt value, {bool masculine = true}) {
   if (value == BigInt.zero) return 'אפס';
-  if (value.isNegative)
+  if (value.isNegative) {
     return 'מינוס ${hebrewNumberWords(-value, masculine: masculine)}';
+  }
   if (value >= BigInt.from(10).pow(12)) return value.toString();
   final n = value.toInt();
   final billions = n ~/ 1000000000;

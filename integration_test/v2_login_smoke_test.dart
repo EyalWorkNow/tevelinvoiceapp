@@ -68,8 +68,9 @@ String? latestCode(String to, DateTime since) {
     if (f.statSync().modified.isBefore(since)) break;
     final m = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
     final subject = '${m['subject']}';
-    if (m['to'] == to && RegExp(r'^\d{6}').hasMatch(subject))
+    if (m['to'] == to && RegExp(r'^\d{6}').hasMatch(subject)) {
       return subject.substring(0, 6);
+    }
   }
   return null;
 }
@@ -134,8 +135,9 @@ void main() {
               w.key is ValueKey<String> &&
               (w.key! as ValueKey<String>).value.startsWith('s14-3b773037'),
         );
-        if (rows.evaluate().isNotEmpty)
+        if (rows.evaluate().isNotEmpty) {
           await tester.tap(rows.first, warnIfMissed: false);
+        }
       }
     }
     expect(find.byType(AppShell), findsOneWidget);

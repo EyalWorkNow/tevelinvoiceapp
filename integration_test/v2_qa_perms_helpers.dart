@@ -85,8 +85,9 @@ class QaApi {
         await Future<void>.delayed(const Duration(milliseconds: 250));
         code = latestMfaCode(email, since);
       }
-      if (code == null)
+      if (code == null) {
         throw StateError('no MFA e-mail for $email in $qaMailDir');
+      }
       final ok = await api.send(
         'POST',
         '/auth/mfa/email/verify',
@@ -96,8 +97,9 @@ class QaApi {
     }
 
     if (login.json['mfaRequired'] == true ||
-        login.json['status'] == 'MFA_REQUIRED')
+        login.json['status'] == 'MFA_REQUIRED') {
       await mfa('LOGIN');
+    }
     var dt = await api.send(
       'POST',
       '/auth/device-token',
@@ -213,8 +215,9 @@ String? latestMfaCode(String to, DateTime since) {
     try {
       final m = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
       final subject = '${m['subject']}';
-      if (m['to'] == to && RegExp(r'^\d{6}').hasMatch(subject))
+      if (m['to'] == to && RegExp(r'^\d{6}').hasMatch(subject)) {
         return subject.substring(0, 6);
+      }
     } on Object {
       // a file still being written
     }
@@ -583,8 +586,9 @@ Future<void> restoreP0Accountant() async {
   for (final m in (team.json['members'] as List? ?? const [])) {
     final row = m as Map<String, dynamic>;
     if (row['email'] != presetSpec('accountant').email ||
-        row['revokedAt'] != null)
+        row['revokedAt'] != null) {
       continue;
+    }
     final uid = row['userId'];
     final r1 = await owner.put('/business/members/$uid/role', {
       'role': 'READ_ONLY',
@@ -592,8 +596,9 @@ Future<void> restoreP0Accountant() async {
     final r2 = await owner.put('/business/members/$uid/permissions', {
       'permissions': ['expense:record', 'expense:approve'],
     });
-    if (r1.status != 200 || r2.status != 200)
+    if (r1.status != 200 || r2.status != 200) {
       throw StateError('restore P0 accountant → $r1 / $r2');
+    }
   }
 }
 
@@ -791,8 +796,9 @@ Future<Map<String, dynamic>?> findIssued(QaApi api, String type) async {
       in (res.json['documents'] as List? ?? const [])
           .cast<Map<String, dynamic>>()) {
     if (d['documentType'] == type &&
-        const {'FINALIZED', 'ARCHIVED', 'SENT'}.contains(d['status']))
+        const {'FINALIZED', 'ARCHIVED', 'SENT'}.contains(d['status'])) {
       return d;
+    }
   }
   return null;
 }

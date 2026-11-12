@@ -175,8 +175,9 @@ void main() {
       final list = await switchUser.ok('/mobile/businesses');
       for (final b
           in (list['businesses'] as List).cast<Map<String, dynamic>>()) {
-        if (b['legalName'] == qaBizName && b['role'] == 'OWNER')
+        if (b['legalName'] == qaBizName && b['role'] == 'OWNER') {
           return b['businessId'] as String;
+        }
       }
       return null;
     }
@@ -675,12 +676,13 @@ void main() {
         expect(rows, isNot(contains('team')));
         expect(rows, isNot(contains('reports')), reason: 'R is the home tab');
         expect(rows, isNot(contains('branding')));
-        if (who == cpaRepEmail)
+        if (who == cpaRepEmail) {
           expect(
             rows,
             contains('numbering'),
             reason: '§6.B: מספור ואישורים for מייצג',
           );
+        }
       },
     );
   }

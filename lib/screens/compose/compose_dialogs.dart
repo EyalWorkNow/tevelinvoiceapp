@@ -162,8 +162,9 @@ class PassphraseEntry {
 Future<PassphraseEntry?> askSigningPassphrase(BuildContext context) {
   final field = TextEditingController();
   void submit(BuildContext c) {
-    if (field.text.isNotEmpty)
+    if (field.text.isNotEmpty) {
       Navigator.pop(c, PassphraseEntry(field.text, save: true));
+    }
   }
 
   return showDialog<PassphraseEntry>(

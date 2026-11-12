@@ -183,8 +183,9 @@ class DevApi {
       final send = await _cookiePost('/auth/mfa/email/send', {
         'purpose': purpose,
       });
-      if (send.status != 200)
+      if (send.status != 200) {
         throw StateError('mfa send ${preset.email}: $send');
+      }
       String? code;
       for (var i = 0; i < 40 && code == null; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 250));
@@ -196,14 +197,16 @@ class DevApi {
           }
         }
       }
-      if (code == null)
+      if (code == null) {
         throw StateError('no MFA mail for ${preset.email} in $mailDir');
+      }
       final verify = await _cookiePost('/auth/mfa/email/verify', {
         'code': code,
         if (purpose == 'ENROLL') 'purpose': purpose,
       });
-      if (verify.status != 200)
+      if (verify.status != 200) {
         throw StateError('mfa verify ${preset.email}: $verify');
+      }
     }
 
     if (login.json['status'] == 'MFA_REQUIRED') await mfa('LOGIN');
@@ -220,8 +223,9 @@ class DevApi {
     final b = await _cookiePost('/auth/device-token', {
       'deviceName': 'qa-money app',
     });
-    if (a.status != 201 || b.status != 201)
+    if (a.status != 201 || b.status != 201) {
       throw StateError('device-token ${preset.email}: $a / $b');
+    }
     apiToken = a.json['token'] as String;
     appToken = b.json['token'] as String;
     _cookie = null;
@@ -374,8 +378,9 @@ class DevApi {
     );
     expect(fin.json['status'], 'FINALIZED', reason: 'finalize $type: $fin');
     expectStatus(await post('/documents/$id/artifact'), 201, 'artifact $type');
-    if (shared)
+    if (shared) {
       expectStatus(await post('/documents/$id/share-link'), 201, 'share-link');
+    }
     return id;
   }
 
@@ -478,12 +483,13 @@ class DevApi {
       'POST /quotes',
     );
     final id = r.json['id'] as String;
-    if (status != 'DRAFT')
+    if (status != 'DRAFT') {
       expectStatus(
         await post('/quotes/$id/status', {'to': status}),
         200,
         'quote status',
       );
+    }
     return id;
   }
 }

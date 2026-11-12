@@ -167,10 +167,11 @@ class DevApi {
       }),
     );
     final id = r.map['id'] as String;
-    if (consent)
+    if (consent) {
       expectOk(
         await post('/customers/$id/consent', {'method': 'VERBAL_IN_APP'}),
       );
+    }
     return id;
   }
 
@@ -232,8 +233,9 @@ class DevApi {
     );
     var r = await post('/expenses/uploads/$uploadId/complete');
     var json = r.map;
-    if (r.status >= 300)
+    if (r.status >= 300) {
       return {'status': 'REFUSED', 'error': r.error, 'uploadId': uploadId};
+    }
     final end = DateTime.now().add(const Duration(seconds: 30));
     while (json['status'] == 'SCAN_PENDING' && DateTime.now().isBefore(end)) {
       await Future<void>.delayed(const Duration(seconds: 1));
@@ -376,10 +378,11 @@ Future<DevApi> signInApi(String email) async {
     );
     Future<void> mfa(String purpose) async {
       final since = DateTime.now().subtract(const Duration(seconds: 2));
-      if (mailDir.isEmpty)
+      if (mailDir.isEmpty) {
         fail(
           '$email needs MFA: run with --dart-define=MAILDIR=<dev outgoing-emails>',
         );
+      }
       var sent = await post('/auth/mfa/email/send', {'purpose': purpose});
       if (sent.error == 'MFA_EMAIL_THROTTLED') {
         await Future<void>.delayed(const Duration(seconds: 46));
@@ -480,8 +483,9 @@ Future<void> pumpUntil(
 }) async {
   final end = DateTime.now().add(timeout);
   while (finder.evaluate().isEmpty) {
-    if (DateTime.now().isAfter(end))
+    if (DateTime.now().isAfter(end)) {
       fail('timed out waiting for ${what ?? finder}');
+    }
     await tester.pump(const Duration(milliseconds: 150));
   }
 }

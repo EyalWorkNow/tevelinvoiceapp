@@ -285,7 +285,8 @@ Future<String> createBusiness({
       json['businessId'] ??
       json['id'] ??
       (nested is Map ? nested['businessId'] ?? nested['id'] : null);
-  if (id is! String)
+  if (id is! String) {
     throw const FormatException('POST /businesses: no business id');
+  }
   return id;
 }

@@ -199,8 +199,9 @@ const Set<String> _duplicable = {
 
 /// Open receivable (§15.5): 300/305, issued, not cancelled, open > 0.
 bool isOpenReceivable(DocFacts d) {
-  if (!isCollectionType(d.documentType) || !_issued.contains(d.status))
+  if (!isCollectionType(d.documentType) || !_issued.contains(d.status)) {
     return false;
+  }
   if (d.voidedAt != null) return false;
   final credited = d.creditedMinor ?? BigInt.zero;
   if (d.totalMinor > BigInt.zero && credited >= d.totalMinor) return false;
@@ -248,8 +249,9 @@ NextAction nextAction(DocFacts d, DocViewer v) {
   final menu = <DocAction>[...state];
   final mayShare =
       v.can(Cap.docView) && !d.amountHidden && primary != DocAction.share;
-  if (!d.isQuote && _mayIssueTaxInvoice(d, v))
+  if (!d.isQuote && _mayIssueTaxInvoice(d, v)) {
     menu.add(DocAction.issueTaxInvoice);
+  }
   if (d.isQuote && d.quoteFull) {
     if (mayShare) menu.add(DocAction.share);
     if (v.can(Cap.docDraft)) menu.add(DocAction.duplicate);
@@ -315,8 +317,9 @@ bool _mayIssueTaxInvoice(DocFacts d, DocViewer v) {
     return (2, null, DocumentHe.waitingApproval, const []);
   }
   if (_draft.contains(s)) {
-    if (v.can(Cap.docDraft))
+    if (v.can(Cap.docDraft)) {
       return (3, DocAction.continueDraft, null, const []);
+    }
     return (0, null, null, const []);
   }
   if (s == 'WAITING_FOR_ALLOCATION') {
@@ -376,8 +379,9 @@ bool _mayIssueTaxInvoice(DocFacts d, DocViewer v) {
           [if (v.can(Cap.docDraft)) DocAction.convertQuote],
         );
       }
-      if (v.can(Cap.docDraft))
+      if (v.can(Cap.docDraft)) {
         return (11, DocAction.convertQuote, null, const []);
+      }
     case 'SENT':
       if (v.can(Cap.docDraft)) {
         return (
@@ -388,11 +392,13 @@ bool _mayIssueTaxInvoice(DocFacts d, DocViewer v) {
         );
       }
     case 'ACCEPTED':
-      if (v.can(Cap.docDraft))
+      if (v.can(Cap.docDraft)) {
         return (13, DocAction.convertQuote, null, const []);
+      }
     case 'CONVERTED':
-      if (d.convertedDocumentId != null)
+      if (d.convertedDocumentId != null) {
         return (14, DocAction.openInvoice, null, const []);
+      }
     case 'REJECTED' || 'EXPIRED':
       return (15, null, DocumentHe.notRelevant, const []);
   }

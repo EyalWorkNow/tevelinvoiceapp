@@ -148,12 +148,13 @@ class _DocumentScreenState extends State<DocumentScreen> {
     try {
       if (widget.isQuote) {
         final q = await fetchQuote(widget.id);
-        if (q == null)
+        if (q == null) {
           throw ApiException(
             404,
             'QUOTE_NOT_FOUND',
             errorMessageHe('QUOTE_NOT_FOUND'),
           );
+        }
         final c = q.customerId == null
             ? null
             : await _customerOrNull(q.customerId!);
@@ -310,8 +311,9 @@ class _DocumentScreenState extends State<DocumentScreen> {
         // Once per screen: the create bumps documentsVersion → reload.
         if (doc.status != 'FINALIZED' ||
             !businessContext.can(Cap.docIssue) ||
-            _triedCreate)
+            _triedCreate) {
           rethrow;
+        }
         _triedCreate = true;
         await createOriginalArtifact(
           doc.id,
@@ -637,8 +639,9 @@ class _DocumentScreenState extends State<DocumentScreen> {
       hasLiveLink: _extras.hasLiveShareLink,
     );
     if (!mounted) return;
-    if (message != null && message.isNotEmpty)
+    if (message != null && message.isNotEmpty) {
       toast(context, message, motion: NoticeMotion.sent);
+    }
     await _load();
   }
 
@@ -1021,8 +1024,9 @@ class _DocumentScreenState extends State<DocumentScreen> {
   }
 
   Widget _preview(DocumentDetail doc) {
-    if (!_withPdf.contains(doc.status))
+    if (!_withPdf.contains(doc.status)) {
       return DraftLinesCard(doc: doc, notes: _extras.notes);
+    }
     // No PDF to show (not ours to see, not created, or failed): the lines,
     // the customer and the total — never a blank box.
     if (doc.amountHidden || _pdfFailed) {

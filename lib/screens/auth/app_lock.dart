@@ -75,8 +75,9 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
   Future<void> _onApiEvent(ApiEvent event) async {
     if (event != ApiEvent.mfaRequired ||
         !_signedIn ||
-        !ApiClient.instance.hasDeviceToken)
+        !ApiClient.instance.hasDeviceToken) {
       return;
+    }
     await session.signOutLocally();
     resetToLogin(expired: true);
   }
@@ -88,8 +89,9 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
-        if (state != AppLifecycleState.inactive)
+        if (state != AppLifecycleState.inactive) {
           _backgroundAt ??= DateTime.now();
+        }
         if (_signedIn && !_covered) setState(() => _covered = true);
       case AppLifecycleState.resumed:
         _onResumed();

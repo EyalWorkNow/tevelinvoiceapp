@@ -104,8 +104,9 @@ void main() {
         'business_id': 'b1',
       });
       api.httpClient = MockClient((r) async {
-        if (r.url.path == '/mobile/logout')
+        if (r.url.path == '/mobile/logout') {
           logouts.add(r.headers['Authorization']);
+        }
         return _json(200, {'status': 'ok'});
       });
       final s = SessionController(client: api);

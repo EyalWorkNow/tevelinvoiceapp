@@ -109,8 +109,9 @@ Future<void> _writeHome(String business, HomeData data) async {
 /// `/me.mfa.recoveryCodesSaved` (not in BE-02 yet → no card).
 bool? _recoveryCodesSaved(Me? me) {
   final mfa = me?.raw['mfa'];
-  if (mfa is Map && mfa['recoveryCodesSaved'] is bool)
+  if (mfa is Map && mfa['recoveryCodesSaved'] is bool) {
     return mfa['recoveryCodesSaved'] as bool;
+  }
   return null;
 }
 
@@ -450,8 +451,9 @@ HomeData composeHome(InboxSources s, {required InboxContext ctx}) {
 
   // SETUP — one at a time.
   final step = nextSetupStep(ctx);
-  if (step != null)
+  if (step != null) {
     cards.add(InboxItem(kind: InboxKind.setup, setupStep: step));
+  }
 
   cards.sort((a, b) => a.kind.index.compareTo(b.kind.index));
   final money = caps.can(Cap.moneyView) && dash != null;
@@ -475,8 +477,9 @@ HomeData mergeLocalUnfinished(
 }) {
   if (local == null || !caps.can(Cap.docDraft)) return data;
   final id = local.draftId;
-  if (id != null && data.cards.any((c) => c.documentIds.contains(id)))
+  if (id != null && data.cards.any((c) => c.documentIds.contains(id))) {
     return data;
+  }
   final cards = [...data.cards];
   final i = cards.indexWhere((c) => c.kind == InboxKind.unfinished);
   if (i < 0) {
@@ -511,8 +514,9 @@ HomeData mergeLocalUnfinished(
 SetupStep? nextSetupStep(InboxContext ctx) {
   final caps = ctx.caps;
   bool open(SetupStep s) => !ctx.dismissedSetup.contains(s);
-  if (ctx.recoveryCodesSaved == false && open(SetupStep.recoveryCodes))
+  if (ctx.recoveryCodesSaved == false && open(SetupStep.recoveryCodes)) {
     return SetupStep.recoveryCodes;
+  }
   if (caps.can(Cap.settingsDesign) &&
       ctx.hasLogo == false &&
       open(SetupStep.logo)) {
@@ -523,8 +527,11 @@ SetupStep? nextSetupStep(InboxContext ctx) {
       open(SetupStep.paymentLink)) {
     return SetupStep.paymentLink;
   }
-  if (caps.can(Cap.teamManage) && ctx.memberCount == 1 && open(SetupStep.team))
+  if (caps.can(Cap.teamManage) &&
+      ctx.memberCount == 1 &&
+      open(SetupStep.team)) {
     return SetupStep.team;
+  }
   return null;
 }
 
@@ -642,8 +649,9 @@ Future<int> signPendingDocuments(
       id,
       askPassphrase: askPassphrase,
       alreadySealed: true,
-    ))
+    )) {
       break;
+    }
     signed++;
   }
   return signed;

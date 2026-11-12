@@ -263,8 +263,9 @@ Future<Map<String, dynamic>?> devFindMember(
   for (final m in (team['members'] as List? ?? const [])) {
     final row = m as Map<String, dynamic>;
     if ('${row['email']}'.toLowerCase() == email.toLowerCase() &&
-        row['revokedAt'] == null)
+        row['revokedAt'] == null) {
       return row;
+    }
   }
   return null;
 }

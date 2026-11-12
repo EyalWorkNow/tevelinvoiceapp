@@ -192,8 +192,9 @@ void main() {
     for (final f in Directory(
       'lib',
     ).listSync(recursive: true).whereType<File>()) {
-      if (!f.path.endsWith('.dart') || f.path.endsWith('state/caps.dart'))
+      if (!f.path.endsWith('.dart') || f.path.endsWith('state/caps.dart')) {
         continue;
+      }
       final lines = f.readAsLinesSync();
       for (var i = 0; i < lines.length; i++) {
         if (pattern.hasMatch(lines[i])) offenders.add('${f.path}:${i + 1}');

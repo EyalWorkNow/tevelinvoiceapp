@@ -131,8 +131,9 @@ class _PaymentSheetState extends State<PaymentSheet> {
   /// (PAYMENT_OVERALLOCATED), cheque details complete (0037: digits).
   String? _validate() {
     for (final d in _drafts) {
-      if ((parseAmount(d.amount.text) ?? BigInt.zero) <= BigInt.zero)
+      if ((parseAmount(d.amount.text) ?? BigInt.zero) <= BigInt.zero) {
         return PaymentHe.amountRequired;
+      }
       if (d.method == 'CHECK') {
         final parts = [
           d.bank.text,
@@ -141,8 +142,9 @@ class _PaymentSheetState extends State<PaymentSheet> {
           d.check.text,
         ].map((s) => s.trim());
         if (parts.any((s) => s.isEmpty)) return PaymentHe.checkDetailsRequired;
-        if (parts.any((s) => !RegExp(r'^\d+$').hasMatch(s)))
+        if (parts.any((s) => !RegExp(r'^\d+$').hasMatch(s))) {
           return PaymentHe.digitsOnly;
+        }
       }
     }
     if (_sum > _doc!.balanceMinor) {

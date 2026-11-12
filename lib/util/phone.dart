@@ -14,8 +14,9 @@ String? waPhone(String? raw) {
 
   if (digits.startsWith('972')) {
     var national = digits.substring(3);
-    if (national.startsWith('0'))
+    if (national.startsWith('0')) {
       national = national.substring(1); // +972 (0)50…
+    }
     return _validIsraeli(national) ? '972$national' : null;
   }
   if (international) {

@@ -253,8 +253,9 @@ class IssueFake {
         final src = docs[r.params['id']!];
         if (src == null) return FakeResponse.error(404, 'DOCUMENT_NOT_FOUND');
         final link = r.body['link'] == true;
-        if (link && src['document_number'] == null)
+        if (link && src['document_number'] == null) {
           return FakeResponse.error(409, 'DOCUMENT_NOT_FINAL');
+        }
         final id = 'd${++_docs}';
         final type =
             r.body['documentType'] as String? ?? src['document_type'] as String;
@@ -277,8 +278,9 @@ class IssueFake {
       })
       ..on('GET', '/documents/:id', (r) {
         final id = r.params['id']!;
-        if (!docs.containsKey(id))
+        if (!docs.containsKey(id)) {
           return FakeResponse.error(404, 'DOCUMENT_NOT_FOUND');
+        }
         return FakeResponse(200, detail(id));
       })
       ..on('POST', '/documents/:id/allocation/evaluate', (r) {
@@ -366,14 +368,16 @@ class IssueFake {
       })
       ..on('GET', '/quotes/:id', (r) {
         final id = r.params['id']!;
-        if (!quotes.containsKey(id))
+        if (!quotes.containsKey(id)) {
           return FakeResponse.error(404, 'QUOTE_NOT_FOUND');
+        }
         return FakeResponse(200, quoteDetail(id));
       })
       ..on('PUT', '/quotes/:id', (r) {
         final id = r.params['id']!;
-        if (!quotes.containsKey(id))
+        if (!quotes.containsKey(id)) {
           return FakeResponse.error(404, 'QUOTE_NOT_FOUND');
+        }
         final status = quoteStatus[id] ?? 'DRAFT';
         if (status != 'DRAFT' && status != 'SENT') {
           return FakeResponse.error(409, 'QUOTE_INVALID_TRANSITION');
@@ -391,8 +395,9 @@ class IssueFake {
       })
       ..on('POST', '/quotes/:id/share-link', (r) {
         final id = r.params['id']!;
-        if (quoteStatus[id] == 'CONVERTED')
+        if (quoteStatus[id] == 'CONVERTED') {
           return FakeResponse.error(409, 'QUOTE_INVALID_TRANSITION');
+        }
         return FakeResponse(201, {
           'url': 'https://invoice.example/d/qtok-$id',
           'expiresAt': null,

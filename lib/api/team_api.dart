@@ -215,8 +215,9 @@ Future<(T, bool)> _withRepFallback<T>(
       _repRoleSupported = true;
       return (r, true);
     } on ApiException catch (e) {
-      if (!(e.status == 400 || e.status == 422) || _repRoleSupported == true)
+      if (!(e.status == 400 || e.status == 422) || _repRoleSupported == true) {
         rethrow;
+      }
       _repRoleSupported = false;
     }
   }

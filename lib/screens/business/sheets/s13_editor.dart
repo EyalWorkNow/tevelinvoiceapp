@@ -175,8 +175,9 @@ class _EditorLoaderState extends State<EditorLoader> {
           ),
         );
       }
-      if (!snap.hasData)
+      if (!snap.hasData) {
         return const SizedBox(height: 320, child: SkeletonList(rows: 4));
+      }
       return EditorForm(
         config: snap.data!,
         popOnSave: widget.popOnSave,
@@ -240,8 +241,9 @@ class _EditorFormState extends State<EditorForm> {
       final msg = widget.config.savedMessage;
       final messenger = ScaffoldMessenger.maybeOf(context);
       if (widget.popOnSave) Navigator.of(context).pop(true);
-      if (msg.isNotEmpty)
+      if (msg.isNotEmpty) {
         messenger?.showNotchNotice(SnackBar(content: Text(msg)));
+      }
     } on Object catch (e) {
       HapticFeedback.heavyImpact();
       if (mounted) setState(() => _error = errorTextHe(e));

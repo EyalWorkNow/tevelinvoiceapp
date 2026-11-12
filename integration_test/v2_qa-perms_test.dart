@@ -319,12 +319,13 @@ void qaPermsSuite() {
             final r = await (await qaApi(p.key)).get(entry.key);
             final want = entry.value.contains(p.key) ? 403 : 200;
             expect(r.status, want, reason: '${p.key} GET ${entry.key} → $r');
-            if (want == 403)
+            if (want == 403) {
               expect(
                 r.error,
                 'DOCUMENT_ACTION_FORBIDDEN',
                 reason: '${p.key} ${entry.key}',
               );
+            }
           }
         }
       },

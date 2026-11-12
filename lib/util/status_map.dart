@@ -101,10 +101,12 @@ DocListState docListState({
     if (sentAt != null) DocAttribute.sent,
     if (viewedAt != null) DocAttribute.viewed,
   };
-  if (_draftStatuses.contains(status))
+  if (_draftStatuses.contains(status)) {
     return DocListState(DocStatus.draft, attrs);
-  if (status == 'PENDING_APPROVAL')
+  }
+  if (status == 'PENDING_APPROVAL') {
     return DocListState(DocStatus.pendingApproval, attrs);
+  }
   if (status == 'WAITING_FOR_ALLOCATION') {
     return DocListState(DocStatus.pendingApproval, {
       ...attrs,
@@ -133,8 +135,9 @@ DocListState docListState({
     }
     return DocListState(DocStatus.paid, attrs);
   }
-  if (_paidTypes.contains(documentType))
+  if (_paidTypes.contains(documentType)) {
     return DocListState(DocStatus.paid, attrs);
+  }
   if (_voidableNonTax.contains(documentType) && voidedAt != null) {
     return DocListState(DocStatus.cancelled, attrs);
   }

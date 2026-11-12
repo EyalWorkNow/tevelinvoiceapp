@@ -74,8 +74,9 @@ class ComposeLoad {
     if (pending == null) return clearLocalDraft();
     // A POST that may have reached the server keeps its journal (the next
     // issue adopts that draft instead of making a second one).
-    if (pending.createAttemptTotal == null)
+    if (pending.createAttemptTotal == null) {
       await clearPendingIssue(pending.businessId);
+    }
   }
 
   ComposeRun? _run;
@@ -131,8 +132,9 @@ Future<ComposeLoad?> loadComposer({
     section46: section46,
     canRecordPayment: caps.can(Cap.paymentRecord),
   );
-  if (kind == null || !kindAllowedForCaps(kind, caps, supplierPicker: true))
+  if (kind == null || !kindAllowedForCaps(kind, caps, supplierPicker: true)) {
     return null;
+  }
 
   final vat = await fetchVatRate();
   final s = ComposeState(kind: kind, businessType: bt, vatBasisPoints: vat)
@@ -171,8 +173,9 @@ Future<ComposeLoad?> loadComposer({
     } else {
       if (!quote.amountHidden) s.loadQuoteLines(quote.lines);
       s.notes = quote.notes ?? '';
-      if (quote.customerId != null)
+      if (quote.customerId != null) {
         s.customer = await findCustomer(quote.customerId!);
+      }
       load.convertQuote = quote;
     }
   } else if (sourceId != null) {
@@ -209,8 +212,9 @@ Future<ComposeLoad?> loadComposer({
       load.leftoverForm = await loadLocalDraft(intent);
     }
   }
-  if (customerId != null)
+  if (customerId != null) {
     s.customer = await findCustomer(customerId) ?? s.customer;
+  }
   if (s.customer != null && s.description.isEmpty) {
     s.description = await defaultDescription(
       s.customer!.id,

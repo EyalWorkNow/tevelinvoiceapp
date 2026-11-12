@@ -514,8 +514,9 @@ Future<String> duplicateDocument(DocumentDetail doc) async {
     notifyDocumentsChanged();
     return json['id'] as String;
   } on ApiException catch (e) {
-    if (!isMissingRoute(e))
+    if (!isMissingRoute(e)) {
       rethrow; // the route itself is missing (before BE-08)
+    }
   }
   final json = await _api.post('/documents', {
     'documentType': doc.documentType,

@@ -165,8 +165,9 @@ PeopleFakeState installPeopleFakes(
     })
     ..on('POST', '/customers/:id/archive', (r) {
       for (final c in s.customers) {
-        if (c['id'] == r.params['id'])
+        if (c['id'] == r.params['id']) {
           c['archived_at'] = '2026-10-30T00:00:00Z';
+        }
       }
       return const FakeResponse(200, {'archived': true});
     })
@@ -265,8 +266,9 @@ PeopleFakeState installPeopleFakes(
     ..on('POST', '/expenses/:id/approve', (r) {
       final e = s.expense(r.params['id']!);
       if (e == null) return FakeResponse.error(404, 'EXPENSE_NOT_FOUND');
-      if (e['status'] != 'READY_TO_APPROVE')
+      if (e['status'] != 'READY_TO_APPROVE') {
         return FakeResponse.error(422, 'EXPENSE_VALIDATION_FAILED');
+      }
       e['status'] = 'APPROVED';
       return const FakeResponse(200, {'status': 'APPROVED'});
     })

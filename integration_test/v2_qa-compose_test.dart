@@ -436,8 +436,9 @@ void main() {
         while (row.evaluate().isEmpty && DateTime.now().isBefore(end)) {
           await tester.pump(const Duration(milliseconds: 300));
           final list = find.byKey(const Key('home-list'));
-          if (list.evaluate().isNotEmpty)
+          if (list.evaluate().isNotEmpty) {
             await tester.drag(list, const Offset(0, -250), warnIfMissed: false);
+          }
         }
         await pumpUntil(tester, row, reason: 'the 305 in "אחרונים"');
         await tester.ensureVisible(row);

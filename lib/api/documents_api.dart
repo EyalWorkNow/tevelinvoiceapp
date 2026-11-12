@@ -124,8 +124,9 @@ bool isDraftStatus(String status) => status == 'DRAFT' || status == 'REJECTED';
 /// Elsewhere (receipts, credit notes, drafts) it becomes null, so tiles show
 /// no paid/open colour.
 DocumentSummary withMeaningfulBalance(DocumentSummary d) {
-  if (invoiceTypes.contains(d.documentType) && !isDraftStatus(d.status))
+  if (invoiceTypes.contains(d.documentType) && !isDraftStatus(d.status)) {
     return d;
+  }
   return DocumentSummary(
     id: d.id,
     documentType: d.documentType,

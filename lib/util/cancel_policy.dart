@@ -39,8 +39,9 @@ const Set<String> _issued = {
 /// An exempt dealer has no 305/320, so it never gets [CancelAction.credit]
 /// (the server answers CREDIT_SOURCE_TYPE_INVALID).
 CancelAction cancelActionFor(String documentType, {required bool vatExempt}) {
-  if (_creditable.contains(documentType))
+  if (_creditable.contains(documentType)) {
     return vatExempt ? CancelAction.none : CancelAction.credit;
+  }
   if (_voidable.contains(documentType)) return CancelAction.voidDocument;
   return CancelAction.none;
 }
@@ -82,8 +83,9 @@ bool showCancelItem(
   required bool vatExempt,
   bool voidAvailable = true,
 }) {
-  if (!canCancel || !_issued.contains(doc.status) || doc.voidedAt != null)
+  if (!canCancel || !_issued.contains(doc.status) || doc.voidedAt != null) {
     return false;
+  }
   switch (cancelActionFor(doc.documentType, vatExempt: vatExempt)) {
     case CancelAction.credit:
       return doc.creditableMinor > BigInt.zero;
@@ -140,8 +142,9 @@ List<Map<String, Object>> creditLines({
   required BigInt amountMinor,
   required String partialDescription,
 }) {
-  if (amountMinor <= BigInt.zero)
+  if (amountMinor <= BigInt.zero) {
     throw ArgumentError.value(amountMinor, 'amountMinor');
+  }
   if (amountMinor == totalMinor && alreadyCreditedMinor == BigInt.zero) {
     return [
       for (final l in source)

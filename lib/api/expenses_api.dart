@@ -154,8 +154,9 @@ Future<ExpenseUploadResult> uploadExpense(
       return const ExpenseUploadResult(stillScanning: true);
     }
     await Future<void>.delayed(pollEvery);
-    if (cancelled?.call() ?? false)
+    if (cancelled?.call() ?? false) {
       return const ExpenseUploadResult(stillScanning: true);
+    }
     json = await _api.get('/expenses/uploads/$uploadId');
   }
   return switch (json['status']) {

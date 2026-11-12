@@ -88,8 +88,9 @@ void main() {
           () => docDetail(owner, newest['id'] as String),
         );
         if (doc!['allocation_number'] != null ||
-            doc['status'] != 'WAITING_FOR_ALLOCATION')
+            doc['status'] != 'WAITING_FOR_ALLOCATION') {
           break;
+        }
       }
       debugPrint(
         'SBX-1 document ${doc!['document_number']} status ${doc['status']} '

@@ -270,8 +270,9 @@ String? _latestCode(String to, DateTime since) {
     if (f.statSync().modified.isBefore(since)) break;
     final m = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
     final subject = '${m['subject']}';
-    if (m['to'] == to && RegExp(r'^\d{6}').hasMatch(subject))
+    if (m['to'] == to && RegExp(r'^\d{6}').hasMatch(subject)) {
       return subject.substring(0, 6);
+    }
   }
   return null;
 }

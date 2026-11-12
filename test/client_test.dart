@@ -256,8 +256,9 @@ void main() {
     api.deviceToken = 'inv_tok';
     api.httpClient = MockClient((request) async {
       sent.add(request);
-      if (request.method == 'GET')
+      if (request.method == 'GET') {
         return http.Response.bytes([37, 80, 68, 70], 200);
+      }
       return http.Response('{"status":"stored"}', 200);
     });
     expect(await api.getBytes('/documents/d1/pdf'), [37, 80, 68, 70]);

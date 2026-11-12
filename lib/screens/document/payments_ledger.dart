@@ -101,8 +101,9 @@ class _PaymentsLedgerState extends State<PaymentsLedger> {
   @override
   Widget build(BuildContext context) {
     if (_rows.isEmpty && _loading) return const SkeletonList(rows: 4);
-    if (_rows.isEmpty && _error != null)
+    if (_rows.isEmpty && _error != null) {
       return ErrorView(error: _error!, onRetry: () => _load(reset: true));
+    }
     if (_rows.isEmpty) {
       return const EmptyState(
         icon: Iconsax.moneys,

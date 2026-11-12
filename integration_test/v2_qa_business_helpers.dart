@@ -87,8 +87,9 @@ class QaUser {
         if (body != null || method != 'GET') 'content-type': 'application/json',
         ...headers,
       });
-    if (body != null || method != 'GET')
+    if (body != null || method != 'GET') {
       req.body = jsonEncode(body ?? const {});
+    }
     for (var attempt = 0; ; attempt++) {
       final res = await http.Response.fromStream(await req.send());
       if (res.statusCode == 429 && attempt < 3) {
@@ -171,8 +172,9 @@ Future<QaUser> signIn(String email, {String businessId = studioId}) async {
       ).firstMatch(res.headers['set-cookie'] ?? '');
       if (set != null) cookie = set[1];
       final json = res.body.isEmpty ? null : jsonDecode(res.body);
-      if (json is Map && json['csrfToken'] is String)
+      if (json is Map && json['csrfToken'] is String) {
         csrf = json['csrfToken'] as String;
+      }
       final r = Res(res.statusCode, json);
       // 429: rate limit, or MFA_EMAIL_THROTTLED (another run e-mailed a code < 45 s ago).
       if (res.statusCode == 429 && attempt < 4) {
@@ -243,8 +245,9 @@ Map<String, dynamic>? newestMail(
   for (final f in files) {
     final mail = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
     final rcpt = '${mail['to']}';
-    if ((to == null || rcpt.contains(to)) && subject('${mail['subject']}'))
+    if ((to == null || rcpt.contains(to)) && subject('${mail['subject']}')) {
       return mail;
+    }
   }
   return null;
 }

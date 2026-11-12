@@ -66,8 +66,9 @@ Future<Customer?> findCustomer(String id) async {
   Customer? from(Object? list) {
     if (list is! List) return null;
     for (final c in list) {
-      if (c is Map<String, dynamic> && c['id'] == id)
+      if (c is Map<String, dynamic> && c['id'] == id) {
         return Customer.fromJson(c);
+      }
     }
     return null;
   }
@@ -95,10 +96,12 @@ Future<String> defaultDescription(
   final map = await _read('nd_desc_by_customer_$_bid');
   final last = customerId != null && map is Map ? map[customerId] : null;
   if (last is String && last.trim().isNotEmpty) return last;
-  if (lastOnServer != null && lastOnServer.trim().isNotEmpty)
+  if (lastOnServer != null && lastOnServer.trim().isNotEmpty) {
     return lastOnServer.trim();
-  if (businessDefault != null && businessDefault.trim().isNotEmpty)
+  }
+  if (businessDefault != null && businessDefault.trim().isNotEmpty) {
     return businessDefault;
+  }
   return ComposeHe.defaultDescription;
 }
 

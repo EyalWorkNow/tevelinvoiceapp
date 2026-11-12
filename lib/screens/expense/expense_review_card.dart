@@ -119,20 +119,24 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
         allocationNumber: r.allocationNumber,
         currency: r.currency,
       );
-      if (_amount.text.isEmpty && r.totalMinor != null)
+      if (_amount.text.isEmpty && r.totalMinor != null) {
         _amount.text = agorotToKeypadText(r.totalMinor!);
-      if (_vat.text.isEmpty && r.vatMinor != null)
+      }
+      if (_vat.text.isEmpty && r.vatMinor != null) {
         _vat.text = agorotToKeypadText(r.vatMinor!);
-      if (_docNumber.text.isEmpty && r.documentNumber != null)
+      }
+      if (_docNumber.text.isEmpty && r.documentNumber != null) {
         _docNumber.text = r.documentNumber!;
+      }
     });
   }
 
   Future<void> _prefillCategory() async {
     final id = await lastExpenseCategory(_draft.supplierName);
     if (id == null || !mounted || _draft.categoryId != null) return;
-    if (widget.categories.any((c) => c.id == id))
+    if (widget.categories.any((c) => c.id == id)) {
       setState(() => _draft = _draft.copyWith(categoryId: id));
+    }
   }
 
   @override
@@ -209,8 +213,9 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
       } else {
         await saveExpenseDraft(widget.row.id, draft);
       }
-      if (draft.categoryId != null)
+      if (draft.categoryId != null) {
         await rememberExpenseCategory(draft.supplierName, draft.categoryId!);
+      }
       HapticFeedback.mediumImpact();
       widget.onDone(
         widget.editApproved

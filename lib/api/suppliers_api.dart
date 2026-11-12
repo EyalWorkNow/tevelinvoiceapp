@@ -50,11 +50,12 @@ Future<SupplierCard> fetchSupplierCard(String id) async {
   try {
     final json = await _api.get('/suppliers/$id');
     final s = json['supplier'];
-    if (s is Map)
+    if (s is Map) {
       return (
         supplier: Supplier.fromJson(Map<String, dynamic>.from(s)),
         be16: true,
       );
+    }
   } on ApiException catch (e) {
     if (!isMissingRoute(e)) rethrow;
   }

@@ -70,8 +70,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _locked = profile?.identityLocked ?? false;
     if (profile != null) {
       // The self-signup placeholder ("העסק של …") is not a real name.
-      if (!profile.legalName.startsWith('העסק של '))
+      if (!profile.legalName.startsWith('העסק של ')) {
         _name.text = profile.legalName;
+      }
       _taxId.text = profile.taxId ?? '';
       _description.text = profile.defaultLineDescription ?? '';
       if (_locked || profile.onboardingCompleted) _type = profile.businessType;
@@ -160,8 +161,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         defaultLineDescription: _description.text,
         includeIdentity: !_locked,
       );
-      if (_continues == true)
+      if (_continues == true) {
         await setStartingNumber(int.parse(_startNumber.text.trim()));
+      }
       await completeOnboarding();
       HapticFeedback.mediumImpact();
       try {
