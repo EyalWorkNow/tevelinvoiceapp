@@ -241,6 +241,51 @@ void main() {
   );
 
   testWidgets(
+    'S5 1.10: typed cheque details → dismiss asks "לצאת בלי לשמור?"; untouched closes',
+    (tester) async {
+      backend.json('GET', '/documents', {
+        'total': 1,
+        'documents': [docListRowJson(sentAt: 'x')],
+      });
+      await pumpDoc(tester, Preset.owner);
+      Future<void> dismiss() async {
+        await tester.tapAt(const Offset(20, 20)); // the barrier
+        await settle(tester);
+      }
+
+      // Untouched (the prefilled balance): one tap closes, no question.
+      await tap(tester, primary());
+      expect(find.byKey(const Key('s5-record')), findsOneWidget);
+      await dismiss();
+      expect(find.text('לצאת בלי לשמור?'), findsNothing);
+      expect(find.byKey(const Key('s5-record')), findsNothing);
+
+      await tap(tester, primary());
+      await tap(tester, find.text("צ'ק").first);
+      await tester.enterText(find.byKey(const Key('s5-bank-0')), '12');
+      await settle(tester);
+      await dismiss();
+      expect(find.text('לצאת בלי לשמור?'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('discard-keep')));
+      await settle(tester);
+      expect(find.byKey(const Key('s5-record')), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('s5-bank-0')))
+            .controller!
+            .text,
+        '12',
+      );
+
+      await dismiss();
+      await tester.tap(find.byKey(const Key('discard-confirm')));
+      await settle(tester);
+      expect(find.byKey(const Key('s5-record')), findsNothing);
+      expect(backend.calls('POST', '/payments'), isEmpty);
+    },
+  );
+
+  testWidgets(
     'J7 / AT-22: "אשר והפק" = 1 tap on D → approve with a key; WhatsApp not opened',
     (tester) async {
       backend.json(

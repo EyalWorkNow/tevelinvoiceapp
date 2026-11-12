@@ -13,6 +13,7 @@ import '../../../state/cache.dart';
 import '../../../ui/ds.dart';
 import '../../../util/labels/labels.dart';
 import '../../../util/money.dart';
+import '../../business/sheets/s13_editor.dart' show UnsavedChangesGuard;
 import '../dialogs.dart';
 
 /// Opens S5 for an open document. Returns the outcome after "רשום", or null.
@@ -21,9 +22,17 @@ Future<PaymentsOutcome?> showPaymentSheet(
   required String documentId,
   DocumentDetail? doc,
 }) {
+  // 1.10: typed input (cheque details, a changed amount, a second payment)
+  // makes back / barrier / drag ask "לצאת בלי לשמור?" first.
+  final dirty = ValueNotifier(false);
   return showAppSheet<PaymentsOutcome>(
     context,
-    builder: (_) => PaymentSheet(documentId: documentId, doc: doc),
+    frame: (_, child) => ValueListenableBuilder<bool>(
+      valueListenable: dirty,
+      builder: (_, d, _) => UnsavedChangesGuard(dirty: d, child: child),
+    ),
+    builder: (_) =>
+        PaymentSheet(documentId: documentId, doc: doc, dirty: dirty),
   );
 }
 
@@ -37,10 +46,18 @@ Future<String> lastPaymentMethod() async {
 }
 
 class PaymentSheet extends StatefulWidget {
-  const PaymentSheet({super.key, required this.documentId, this.doc});
+  const PaymentSheet({
+    super.key,
+    required this.documentId,
+    this.doc,
+    this.dirty,
+  });
 
   final String documentId;
   final DocumentDetail? doc;
+
+  /// Set to true while the sheet holds typed input that is not recorded yet.
+  final ValueNotifier<bool>? dirty;
 
   @override
   State<PaymentSheet> createState() => _PaymentSheetState();
@@ -49,7 +66,10 @@ class PaymentSheet extends StatefulWidget {
 /// One payment's editable fields.
 class _Draft {
   _Draft({required this.method, required String amount, required this.date})
-    : amount = TextEditingController(text: amount);
+    : amount = TextEditingController(text: amount),
+      _initialAmount = amount;
+
+  final String _initialAmount;
 
   String method;
   final TextEditingController amount;
@@ -59,6 +79,11 @@ class _Draft {
   final branch = TextEditingController();
   final account = TextEditingController();
   final check = TextEditingController();
+
+  /// Typed by the user: cheque details, or an amount other than the prefill.
+  bool get typed =>
+      amount.text != _initialAmount ||
+      [bank, branch, account, check].any((c) => c.text.trim().isNotEmpty);
 
   PaymentEntry toEntry() => PaymentEntry(
     method: method,
@@ -121,6 +146,10 @@ class _PaymentSheetState extends State<PaymentSheet> {
     }
     super.dispose();
   }
+
+  /// Typed input not recorded yet (1.10). Never while recording.
+  bool get _dirty =>
+      _busy == null && (_drafts.length > 1 || _drafts.any((d) => d.typed));
 
   BigInt get _sum => _drafts.fold(
     BigInt.zero,
@@ -225,6 +254,12 @@ class _PaymentSheetState extends State<PaymentSheet> {
       );
     }
     final p = context.palette;
+    final dirty = widget.dirty;
+    if (dirty != null && dirty.value != _dirty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) dirty.value = _dirty;
+      });
+    }
     return PopScope(
       canPop: _busy == null,
       child: Column(
@@ -388,5 +423,6 @@ class _PaymentSheetState extends State<PaymentSheet> {
     keyboardType: TextInputType.number,
     textDirection: TextDirection.ltr,
     decoration: InputDecoration(labelText: label),
+    onChanged: (_) => setState(() {}), // dirty state for the exit question
   );
 }
