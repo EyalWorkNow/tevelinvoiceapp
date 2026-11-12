@@ -202,7 +202,7 @@ void main() {
     await tester.enterText(byKey('text-email'), email); // auto focus: not counted
     expect(byKey('choice-preset-employee'), findsOneWidget, reason: 'preset עובד by default');
     await taps.tap(tester, byKey('editor-save')); // (4) שלח הזמנה
-    await pumpUntilScrolled(tester, find.text(email), reason: 'pending invitation row');
+    await pumpUntilScrolled(tester, find.textContaining(email), reason: 'pending invitation row'); // e-mail is LTR-isolated
     expect(taps.count, 4);
 
     final row = await devFindInvitation(owner, email);
@@ -226,7 +226,7 @@ void main() {
     await pumpUntil(tester, byKey('text-email'));
     await tester.enterText(byKey('text-email'), email);
     await taps.tap(tester, byKey('editor-save')); // (4)
-    await pumpUntilScrolled(tester, find.text(email), reason: 'pending invitation row');
+    await pumpUntilScrolled(tester, find.textContaining(email), reason: 'pending invitation row'); // e-mail is LTR-isolated
     expect(taps.count, 4);
 
     final row = await devFindInvitation(owner, email);
