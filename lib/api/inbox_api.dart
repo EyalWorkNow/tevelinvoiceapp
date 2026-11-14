@@ -19,9 +19,7 @@ import 'dart:async';
 import '../state/cache.dart';
 import '../state/caps.dart';
 import '../state/session.dart';
-import '../util/allowed_urls.dart';
 import '../util/labels/inbox_he.dart';
-import '../util/phone.dart';
 import '../util/status_map.dart';
 import 'client.dart';
 import 'models/models.dart';
@@ -661,17 +659,23 @@ Future<int> signPendingDocuments(
 class ReminderTarget {
   const ReminderTarget({
     required this.documentId,
+    this.documentType = 'TAX_INVOICE',
     this.customerName,
     this.phone,
     this.documentNumber,
     required this.openMinor,
+    this.dueDate,
   });
 
   final String documentId;
+  final String documentType;
   final String? customerName;
   final String? phone;
   final String? documentNumber;
   final BigInt openMinor;
+
+  /// 'YYYY-MM-DD' ([effectiveDueDate]: due date, else issue + 30).
+  final String? dueDate;
 }
 
 class ReminderResult {
@@ -709,10 +713,12 @@ Future<ReminderResult> sendReminders({
     final c = customers[d.customerId];
     final target = ReminderTarget(
       documentId: d.id,
+      documentType: d.documentType,
       customerName: d.customerName ?? c?.name,
       phone: c?.phone,
       documentNumber: d.documentNumber,
       openMinor: d.openMinor ?? d.totalMinor,
+      dueDate: effectiveDueDate(dueDate: d.dueDate, issueDate: d.issueDate),
     );
     final email = c?.email?.trim() ?? '';
     if (email.isEmpty) {
@@ -745,25 +751,6 @@ Future<List<DocumentSummary>> fetchOverdueDocuments({DateTime? now}) async {
           isOverdue(dueDate: d.dueDate, issueDate: d.issueDate, today: today))
         d,
   ];
-}
-
-/// "שלח בווטסאפ" for one reminder: share link (original created when
-/// missing) → wa.me with the reminder text (AT-95: launchAllowed only).
-Future<void> remindOnWhatsApp(
-  ReminderTarget t, {
-  required String businessName,
-  String? paymentUrl,
-}) async {
-  final link = await shareLinkFor(t.documentId);
-  final text = InboxHe.reminderText(
-    customer: t.customerName,
-    number: t.documentNumber,
-    amountMinor: t.openMinor,
-    business: businessName,
-    link: link,
-    paymentUrl: paymentUrl,
-  );
-  await launchAllowed(whatsAppUri(phone: waPhone(t.phone), text: text));
 }
 
 /// POST /documents/:id/share-link; ARTIFACT_REQUIRED → POST /artifact once.

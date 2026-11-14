@@ -2,7 +2,6 @@
 // activity (L, §6.L). F11: imperative verbs only.
 
 import '../../state/caps.dart';
-import '../money.dart';
 
 abstract final class InboxHe {
   // Action labels shared by the application screens.
@@ -106,19 +105,6 @@ abstract final class InboxHe {
 
   static const remindersWhatsApp = 'שלח בווטסאפ';
   static const remindersWhatsAppTitle = 'תזכורת בווטסאפ';
-  static String reminderText({
-    String? customer,
-    String? number,
-    required BigInt amountMinor,
-    required String business,
-    required String link,
-    String? paymentUrl,
-  }) => [
-    'שלום${customer == null || customer.isEmpty ? '' : ' $customer'},',
-    'תזכורת: חשבונית${number == null ? '' : ' $number'} על סך ${formatMoney(amountMinor, trimZeroAgorot: true)} מ-$business ממתינה לתשלום.',
-    link,
-    if (paymentUrl != null && paymentUrl.isNotEmpty) 'לתשלום: $paymentUrl',
-  ].join('\n');
   static const allocationRetried = 'נשלחה בקשה חוזרת למספר הקצאה';
   static String signedDone(int n) => n == 1 ? 'המסמך נחתם' : '$n מסמכים נחתמו';
   static const handoffShaam = 'רשות המסים';

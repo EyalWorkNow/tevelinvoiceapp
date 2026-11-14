@@ -20,6 +20,7 @@ import '../../../state/caps.dart';
 import '../../../ui/ds.dart';
 import '../../../util/allowed_urls.dart';
 import '../../../util/labels/labels.dart';
+import '../../../util/payment_reminder.dart';
 import '../../../util/phone.dart';
 import '../../../util/sms_composer.dart';
 import '../dialogs.dart';
@@ -68,34 +69,75 @@ String get _businessName => businessContext.displayName;
 
 /// "שלח בווטסאפ" (§6.C step 6, §13.5): share-link → fixed text → wa.me (the
 /// customer's chat; WhatsApp's picker without a phone). WhatsApp did not
-/// open → the PDF through the share sheet. [reminder] = §6.D row 10 wording.
+/// open → the PDF through the share sheet.
 Future<void> sendDocumentWhatsApp(
   DocumentDetail doc,
-  Customer? customer, {
-  bool reminder = false,
-}) async {
+  Customer? customer,
+) async {
   final link = await createShareLink(doc);
-  final text = reminder
-      ? reminderWhatsAppMessage(
-          customerName: customer?.name,
-          documentType: doc.documentType,
-          documentNumber: doc.documentNumber,
-          openMinor: doc.balanceMinor,
-          businessName: _businessName,
-          link: link,
-        )
-      : whatsAppMessage(
-          customerName: customer?.name,
-          documentType: doc.documentType,
-          documentNumber: doc.documentNumber,
-          totalMinor: doc.totalMinor,
-          businessName: _businessName,
-          link: link,
-        );
+  final text = whatsAppMessage(
+    customerName: customer?.name,
+    documentType: doc.documentType,
+    documentNumber: doc.documentNumber,
+    totalMinor: doc.totalMinor,
+    businessName: _businessName,
+    link: link,
+  );
   final opened = await launchAllowed(
     whatsAppUri(phone: waPhone(customer?.phone), text: text),
   );
   if (!opened) await sharePdf(doc, text: text);
+}
+
+/// R1 one-tap payment reminder ("שלח תזכורת" in D, "הזכר בווטסאפ" in the
+/// overdue list). Only ever runs from a user tap. [link] = the existing
+/// share-link creation; a usable phone (wa.me 972…) → the customer's WhatsApp
+/// chat with [ReminderHe.message]; no phone, or WhatsApp did not open → the
+/// share sheet with [ReminderHe.short]. Records "last reminded" locally.
+Future<void> sendPaymentReminder({
+  required String documentId,
+  required String documentType,
+  String? documentNumber,
+  required BigInt openMinor,
+  String? dueDate,
+  String? customerName,
+  String? phone,
+  required Future<String> Function() link,
+  String? paymentUrl,
+  DateTime? now,
+}) async {
+  final url = await link();
+  final wa = waPhone(phone);
+  var opened = false;
+  if (wa != null) {
+    opened = await launchAllowed(
+      whatsAppUri(
+        phone: wa,
+        text: ReminderHe.message(
+          customerName: customerName,
+          documentType: documentType,
+          documentNumber: documentNumber,
+          amountMinor: openMinor,
+          dueDate: dueDate,
+          business: _businessName,
+          link: url,
+          paymentUrl: paymentUrl,
+        ),
+      ),
+    );
+  }
+  if (!opened) {
+    await textSharer(
+      ReminderHe.short(
+        documentType: documentType,
+        documentNumber: documentNumber,
+        amountMinor: openMinor,
+        business: _businessName,
+        link: url,
+      ),
+    );
+  }
+  await ReminderLog.record(documentId, at: now);
 }
 
 /// The original (or [copy]) PDF through the iOS share sheet.

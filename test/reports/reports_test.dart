@@ -307,7 +307,10 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('report-card-vat')),
       -200,
-      scrollable: find.byType(Scrollable).first,
+      // The vertical list (a horizontal chip row may come first once built).
+      scrollable: find.byWidgetPredicate(
+        (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+      ),
     );
     final taps = Taps();
     await taps.tap(tester, find.byKey(const Key('report-card-vat')));

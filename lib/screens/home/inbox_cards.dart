@@ -16,9 +16,14 @@ import '../../state/caps.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/common_he.dart';
 import '../../util/labels/inbox_he.dart';
+import '../../util/labels/reminder_he.dart';
+import '../../util/payment_reminder.dart';
+import '../../util/status_map.dart' show effectiveDueDate;
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'doc_rows.dart' show docSubtitle;
 import '../document/dialogs.dart' show askSigningPassphrase;
+import '../document/sheets/s6_share.dart' show sendPaymentReminder;
+import '../../api/actions_api.dart' show fetchCustomerById;
 
 String inboxTitle(InboxItem c) => switch (c.kind) {
   InboxKind.approvalNeeded => InboxHe.approvalNeeded(c.count),
@@ -313,7 +318,11 @@ Future<void> runReminders(
     onChanged();
     return;
   }
-  final chosen = await showReminderPreview(context, overdue);
+  final chosen = await showReminderPreview(
+    context,
+    overdue,
+    reminded: ReminderLog.all(),
+  );
   if (chosen == null || chosen.isEmpty || !context.mounted) return;
   _toast(context, InboxHe.remindersSending, motion: NoticeMotion.reminder);
   final profile = businessContext.profile;
@@ -346,61 +355,139 @@ Future<void> runReminders(
 }
 
 /// The "באיחור" preview: every overdue invoice, checked by default. Returns
-/// the ids to remind, or null when the user cancels.
+/// the ids to remind, or null when the user cancels. R1: each row the viewer
+/// may remind also gets "הזכר בווטסאפ" (one tap, nothing automatic) and the
+/// "נשלחה תזכורת לפני X ימים" hint from [reminded] (device-local; the rows
+/// show at once and the hints join when the read completes).
 Future<Set<String>?> showReminderPreview(
   BuildContext context,
-  List<DocumentSummary> overdue,
-) {
+  List<DocumentSummary> overdue, {
+  Future<Map<String, DateTime>>? reminded,
+  DateTime? now,
+}) {
   final chosen = {for (final d in overdue) d.id};
+  final last = <String, DateTime>{};
+  var asked = false;
   return showDialog<Set<String>>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setState) => AlertDialog(
-        key: const Key('reminders-preview'),
-        title: const Text(InboxHe.remindersPreviewTitle),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              Text(InboxHe.remindersPreviewBody, style: AppText.secondary),
-              const SizedBox(height: Space.s),
-              for (final d in overdue)
-                CheckboxListTile(
-                  key: Key('reminder-${d.id}'),
-                  contentPadding: EdgeInsets.zero,
-                  value: chosen.contains(d.id),
-                  onChanged: (on) => setState(() {
-                    on == true ? chosen.add(d.id) : chosen.remove(d.id);
-                  }),
-                  title: Text(
-                    d.customerName == null || d.customerName!.isEmpty
-                        ? InboxHe.noCustomer
-                        : d.customerName!,
+      builder: (dialogContext, setState) {
+        if (!asked && reminded != null) {
+          asked = true;
+          unawaited(
+            reminded.then((m) {
+              if (dialogContext.mounted && m.isNotEmpty) {
+                setState(
+                  () => m.forEach((k, v) => last.putIfAbsent(k, () => v)),
+                );
+              }
+            }, onError: (Object _) {}),
+          );
+        }
+        return AlertDialog(
+          key: const Key('reminders-preview'),
+          title: const Text(InboxHe.remindersPreviewTitle),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Text(InboxHe.remindersPreviewBody, style: AppText.secondary),
+                const SizedBox(height: Space.s),
+                for (final d in overdue)
+                  CheckboxListTile(
+                    key: Key('reminder-${d.id}'),
+                    contentPadding: EdgeInsets.zero,
+                    value: chosen.contains(d.id),
+                    onChanged: (on) => setState(() {
+                      on == true ? chosen.add(d.id) : chosen.remove(d.id);
+                    }),
+                    title: Text(
+                      d.customerName == null || d.customerName!.isEmpty
+                          ? InboxHe.noCustomer
+                          : d.customerName!,
+                    ),
+                    subtitle: Text(
+                      last[d.id] == null
+                          ? docSubtitle(d)
+                          : '${docSubtitle(d)}\n${ReminderHe.lastReminded(daysSince(last[d.id]!, now ?? DateTime.now()))}',
+                    ),
+                    secondary: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AmountText(d.openMinor ?? d.totalMinor),
+                        if (mayRemindOnWhatsApp(
+                          documentType: d.documentType,
+                          status: d.status,
+                          totalMinor: d.totalMinor,
+                          openMinor: d.openMinor,
+                          creditedMinor: d.creditedMinor,
+                          voidedAt: d.voidedAt,
+                          amountHidden: d.amountHidden,
+                          caps: businessContext.caps,
+                        ))
+                          IconButton(
+                            key: Key('reminder-wa-${d.id}'),
+                            tooltip: ReminderHe.whatsAppA11y(
+                              d.customerName ?? InboxHe.noCustomer,
+                            ),
+                            icon: const Icon(Iconsax.message),
+                            onPressed: () async {
+                              await _remindRow(dialogContext, d);
+                              final at = await ReminderLog.lastFor(d.id);
+                              if (at != null && dialogContext.mounted) {
+                                setState(() => last[d.id] = at);
+                              }
+                            },
+                          ),
+                      ],
+                    ),
                   ),
-                  subtitle: Text(docSubtitle(d)),
-                  secondary: AmountText(d.openMinor ?? d.totalMinor),
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            key: const Key('reminders-cancel'),
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text(InboxHe.remindersCancel),
-          ),
-          FilledButton(
-            key: const Key('reminders-confirm'),
-            onPressed: chosen.isEmpty
-                ? null
-                : () => Navigator.of(dialogContext).pop({...chosen}),
-            child: Text(InboxHe.remindersConfirm(chosen.length)),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              key: const Key('reminders-cancel'),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text(InboxHe.remindersCancel),
+            ),
+            FilledButton(
+              key: const Key('reminders-confirm'),
+              onPressed: chosen.isEmpty
+                  ? null
+                  : () => Navigator.of(dialogContext).pop({...chosen}),
+              child: Text(InboxHe.remindersConfirm(chosen.length)),
+            ),
+          ],
+        );
+      },
     ),
   );
+}
+
+/// R1 one row of the overdue list → WhatsApp (customer phone from the card).
+Future<void> _remindRow(BuildContext context, DocumentSummary d) async {
+  try {
+    final customer = d.customerId == null
+        ? null
+        : await fetchCustomerById(d.customerId!);
+    await sendPaymentReminder(
+      documentId: d.id,
+      documentType: d.documentType,
+      documentNumber: d.documentNumber,
+      openMinor: d.openMinor ?? d.totalMinor,
+      dueDate: effectiveDueDate(dueDate: d.dueDate, issueDate: d.issueDate),
+      customerName: d.customerName ?? customer?.name,
+      phone: customer?.phone,
+      link: () => shareLinkFor(d.id),
+      paymentUrl: businessContext.profile?.paymentLinkUrl,
+    );
+  } on ApiException catch (e) {
+    if (context.mounted) {
+      _toast(context, e.messageHe, motion: NoticeMotion.error);
+    }
+  }
 }
 
 /// The WhatsApp list (a system dialog, not a sheet — F4).
@@ -425,9 +512,15 @@ Future<void> showWhatsAppReminders(
               trailing: TextButton(
                 onPressed: () async {
                   try {
-                    await remindOnWhatsApp(
-                      t,
-                      businessName: businessContext.displayName,
+                    await sendPaymentReminder(
+                      documentId: t.documentId,
+                      documentType: t.documentType,
+                      documentNumber: t.documentNumber,
+                      openMinor: t.openMinor,
+                      dueDate: t.dueDate,
+                      customerName: t.customerName,
+                      phone: t.phone,
+                      link: () => shareLinkFor(t.documentId),
                       paymentUrl: businessContext.profile?.paymentLinkUrl,
                     );
                   } on ApiException catch (e) {

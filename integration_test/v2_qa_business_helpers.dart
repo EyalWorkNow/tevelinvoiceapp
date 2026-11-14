@@ -14,6 +14,8 @@ import 'package:invoice/api/client.dart';
 import 'package:invoice/app_shell.dart';
 import 'package:invoice/main.dart' as app;
 import 'package:invoice/router.dart' show navigatorKey;
+import 'package:invoice/screens/billing/billing_screen.dart'
+    show BillingCheckoutScreen, PlansSheet, RequiredSubscriptionScreen;
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/widgets/primary_button.dart';
@@ -380,11 +382,30 @@ List<String> keysTopDown(WidgetTester tester, String prefix) {
   return [for (final e in els) (e.widget.key! as ValueKey<String>).value];
 }
 
-/// The owner's own billing entry (B row "subscription", 2026-11-05 product
-/// decision) is the one sanctioned use of "מסלול"; AT-96 still holds for
-/// every other text. The SPEC-v2 AT-96 wording predates that row (open item
-/// for PM, docs/qa-2026-11-12/09-FINAL-REPORT-he.md, round 3).
-const billingEntryLabels = {'המסלול של העסק'};
+/// AT-96 (2026-11-12 product decision): subscription words are allowed only
+/// on the billing surfaces – the "המסלול של העסק" business row, the profile
+/// plan row and the plans / checkout screens (sold via Apple IAP).
+final List<Finder> billingSurfaces = [
+  find.byKey(const Key('brow-subscription')),
+  find.byKey(const Key('profile-plan-cta')),
+  find.byType(PlansSheet),
+  find.byType(RequiredSubscriptionScreen),
+  find.byType(BillingCheckoutScreen),
+];
+
+bool _onBillingSurface(Element e) {
+  for (final s in billingSurfaces) {
+    final hosts = s.evaluate();
+    if (hosts.isEmpty) continue;
+    var inside = false;
+    e.visitAncestorElements((a) {
+      inside = hosts.contains(a);
+      return !inside;
+    });
+    if (inside || hosts.contains(e)) return true;
+  }
+  return false;
+}
 
 /// AT-90 + AT-49 + AT-96 on whatever is on stage now: ≤1 PrimaryButton, none
 /// disabled while online, no "אין הרשאה", no subscription words.
@@ -416,10 +437,10 @@ void expectScreenRules(String where, {Finder? scope}) {
     reason: 'AT-49 $where',
   );
   for (final w in const ['מנוי', 'מסלול', 'שדרג']) {
-    final hits = find.textContaining(w).evaluate().where((e) {
-      final widget = e.widget;
-      return widget is! Text || !billingEntryLabels.contains(widget.data);
-    });
+    final hits = find
+        .textContaining(w)
+        .evaluate()
+        .where((e) => !_onBillingSurface(e));
     expect(hits, isEmpty, reason: 'AT-96 $where: "$w"');
   }
 }

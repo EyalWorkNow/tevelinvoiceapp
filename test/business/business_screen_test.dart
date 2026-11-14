@@ -154,8 +154,16 @@ void main() {
       );
       expect(find.byType(PrimaryButton), findsNothing);
       expect(find.text('החלף'), findsNothing); // one business → no S14
-      for (final word in ['אין הרשאה', 'מנוי', 'שדרג']) {
-        expect(find.textContaining(word), findsNothing);
+      expect(find.textContaining('אין הרשאה'), findsNothing);
+      // AT-96: subscription words only on the billing row.
+      final billingRow = find.byKey(const Key('brow-subscription'));
+      for (final word in ['מנוי', 'מסלול', 'שדרג']) {
+        final hits = find.textContaining(word);
+        expect(
+          hits.evaluate().length,
+          find.descendant(of: billingRow, matching: hits).evaluate().length,
+          reason: 'AT-96: "$word" outside the billing row',
+        );
       }
     },
   );

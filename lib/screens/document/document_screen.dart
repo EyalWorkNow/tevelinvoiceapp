@@ -14,7 +14,7 @@ import '../../ui/widgets/notch_notice.dart';
 import '../../api/actions_api.dart';
 import '../../api/client.dart';
 import '../../api/documents_api.dart'
-    show documentsVersion, notifyDocumentsChanged;
+    show documentsVersion, issuedStatuses, notifyDocumentsChanged;
 import '../../api/models/models.dart';
 import '../../api/signing_api.dart';
 import '../../router.dart';
@@ -22,10 +22,13 @@ import '../../state/business_context.dart';
 import '../../state/cache.dart';
 import '../../state/caps.dart';
 import '../../ui/ds.dart';
+import '../../util/allocation_meter.dart';
 import '../../util/allowed_urls.dart';
 import '../../util/errors_he.dart';
 import '../../util/labels/labels.dart';
+import '../../util/payment_reminder.dart';
 import '../../util/phone.dart';
+import '../../util/status_map.dart' show effectiveDueDate;
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../compose/compose_memory.dart' show fetchVatRate;
 import 'dialogs.dart';
@@ -93,6 +96,9 @@ class _DocumentScreenState extends State<DocumentScreen> {
   String? _busy;
   String? _banner;
   String? _receiptId;
+
+  /// R1: when this device last opened a payment reminder for the document.
+  DateTime? _lastReminded;
   bool _timeline = false;
 
   @override
@@ -188,7 +194,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
             Future.value(null),
           // BE-12 timeline gives sentAt; only an older server needs the list row.
           extras.hasTimeline ? Future.value(null) : _rowOrNull(doc),
-          doc.status == 'WAITING_FOR_ALLOCATION'
+          doc.status == 'WAITING_FOR_ALLOCATION' || _allocationRelevant(doc)
               ? _allocOrNull(doc.id)
               : Future.value(null),
         ]);
@@ -204,6 +210,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
           _stale = false;
         });
         unawaited(_loadPdf(doc));
+        unawaited(_loadLastReminded(doc.id));
       }
     } on ApiException catch (e) {
       if (!widget.isQuote && e.isNetwork && _doc == null) {
@@ -268,6 +275,11 @@ class _DocumentScreenState extends State<DocumentScreen> {
     }
   }
 
+  Future<void> _loadLastReminded(String id) async {
+    final at = await ReminderLog.lastFor(id);
+    if (mounted && at != _lastReminded) setState(() => _lastReminded = at);
+  }
+
   Future<Customer?> _customerOrNull(String id) async {
     try {
       return await fetchCustomerById(id);
@@ -283,6 +295,37 @@ class _DocumentScreenState extends State<DocumentScreen> {
       return null;
     }
   }
+
+  /// R7: an issued 305/320 shows its allocation number or state.
+  static bool _allocationRelevant(DocumentDetail doc) =>
+      allocationDocumentTypes.contains(doc.documentType) &&
+      (issuedStatuses.contains(doc.status) || doc.status == 'ARTIFACT_PENDING');
+
+  /// The allocation row under the status line (null = nothing to say).
+  Widget? _allocationRow(DocumentDetail doc) {
+    if (!allocationDocumentTypes.contains(doc.documentType) || doc.isDraft) {
+      return null;
+    }
+    final number = doc.allocationNumber ?? _alloc?.allocationNumber;
+    final state = _alloc?.state ?? 'NOT_EVALUATED';
+    final status = allocationStatusHe(state, number);
+    if (status == null) return null;
+    final retry =
+        doc.status != 'WAITING_FOR_ALLOCATION' &&
+        allocationRetryable(state, number) &&
+        businessContext.can(Cap.allocationRequest) &&
+        !businessContext.offline;
+    return AllocationRow(
+      text: status.$1,
+      tone: status.$2,
+      onRetry: retry ? _retryIssuedAllocation : null,
+    );
+  }
+
+  Future<void> _retryIssuedAllocation() => _guard(AllocationHe.retry, () async {
+    final s = await retryAllocation(_doc!.id);
+    return s.serviceNoticeHe ?? s.detailHe ?? DocumentHe.allocationRetried;
+  });
 
   Future<AllocationState?> _allocOrNull(String id) async {
     try {
@@ -521,11 +564,27 @@ class _DocumentScreenState extends State<DocumentScreen> {
         if (quote != null) return _sendQuote(label);
         return _openShare();
       case DocAction.sendReminder:
-        if (!_facts.customerHasPhone) return _openShare();
+        // R1: one tap → WhatsApp prefilled (no phone → share sheet + short
+        // text). Never sent without this tap.
+        final d = doc!;
         await _guard(label, () async {
-          await sendDocumentWhatsApp(doc!, _customer, reminder: true);
+          await sendPaymentReminder(
+            documentId: d.id,
+            documentType: d.documentType,
+            documentNumber: d.documentNumber,
+            openMinor: _openMinor ?? d.balanceMinor,
+            dueDate: effectiveDueDate(
+              dueDate: d.dueDate,
+              issueDate: d.issueDate,
+            ),
+            customerName: _customer?.name,
+            phone: _customer?.phone,
+            link: () => createShareLink(d),
+            paymentUrl: businessContext.profile?.paymentLinkUrl,
+          );
           return null;
         });
+        await _loadLastReminded(d.id);
       case DocAction.recordPayment:
         final out = await showPaymentSheet(
           context,
@@ -851,10 +910,10 @@ class _DocumentScreenState extends State<DocumentScreen> {
                         ),
                         openMinor: _openMinor,
                         dueDate: doc.dueDate,
-                        allocationNumber: doc.allocationNumber,
                         expanded: _timeline,
                         onTap: () => setState(() => _timeline = !_timeline),
                       ),
+                      ?_allocationRow(doc),
                       if (_customer != null)
                         ListTile(
                           key: const Key('doc-customer'),
@@ -927,6 +986,17 @@ class _DocumentScreenState extends State<DocumentScreen> {
                 child: Text(
                   docActionLabel(secondary, hasPhone: _facts.customerHasPhone),
                 ),
+              ),
+            if (_lastReminded != null &&
+                (next.primary == DocAction.sendReminder ||
+                    secondary == DocAction.sendReminder))
+              Text(
+                ReminderHe.lastReminded(
+                  daysSince(_lastReminded!, DateTime.now()),
+                ),
+                key: const Key('doc-last-reminded'),
+                textAlign: TextAlign.center,
+                style: AppText.secondary.copyWith(color: context.palette.muted),
               ),
           ],
         ),
