@@ -188,7 +188,7 @@ Contact: <name>, <phone>, support@tevel.space
 | 4 | 2.1 שרת | נקודות הקצה החדשות (A–J) פרוסות בפרוד; ה-proxy מנתב `/d/*` ל-API; `APPLE_AUDIENCE=space.tevel.invoice` | ☐ |
 | 5 | 2.3 מטא-דאטה | צילומי מסך אמיתיים מהסימולטור; התיאור לא מבטיח פיצ'רים שלא קיימים (ביט, מספר הקצאה בפרוד) | ☐ |
 | 6 | 2.5.1 API ציבוריים | Flutter ופלאגינים רשמיים בלבד | ✔ |
-| 7 | 3.1.1 IAP | iOS uses StoreKit for Tevel subscriptions; App Store Connect products, prices, restore, review visibility, Sandbox and server verification must be active and verified before submission | ☐ |
+| 7 | 3.1.1 IAP | iOS uses StoreKit for Tevel subscriptions; App Store Connect products, prices, restore, review visibility, Sandbox and server verification must- be active and verified before submission | ☐ |
 | 8 | 4.0 / 4.2 / F6 | מסכים native; אין כפתור שפותח דפדפן לפעולה עסקית (רק "המשך במחשב" ששולח קישור למייל). `SFSafariViewController` רק לפרטיות/תנאים/תמיכה; `launchUrl` רק `wa.me`/`mailto:`/`tel:`/`app-settings:` (AT-95, `test/fakes_test.dart`) | ☐ |
 | 9 | 4.8 Sign in with Apple | entitlement `com.apple.developer.applesignin` ב-`Runner.entitlements` ✔; capability מופעלת ב-App ID ☐; כפתור Apple ראשון ובגודל שווה ✔ (נבדק בסימולטור); התחברות אמיתית עם Apple ID נבדקה במכשיר ☐ | ☐ |
 | 10 | 4.8 / Google | אם כפתור Google מוצג: `GIDClientID` ו-URL scheme של ה-reversed client id נוספו ל-Info.plist. בלעדיהם הכפתור מוסתר (`GOOGLE_IOS_CLIENT_ID`) | ☐ |

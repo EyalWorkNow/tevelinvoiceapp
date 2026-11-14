@@ -13,8 +13,11 @@ import '../tool/count_coverage.dart' as coverage;
 final hebrew = RegExp(r'[֐-׿]');
 
 /// Dart sources under lib/ (relative paths, '/'-separated).
-List<File> libFiles() =>
-    Directory('lib').listSync(recursive: true).whereType<File>().where((f) => f.path.endsWith('.dart')).toList();
+List<File> libFiles() => Directory('lib')
+    .listSync(recursive: true)
+    .whereType<File>()
+    .where((f) => f.path.endsWith('.dart'))
+    .toList();
 
 /// Source with comments removed (string contents kept).
 String stripComments(String src) {
@@ -73,10 +76,10 @@ String? argsAt(String src, int open) {
 }
 
 /// String literals in [code] that contain Hebrew.
-Iterable<String> hebrewLiterals(String code) => RegExp(r"'([^'\\\n]|\\.)*'|" r'"([^"\\\n]|\\.)*"')
-    .allMatches(code)
-    .map((m) => m.group(0)!)
-    .where(hebrew.hasMatch);
+Iterable<String> hebrewLiterals(String code) => RegExp(
+  r"'([^'\\\n]|\\.)*'|"
+  r'"([^"\\\n]|\\.)*"',
+).allMatches(code).map((m) => m.group(0)!).where(hebrew.hasMatch);
 
 const buttons = [
   'PrimaryButton',
@@ -128,12 +131,22 @@ void main() {
       }
     });
 
-    test('StatusPill has only the .doc(DocStatus) / .quote(QuoteListStatus) constructors', () {
-      final src = stripComments(File('lib/ui/widgets/status_pill.dart').readAsStringSync());
-      final ctors = RegExp(r'const StatusPill(\.\w+)?\(([^)]*)\)').allMatches(src).toList();
-      expect(ctors.map((m) => m.group(1)).toSet(), {'.doc', '.quote'});
-      expect(ctors.map((m) => m.group(2)!.trim().split(' ').first).toSet(), {'DocStatus', 'QuoteListStatus'});
-    });
+    test(
+      'StatusPill has only the .doc(DocStatus) / .quote(QuoteListStatus) constructors',
+      () {
+        final src = stripComments(
+          File('lib/ui/widgets/status_pill.dart').readAsStringSync(),
+        );
+        final ctors = RegExp(
+          r'const StatusPill(\.\w+)?\(([^)]*)\)',
+        ).allMatches(src).toList();
+        expect(ctors.map((m) => m.group(1)).toSet(), {'.doc', '.quote'});
+        expect(ctors.map((m) => m.group(2)!.trim().split(' ').first).toSet(), {
+          'DocStatus',
+          'QuoteListStatus',
+        });
+      },
+    );
 
     test('every StatusPill in lib/ is built through .doc / .quote', () {
       final bad = <String>[];
@@ -141,7 +154,9 @@ void main() {
         final src = stripComments(f.readAsStringSync());
         for (final m in RegExp(r'\bStatusPill(\.\w+)?\(').allMatches(src)) {
           final named = m.group(1);
-          if (named != '.doc' && named != '.quote' && !f.path.endsWith('status_pill.dart')) {
+          if (named != '.doc' &&
+              named != '.quote' &&
+              !f.path.endsWith('status_pill.dart')) {
             bad.add('${f.path}: ${src.substring(m.start, m.end + 20)}');
           }
         }
@@ -150,37 +165,57 @@ void main() {
     });
   });
 
-  test('AT-92: no Hebrew string literal in a button outside lib/util/labels/', () {
-    final callStart = RegExp('(?<![\\w.])(${buttons.map(RegExp.escape).join('|')})\\s*\\(');
-    final bad = <String>[];
-    for (final f in libFiles()) {
-      final path = f.path.replaceAll(r'\', '/');
-      if (path.startsWith('lib/util/labels/')) continue;
-      final src = stripComments(f.readAsStringSync());
-      for (final m in callStart.allMatches(src)) {
-        final args = argsAt(src, m.end - 1);
-        if (args == null) continue;
-        for (final lit in hebrewLiterals(args)) {
-          final line = '\n'.allMatches(src.substring(0, m.start)).length + 1;
-          bad.add('$path:$line ${m.group(1)} $lit');
+  test(
+    'AT-92: no Hebrew string literal in a button outside lib/util/labels/',
+    () {
+      final callStart = RegExp(
+        '(?<![\\w.])(${buttons.map(RegExp.escape).join('|')})\\s*\\(',
+      );
+      final bad = <String>[];
+      for (final f in libFiles()) {
+        final path = f.path.replaceAll(r'\', '/');
+        if (path.startsWith('lib/util/labels/')) continue;
+        final src = stripComments(f.readAsStringSync());
+        for (final m in callStart.allMatches(src)) {
+          final args = argsAt(src, m.end - 1);
+          if (args == null) continue;
+          for (final lit in hebrewLiterals(args)) {
+            final line = '\n'.allMatches(src.substring(0, m.start)).length + 1;
+            bad.add('$path:$line ${m.group(1)} $lit');
+          }
         }
       }
-    }
-    expect(bad, isEmpty, reason: 'move these words to lib/util/labels/*:\n${bad.join('\n')}');
-  });
+      expect(
+        bad,
+        isEmpty,
+        reason: 'move these words to lib/util/labels/*:\n${bad.join('\n')}',
+      );
+    },
+  );
 
   test('AT-92 lint catches a literal (self-check)', () {
     const sample = "x = TextButton(onPressed: f, child: const Text('שמור'));";
     final args = argsAt(sample, sample.indexOf('('));
     expect(hebrewLiterals(args!), ["'שמור'"]);
-    expect(hebrewLiterals(stripComments("TextButton(child: Text(L.save)) // 'שמור'")), isEmpty);
+    expect(
+      hebrewLiterals(
+        stripComments("TextButton(child: Text(L.save)) // 'שמור'"),
+      ),
+      isEmpty,
+    );
   });
 
-  test('AT-94: tool/count_coverage.dart on SPEC-v2 §3 returns the §3.8 numbers', () {
-    final spec = File('docs/SPEC-v2-he.md').readAsStringSync();
-    expect(coverage.check(spec), isEmpty);
-    // A changed row is caught.
-    final drifted = spec.replaceFirst('| חשבונית מס 305 | N |', '| חשבונית מס 305 | W |');
-    expect(coverage.check(drifted), isNotEmpty);
-  });
+  test(
+    'AT-94: tool/count_coverage.dart on SPEC-v2 §3 returns the §3.8 numbers',
+    () {
+      final spec = File('docs/SPEC-v2-he.md').readAsStringSync();
+      expect(coverage.check(spec), isEmpty);
+      // A changed row is caught.
+      final drifted = spec.replaceFirst(
+        '| חשבונית מס 305 | N |',
+        '| חשבונית מס 305 | W |',
+      );
+      expect(coverage.check(drifted), isNotEmpty);
+    },
+  );
 }

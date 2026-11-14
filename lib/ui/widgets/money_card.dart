@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../money_text.dart';
@@ -27,7 +26,6 @@ class MoneyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final inTest = Platform.environment.containsKey('FLUTTER_TEST');
     final p = context.palette;
     final hasSecondary = secondaryLabel != null && secondaryMinor != null;
     final spoken = [
@@ -35,7 +33,7 @@ class MoneyCard extends StatelessWidget {
       if (hasSecondary)
         '$secondaryLabel ${moneySpoken(context, secondaryMinor!)}',
     ].join(', ');
-    final isCompact = !inTest && context.isDark;
+    final isCompact = context.isDark;
     return Semantics(
       button: onTap != null,
       label: spoken,
@@ -87,30 +85,34 @@ class _DashboardAmount extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final inTest = Platform.environment.containsKey('FLUTTER_TEST');
     final text = moneyText(context, minor, trimZeroAgorot: false);
     if (AmountPrivacy.of(context)) {
-      return Text(text, style: AppText.dashboardAmount.copyWith(color: Colors.white));
+      return Text(
+        text,
+        style: AppText.dashboardAmount.copyWith(color: Colors.white),
+      );
     }
     final parts = text.replaceFirst('₪', '').split('.');
     final whole = parts.first;
-    final split = whole.lastIndexOf(',') + 1;
     const secondary = Color(0xA6FFFFFF);
     return Directionality(
       textDirection: TextDirection.ltr,
-      child: FittedBox(fit: BoxFit.scaleDown,
-        child: Text.rich(TextSpan(children: [
-          const TextSpan(text: '₪ ', style: TextStyle(fontSize: 31.324)),
-          if (inTest) ...[
-            TextSpan(text: split == 0 ? whole : whole.substring(0, split)),
-            if (split > 0)
-              TextSpan(text: whole.substring(split), style: const TextStyle(color: secondary)),
-          ] else ...[
-            TextSpan(text: whole),
-          ],
-          TextSpan(text: '.${parts.length > 1 ? parts[1] : '00'}',
-            style: const TextStyle(fontSize: 31.324, color: secondary)),
-        ]), style: AppText.dashboardAmount.copyWith(color: Colors.white), maxLines: 1),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text.rich(
+          TextSpan(
+            children: [
+              const TextSpan(text: '₪ ', style: TextStyle(fontSize: 31.324)),
+              TextSpan(text: whole),
+              TextSpan(
+                text: '.${parts.length > 1 ? parts[1] : '00'}',
+                style: const TextStyle(fontSize: 31.324, color: secondary),
+              ),
+            ],
+          ),
+          style: AppText.dashboardAmount.copyWith(color: Colors.white),
+          maxLines: 1,
+        ),
       ),
     );
   }

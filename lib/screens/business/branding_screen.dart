@@ -1,13 +1,18 @@
+import '../../util/labels/people_he.dart';
+import '../../util/labels/business_he.dart';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/branding_api.dart';
 import '../../state/business_context.dart';
 import '../../ui/app_page_route.dart';
 import '../../ui/ds.dart';
 import '../document/document_parts.dart' show pdfPreviewBuilder;
 import 'sheets/editor_configs.dart' show logoPicker;
+import 'sheets/s13_editor.dart' show UnsavedChangesGuard;
 
 const _templates = {
   'classic': 'קלאסית',
@@ -164,7 +169,7 @@ class _BrandingScreenState extends State<BrandingScreen> {
         });
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('עיצוב המסמכים נשמר')));
+        ).showNotchNotice(const SnackBar(content: Text('עיצוב המסמכים נשמר')));
       }
     } on Object catch (error) {
       if (mounted && businessId == _businessId) setState(() => _error = error);
@@ -219,7 +224,7 @@ class _BrandingScreenState extends State<BrandingScreen> {
             ),
             IconButton(
               key: const Key('branding-preview-full'),
-              tooltip: 'הגדלת התצוגה',
+              tooltip: BusinessHe.enlargePreview,
               onPressed:
                   _preview != null && !_previewLoading && _previewError == null
                   ? _fullPreview
@@ -242,7 +247,7 @@ class _BrandingScreenState extends State<BrandingScreen> {
                         child: TextButton.icon(
                           onPressed: _schedulePreview,
                           icon: const Icon(Icons.refresh),
-                          label: const Text('התצוגה לא נטענה. נסה שוב'),
+                          label: const Text(BusinessHe.retryPreview),
                         ),
                       ),
                     )
@@ -269,7 +274,10 @@ class _BrandingScreenState extends State<BrandingScreen> {
     ),
   );
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) =>
+      UnsavedChangesGuard(dirty: _dirty, child: _page(context));
+
+  Widget _page(BuildContext context) => Scaffold(
     body: SafeArea(
       child: Column(
         children: [
@@ -313,29 +321,42 @@ class _BrandingScreenState extends State<BrandingScreen> {
           else
             Expanded(
               child: LayoutBuilder(
-                builder: (context, box) => Column(
-                  children: [
-                    SizedBox(
-                      height: (box.maxHeight * .43).clamp(160.0, 330.0),
-                      child: _previewPanel(),
-                    ),
-                    Expanded(
-                      child: SingleChildScrollView(
+                builder: (context, box) => box.maxHeight < 400
+                    ? SingleChildScrollView(
                         key: const Key('branding-controls'),
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                        child: _controls(_draft!),
+                        child: Column(
+                          children: [
+                            SizedBox(height: 240, child: _previewPanel()),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                              child: _controls(_draft!),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Column(
+                        children: [
+                          SizedBox(
+                            height: (box.maxHeight * .43).clamp(160.0, 330.0),
+                            child: _previewPanel(),
+                          ),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              key: const Key('branding-controls'),
+                              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                              child: _controls(_draft!),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
             ),
           if (_draft != null)
             BottomActionArea(
               child: PrimaryButton(
                 key: const Key('editor-save'),
-                label: 'שמירת העיצוב',
-                loadingText: _saving ? 'שומרים…' : null,
+                label: BusinessHe.saveBranding,
+                loadingText: _saving ? ExpenseHe.savingInProgress : null,
                 onPressed: _save,
               ),
             ),
@@ -475,13 +496,13 @@ class _BrandingScreenState extends State<BrandingScreen> {
             key: const Key('logo-pick'),
             onPressed: _saving ? null : _pickLogo,
             icon: const Icon(Icons.add_photo_alternate_outlined),
-            label: const Text('בחירת לוגו'),
+            label: const Text(BusinessHe.chooseLogo),
           ),
           if (draft.logoDataUri != null)
             TextButton(
               key: const Key('logo-remove'),
               onPressed: _saving ? null : () => _change({'logoDataUri': null}),
-              child: const Text('הסרת הלוגו'),
+              child: const Text(BusinessHe.removeLogo),
             ),
         ],
       ),

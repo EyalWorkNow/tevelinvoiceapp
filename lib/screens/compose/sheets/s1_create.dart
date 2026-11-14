@@ -32,11 +32,16 @@ class _CreateSheetState extends State<CreateSheet> {
     final bc = businessContext;
     final caps = bc.caps;
     // §4.4 "אריחי ＋": עובד / עובד+מפיק see הצעה·הוצאה·לקוח only – no "עוד".
-    final employee = caps.preset == Preset.employee || caps.preset == Preset.employeeIssuer;
+    final employee =
+        caps.preset == Preset.employee || caps.preset == Preset.employeeIssuer;
     final kinds = employee
         ? const <DocKind>[]
-        : moreKinds(bc.businessType, caps,
-            section46: (bc.profile?.section46ApprovalNumber ?? '').isNotEmpty, supplierPicker: true);
+        : moreKinds(
+            bc.businessType,
+            caps,
+            section46: (bc.profile?.section46ApprovalNumber ?? '').isNotEmpty,
+            supplierPicker: true,
+          );
     final nav = Navigator.of(context);
     void close(void Function(BuildContext root) then) {
       final root = nav.context;
@@ -44,32 +49,61 @@ class _CreateSheetState extends State<CreateSheet> {
       then(root);
     }
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const SheetTitle(ComposeHe.s1Title),
-      if (caps.can(Cap.docDraft))
-        _tile(const Key('s1-quote'), Iconsax.receipt_edit, ComposeHe.tileQuote,
-            () => close((c) => openCompose(c, intent: intentQuote))),
-      if (caps.can(Cap.expenseCapture))
-        _tile(const Key('s1-expense'), Iconsax.receipt_item, ComposeHe.tileExpense,
-            () => close(openExpenseCapture)),
-      if (caps.can(Cap.docDraft))
-        _tile(const Key('s1-customer'), Iconsax.user_add, ComposeHe.tileCustomer,
-            () => close((c) => showCustomerSheet(c, startOnNew: true))),
-      if (kinds.isNotEmpty && !_more)
-        _tile(const Key('s1-more'), Iconsax.more, ComposeHe.tileMore,
-            () => setState(() => _more = true)),
-      if (_more) ...[
-        for (final k in kinds)
-          _tile(Key('s1-kind-${configFor(k).code}'), Iconsax.document_text, kindLabels[k]!,
-              () => close((c) => openCompose(c, intent: typeIntent(k)))),
-        if (caps.can(Cap.settingsBusiness))
-          _tile(const Key('s1-desktop'), Iconsax.monitor, ComposeHe.moreOnComputer,
-              () => close((c) => openBusinessSection(c, BusinessSection.desktop))),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SheetTitle(ComposeHe.s1Title),
+        if (caps.can(Cap.docDraft))
+          _tile(
+            const Key('s1-quote'),
+            Iconsax.receipt_edit,
+            ComposeHe.tileQuote,
+            () => close((c) => openCompose(c, intent: intentQuote)),
+          ),
+        if (caps.can(Cap.expenseCapture))
+          _tile(
+            const Key('s1-expense'),
+            Iconsax.receipt_item,
+            ComposeHe.tileExpense,
+            () => close(openExpenseCapture),
+          ),
+        if (caps.can(Cap.docDraft))
+          _tile(
+            const Key('s1-customer'),
+            Iconsax.user_add,
+            ComposeHe.tileCustomer,
+            () => close((c) => showCustomerSheet(c, startOnNew: true)),
+          ),
+        if (kinds.isNotEmpty && !_more)
+          _tile(
+            const Key('s1-more'),
+            Iconsax.more,
+            ComposeHe.tileMore,
+            () => setState(() => _more = true),
+          ),
+        if (_more) ...[
+          for (final k in kinds)
+            _tile(
+              Key('s1-kind-${configFor(k).code}'),
+              Iconsax.document_text,
+              kindLabels[k]!,
+              () => close((c) => openCompose(c, intent: typeIntent(k))),
+            ),
+          if (caps.can(Cap.settingsBusiness))
+            _tile(
+              const Key('s1-desktop'),
+              Iconsax.monitor,
+              ComposeHe.moreOnComputer,
+              () =>
+                  close((c) => openBusinessSection(c, BusinessSection.desktop)),
+            ),
+        ],
       ],
-    ]);
+    );
   }
 
-  Widget _tile(Key key, IconData icon, String label, VoidCallback onTap) => ListTile(
+  Widget _tile(Key key, IconData icon, String label, VoidCallback onTap) =>
+      ListTile(
         key: key,
         minTileHeight: Hit.row,
         leading: Icon(icon),

@@ -14,9 +14,9 @@ final _api = ApiClient.instance;
 String _key(String? bid) => 'people_suppliers_$bid';
 
 List<Supplier> _parse(Object? list) => [
-      for (final s in (list as List? ?? const []))
-        Supplier.fromJson(Map<String, dynamic>.from(s as Map))
-    ];
+  for (final s in (list as List? ?? const []))
+    Supplier.fromJson(Map<String, dynamic>.from(s as Map)),
+];
 
 Future<List<Supplier>?> readCachedSuppliers() async {
   try {
@@ -50,17 +50,27 @@ Future<SupplierCard> fetchSupplierCard(String id) async {
   try {
     final json = await _api.get('/suppliers/$id');
     final s = json['supplier'];
-    if (s is Map) return (supplier: Supplier.fromJson(Map<String, dynamic>.from(s)), be16: true);
+    if (s is Map) {
+      return (
+        supplier: Supplier.fromJson(Map<String, dynamic>.from(s)),
+        be16: true,
+      );
+    }
   } on ApiException catch (e) {
     if (!isMissingRoute(e)) rethrow;
   }
   for (final s in await fetchSuppliers()) {
     if (s.id == id) return (supplier: s, be16: false);
   }
-  throw ApiException(404, 'NOT_FOUND', errorMessageHe('NOT_FOUND', status: 404));
+  throw ApiException(
+    404,
+    'NOT_FOUND',
+    errorMessageHe('NOT_FOUND', status: 404),
+  );
 }
 
-Future<Supplier> fetchSupplier(String id) async => (await fetchSupplierCard(id)).supplier;
+Future<Supplier> fetchSupplier(String id) async =>
+    (await fetchSupplierCard(id)).supplier;
 
 /// PATCH /suppliers/:id with only the changed fields (BE-16; null clears).
 Future<void> updateSupplier(String id, Map<String, Object?> changes) async {
@@ -74,12 +84,23 @@ Future<void> archiveSupplier(String id) async {
 }
 
 /// POST /suppliers (needs expense:record) → the new supplier.
-Future<Supplier> createSupplier({required String name, String? taxId, String? phone, String? email}) async {
+Future<Supplier> createSupplier({
+  required String name,
+  String? taxId,
+  String? phone,
+  String? email,
+}) async {
   final json = await _api.post('/suppliers', {
     'name': name,
     'taxId': taxId,
     'phone': phone,
     'email': email,
   });
-  return Supplier(id: json['id'] as String, name: name, taxId: taxId, phone: phone, email: email);
+  return Supplier(
+    id: json['id'] as String,
+    name: name,
+    taxId: taxId,
+    phone: phone,
+    email: email,
+  );
 }

@@ -33,17 +33,41 @@ class AmountPrivacy extends InheritedWidget {
   final bool hidden;
 
   static bool of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<AmountPrivacy>()?.hidden ?? false;
+      context.dependOnInheritedWidgetOfExactType<AmountPrivacy>()?.hidden ??
+      false;
 
   @override
-  bool updateShouldNotify(AmountPrivacy oldWidget) => hidden != oldWidget.hidden;
+  bool updateShouldNotify(AmountPrivacy oldWidget) =>
+      hidden != oldWidget.hidden;
 }
 
 // ---------------------------------------------------------------------------
 // Spoken Hebrew: 118000 → 'אלף מאה שמונים שקלים'.
 
-const _onesM = ['', 'אחד', 'שניים', 'שלושה', 'ארבעה', 'חמישה', 'שישה', 'שבעה', 'שמונה', 'תשעה'];
-const _onesF = ['', 'אחת', 'שתיים', 'שלוש', 'ארבע', 'חמש', 'שש', 'שבע', 'שמונה', 'תשע'];
+const _onesM = [
+  '',
+  'אחד',
+  'שניים',
+  'שלושה',
+  'ארבעה',
+  'חמישה',
+  'שישה',
+  'שבעה',
+  'שמונה',
+  'תשעה',
+];
+const _onesF = [
+  '',
+  'אחת',
+  'שתיים',
+  'שלוש',
+  'ארבע',
+  'חמש',
+  'שש',
+  'שבע',
+  'שמונה',
+  'תשע',
+];
 const _teensM = [
   'עשרה', 'אחד עשר', 'שנים עשר', 'שלושה עשר', 'ארבעה עשר', //
   'חמישה עשר', 'שישה עשר', 'שבעה עשר', 'שמונה עשר', 'תשעה עשר',
@@ -52,7 +76,18 @@ const _teensF = [
   'עשר', 'אחת עשרה', 'שתים עשרה', 'שלוש עשרה', 'ארבע עשרה', //
   'חמש עשרה', 'שש עשרה', 'שבע עשרה', 'שמונה עשרה', 'תשע עשרה',
 ];
-const _tens = ['', '', 'עשרים', 'שלושים', 'ארבעים', 'חמישים', 'שישים', 'שבעים', 'שמונים', 'תשעים'];
+const _tens = [
+  '',
+  '',
+  'עשרים',
+  'שלושים',
+  'ארבעים',
+  'חמישים',
+  'שישים',
+  'שבעים',
+  'שמונים',
+  'תשעים',
+];
 const _hundreds = [
   '', 'מאה', 'מאתיים', 'שלוש מאות', 'ארבע מאות', //
   'חמש מאות', 'שש מאות', 'שבע מאות', 'שמונה מאות', 'תשע מאות',
@@ -85,7 +120,9 @@ List<String> _scale(int n, String one) => switch (n) {
 /// Cardinal number in Hebrew words, without conjunctions ('אלף מאה שמונים').
 String hebrewNumberWords(BigInt value, {bool masculine = true}) {
   if (value == BigInt.zero) return 'אפס';
-  if (value.isNegative) return 'מינוס ${hebrewNumberWords(-value, masculine: masculine)}';
+  if (value.isNegative) {
+    return 'מינוס ${hebrewNumberWords(-value, masculine: masculine)}';
+  }
   if (value >= BigInt.from(10).pow(12)) return value.toString();
   final n = value.toInt();
   final billions = n ~/ 1000000000;
@@ -127,8 +164,11 @@ String spokenAmountHe(BigInt minor) {
 }
 
 /// Display text for an amount, honouring [AmountPrivacy].
-String moneyText(BuildContext context, BigInt minor, {bool trimZeroAgorot = true}) =>
-    AmountPrivacy.of(context)
+String moneyText(
+  BuildContext context,
+  BigInt minor, {
+  bool trimZeroAgorot = true,
+}) => AmountPrivacy.of(context)
     ? hiddenAmountText
     : formatMoney(minor, trimZeroAgorot: trimZeroAgorot);
 

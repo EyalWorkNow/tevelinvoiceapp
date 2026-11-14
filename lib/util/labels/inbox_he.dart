@@ -5,12 +5,16 @@ import '../../state/caps.dart';
 import '../money.dart';
 
 abstract final class InboxHe {
+  // Action labels shared by the application screens.
+  static const dismissSummary = 'הסרה מהרשימה';
+  static const allInvoicesAction = 'לכל המסמכים  ←';
+
   // H
   static const moneyLabel = 'מגיע לך';
   static const moneyOverdue = 'מתוכם באיחור';
   static const todo = 'לטיפול';
   static const inboxListTitle = 'משימות לטיפול';
-  static const recent = 'פעילות אחרונה';
+  static const recent = 'מסמכים אחרונים';
   static const documentsAction = 'מסמכים';
   static const expensesAction = 'הוצאות';
   static const allActivity = 'כל הפעילות ›';
@@ -120,14 +124,39 @@ abstract final class InboxHe {
   static const handoffShaam = 'רשות המסים';
   static const handoffSent = 'שלחנו לך קישור במייל – פתח אותו במחשב';
 
+  // "באיחור" preview (0.8): nothing is sent before the explicit confirm.
+  static const remindersPreviewTitle = 'תזכורות לחשבוניות באיחור';
+  static const remindersPreviewBody =
+      'מי שיש לו מייל יקבל תזכורת במייל. לשאר נציע שליחה בווטסאפ.';
+  static const remindersNone = 'אין חשבוניות באיחור';
+  static String remindersConfirm(int n) =>
+      n == 1 ? 'שלח תזכורת אחת' : 'שלח $n תזכורות';
+  static const remindersCancel = 'ביטול';
+
+  // Draft rows (AT-92).
+  static const draftActions = 'פעולות לטיוטה';
+  static const deleteDraft = 'מחק טיוטה';
+  static const deleteDraftTitle = 'למחוק את הטיוטה?';
+  static const deleteDraftBody = 'הטיוטה תימחק מרשימת המסמכים.';
+  static const cancel = 'ביטול';
+
+  // Navigation guards (1.11 / 1.12).
+  static const routeForbidden = 'אין לך הרשאה למסך הזה';
+  static const routeUnavailable = 'הקישור לא זמין';
+  static const switchBusinessTitle = 'לעבור לעסק אחר?';
+  static String switchBusinessBody(String name) =>
+      'הקישור שייך לעסק "$name". הפעולות הבאות יתבצעו בעסק הזה.';
+  static const switchBusinessConfirm = 'עבור לעסק';
+
   // L
-  static const activityTitle = 'פעילות';
+  static const activityTitle = 'מסמכים';
   static const searchHint = 'שם, ח.פ., סכום או מספר מסמך';
   static const searchLabel = 'חיפוש';
   static const chipAll = 'הכל';
   static const chipUnpaid = 'לא שולם';
   static const chipDrafts = 'טיוטות';
   static const chipQuotes = 'הצעות';
+  static const chipPaid = 'שולם';
   static const chipInbox = 'לטיפול';
   static const capped = 'מוצגים 500 המסמכים האחרונים';
   static const loadMore = 'טען עוד';

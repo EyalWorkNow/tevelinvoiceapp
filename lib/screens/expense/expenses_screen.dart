@@ -3,7 +3,8 @@
 //
 // Review: one card at a time ("3 מתוך 7"), oldest first; ?id= opens on that
 // expense. ⋯ "דחה" (expense.approve) → one-field dialog "למה?". OCR runs
-// once per card when nothing was read (≤20 s, then manual entry).
+// once per expense on this device (remembered across opens), after a one-time
+// consent, when nothing was read (≤20 s, then manual entry).
 // List ("כל ההוצאות"): search + "הכל" / "שלי". With BE-44 the rows come from
 // GET /expenses?q=&mine=1 and an approver can open an approved expense to
 // edit it ("שמור" → PATCH /expenses/:id) or ⋯ "מחק" it (DELETE). Without
@@ -13,19 +14,58 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/client.dart';
 import '../../api/expenses_api.dart';
 import '../../api/models/models.dart';
 import '../../router.dart';
 import '../../state/business_context.dart';
+import '../../state/cache.dart';
 import '../../state/caps.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/common_he.dart';
 import '../../util/labels/people_he.dart';
 import 'expense_review_card.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+
+/// Automatic receipt reading (QA 3.5): consent + once-per-expense memory.
+abstract final class ExpenseOcrHe {
+  static const consentTitle = 'קריאה אוטומטית של הקבלה';
+  static const consentBody =
+      'כדי למלא את פרטי ההוצאה בשבילך, התמונה של הקבלה תישלח לעיבוד בשירות '
+      'בינה מלאכותית חיצוני (Anthropic Claude). אפשר לוותר ולהזין את הפרטים ידנית.';
+  static const consentAllow = 'אישור';
+  static const consentManual = 'הזנה ידנית';
+}
+
+/// Device memory: OCR consent (user data) and the expenses already sent to
+/// OCR, so a failed read is not re-run each time the screen opens.
+const _ocrConsentKey = 'expense_ocr_consent';
+const _ocrTriedKey = 'expense_ocr_tried';
+
+Future<Set<String>> _ocrTried() async {
+  try {
+    final v = await AppCache.read(_ocrTriedKey);
+    return v is List ? {for (final e in v) '$e'} : <String>{};
+  } on Object {
+    return <String>{};
+  }
+}
+
+Future<void> _rememberOcrTried(String id) async {
+  final ids = [
+    id,
+    ...(await _ocrTried()).where((e) => e != id),
+  ].take(200).toList();
+  try {
+    await AppCache.write(_ocrTriedKey, ids);
+  } on Object {
+    // best effort
+  }
+}
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({
@@ -57,6 +97,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   Object? _error;
   bool _offline = false;
   final Set<String> _extracted = {};
+
+  /// "הזנה ידנית" in the consent dialog: not asked again on this screen.
+  bool _ocrDeclined = false;
   String? _reading;
   Timer? _poll;
   DateTime? _pollUntil;
@@ -158,8 +201,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     setState(() => _editing = null);
     if (message != null) {
       ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(message)));
+        ..hideCurrentNotchNotice()
+        ..showNotchNotice(SnackBar(content: Text(message)));
     }
     unawaited(_load());
     unawaited(_loadList());
@@ -247,7 +290,49 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     }
   }
 
+  /// Asks once before the first receipt image goes to the OCR provider.
+  Future<bool> _ocrConsent() async {
+    try {
+      if (await AppCache.readUserData(_ocrConsentKey) == true) return true;
+    } on Object {
+      // ask
+    }
+    if (_ocrDeclined || !mounted) return false;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(ExpenseOcrHe.consentTitle),
+        content: const Text(ExpenseOcrHe.consentBody),
+        actions: [
+          TextButton(
+            key: const Key('expense-ocr-manual'),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(ExpenseOcrHe.consentManual),
+          ),
+          TextButton(
+            key: const Key('expense-ocr-allow'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(ExpenseOcrHe.consentAllow),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) {
+      _ocrDeclined = true;
+      return false;
+    }
+    try {
+      await AppCache.writeUserData(_ocrConsentKey, true);
+    } on Object {
+      // asked again next time
+    }
+    return true;
+  }
+
   Future<void> _extract(String id) async {
+    if ((await _ocrTried()).contains(id) || !await _ocrConsent()) return;
+    if (!mounted) return;
+    unawaited(_rememberOcrTried(id));
     setState(() => _reading = id);
     try {
       final ran = await runExpenseExtraction(
@@ -278,8 +363,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     });
     if (message != null) {
       ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(message)));
+        ..hideCurrentNotchNotice()
+        ..showNotchNotice(SnackBar(content: Text(message)));
     }
     _afterChange();
   }
@@ -335,6 +420,39 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         _approver &&
         current.isReviewable &&
         !current.isDuplicate;
+    // ⋯ "מחק" / "דחה" and the progress line exist in both themes (QA 0.1:
+    // the dark header used to drop them, so reject/delete were unreachable).
+    final menus = [
+      if (editing != null)
+        MoreMenu(
+          key: const Key('expense-more'),
+          items: [
+            MoreMenuItem(
+              label: ExpenseHe.delete,
+              destructive: true,
+              onSelected: _delete,
+            ),
+          ],
+        ),
+      if (canReject)
+        MoreMenu(
+          key: const Key('expense-more'),
+          items: [
+            MoreMenuItem(
+              label: ExpenseHe.reject,
+              destructive: true,
+              onSelected: _reject,
+            ),
+          ],
+        ),
+    ];
+    final progress = editing == null && !_list && current != null
+        ? Text(
+            ExpenseHe.progress(_done + 1, _done + _queue.length),
+            key: const Key('expense-progress'),
+            style: AppText.secondary.copyWith(color: context.palette.muted),
+          )
+        : null;
     return Scaffold(
       appBar: context.isDark
           ? null
@@ -343,14 +461,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(editing != null ? ExpenseHe.editTitle : ExpenseHe.title),
-                  if (editing == null && !_list && current != null)
-                    Text(
-                      ExpenseHe.progress(_done + 1, _done + _queue.length),
-                      key: const Key('expense-progress'),
-                      style: AppText.secondary.copyWith(
-                        color: context.palette.muted,
-                      ),
-                    ),
+                  ?progress,
                 ],
               ),
               actions: [
@@ -364,26 +475,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                           : ExpenseHe.allExpenses,
                     ),
                   ),
-                if (editing != null)
-                  MoreMenu(
-                    items: [
-                      MoreMenuItem(
-                        label: ExpenseHe.delete,
-                        destructive: true,
-                        onSelected: _delete,
-                      ),
-                    ],
-                  ),
-                if (canReject)
-                  MoreMenu(
-                    items: [
-                      MoreMenuItem(
-                        label: ExpenseHe.reject,
-                        destructive: true,
-                        onSelected: _reject,
-                      ),
-                    ],
-                  ),
+                ...menus,
               ],
             ),
       body: SafeArea(
@@ -401,14 +493,22 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        editing != null ? ExpenseHe.editTitle : ExpenseHe.title,
-                        style: AppText.displayTitle,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            editing != null
+                                ? ExpenseHe.editTitle
+                                : ExpenseHe.title,
+                            style: AppText.displayTitle,
+                          ),
+                          ?progress,
+                        ],
                       ),
                     ),
                     if (_rows != null && _rows!.isNotEmpty) ...[
                       TextButton(
-                        key: const Key('expense-mode-dark'),
+                        key: const Key('expense-mode'),
                         onPressed: _toggleList,
                         child: Text(
                           _list && editing == null
@@ -421,6 +521,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                       ),
                       const SizedBox(width: Space.s),
                     ],
+                    ...menus,
                     const DesignBackButton(),
                   ],
                 ),

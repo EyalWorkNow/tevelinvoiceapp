@@ -33,7 +33,9 @@ class _DsGalleryState extends State<DsGallery> {
     return Theme(
       data: buildTheme(_dark ? Brightness.dark : Brightness.light),
       child: MediaQuery(
-        data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(_bigText ? 2 : 1)),
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(_bigText ? 2 : 1)),
         child: AmountPrivacy(
           hidden: _hidden,
           child: Builder(builder: _page),
@@ -50,8 +52,14 @@ class _DsGalleryState extends State<DsGallery> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.page, vertical: Space.s),
-            child: Text(title, style: AppText.secondary.copyWith(color: p.muted)),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.page,
+              vertical: Space.s,
+            ),
+            child: Text(
+              title,
+              style: AppText.secondary.copyWith(color: p.muted),
+            ),
           ),
           PrimaryScope(child: child),
         ],
@@ -67,9 +75,21 @@ class _DsGalleryState extends State<DsGallery> {
         actions: [
           MoreMenu(
             items: [
-              MoreMenuItem(label: DocumentHe.cancelOrCredit, destructive: true, onSelected: () {}),
-              MoreMenuItem(label: CommonHe.share, icon: Iconsax.export_1, onSelected: () {}),
-              MoreMenuItem(label: DocumentHe.duplicate, icon: Iconsax.copy, onSelected: () {}),
+              MoreMenuItem(
+                label: DocumentHe.cancelOrCredit,
+                destructive: true,
+                onSelected: () {},
+              ),
+              MoreMenuItem(
+                label: CommonHe.share,
+                icon: Iconsax.export_1,
+                onSelected: () {},
+              ),
+              MoreMenuItem(
+                label: DocumentHe.duplicate,
+                icon: Iconsax.copy,
+                onSelected: () {},
+              ),
             ],
           ),
         ],
@@ -242,7 +262,11 @@ class _DsGalleryState extends State<DsGallery> {
             pad(
               SummaryCard(
                 children: [
-                  SummaryRow(icon: Iconsax.note_text, value: 'תיקון דוד', onTap: () {}),
+                  SummaryRow(
+                    icon: Iconsax.note_text,
+                    value: 'תיקון דוד',
+                    onTap: () {},
+                  ),
                   ChipRow<String>(
                     padding: const EdgeInsets.all(Space.m),
                     options: const [
@@ -255,7 +279,10 @@ class _DsGalleryState extends State<DsGallery> {
                   ),
                   Align(
                     alignment: AlignmentDirectional.centerStart,
-                    child: TextButton(onPressed: () {}, child: const Text(ComposeHe.moreDetails)),
+                    child: TextButton(
+                      onPressed: () {},
+                      child: const Text(ComposeHe.moreDetails),
+                    ),
                   ),
                 ],
               ),
@@ -266,24 +293,44 @@ class _DsGalleryState extends State<DsGallery> {
             Column(
               children: [
                 AmountDisplay(keypadText: _keypad),
-                Keypad(onKey: (k) => setState(() => _keypad = keypadApply(_keypad, k))),
+                Keypad(
+                  onKey: (k) =>
+                      setState(() => _keypad = keypadApply(_keypad, k)),
+                ),
               ],
             ),
           ),
           section(
             'PrimaryButton',
             BottomActionArea(
-              note: 'מסמך מ-${moneyInline(BigInt.from(500000))} כולל מע״מ דורש אישור',
-              child: PrimaryButton(label: ComposeHe.issueAndWhatsApp, offline: _offline, onPressed: () {}),
+              note:
+                  'מסמך מ-${moneyInline(BigInt.from(500000))} כולל מע״מ דורש אישור',
+              child: PrimaryButton(
+                label: ComposeHe.issueAndWhatsApp,
+                offline: _offline,
+                onPressed: () {},
+              ),
             ),
           ),
           section(
             'PrimaryButton · טעינה',
-            pad(PrimaryButton(label: CommonHe.issue, loadingText: ComposeHe.stepSigning, onPressed: () {})),
+            pad(
+              PrimaryButton(
+                label: CommonHe.issue,
+                loadingText: ComposeHe.stepSigning,
+                onPressed: () {},
+              ),
+            ),
           ),
           section(
             'PrimaryButton · הרסני',
-            pad(PrimaryButton(label: DocumentHe.issueCredit, destructive: true, onPressed: () {})),
+            pad(
+              PrimaryButton(
+                label: DocumentHe.issueCredit,
+                destructive: true,
+                onPressed: () {},
+              ),
+            ),
           ),
           section('Skeleton', const SkeletonList(rows: 3)),
           section(

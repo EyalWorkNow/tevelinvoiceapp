@@ -7,9 +7,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/models/models.dart';
 import '../../api/shaam_api.dart';
-import '../../api/signing_api.dart' show forgetSigningPassphrase, hasSavedSigningPassphrase;
+import '../../api/signing_api.dart'
+    show forgetSigningPassphrase, hasSavedSigningPassphrase;
 import '../../state/business_context.dart';
 import '../../state/caps.dart';
 import '../../ui/ds.dart';
@@ -43,7 +45,9 @@ class _ShaamPageState extends State<ShaamPage> {
     try {
       final results = await Future.wait<Object?>([
         fetchShaamStatus(),
-        businessContext.can(Cap.docIssue) ? fetchSigningStatus() : Future<Object?>.value(),
+        businessContext.can(Cap.docIssue)
+            ? fetchSigningStatus()
+            : Future<Object?>.value(),
         hasSavedSigningPassphrase(),
       ]);
       if (!mounted) return;
@@ -80,15 +84,22 @@ class _ShaamPageState extends State<ShaamPage> {
         else if (shaam == null)
           const SizedBox(height: 360, child: SkeletonList(rows: 3))
         else ...[
-          Semantics(header: true, child: const Text(BusinessHe.shaamTitle, style: AppText.headline)),
+          Semantics(
+            header: true,
+            child: const Text(BusinessHe.shaamTitle, style: AppText.headline),
+          ),
           BusinessRow(
             key: const Key('shaam-status'),
             label: _status(shaam),
             value: [
               if (shaam.refreshTokenExpiresAt != null)
-                BusinessHe.shaamValidUntil(formatDateHe(shaam.refreshTokenExpiresAt!.substring(0, 10))),
+                BusinessHe.shaamValidUntil(
+                  formatDateHe(shaam.refreshTokenExpiresAt!.substring(0, 10)),
+                ),
               if (shaam.lastVerifiedAt != null)
-                BusinessHe.shaamVerified(formatDateHe(shaam.lastVerifiedAt!.substring(0, 10))),
+                BusinessHe.shaamVerified(
+                  formatDateHe(shaam.lastVerifiedAt!.substring(0, 10)),
+                ),
               if (shaam.manualEntryEnabled) BusinessHe.shaamManual,
             ].join(' · '),
             icon: Iconsax.bank,
@@ -107,7 +118,13 @@ class _ShaamPageState extends State<ShaamPage> {
             ),
           if (_signing != null) ...[
             const RowGroupGap(),
-            Semantics(header: true, child: const Text(BusinessHe.signingTitle, style: AppText.headline)),
+            Semantics(
+              header: true,
+              child: const Text(
+                BusinessHe.signingTitle,
+                style: AppText.headline,
+              ),
+            ),
             BusinessRow(
               key: const Key('signing-status'),
               label: !_signing!.configured
@@ -126,9 +143,9 @@ class _ShaamPageState extends State<ShaamPage> {
                   await forgetSigningPassphrase();
                   if (!context.mounted) return;
                   setState(() => _savedPassphrase = false);
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text(BusinessHe.signingForgotten)));
+                  ScaffoldMessenger.of(context).showNotchNotice(
+                    const SnackBar(content: Text(BusinessHe.signingForgotten)),
+                  );
                 },
               ),
           ],

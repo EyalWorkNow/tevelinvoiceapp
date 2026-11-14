@@ -13,9 +13,8 @@ enum UnlockResult {
   unavailable,
 }
 
-/// Face ID / device passcode gate (spec §11): on at cold start and after 5
-/// minutes in the background. Default ON; the settings toggle calls
-/// [setEnabled]. The preference is per device and survives sign-out.
+/// Optional Face ID / device passcode gate after 5 minutes in the background.
+/// It is opt-in in settings and the preference survives sign-out.
 class Biometric {
   Biometric._();
   static final Biometric instance = Biometric._();
@@ -28,7 +27,10 @@ class Biometric {
   /// Replaceable in tests.
   LocalAuthentication auth = LocalAuthentication();
   FlutterSecureStorage storage = const FlutterSecureStorage(
-      iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device));
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+    ),
+  );
 
   /// Device has Face ID / Touch ID or at least a passcode.
   Future<bool> isAvailable() async {
@@ -53,13 +55,14 @@ class Biometric {
 
   Future<bool> isEnabled() async {
     try {
-      return await storage.read(key: _kEnabled) != '0';
+      return await storage.read(key: _kEnabled) == '1';
     } on Object {
-      return true;
+      return false;
     }
   }
 
-  Future<void> setEnabled(bool enabled) => storage.write(key: _kEnabled, value: enabled ? '1' : '0');
+  Future<void> setEnabled(bool enabled) =>
+      storage.write(key: _kEnabled, value: enabled ? '1' : '0');
 
   /// Enabled in settings AND the device can actually lock.
   Future<bool> shouldLock() async => await isEnabled() && await isAvailable();
@@ -67,7 +70,10 @@ class Biometric {
   /// System prompt (Face ID, falls back to the device passcode).
   Future<UnlockResult> unlock({String reason = 'פתיחת תבל'}) async {
     try {
-      final ok = await auth.authenticate(localizedReason: reason, persistAcrossBackgrounding: true);
+      final ok = await auth.authenticate(
+        localizedReason: reason,
+        persistAcrossBackgrounding: true,
+      );
       return ok ? UnlockResult.success : UnlockResult.failed;
     } on LocalAuthException catch (e) {
       return switch (e.code) {

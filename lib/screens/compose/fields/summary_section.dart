@@ -11,11 +11,20 @@ import '../compose_state.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 /// Payment chips (§9.1): the four common ones + "עוד" (DIRECT_DEBIT, OTHER).
-const List<String> mainMethods = ['CASH', 'BANK_TRANSFER', 'CREDIT_CARD', 'CHECK'];
+const List<String> mainMethods = [
+  'CASH',
+  'BANK_TRANSFER',
+  'CREDIT_CARD',
+  'CHECK',
+];
 const List<String> moreMethods = ['DIRECT_DEBIT', 'OTHER'];
 
 class SummarySection extends StatefulWidget {
-  const SummarySection({super.key, required this.state, required this.onMoreDetails});
+  const SummarySection({
+    super.key,
+    required this.state,
+    required this.onMoreDetails,
+  });
 
   final ComposeState state;
   final VoidCallback onMoreDetails;
@@ -43,8 +52,14 @@ class _SummarySectionState extends State<SummarySection> {
           onSubmitted: (v) => Navigator.pop(d, v),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(d), child: const Text(CommonHe.cancel)),
-          TextButton(onPressed: () => Navigator.pop(d, c.text), child: const Text(CommonHe.save)),
+          TextButton(
+            onPressed: () => Navigator.pop(d),
+            child: const Text(CommonHe.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(d, c.text),
+            child: const Text(CommonHe.save),
+          ),
         ],
       ),
     );
@@ -60,70 +75,132 @@ class _SummarySectionState extends State<SummarySection> {
   Widget build(BuildContext context) {
     final c = s.config;
     final methods = [...mainMethods, if (_showMoreMethods) ...moreMethods];
-    return SummaryCard(children: [
-      if (!c.receiptOnly)
-        SummaryRow(
-          key: const Key('compose-description'),
-          icon: Iconsax.note_text,
-          value: s.mainDescription,
-          onTap: _editDescription,
-        ),
-      if (c.paid)
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: Space.m),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            ChipRow<String>(
-              key: const Key('compose-methods'),
-              options: [
-                for (final m in methods) ChipOption(m, paymentMethodLabels[m] ?? m),
-                if (!_showMoreMethods) const ChipOption('_more', ComposeHe.methodMore),
+    return SummaryCard(
+      children: [
+        if (!c.receiptOnly)
+          SummaryRow(
+            key: const Key('compose-description'),
+            icon: Iconsax.note_text,
+            value: s.mainDescription,
+            onTap: _editDescription,
+          ),
+        if (c.paid)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: Space.m),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                ChipRow<String>(
+                  key: const Key('compose-methods'),
+                  padding: EdgeInsets.zero,
+                  options: [
+                    for (final m in methods)
+                      ChipOption(m, paymentMethodLabels[m] ?? m),
+                    if (!_showMoreMethods)
+                      const ChipOption('_more', ComposeHe.methodMore),
+                  ],
+                  selected: s.method,
+                  onSelected: (m) {
+                    if (m == '_more') {
+                      setState(() => _showMoreMethods = true);
+                      return;
+                    }
+                    s.method = m;
+                    s.changed();
+                  },
+                ),
+                if (s.method == 'CHECK') _checkFields(),
               ],
-              selected: s.method,
-              onSelected: (m) {
-                if (m == '_more') {
-                  setState(() => _showMoreMethods = true);
-                  return;
-                }
-                s.method = m;
-                s.changed();
-              },
             ),
-            if (s.method == 'CHECK') _checkFields(),
-          ]),
+          ),
+        if (c.counterparty == Counterparty.donor &&
+            (s.customer?.taxId ?? '').isEmpty)
+          _field(
+            const Key('donor-id'),
+            ComposeHe.donorId,
+            s.donorTaxId,
+            (v) => s.donorTaxId = v,
+          ),
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Space.card,
+            vertical: Space.s,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 300),
+              child: FilledButton.tonalIcon(
+                key: const Key('compose-more-details'),
+                onPressed: widget.onMoreDetails,
+                icon: const Icon(Iconsax.setting_4, size: 19),
+                label: const Text(
+                  ComposeHe.moreDetails,
+                  textAlign: TextAlign.center,
+                ),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  textStyle: AppText.button,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
-      if (c.counterparty == Counterparty.donor && (s.customer?.taxId ?? '').isEmpty)
-        _field(const Key('donor-id'), ComposeHe.donorId, s.donorTaxId, (v) => s.donorTaxId = v),
-      Align(
-        alignment: AlignmentDirectional.centerStart,
-        child: TextButton(
-          key: const Key('compose-more-details'),
-          onPressed: widget.onMoreDetails,
-          child: const Text(ComposeHe.moreDetails),
-        ),
-      ),
-    ]);
+      ],
+    );
   }
 
-  Widget _checkFields() => Column(children: [
-        _field(const Key('check-bank'), ComposeHe.checkBank, s.bankNumber, (v) => s.bankNumber = v),
-        _field(const Key('check-branch'), ComposeHe.checkBranch, s.branchNumber, (v) => s.branchNumber = v),
-        _field(const Key('check-account'), ComposeHe.checkAccount, s.accountNumber,
-            (v) => s.accountNumber = v),
-        _field(const Key('check-number'), ComposeHe.checkNumber, s.checkNumber, (v) => s.checkNumber = v),
-      ]);
+  Widget _checkFields() => Column(
+    children: [
+      _field(
+        const Key('check-bank'),
+        ComposeHe.checkBank,
+        s.bankNumber,
+        (v) => s.bankNumber = v,
+      ),
+      _field(
+        const Key('check-branch'),
+        ComposeHe.checkBranch,
+        s.branchNumber,
+        (v) => s.branchNumber = v,
+      ),
+      _field(
+        const Key('check-account'),
+        ComposeHe.checkAccount,
+        s.accountNumber,
+        (v) => s.accountNumber = v,
+      ),
+      _field(
+        const Key('check-number'),
+        ComposeHe.checkNumber,
+        s.checkNumber,
+        (v) => s.checkNumber = v,
+      ),
+    ],
+  );
 
-  Widget _field(Key key, String label, String value, void Function(String) set) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Space.card, vertical: Space.xs),
-        child: TextFormField(
-          key: key,
-          initialValue: value,
-          keyboardType: TextInputType.number,
-          textDirection: TextDirection.ltr,
-          decoration: InputDecoration(labelText: label),
-          onChanged: (v) {
-            set(v);
-            s.changed();
-          },
-        ),
-      );
+  Widget _field(
+    Key key,
+    String label,
+    String value,
+    void Function(String) set,
+  ) => Padding(
+    padding: const EdgeInsets.symmetric(
+      horizontal: Space.card,
+      vertical: Space.xs,
+    ),
+    child: TextFormField(
+      key: key,
+      initialValue: value,
+      keyboardType: TextInputType.number,
+      textDirection: TextDirection.ltr,
+      decoration: InputDecoration(labelText: label),
+      onChanged: (v) {
+        set(v);
+        s.changed();
+      },
+    ),
+  );
 }

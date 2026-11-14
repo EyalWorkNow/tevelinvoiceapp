@@ -42,20 +42,63 @@ class ComposeLoad {
   /// BE-08: the issued 300/100 this 305 is a linked conversion of.
   String? cloneFrom;
   String? cloneTotal;
+
+  /// QUOTE_ACCEPTED: converted on the server only when the button is pressed.
+  Quote? convertQuote;
+
+  /// What was left here unsent last time (local draft, or an issue that
+  /// stopped before the server had a draft). Not applied: the screen asks
+  /// "המשך טיוטה?" first ([resumeLeftover] / [dropLeftover]).
+  Map<String, dynamic>? leftoverForm;
+  PendingIssue? leftoverIssue;
+
+  void resumeLeftover() {
+    final form = leftoverForm;
+    if (form == null) return;
+    final kind = state.kind;
+    state.restore(form);
+    final pending = leftoverIssue;
+    if (pending != null) {
+      resume(pending);
+    } else {
+      state.setKind(kind); // a local draft keeps the intent's kind
+    }
+    leftoverForm = null;
+    leftoverIssue = null;
+  }
+
+  Future<void> dropLeftover() async {
+    final pending = leftoverIssue;
+    leftoverForm = null;
+    leftoverIssue = null;
+    if (pending == null) return clearLocalDraft();
+    // A POST that may have reached the server keeps its journal (the next
+    // issue adopts that draft instead of making a second one).
+    if (pending.createAttemptTotal == null) {
+      await clearPendingIssue(pending.businessId);
+    }
+  }
+
   ComposeRun? _run;
 
   /// The run of the primary button; one per screen, so a retry keeps its keys.
-  ComposeRun run({required ComposerAction action, required bool needsApproval}) {
-    final r = _run ??= ComposeRun(
-        state: state,
-        action: action,
-        needsApproval: needsApproval,
-        existingDraftId: existingDraftId,
-        existingDraftType: existingDraftType,
-        cloneFrom: cloneFrom,
-        cloneTotal: cloneTotal)
-      ..quoteId ??= editQuoteId
-      ..editQuote = editQuoteId != null;
+  ComposeRun run({
+    required ComposerAction action,
+    required bool needsApproval,
+  }) {
+    final r = _run ??=
+        ComposeRun(
+            state: state,
+            action: action,
+            needsApproval: needsApproval,
+            existingDraftId: existingDraftId,
+            existingDraftType: existingDraftType,
+            cloneFrom: cloneFrom,
+            cloneTotal: cloneTotal,
+            convertQuote: convertQuote,
+          )
+          ..quoteId ??= editQuoteId
+          ..editQuote = editQuoteId != null;
     r
       ..action = action
       ..needsApproval = needsApproval;
@@ -63,12 +106,12 @@ class ComposeLoad {
   }
 
   void resume(PendingIssue pending) => (_run ??= ComposeRun(
-          state: state,
-          action: ComposerAction.issue,
-          needsApproval: pending.needsApproval,
-          existingDraftId: existingDraftId,
-          existingDraftType: existingDraftType))
-      .pending = pending;
+    state: state,
+    action: ComposerAction.issue,
+    needsApproval: pending.needsApproval,
+    existingDraftId: existingDraftId,
+    existingDraftType: existingDraftType,
+  )).pending = pending;
 }
 
 /// Null when the intent cannot be served for this business / user.
@@ -83,36 +126,58 @@ Future<ComposeLoad?> loadComposer({
   final bt = bc.businessType;
   final caps = bc.caps;
   final section46 = (bc.profile?.section46ApprovalNumber ?? '').isNotEmpty;
-  final kind = resolveIntent(intent, bt,
-      section46: section46, canRecordPayment: caps.can(Cap.paymentRecord));
-  if (kind == null || !kindAllowedForCaps(kind, caps, supplierPicker: true)) return null;
+  final kind = resolveIntent(
+    intent,
+    bt,
+    section46: section46,
+    canRecordPayment: caps.can(Cap.paymentRecord),
+  );
+  if (kind == null || !kindAllowedForCaps(kind, caps, supplierPicker: true)) {
+    return null;
+  }
 
   final vat = await fetchVatRate();
   final s = ComposeState(kind: kind, businessType: bt, vatBasisPoints: vat)
     ..method = await lastPaymentMethod();
-  final load = ComposeLoad(s,
-      switchKinds: kind == DocKind.quote
-          ? const []
-          : {
-              kind,
-              // The chip holds a customer or a supplier: never switch across.
-              for (final k in moreKinds(bt, caps, section46: section46, supplierPicker: true))
-                if ((configFor(k).counterparty == Counterparty.supplier) ==
-                    (configFor(kind).counterparty == Counterparty.supplier))
-                  k
-            }.toList());
+  final load = ComposeLoad(
+    s,
+    switchKinds: kind == DocKind.quote
+        ? const []
+        : {
+            kind,
+            // The chip holds a customer or a supplier: never switch across.
+            for (final k in moreKinds(
+              bt,
+              caps,
+              section46: section46,
+              supplierPicker: true,
+            ))
+              if ((configFor(k).counterparty == Counterparty.supplier) ==
+                  (configFor(kind).counterparty == Counterparty.supplier))
+                k,
+          }.toList(),
+  );
 
   final sourceId = draftId ?? fromDocId;
   if (fromQuoteId != null && kind == DocKind.quote) {
     await _prefillQuote(load, fromQuoteId);
   } else if (fromQuoteId != null && draftId == null) {
+    // QUOTE_ACCEPTED: prefill from the quote; the server converts it only
+    // when the user issues (backing out leaves the quote as it was).
     final quote = await fetchQuote(fromQuoteId);
     if (quote == null) throw StateError('quote $fromQuoteId not found');
-    final exempt = isVatExemptBusiness(bt);
-    final id = await convertQuoteToInvoice(quote,
-        documentType: exempt ? 'TRANSACTION_INVOICE' : 'TAX_INVOICE',
-        taxRateBasisPoints: exempt ? 0 : vat);
-    await _prefill(load, id, asDraft: true);
+    final converted =
+        quote.status == 'CONVERTED' && quote.convertedDocumentId != null;
+    if (converted) {
+      await _prefill(load, quote.convertedDocumentId!, asDraft: true);
+    } else {
+      if (!quote.amountHidden) s.loadQuoteLines(quote.lines);
+      s.notes = quote.notes ?? '';
+      if (quote.customerId != null) {
+        s.customer = await findCustomer(quote.customerId!);
+      }
+      load.convertQuote = quote;
+    }
   } else if (sourceId != null) {
     final pending = await loadPendingIssue();
     if (draftId != null && pending != null && pending.draftId == draftId) {
@@ -133,15 +198,29 @@ Future<ComposeLoad?> loadComposer({
       }
     }
   } else if (customerId == null) {
-    final form = await loadLocalDraft(intent);
-    if (form != null) s.restore(form);
-    s.kind = kind;
+    // UNFINISHED without a server draft: the local issue journal; otherwise
+    // the local draft. Both wait for "המשך טיוטה?" on the screen.
+    final pending = await loadPendingIssue();
+    if (pending != null &&
+        pending.draftId == null &&
+        pending.businessId == currentBusinessId &&
+        pending.form.isNotEmpty) {
+      load
+        ..leftoverForm = pending.form
+        ..leftoverIssue = pending;
+    } else {
+      load.leftoverForm = await loadLocalDraft(intent);
+    }
   }
-  if (customerId != null) s.customer = await findCustomer(customerId) ?? s.customer;
+  if (customerId != null) {
+    s.customer = await findCustomer(customerId) ?? s.customer;
+  }
   if (s.customer != null && s.description.isEmpty) {
-    s.description = await defaultDescription(s.customer!.id,
-        lastOnServer: s.customer!.lastLineDescription,
-        businessDefault: bc.profile?.defaultLineDescription);
+    s.description = await defaultDescription(
+      s.customer!.id,
+      lastOnServer: s.customer!.lastLineDescription,
+      businessDefault: bc.profile?.defaultLineDescription,
+    );
   }
   await applyCustomerTerms(s);
   return load;
@@ -151,7 +230,8 @@ Future<ComposeLoad?> loadComposer({
 /// §8.2.3) keeps the CONVERTED_FROM link.
 bool _linkedConversion(DocumentDetail source, DocKind target) =>
     target == DocKind.taxInvoice &&
-    (source.documentType == 'TRANSACTION_INVOICE' || source.documentType == 'SALES_ORDER') &&
+    (source.documentType == 'TRANSACTION_INVOICE' ||
+        source.documentType == 'SALES_ORDER') &&
     !source.isDraft &&
     source.documentNumber != null;
 
@@ -174,7 +254,11 @@ Future<void> applyCustomerTerms(ComposeState s) async {
     ..changed();
 }
 
-Future<DocumentDetail> _prefill(ComposeLoad load, String documentId, {required bool asDraft}) async {
+Future<DocumentDetail> _prefill(
+  ComposeLoad load,
+  String documentId, {
+  required bool asDraft,
+}) async {
   final s = load.state;
   final doc = await fetchDocument(documentId);
   final docKind = kindForServerType(doc.documentType);
@@ -214,8 +298,13 @@ Future<void> _prefillQuote(ComposeLoad load, String quoteId) async {
 }
 
 /// A supplier shown in the customer chip (500 sends `supplierId`).
-Customer supplierAsCustomer(Supplier x) =>
-    Customer(id: x.id, name: x.name, taxId: x.taxId, email: x.email, phone: x.phone);
+Customer supplierAsCustomer(Supplier x) => Customer(
+  id: x.id,
+  name: x.name,
+  taxId: x.taxId,
+  email: x.email,
+  phone: x.phone,
+);
 
 Future<Customer?> _supplierAsCustomer(String id) async {
   try {

@@ -23,8 +23,12 @@ import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/theme.dart';
 import 'package:invoice/util/biometric.dart';
+import 'qa_plans_guard.dart';
 
-const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'http://127.0.0.1:3031');
+const apiBase = String.fromEnvironment(
+  'API_BASE',
+  defaultValue: 'http://127.0.0.1:3031',
+);
 const _mailDirDefine = String.fromEnvironment('MAILDIR');
 const devPassword = 'Mobile12345678';
 const murshe = '3b773037-e71d-49bd-a951-76845e4abe07';
@@ -62,15 +66,23 @@ class Res {
   String? get error => json['error'] as String?;
 
   @override
-  String toString() => 'Res($status ${body.length > 300 ? body.substring(0, 300) : body})';
+  String toString() =>
+      'Res($status ${body.length > 300 ? body.substring(0, 300) : body})';
 }
 
 /// The newest dev mail JSON files (newest first) written after [since].
 List<Map<String, dynamic>> mailsSince(DateTime since) {
   final dir = Directory(mailDir);
   if (!dir.existsSync()) return const [];
-  final files = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.json')).toList()
-    ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+  final files =
+      dir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.json'))
+          .toList()
+        ..sort(
+          (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
+        );
   final out = <Map<String, dynamic>>[];
   for (final f in files) {
     if (f.statSync().modified.isBefore(since)) break;
@@ -117,8 +129,14 @@ class DevApi {
     for (final api in _signedIn.values) {
       for (final t in [api.apiToken, api.appToken]) {
         try {
-          await api._http.post(Uri.parse('$apiBase/mobile/logout'),
-              headers: {'authorization': 'Bearer $t', 'content-type': 'application/json'}, body: '{}');
+          await api._http.post(
+            Uri.parse('$apiBase/mobile/logout'),
+            headers: {
+              'authorization': 'Bearer $t',
+              'content-type': 'application/json',
+            },
+            body: '{}',
+          );
         } on Object {
           // best effort
         }
@@ -133,16 +151,20 @@ class DevApi {
   String? _csrf;
 
   Future<Res> _cookiePost(String path, Object body) async {
-    final r = await _http.post(Uri.parse('$apiBase$path'),
-        headers: {
-          'content-type': 'application/json',
-          'accept': 'application/json',
-          'cookie': ?(_cookie == null ? null : 'tvl_session=$_cookie'),
-          'x-csrf-token': ?_csrf,
-        },
-        body: jsonEncode(body));
+    final r = await _http.post(
+      Uri.parse('$apiBase$path'),
+      headers: {
+        'content-type': 'application/json',
+        'accept': 'application/json',
+        'cookie': ?(_cookie == null ? null : 'tvl_session=$_cookie'),
+        'x-csrf-token': ?_csrf,
+      },
+      body: jsonEncode(body),
+    );
     final set = r.headers['set-cookie'];
-    final m = set == null ? null : RegExp(r'tvl_session=([^;]+)').firstMatch(set);
+    final m = set == null
+        ? null
+        : RegExp(r'tvl_session=([^;]+)').firstMatch(set);
     if (m != null) _cookie = m.group(1);
     final res = _res(r);
     final csrf = res.json['csrfToken'];
@@ -151,12 +173,19 @@ class DevApi {
   }
 
   Future<void> _signIn() async {
-    final login = await _cookiePost('/auth/login', {'email': preset.email, 'password': devPassword});
+    final login = await _cookiePost('/auth/login', {
+      'email': preset.email,
+      'password': devPassword,
+    });
     if (login.status != 200) throw StateError('login ${preset.email}: $login');
     Future<void> mfa(String purpose) async {
       final since = DateTime.now().subtract(const Duration(seconds: 2));
-      final send = await _cookiePost('/auth/mfa/email/send', {'purpose': purpose});
-      if (send.status != 200) throw StateError('mfa send ${preset.email}: $send');
+      final send = await _cookiePost('/auth/mfa/email/send', {
+        'purpose': purpose,
+      });
+      if (send.status != 200) {
+        throw StateError('mfa send ${preset.email}: $send');
+      }
       String? code;
       for (var i = 0; i < 40 && code == null; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 250));
@@ -168,21 +197,35 @@ class DevApi {
           }
         }
       }
-      if (code == null) throw StateError('no MFA mail for ${preset.email} in $mailDir');
-      final verify =
-          await _cookiePost('/auth/mfa/email/verify', {'code': code, if (purpose == 'ENROLL') 'purpose': purpose});
-      if (verify.status != 200) throw StateError('mfa verify ${preset.email}: $verify');
+      if (code == null) {
+        throw StateError('no MFA mail for ${preset.email} in $mailDir');
+      }
+      final verify = await _cookiePost('/auth/mfa/email/verify', {
+        'code': code,
+        if (purpose == 'ENROLL') 'purpose': purpose,
+      });
+      if (verify.status != 200) {
+        throw StateError('mfa verify ${preset.email}: $verify');
+      }
     }
 
     if (login.json['status'] == 'MFA_REQUIRED') await mfa('LOGIN');
-    var a = await _cookiePost('/auth/device-token', {'deviceName': 'qa-money api'});
+    var a = await _cookiePost('/auth/device-token', {
+      'deviceName': 'qa-money api',
+    });
     if (a.status == 403 && a.json['error'] == 'MFA_REQUIRED') {
       // Privileged role without an enrolled method (P0 accountant moved to ACCOUNTANT_REP).
       await mfa('ENROLL');
-      a = await _cookiePost('/auth/device-token', {'deviceName': 'qa-money api'});
+      a = await _cookiePost('/auth/device-token', {
+        'deviceName': 'qa-money api',
+      });
     }
-    final b = await _cookiePost('/auth/device-token', {'deviceName': 'qa-money app'});
-    if (a.status != 201 || b.status != 201) throw StateError('device-token ${preset.email}: $a / $b');
+    final b = await _cookiePost('/auth/device-token', {
+      'deviceName': 'qa-money app',
+    });
+    if (a.status != 201 || b.status != 201) {
+      throw StateError('device-token ${preset.email}: $a / $b');
+    }
     apiToken = a.json['token'] as String;
     appToken = b.json['token'] as String;
     _cookie = null;
@@ -192,12 +235,12 @@ class DevApi {
   // ---- bearer calls -----------------------------------------------------------
 
   Map<String, String> _headers({String? idem, bool business = true}) => {
-        'authorization': 'Bearer $apiToken',
-        'accept': 'application/json',
-        'content-type': 'application/json',
-        'x-business-id': ?(business ? businessId : null),
-        'idempotency-key': ?idem,
-      };
+    'authorization': 'Bearer $apiToken',
+    'accept': 'application/json',
+    'content-type': 'application/json',
+    'x-business-id': ?(business ? businessId : null),
+    'idempotency-key': ?idem,
+  };
 
   Res _res(http.Response r) {
     final body = utf8.decode(r.bodyBytes);
@@ -211,14 +254,29 @@ class DevApi {
     return Res(r.statusCode, json, body);
   }
 
-  Future<Res> get(String path, {Map<String, String>? query}) async => _res(await _http.get(
-      Uri.parse('$apiBase$path').replace(queryParameters: query), headers: _headers()));
+  Future<Res> get(String path, {Map<String, String>? query}) async => _res(
+    await _http.get(
+      Uri.parse('$apiBase$path').replace(queryParameters: query),
+      headers: _headers(),
+    ),
+  );
 
-  Future<Res> post(String path, [Object body = const {}, String? idem]) async => _res(
-      await _http.post(Uri.parse('$apiBase$path'), headers: _headers(idem: idem), body: jsonEncode(body)));
+  Future<Res> post(String path, [Object body = const {}, String? idem]) async =>
+      _res(
+        await _http.post(
+          Uri.parse('$apiBase$path'),
+          headers: _headers(idem: idem),
+          body: jsonEncode(body),
+        ),
+      );
 
-  Future<Res> put(String path, Object body) async =>
-      _res(await _http.put(Uri.parse('$apiBase$path'), headers: _headers(), body: jsonEncode(body)));
+  Future<Res> put(String path, Object body) async => _res(
+    await _http.put(
+      Uri.parse('$apiBase$path'),
+      headers: _headers(),
+      body: jsonEncode(body),
+    ),
+  );
 
   Future<Res> delete(String path) async =>
       _res(await _http.delete(Uri.parse('$apiBase$path'), headers: _headers()));
@@ -233,13 +291,27 @@ class DevApi {
 
   /// GET /documents/:id → `document` (lines under `_lines`).
   Future<Map<String, dynamic>> document(String id) async {
-    final r = expectStatus(await get('/documents/$id'), 200, 'GET /documents/$id');
-    return {...r.json['document'] as Map<String, dynamic>, '_lines': r.json['lines']};
+    final r = expectStatus(
+      await get('/documents/$id'),
+      200,
+      'GET /documents/$id',
+    );
+    return {
+      ...r.json['document'] as Map<String, dynamic>,
+      '_lines': r.json['lines'],
+    };
   }
 
   /// GET /documents row (camelCase, BE-10a fields) for [id].
-  Future<Map<String, dynamic>?> listRow(String id, {Map<String, String> query = const {}}) async {
-    final r = expectStatus(await get('/documents', query: {'limit': '500', ...query}), 200, 'GET /documents');
+  Future<Map<String, dynamic>?> listRow(
+    String id, {
+    Map<String, String> query = const {},
+  }) async {
+    final r = expectStatus(
+      await get('/documents', query: {'limit': '500', ...query}),
+      200,
+      'GET /documents',
+    );
     for (final d in r.json['documents'] as List) {
       if ((d as Map)['id'] == id) return d.cast<String, dynamic>();
     }
@@ -249,17 +321,22 @@ class DevApi {
   // ---- fixtures -------------------------------------------------------------------
 
   /// A fresh customer (own data per run, so consent / balances are known).
-  Future<String> newCustomer({String? phone = '0501234567', String? email, String type = 'INDIVIDUAL'}) async {
+  Future<String> newCustomer({
+    String? phone = '0501234567',
+    String? email,
+    String type = 'INDIVIDUAL',
+  }) async {
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final r = expectStatus(
-        await post('/customers', {
-          'name': 'QA כסף $stamp',
-          'customerType': type,
-          'phone': ?phone,
-          'email': ?email,
-        }),
-        201,
-        'POST /customers');
+      await post('/customers', {
+        'name': 'QA כסף $stamp',
+        'customerType': type,
+        'phone': ?phone,
+        'email': ?email,
+      }),
+      201,
+      'POST /customers',
+    );
     return r.json['id'] as String;
   }
 
@@ -273,99 +350,146 @@ class DevApi {
     bool shared = false,
     String description = 'בדיקת QA כסף',
   }) async {
-    final vat = rate ?? (type == 'TRANSACTION_INVOICE' || type == 'RECEIPT' ? 0 : 1800);
+    final vat =
+        rate ?? (type == 'TRANSACTION_INVOICE' || type == 'RECEIPT' ? 0 : 1800);
     final draft = expectStatus(
-        await post('/documents', {
-          'documentType': type,
-          'customerId': customerId,
-          'currency': 'ILS',
-          'fiscalContext': 'default',
-          'lines': [
-            {
-              'description': description,
-              'quantityMicros': '1000000',
-              'unitPriceMinor': '$netMinor',
-              'taxRateBasisPoints': vat,
-            }
-          ],
-        }),
-        201,
-        'POST /documents $type');
+      await post('/documents', {
+        'documentType': type,
+        'customerId': customerId,
+        'currency': 'ILS',
+        'fiscalContext': 'default',
+        'lines': [
+          {
+            'description': description,
+            'quantityMicros': '1000000',
+            'unitPriceMinor': '$netMinor',
+            'taxRateBasisPoints': vat,
+          },
+        ],
+      }),
+      201,
+      'POST /documents $type',
+    );
     final id = draft.json['id'] as String;
-    final fin = expectStatus(await post('/documents/$id/finalize', {'scopeKey': 'default'}, idemKey()), 200,
-        'finalize $type');
+    final fin = expectStatus(
+      await post('/documents/$id/finalize', {'scopeKey': 'default'}, idemKey()),
+      200,
+      'finalize $type',
+    );
     expect(fin.json['status'], 'FINALIZED', reason: 'finalize $type: $fin');
     expectStatus(await post('/documents/$id/artifact'), 201, 'artifact $type');
-    if (shared) expectStatus(await post('/documents/$id/share-link'), 201, 'share-link');
+    if (shared) {
+      expectStatus(await post('/documents/$id/share-link'), 201, 'share-link');
+    }
     return id;
   }
 
   /// POST /payments [key] → id.
   Future<String> payment(int amountMinor, {String method = 'CASH'}) async {
     final r = expectStatus(
-        await post('/payments',
-            {'method': method, 'amountMinor': '$amountMinor', 'currency': 'ILS', 'paymentDate': today()}, idemKey()),
-        201,
-        'POST /payments');
+      await post('/payments', {
+        'method': method,
+        'amountMinor': '$amountMinor',
+        'currency': 'ILS',
+        'paymentDate': today(),
+      }, idemKey()),
+      201,
+      'POST /payments',
+    );
     return r.json['paymentId'] as String;
   }
 
   /// A 320 with its whole total paid in cash (J1 result).
   Future<String> paid320(String customerId, {int netMinor = 100000}) async {
-    final id = await issue(type: 'TAX_INVOICE_RECEIPT', customerId: customerId, netMinor: netMinor);
-    final total = BigInt.parse('${(await document(id))['total_minor']}').toInt();
+    final id = await issue(
+      type: 'TAX_INVOICE_RECEIPT',
+      customerId: customerId,
+      netMinor: netMinor,
+    );
+    final total = BigInt.parse(
+      '${(await document(id))['total_minor']}',
+    ).toInt();
     final pay = await payment(total);
-    expectStatus(await post('/documents/$id/payments', {'paymentId': pay, 'amountMinor': '$total'}), 200,
-        'allocate 320');
+    expectStatus(
+      await post('/documents/$id/payments', {
+        'paymentId': pay,
+        'amountMinor': '$total',
+      }),
+      200,
+      'allocate 320',
+    );
     return id;
   }
 
   /// Pays [amountMinor] on a 300/305 and issues the receipt (400) for it.
   /// Returns the receipt id.
-  Future<String> payWithReceipt(String documentId, int amountMinor, String customerId) async {
+  Future<String> payWithReceipt(
+    String documentId,
+    int amountMinor,
+    String customerId,
+  ) async {
     final pay = await payment(amountMinor);
-    expectStatus(await post('/documents/$documentId/payments', {'paymentId': pay, 'amountMinor': '$amountMinor'}),
-        200, 'allocate');
+    expectStatus(
+      await post('/documents/$documentId/payments', {
+        'paymentId': pay,
+        'amountMinor': '$amountMinor',
+      }),
+      200,
+      'allocate',
+    );
     final r = expectStatus(
-        await post(
-            '/receipts',
-            {
-              'paymentIds': [
-                {'id': pay}
-              ],
-              'scopeKey': 'default',
-              'forDocumentId': documentId,
-              'customerId': customerId,
-            },
-            idemKey()),
-        201,
-        'POST /receipts');
+      await post('/receipts', {
+        'paymentIds': [
+          {'id': pay},
+        ],
+        'scopeKey': 'default',
+        'forDocumentId': documentId,
+        'customerId': customerId,
+      }, idemKey()),
+      201,
+      'POST /receipts',
+    );
     final receipt = r.json['receiptDocumentId'] as String;
-    expectStatus(await post('/documents/$receipt/artifact'), 201, 'receipt artifact');
+    expectStatus(
+      await post('/documents/$receipt/artifact'),
+      201,
+      'receipt artifact',
+    );
     return receipt;
   }
 
   /// A quote (net lines) in [status] (DRAFT or SENT).
-  Future<String> quote(String customerId, {int netMinor = 100000, String status = 'DRAFT'}) async {
+  Future<String> quote(
+    String customerId, {
+    int netMinor = 100000,
+    String status = 'DRAFT',
+  }) async {
     final valid = DateTime.now().add(const Duration(days: 14));
     final r = expectStatus(
-        await post('/quotes', {
-          'customerId': customerId,
-          'currency': 'ILS',
-          'validUntil': valid.toIso8601String().substring(0, 10),
-          'lines': [
-            {
-              'description': 'הצעת QA כסף',
-              'quantityMicros': '1000000',
-              'unitPriceMinor': '$netMinor',
-              'taxRateBasisPoints': 1800,
-            }
-          ],
-        }),
-        201,
-        'POST /quotes');
+      await post('/quotes', {
+        'customerId': customerId,
+        'currency': 'ILS',
+        'validUntil': valid.toIso8601String().substring(0, 10),
+        'lines': [
+          {
+            'description': 'הצעת QA כסף',
+            'quantityMicros': '1000000',
+            'unitPriceMinor': '$netMinor',
+            'taxRateBasisPoints': 1800,
+          },
+        ],
+      }),
+      201,
+      'POST /quotes',
+    );
     final id = r.json['id'] as String;
-    if (status != 'DRAFT') expectStatus(await post('/quotes/$id/status', {'to': status}), 200, 'quote status');
+    if (status != 'DRAFT') {
+      expectStatus(
+        await post('/quotes/$id/status', {'to': status}),
+        200,
+        'quote status',
+      );
+    }
     return id;
   }
 }
@@ -391,11 +515,19 @@ final sharedPdfs = <String>[];
 final sharedTexts = <String>[];
 
 const _keychain = FlutterSecureStorage(
-    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device));
+  iOptions: IOSOptions(
+    accessibility: KeychainAccessibility.first_unlock_this_device,
+  ),
+);
 
 /// Signs the app in as [preset] (device token in the Keychain → session.restore
 /// → /me), then shows D for [docId] on its own MaterialApp root.
-Future<void> openDocAs(WidgetTester tester, QaPreset preset, String docId, {bool quote = false}) async {
+Future<void> openDocAs(
+  WidgetTester tester,
+  QaPreset preset,
+  String docId, {
+  bool quote = false,
+}) async {
   final api = await DevApi.as(preset);
   await AppCache.isFirstLaunch(); // consume the marker: restore must not revoke our token
   await Biometric.instance.setEnabled(false);
@@ -405,28 +537,41 @@ Future<void> openDocAs(WidgetTester tester, QaPreset preset, String docId, {bool
   await _keychain.write(key: 'device_token', value: api.appToken);
   await _keychain.write(key: 'business_id', value: preset.businessId);
   await session.restore();
-  expect(session.status, SessionStatus.signedIn, reason: 'app sign-in as ${preset.email}');
+  expect(
+    session.status,
+    SessionStatus.signedIn,
+    reason: 'app sign-in as ${preset.email}',
+  );
   expect(session.business?.businessId, preset.businessId);
   expect(session.me, isNotNull, reason: '/me for ${preset.email}');
 
   await tester.pumpWidget(const SizedBox.shrink());
-  await tester.pumpWidget(MaterialApp(
-    navigatorKey: navigatorKey,
-    scaffoldMessengerKey: messengerKey,
-    locale: const Locale('he', 'IL'),
-    supportedLocales: const [Locale('he', 'IL')],
-    localizationsDelegates: GlobalMaterialLocalizations.delegates,
-    theme: buildTheme(Brightness.light),
-    home: DocumentScreen(id: docId, isQuote: quote),
-  ));
-  await pumpUntil(tester, find.byKey(const Key('doc-status-line')).hitTestable(),
-      orElse: find.byKey(const Key('doc-primary')));
+  await tester.pumpWidget(
+    MaterialApp(
+      navigatorKey: navigatorKey,
+      scaffoldMessengerKey: messengerKey,
+      locale: const Locale('he', 'IL'),
+      supportedLocales: const [Locale('he', 'IL')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      theme: buildTheme(Brightness.light),
+      home: DocumentScreen(id: docId, isQuote: quote),
+    ),
+  );
+  await pumpUntil(
+    tester,
+    find.byKey(const Key('doc-status-line')).hitTestable(),
+    orElse: find.byKey(const Key('doc-primary')),
+  );
   await settleNetwork(tester);
 }
 
 /// Pumps until [finder] (or [orElse]) shows, up to [timeout].
-Future<void> pumpUntil(WidgetTester tester, Finder finder,
-    {Finder? orElse, Duration timeout = const Duration(seconds: 30)}) async {
+Future<void> pumpUntil(
+  WidgetTester tester,
+  Finder finder, {
+  Finder? orElse,
+  Duration timeout = const Duration(seconds: 30),
+}) async {
   final end = DateTime.now().add(timeout);
   while (DateTime.now().isBefore(end)) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -437,7 +582,10 @@ Future<void> pumpUntil(WidgetTester tester, Finder finder,
 }
 
 /// Lets in-flight HTTP finish (real network on the simulator).
-Future<void> settleNetwork(WidgetTester tester, {Duration d = const Duration(seconds: 2)}) async {
+Future<void> settleNetwork(
+  WidgetTester tester, {
+  Duration d = const Duration(seconds: 2),
+}) async {
   final end = DateTime.now().add(d);
   while (DateTime.now().isBefore(end)) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -448,10 +596,15 @@ Future<void> settleNetwork(WidgetTester tester, {Duration d = const Duration(sec
 class TapCounter {
   int taps = 0;
 
-  Future<void> tap(WidgetTester tester, Finder f, {Duration settle = const Duration(seconds: 2)}) async {
+  Future<void> tap(
+    WidgetTester tester,
+    Finder f, {
+    Duration settle = const Duration(seconds: 2),
+  }) async {
     taps++;
     await tester.ensureVisible(f);
     await tester.pump();
+    await uncover(tester, f);
     await tester.tap(f);
     await settleNetwork(tester, d: settle);
   }
@@ -461,8 +614,13 @@ Finder primaryButton() => find.byKey(const Key('doc-primary'));
 
 /// The label of D's one PrimaryButton.
 String primaryLabel(WidgetTester tester) {
-  final texts = find.descendant(of: primaryButton(), matching: find.byType(Text));
-  return [for (final e in texts.evaluate()) (e.widget as Text).data ?? ''].join(' ').trim();
+  final texts = find.descendant(
+    of: primaryButton(),
+    matching: find.byType(Text),
+  );
+  return [
+    for (final e in texts.evaluate()) (e.widget as Text).data ?? '',
+  ].join(' ').trim();
 }
 
 /// The ⋯ menu labels of D (opens and closes the menu; not counted as taps).
@@ -473,8 +631,9 @@ Future<List<String>> menuLabels(WidgetTester tester) async {
   await settleNetwork(tester, d: const Duration(milliseconds: 800));
   final sheet = find.byType(BottomSheet);
   final labels = [
-    for (final e in find.descendant(of: sheet, matching: find.byType(Text)).evaluate())
-      (e.widget as Text).data ?? ''
+    for (final e
+        in find.descendant(of: sheet, matching: find.byType(Text)).evaluate())
+      (e.widget as Text).data ?? '',
   ];
   navigatorKey.currentState!.pop();
   await settleNetwork(tester, d: const Duration(milliseconds: 800));
@@ -486,12 +645,18 @@ Future<List<String>> menuLabels(WidgetTester tester) async {
 Future<String> statusLineText(WidgetTester tester) async {
   final line = find.byKey(const Key('doc-status-line'));
   if (line.evaluate().isEmpty) {
-    final list = find.descendant(of: find.byType(DocumentScreen).last, matching: find.byType(Scrollable));
+    final list = find.descendant(
+      of: find.byType(DocumentScreen).last,
+      matching: find.byType(Scrollable),
+    );
     await tester.scrollUntilVisible(line, 200, scrollable: list.first);
     await tester.pump(const Duration(milliseconds: 300));
   }
   return [
-    for (final e in find.descendant(of: line, matching: find.byType(RichText)).evaluate())
-      (e.widget as RichText).text.toPlainText()
+    for (final e
+        in find
+            .descendant(of: line, matching: find.byType(RichText))
+            .evaluate())
+      (e.widget as RichText).text.toPlainText(),
   ].join(' ');
 }

@@ -57,7 +57,10 @@ class SummaryRow extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: Hit.min + 8),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.card, vertical: Space.s),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.card,
+              vertical: Space.s,
+            ),
             child: Row(
               children: [
                 if (icon != null) ...[

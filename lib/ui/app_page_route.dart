@@ -19,11 +19,19 @@ class AppPageRoute<T> extends CupertinoPageRoute<T> {
     Widget child,
   ) {
     if (MediaQuery.disableAnimationsOf(context)) return child;
-    return super.buildTransitions(
+    final pageTransition = super.buildTransitions(
       context,
       animation,
       secondaryAnimation,
       child,
     );
+    final opacity = Tween<double>(begin: .94, end: 1).animate(
+      CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
+    );
+    return FadeTransition(opacity: opacity, child: pageTransition);
   }
 }

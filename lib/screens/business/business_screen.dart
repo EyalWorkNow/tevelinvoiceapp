@@ -1,14 +1,17 @@
 // B · עסק (one template: rows → sub-page / S13) (SPEC-v2 §6.B, §13). Owner: squad E.
 // Routes: /business (tab) and /business/:section (see BusinessSection in router.dart).
-// Rows exist only with their capability (§4.4, F5): the owner sees at most 10.
+// Rows exist only with their capability (§4.4, F5): the owner sees at most 10;
+// rarely used rows sit under one "עוד הגדרות" row (/business/more, PM 2026-11-12).
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/settings_api.dart'
     show fetchRemindersEnabled, saveRemindersEnabled;
 import '../../router.dart';
+import '../people/customer_crm_agenda_screen.dart';
 import '../../state/business_context.dart';
 import '../../state/caps.dart';
 import '../../state/session.dart';
@@ -20,6 +23,8 @@ import '../../util/composer_config.dart' show DocKind, configFor, moreKinds;
 import '../../util/intent_resolver.dart' show intentQuote, typeIntent;
 import '../../util/labels/labels.dart';
 import 'account_page.dart';
+import 'system_notice_settings.dart';
+import '../../util/labels/system_notices_he.dart';
 import 'branding_screen.dart';
 import 'integrations_screen.dart';
 import '../billing/billing_screen.dart';
@@ -42,6 +47,7 @@ class BusinessScreen extends StatelessWidget {
     'team' => const TeamPage(),
     'integrations' => const IntegrationsScreen(),
     'account' => const AccountPage(),
+    'notifications' => const SystemNoticeSettings(),
     'shaam' => const ShaamPage(),
     'profile' => const EditorPage(instance: '13.1', title: BusinessHe.profile),
     'branding' => const BrandingScreen(),
@@ -54,13 +60,73 @@ class BusinessScreen extends StatelessWidget {
       instance: '13.3',
       title: BusinessHe.numbering,
     ),
+    'more' => const _MoreSettingsPage(),
     _ => const _BusinessList(),
   };
 }
 
-/// The rows of B for [caps] (key, label, icon, action). Public for capability and navigation tests.
+/// Rarely used rows grouped under "עוד הגדרות" (SPEC §6.B: B ≤ 10 rows).
+const Set<String> moreSettingsKeys = {
+  'integrations',
+  'subscription',
+  'notifications',
+  'desktop',
+};
+
+/// The "עוד הגדרות" row of B.
+const BusinessRowSpec moreSettingsRow = BusinessRowSpec(
+  'more',
+  BusinessHe.moreSettings,
+  Iconsax.setting_2,
+);
+
+/// The rows of B for [caps] (key, label, icon). Public for capability and
+/// navigation tests. When two or more [moreSettingsKeys] rows exist they are
+/// replaced by one [moreSettingsRow] (their page: [moreSettingsRows]).
 /// [reminders]: BE-19 switch state; null = the server has no reminders (row hidden).
 List<BusinessRowSpec> businessRows(
+  Caps caps, {
+  required int memberCount,
+  bool? reminders,
+}) {
+  final all = allBusinessRows(
+    caps,
+    memberCount: memberCount,
+    reminders: reminders,
+  );
+  final more = moreSettingsRows(
+    caps,
+    memberCount: memberCount,
+    reminders: reminders,
+  );
+  if (more.isEmpty) return all;
+  return [
+    for (final r in all)
+      if (!moreSettingsKeys.contains(r.key)) r,
+    moreSettingsRow,
+  ];
+}
+
+/// The rows of the "עוד הגדרות" page; empty when fewer than two exist (a
+/// single one stays in B itself).
+List<BusinessRowSpec> moreSettingsRows(
+  Caps caps, {
+  required int memberCount,
+  bool? reminders,
+}) {
+  final more = [
+    for (final r in allBusinessRows(
+      caps,
+      memberCount: memberCount,
+      reminders: reminders,
+    ))
+      if (moreSettingsKeys.contains(r.key)) r,
+  ];
+  return more.length < 2 ? const [] : more;
+}
+
+/// Every destination of B for [caps], before grouping (§4.4).
+List<BusinessRowSpec> allBusinessRows(
   Caps caps, {
   required int memberCount,
   bool? reminders,
@@ -100,6 +166,11 @@ List<BusinessRowSpec> businessRows(
     const BusinessRowSpec('integrations', 'חיבורים ושליחה', Iconsax.link),
   if (caps.can(Cap.owner))
     const BusinessRowSpec('subscription', 'המסלול של העסק', Iconsax.crown),
+  const BusinessRowSpec(
+    'notifications',
+    SystemNoticesHe.title,
+    Iconsax.notification,
+  ),
   const BusinessRowSpec('account', BusinessHe.account, Iconsax.user),
   if (caps.can(Cap.settingsBusiness) || caps.can(Cap.reportView))
     const BusinessRowSpec('desktop', BusinessHe.desktop, Iconsax.monitor),
@@ -189,12 +260,13 @@ class _BusinessListState extends State<_BusinessList> {
     try {
       await saveRemindersEnabled(on);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context).showNotchNotice(
           SnackBar(
             content: Text(
               on ? BusinessHe.remindersOn : BusinessHe.remindersOff,
             ),
           ),
+          motion: NoticeMotion.reminder,
         );
       }
     } on Object catch (e) {
@@ -204,41 +276,7 @@ class _BusinessListState extends State<_BusinessList> {
     }
   }
 
-  void _open(BuildContext context, String key) {
-    switch (key) {
-      case 'integrations':
-        openBusinessSection(context, BusinessSection.integrations);
-      case 'subscription':
-        showBillingPlans(context);
-      case 'reports':
-        openReports(context);
-      case 'expenses':
-        if (businessContext.can(Cap.expenseApprove) &&
-            businessContext.can(Cap.moneyView)) {
-          openExpenseOverview(context);
-        } else {
-          openExpenses(context);
-        }
-      case 'team':
-        openBusinessSection(context, BusinessSection.team);
-      case 'shaam':
-        openBusinessSection(context, BusinessSection.shaam);
-      case 'account':
-        openBusinessSection(context, BusinessSection.account);
-      case 'profile':
-        showEditorSheet(context, instance: '13.1');
-      case 'customers':
-        openPeople();
-      case 'branding':
-        openBusinessSection(context, BusinessSection.branding);
-      case 'approvals':
-        showEditorSheet(context, instance: '13.6');
-      case 'numbering':
-        showEditorSheet(context, instance: '13.3');
-      case 'desktop':
-        showEditorSheet(context, instance: '13.9');
-    }
-  }
+  void _open(BuildContext context, String key) => openBusinessRow(context, key);
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -267,13 +305,28 @@ class _BusinessListState extends State<_BusinessList> {
                 ),
               )
             : Padding(
-                padding: const EdgeInsets.symmetric(vertical: Space.s),
+                padding: const EdgeInsets.only(bottom: Space.s),
                 child: Semantics(
-                  header: true,
-                  child: Text(
-                    businessContext.displayName,
-                    key: const Key('business-name'),
-                    style: AppText.title,
+                  label: businessContext.displayName,
+                  child: Row(
+                    children: [
+                      Icon(
+                        Iconsax.shop,
+                        size: 17,
+                        color: context.palette.muted,
+                      ),
+                      const SizedBox(width: Space.s),
+                      Flexible(
+                        child: Text(
+                          businessContext.displayName,
+                          key: const Key('business-name'),
+                          style: AppText.secondary.copyWith(
+                            color: context.palette.muted,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -309,21 +362,28 @@ class _BusinessListState extends State<_BusinessList> {
 
   Widget _quickActions(BuildContext context, Caps caps) {
     final businessType = businessContext.businessType;
+    final currentBusinessId = businessContext.business?.businessId;
     final section46 =
         (businessContext.profile?.section46ApprovalNumber ?? '').isNotEmpty;
+    // Actions only: everything that is a settings row below (reports, team,
+    // branding, business details, numbering, …) lives there once (07·U9).
+    // Customers are a tab of their own (§5, PM 2026-11-12), not an action here.
     final actions = <_ManagementAction>[
-      _ManagementAction(
-        id: 'customers',
-        label: 'לקוחות',
-        icon: Iconsax.profile_2user,
-        orb: Icon(
-          Iconsax.profile_2user,
-          color: const Color(0xFF35556A),
-          size: 28,
+      if (currentBusinessId != null)
+        _ManagementAction(
+          id: 'crm-agenda',
+          label: 'לוח מעקב',
+          icon: Iconsax.calendar,
+          orb: const Icon(Iconsax.calendar, color: Color(0xFF385D6E), size: 27),
+          color: const Color(0xFFD6EDF5),
+          onTap: () => unawaited(
+            openCustomerCrmAgenda(
+              context,
+              businessId: currentBusinessId,
+              onOpenCustomer: (id) => unawaited(openPerson(context, id)),
+            ),
+          ),
         ),
-        color: const Color(0xFFC9E7F4),
-        onTap: openPeople,
-      ),
       if (caps.can(Cap.docDraft)) ...[
         _ManagementAction(
           id: 'quote',
@@ -346,56 +406,6 @@ class _BusinessListState extends State<_BusinessList> {
           onTap: () => _openNewCustomer(context),
         ),
       ],
-      if (caps.can(Cap.reportView) && !caps.homeIsReports)
-        _ManagementAction(
-          id: 'reports',
-          label: 'דוחות',
-          icon: Iconsax.chart_2,
-          orb: Icon(Iconsax.chart_2, color: const Color(0xFF385D55), size: 28),
-          color: const Color(0xFFCDEBDD),
-          onTap: () => openReports(context),
-        ),
-      if (caps.can(Cap.settingsDesign))
-        _ManagementAction(
-          id: 'branding',
-          label: 'עיצוב מסמכים',
-          icon: Iconsax.colorfilter,
-          orb: Icon(
-            Iconsax.colorfilter,
-            color: const Color(0xFF754F46),
-            size: 28,
-          ),
-          color: const Color(0xFFF5D6C8),
-          onTap: () => openBusinessSection(context, BusinessSection.branding),
-        ),
-      if (caps.can(Cap.teamManage))
-        _ManagementAction(
-          id: 'team',
-          label: 'צוות והרשאות',
-          icon: Iconsax.people,
-          orb: Icon(Iconsax.people, color: const Color(0xFF4A5680), size: 28),
-          color: const Color(0xFFD9E0F8),
-          onTap: () => openBusinessSection(context, BusinessSection.team),
-        ),
-      if (caps.can(Cap.settingsBusiness)) ...[
-        _ManagementAction(
-          id: 'integrations',
-          label: 'חיבורים',
-          icon: Iconsax.link,
-          orb: Icon(Iconsax.link, color: const Color(0xFF446A68), size: 28),
-          color: const Color(0xFFCDEBE7),
-          onTap: () =>
-              openBusinessSection(context, BusinessSection.integrations),
-        ),
-        _ManagementAction(
-          id: 'profile',
-          label: 'פרטי העסק',
-          icon: Iconsax.shop,
-          orb: Icon(Iconsax.shop, color: const Color(0xFF775A36), size: 28),
-          color: const Color(0xFFF1DEC2),
-          onTap: () => openBusinessSection(context, BusinessSection.profile),
-        ),
-      ],
       for (final kind in moreKinds(
         businessType,
         caps,
@@ -414,24 +424,6 @@ class _BusinessListState extends State<_BusinessList> {
           color: const Color(0xFFE8D9EF),
           onTap: () =>
               unawaited(openCompose(context, intent: typeIntent(kind))),
-        ),
-      if (caps.can(Cap.settingsNumbering))
-        _ManagementAction(
-          id: 'numbering',
-          label: 'מספור מסמכים',
-          icon: Iconsax.hashtag,
-          orb: Icon(Iconsax.hashtag, color: const Color(0xFF546150), size: 28),
-          color: const Color(0xFFDCE8D0),
-          onTap: () => showEditorSheet(context, instance: '13.3'),
-        ),
-      if (caps.can(Cap.settingsBusiness))
-        _ManagementAction(
-          id: 'desktop',
-          label: ComposeHe.moreOnComputer,
-          icon: Iconsax.monitor,
-          orb: Icon(Iconsax.monitor, color: context.palette.ink, size: 28),
-          color: const Color(0xFFF1DEC2),
-          onTap: () => openBusinessSection(context, BusinessSection.desktop),
         ),
     ];
 
@@ -525,38 +517,46 @@ class _ManagementQuickActions extends StatelessWidget {
           id: 'more',
           label: 'פעולות נוספות',
           icon: Iconsax.more,
-          orb: Icon(Iconsax.more, color: context.palette.ink, size: 28),
+          orb: const Icon(Iconsax.more, color: Color(0xFF624D73), size: 28),
           color: const Color(0xFFE6D4F4),
           onTap: () => onMore(actions.skip(7).toList()),
         ),
       );
     }
+    Widget actionOrb(_ManagementAction action) => ActionOrb(
+      key: Key('management-action-${action.id}'),
+      label: action.label,
+      icon: action.orb,
+      color: action.color,
+      labelSpacing: 5,
+      onPressed: action.onTap,
+    );
+
+    final rows = <Widget>[];
+    for (var start = 0; start < visible.length; start += 4) {
+      final row = visible.skip(start).take(4).toList(growable: false);
+      rows.add(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final action in row) Expanded(child: actionOrb(action)),
+            for (var empty = row.length; empty < 4; empty++)
+              const Expanded(child: SizedBox()),
+          ],
+        ),
+      );
+      if (start + 4 < visible.length) {
+        rows.add(const SizedBox(height: Space.xs));
+      }
+    }
+
     return Column(
+      key: const Key('management-quick-actions'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text('פעולות מהירות', style: AppText.title),
         const SizedBox(height: Space.s),
-        GridView.builder(
-          key: const Key('management-quick-actions'),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: visible.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            mainAxisExtent: 132,
-            crossAxisSpacing: 2,
-          ),
-          itemBuilder: (context, index) {
-            final action = visible[index];
-            return ActionOrb(
-              key: Key('management-action-${action.id}'),
-              label: action.label,
-              icon: action.orb,
-              color: action.color,
-              onPressed: action.onTap,
-            );
-          },
-        ),
+        ...rows,
       ],
     );
   }
@@ -569,25 +569,27 @@ class EditorPage extends StatelessWidget {
     required this.instance,
     required this.title,
     this.header,
+    this.showTitle = true,
   });
 
   final String instance;
   final String title;
   final Widget? header;
+  final bool showTitle;
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(title)),
+    appBar: showTitle ? AppBar(title: Text(title)) : null,
     body: SafeArea(
       child: Column(
         children: [
           if (header != null) ...[
             Padding(
-              padding: const EdgeInsets.fromLTRB(
+              padding: EdgeInsets.fromLTRB(
                 Space.page,
-                Space.s,
+                showTitle ? Space.s : Space.l,
                 Space.page,
-                0,
+                Space.m,
               ),
               child: header!,
             ),
@@ -595,6 +597,70 @@ class EditorPage extends StatelessWidget {
           Expanded(child: EditorLoader(instance: instance)),
         ],
       ),
+    ),
+  );
+}
+
+/// Opens the destination of the B row [key] (the B list and "עוד הגדרות").
+void openBusinessRow(BuildContext context, String key) {
+  switch (key) {
+    case 'integrations':
+      openBusinessSection(context, BusinessSection.integrations);
+    case 'subscription':
+      showBillingPlans(context);
+    case 'reports':
+      openReports(context);
+    case 'expenses':
+      if (businessContext.can(Cap.expenseApprove) &&
+          businessContext.can(Cap.moneyView)) {
+        openExpenseOverview(context);
+      } else {
+        openExpenses(context);
+      }
+    case 'team':
+      openBusinessSection(context, BusinessSection.team);
+    case 'shaam':
+      openBusinessSection(context, BusinessSection.shaam);
+    case 'notifications':
+      openBusinessSection(context, BusinessSection.notifications);
+    case 'account':
+      openBusinessSection(context, BusinessSection.account);
+    case 'profile':
+      showEditorSheet(context, instance: '13.1');
+    case 'more':
+      openBusinessSection(context, BusinessSection.more);
+    case 'branding':
+      openBusinessSection(context, BusinessSection.branding);
+    case 'approvals':
+      showEditorSheet(context, instance: '13.6');
+    case 'numbering':
+      showEditorSheet(context, instance: '13.3');
+    case 'desktop':
+      showEditorSheet(context, instance: '13.9');
+  }
+}
+
+/// "עוד הגדרות" (/business/more): the rarely used rows of B, same template.
+class _MoreSettingsPage extends StatelessWidget {
+  const _MoreSettingsPage();
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: businessContext,
+    builder: (context, _) => BusinessPage(
+      title: BusinessHe.moreSettings,
+      children: [
+        for (final r in moreSettingsRows(
+          businessContext.caps,
+          memberCount: businessContext.me?.memberCount ?? 1,
+        ))
+          BusinessRow(
+            key: Key('brow-${r.key}'),
+            label: r.label,
+            icon: r.icon,
+            onTap: () => openBusinessRow(context, r.key),
+          ),
+      ],
     ),
   );
 }

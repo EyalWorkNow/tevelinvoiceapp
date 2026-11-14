@@ -28,8 +28,10 @@ class LineAmounts {
   final BigInt taxMinor;
   BigInt get totalMinor => subtotalMinor + taxMinor;
 
-  LineAmounts operator +(LineAmounts other) =>
-      LineAmounts(subtotalMinor + other.subtotalMinor, taxMinor + other.taxMinor);
+  LineAmounts operator +(LineAmounts other) => LineAmounts(
+    subtotalMinor + other.subtotalMinor,
+    taxMinor + other.taxMinor,
+  );
 
   static final LineAmounts zero = LineAmounts(BigInt.zero, BigInt.zero);
 }
@@ -42,20 +44,32 @@ LineAmounts calculateLine({
   BigInt? discountMinor,
   required int taxRateBasisPoints,
 }) {
-  final gross = roundHalfAwayFromZeroDiv(quantityMicros * unitPriceMinor, _quantityScale);
+  final gross = roundHalfAwayFromZeroDiv(
+    quantityMicros * unitPriceMinor,
+    _quantityScale,
+  );
   final subtotal = gross - (discountMinor ?? BigInt.zero);
-  final tax = roundHalfAwayFromZeroDiv(subtotal * BigInt.from(taxRateBasisPoints), _bpScale);
+  final tax = roundHalfAwayFromZeroDiv(
+    subtotal * BigInt.from(taxRateBasisPoints),
+    _bpScale,
+  );
   return LineAmounts(subtotal, tax);
 }
 
 /// Total the server computes for a single line of quantity 1 at [netMinor].
 BigInt totalForNet(BigInt netMinor, int taxRateBasisPoints) => calculateLine(
-        quantityMicros: _quantityScale, unitPriceMinor: netMinor, taxRateBasisPoints: taxRateBasisPoints)
-    .totalMinor;
+  quantityMicros: _quantityScale,
+  unitPriceMinor: netMinor,
+  taxRateBasisPoints: taxRateBasisPoints,
+).totalMinor;
 
 /// A gross amount split into a net unit price (quantity 1) + VAT.
 class GrossSplit {
-  const GrossSplit({required this.netMinor, required this.taxMinor, required this.exact});
+  const GrossSplit({
+    required this.netMinor,
+    required this.taxMinor,
+    required this.exact,
+  });
 
   /// Unit price to send (quantity 1).
   final BigInt netMinor;
@@ -77,7 +91,9 @@ GrossSplit splitGross(BigInt grossMinor, int taxRateBasisPoints) {
     return GrossSplit(netMinor: grossMinor, taxMinor: BigInt.zero, exact: true);
   }
   final estimate = roundHalfAwayFromZeroDiv(
-      grossMinor * _bpScale, _bpScale + BigInt.from(taxRateBasisPoints));
+    grossMinor * _bpScale,
+    _bpScale + BigInt.from(taxRateBasisPoints),
+  );
   BigInt? best;
   BigInt? bestTotal;
   for (var d = -2; d <= 2; d++) {
@@ -89,7 +105,9 @@ GrossSplit splitGross(BigInt grossMinor, int taxRateBasisPoints) {
     }
     final diff = (total - grossMinor).abs();
     final bestDiff = bestTotal == null ? null : (bestTotal - grossMinor).abs();
-    if (bestDiff == null || diff < bestDiff || (diff == bestDiff && total < bestTotal!)) {
+    if (bestDiff == null ||
+        diff < bestDiff ||
+        (diff == bestDiff && total < bestTotal!)) {
       best = net;
       bestTotal = total;
     }
@@ -113,13 +131,19 @@ BigInt? parseQuantityMicros(String input) {
 /// quantityMicros → short text: 1000000 → '1', 1500000 → '1.5'.
 String formatQuantity(BigInt micros) {
   final whole = micros ~/ _quantityScale;
-  final frac = (micros % _quantityScale).toString().padLeft(6, '0').replaceAll(RegExp(r'0+$'), '');
+  final frac = (micros % _quantityScale)
+      .toString()
+      .padLeft(6, '0')
+      .replaceAll(RegExp(r'0+$'), '');
   return frac.isEmpty ? '$whole' : '$whole.$frac';
 }
 
 /// VAT rate for display: 1800 → '18%', 1750 → '17.5%'.
 String formatRate(int basisPoints) {
   final whole = basisPoints ~/ 100;
-  final frac = (basisPoints % 100).toString().padLeft(2, '0').replaceAll(RegExp(r'0+$'), '');
+  final frac = (basisPoints % 100)
+      .toString()
+      .padLeft(2, '0')
+      .replaceAll(RegExp(r'0+$'), '');
   return frac.isEmpty ? '$whole%' : '$whole.$frac%';
 }

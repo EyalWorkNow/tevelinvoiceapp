@@ -10,11 +10,21 @@ void main() {
   final api = ApiClient.instance;
   late List<http.Request> sent;
 
-  void respond(int status, Object? body, {Map<String, String> headers = const {}}) {
+  void respond(
+    int status,
+    Object? body, {
+    Map<String, String> headers = const {},
+  }) {
     api.httpClient = MockClient((request) async {
       sent.add(request);
-      return http.Response(body == null ? '' : jsonEncode(body), status,
-          headers: {'content-type': 'application/json; charset=utf-8', ...headers});
+      return http.Response(
+        body == null ? '' : jsonEncode(body),
+        status,
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+          ...headers,
+        },
+      );
     });
   }
 
@@ -23,22 +33,36 @@ void main() {
     api.clearCredentials();
   });
 
-  test('password sign-in starts a clean cookie phase and parses MFA_REQUIRED', () async {
-    api.deviceToken = 'inv_stale';
-    api.businessId = 'b-old';
-    respond(200, {'status': 'MFA_REQUIRED', 'mfaRequired': true, 'csrfToken': 'c1', 'businesses': []},
-        headers: {'set-cookie': 'tvl_session=s1; HttpOnly; Path=/'});
-    final r = await signInWithPassword('  owner@tevel.test ', 'pw');
-    expect(r.mfaRequired, isTrue);
-    expect(r.businesses, isEmpty);
-    final req = sent.single;
-    expect(req.url.path, '/auth/login');
-    expect(req.headers.containsKey('Authorization'), isFalse);
-    expect(req.headers.containsKey('X-Business-Id'), isFalse);
-    expect(jsonDecode(req.body), {'email': 'owner@tevel.test', 'password': 'pw'});
-    expect(api.sessionCookie, 's1');
-    expect(api.csrfToken, 'c1');
-  });
+  test(
+    'password sign-in starts a clean cookie phase and parses MFA_REQUIRED',
+    () async {
+      api.deviceToken = 'inv_stale';
+      api.businessId = 'b-old';
+      respond(
+        200,
+        {
+          'status': 'MFA_REQUIRED',
+          'mfaRequired': true,
+          'csrfToken': 'c1',
+          'businesses': [],
+        },
+        headers: {'set-cookie': 'tvl_session=s1; HttpOnly; Path=/'},
+      );
+      final r = await signInWithPassword('  owner@tevel.test ', 'pw');
+      expect(r.mfaRequired, isTrue);
+      expect(r.businesses, isEmpty);
+      final req = sent.single;
+      expect(req.url.path, '/auth/login');
+      expect(req.headers.containsKey('Authorization'), isFalse);
+      expect(req.headers.containsKey('X-Business-Id'), isFalse);
+      expect(jsonDecode(req.body), {
+        'email': 'owner@tevel.test',
+        'password': 'pw',
+      });
+      expect(api.sessionCookie, 's1');
+      expect(api.csrfToken, 'c1');
+    },
+  );
 
   test('PASSWORD_OK lists businesses', () async {
     respond(200, {
@@ -46,8 +70,8 @@ void main() {
       'mfaRequired': false,
       'csrfToken': 'c',
       'businesses': [
-        {'businessId': 'b1', 'legalName': 'סטודיו', 'role': 'EMPLOYEE'}
-      ]
+        {'businessId': 'b1', 'legalName': 'סטודיו', 'role': 'EMPLOYEE'},
+      ],
     });
     final r = await signInWithPassword('e@tevel.test', 'pw');
     expect(r.mfaRequired, isFalse);
@@ -55,9 +79,17 @@ void main() {
   });
 
   test('Apple sends identityToken, fullName only when present', () async {
-    respond(200, {'status': 'PASSWORD_OK', 'mfaRequired': false, 'csrfToken': 'c', 'businesses': []});
+    respond(200, {
+      'status': 'PASSWORD_OK',
+      'mfaRequired': false,
+      'csrfToken': 'c',
+      'businesses': [],
+    });
     await signInWithApple('jwt', fullName: ' דנה כהן ');
-    expect(jsonDecode(sent.last.body), {'identityToken': 'jwt', 'fullName': 'דנה כהן'});
+    expect(jsonDecode(sent.last.body), {
+      'identityToken': 'jwt',
+      'fullName': 'דנה כהן',
+    });
     await signInWithApple('jwt', fullName: '  ');
     expect(jsonDecode(sent.last.body), {'identityToken': 'jwt'});
     expect(sent.last.url.path, '/auth/apple');
@@ -67,9 +99,11 @@ void main() {
     respond(401, {'error': 'APPLE_TOKEN_INVALID', 'message': 'x'});
     await expectLater(
       signInWithApple('bad'),
-      throwsA(isA<ApiException>()
-          .having((e) => e.code, 'code', 'APPLE_TOKEN_INVALID')
-          .having((e) => e.messageHe, 'he', contains('Apple'))),
+      throwsA(
+        isA<ApiException>()
+            .having((e) => e.code, 'code', 'APPLE_TOKEN_INVALID')
+            .having((e) => e.messageHe, 'he', contains('Apple')),
+      ),
     );
   });
 
@@ -85,13 +119,14 @@ void main() {
     expect(m.useEmail, isTrue);
     expect(m.totp, isFalse);
     expect(
-        MfaMethods.fromJson({
-          'totp': true,
-          'email': {'enabled': true},
-          'emailAvailable': false,
-          'recoveryCodesRemaining': 8
-        }).useEmail,
-        isFalse);
+      MfaMethods.fromJson({
+        'totp': true,
+        'email': {'enabled': true},
+        'emailAvailable': false,
+        'recoveryCodesRemaining': 8,
+      }).useEmail,
+      isFalse,
+    );
   });
 
   test('e-mail code send/verify payloads + recovery codes', () async {
@@ -104,48 +139,75 @@ void main() {
     expect(jsonDecode(sent.last.body), {'purpose': 'ENROLL'});
     expect(sent.last.headers['X-CSRF-Token'], 'c0');
 
-    respond(200, {'status': 'ok', 'recoveryCodes': null, 'csrfToken': 'c1'},
-        headers: {'set-cookie': 'tvl_session=s2; Path=/'});
+    respond(
+      200,
+      {'status': 'ok', 'recoveryCodes': null, 'csrfToken': 'c1'},
+      headers: {'set-cookie': 'tvl_session=s2; Path=/'},
+    );
     expect(await verifyEmailCode('123456', MfaPurpose.login), isNull);
     expect(jsonDecode(sent.last.body), {'code': '123456'});
     expect(api.csrfToken, 'c1');
     expect(api.sessionCookie, 's2');
 
-    respond(200, {'status': 'ok', 'recoveryCodes': ['aaaa-bbbb', 'cccc-dddd'], 'csrfToken': 'c2'});
-    expect(await verifyEmailCode('654321', MfaPurpose.enroll), ['aaaa-bbbb', 'cccc-dddd']);
+    respond(200, {
+      'status': 'ok',
+      'recoveryCodes': ['aaaa-bbbb', 'cccc-dddd'],
+      'csrfToken': 'c2',
+    });
+    expect(await verifyEmailCode('654321', MfaPurpose.enroll), [
+      'aaaa-bbbb',
+      'cccc-dddd',
+    ]);
     expect(jsonDecode(sent.last.body), {'code': '654321', 'purpose': 'ENROLL'});
   });
 
-  test('onboarding profile body: digits-only tax id, description when given, locked identity', () async {
-    api.deviceToken = 'inv_x';
-    api.businessId = 'b1';
-    final profile = {
-      'profile': {'legalName': 'דנה', 'businessType': 'OSEK_PATUR', 'identityLocked': false}
-    };
-    respond(200, profile);
-    await saveOnboardingProfile(
-        legalName: ' דנה ', businessType: 'OSEK_PATUR', taxId: '12345678-2', defaultLineDescription: ' ');
-    expect(sent.last.method, 'PUT');
-    expect(sent.last.headers['X-Business-Id'], 'b1');
-    expect(jsonDecode(sent.last.body), {
-      'legalName': 'דנה',
-      'businessType': 'OSEK_PATUR',
-      'taxId': '123456782',
-    });
+  test(
+    'onboarding profile body: digits-only tax id, description when given, locked identity',
+    () async {
+      api.deviceToken = 'inv_x';
+      api.businessId = 'b1';
+      final profile = {
+        'profile': {
+          'legalName': 'דנה',
+          'businessType': 'OSEK_PATUR',
+          'identityLocked': false,
+        },
+      };
+      respond(200, profile);
+      await saveOnboardingProfile(
+        legalName: ' דנה ',
+        businessType: 'OSEK_PATUR',
+        taxId: '12345678-2',
+        defaultLineDescription: ' ',
+      );
+      expect(sent.last.method, 'PUT');
+      expect(sent.last.headers['X-Business-Id'], 'b1');
+      expect(jsonDecode(sent.last.body), {
+        'legalName': 'דנה',
+        'businessType': 'OSEK_PATUR',
+        'taxId': '123456782',
+      });
 
-    await saveOnboardingProfile(
+      await saveOnboardingProfile(
         legalName: 'דנה',
         businessType: 'OSEK_PATUR',
         taxId: '123456782',
         defaultLineDescription: 'עיצוב גרפי',
-        includeIdentity: false);
-    expect(jsonDecode(sent.last.body), {'legalName': 'דנה', 'defaultLineDescription': 'עיצוב גרפי'});
+        includeIdentity: false,
+      );
+      expect(jsonDecode(sent.last.body), {
+        'legalName': 'דנה',
+        'defaultLineDescription': 'עיצוב גרפי',
+      });
 
-    respond(200, {'onboarding': {'completed': true}});
-    await completeOnboarding();
-    expect(sent.last.url.path, '/business/onboarding');
-    expect(jsonDecode(sent.last.body), {'completed': true});
-  });
+      respond(200, {
+        'onboarding': {'completed': true},
+      });
+      await completeOnboarding();
+      expect(sent.last.url.path, '/business/onboarding');
+      expect(jsonDecode(sent.last.body), {'completed': true});
+    },
+  );
 
   test('Israeli id checksum (same rule as packages/shared israel.ts)', () {
     expect(isValidIsraeliId('123456782'), isTrue);

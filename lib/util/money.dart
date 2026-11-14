@@ -4,13 +4,18 @@ final BigInt _hundred = BigInt.from(100);
 
 /// 118000 → '₪1,180.00'. [trimZeroAgorot]: 118000 → '₪1,180'.
 /// Negative values get a leading minus: '-₪50.00'.
-String formatMoney(BigInt agorot, {bool trimZeroAgorot = false, String symbol = '₪'}) {
+String formatMoney(
+  BigInt agorot, {
+  bool trimZeroAgorot = false,
+  String symbol = '₪',
+}) {
   final negative = agorot.isNegative;
   final abs = agorot.abs();
   final whole = _groupThousands((abs ~/ _hundred).toString());
   final cents = (abs % _hundred).toInt();
-  final fraction =
-      (trimZeroAgorot && cents == 0) ? '' : '.${cents.toString().padLeft(2, '0')}';
+  final fraction = (trimZeroAgorot && cents == 0)
+      ? ''
+      : '.${cents.toString().padLeft(2, '0')}';
   return '${negative ? '-' : ''}$symbol$whole$fraction';
 }
 

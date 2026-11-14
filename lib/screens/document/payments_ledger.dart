@@ -78,8 +78,12 @@ class _PaymentsLedgerState extends State<PaymentsLedger> {
   }
 
   Future<void> _void(PaymentRow row) async {
-    final reason = await askReason(context,
-        title: DocumentHe.voidPaymentTitle, hint: DocumentHe.voidReason, confirm: DocumentHe.voidPayment);
+    final reason = await askReason(
+      context,
+      title: DocumentHe.voidPaymentTitle,
+      hint: DocumentHe.voidReason,
+      confirm: DocumentHe.voidPayment,
+    );
     if (reason == null || !mounted) return;
     setState(() => _busyId = row.id);
     try {
@@ -97,11 +101,17 @@ class _PaymentsLedgerState extends State<PaymentsLedger> {
   @override
   Widget build(BuildContext context) {
     if (_rows.isEmpty && _loading) return const SkeletonList(rows: 4);
-    if (_rows.isEmpty && _error != null) return ErrorView(error: _error!, onRetry: () => _load(reset: true));
-    if (_rows.isEmpty) {
-      return const EmptyState(icon: Iconsax.moneys, title: DocumentHe.ledgerEmpty);
+    if (_rows.isEmpty && _error != null) {
+      return ErrorView(error: _error!, onRetry: () => _load(reset: true));
     }
-    final canVoid = businessContext.can(Cap.paymentRecord) && !businessContext.offline;
+    if (_rows.isEmpty) {
+      return const EmptyState(
+        icon: Iconsax.moneys,
+        title: DocumentHe.ledgerEmpty,
+      );
+    }
+    final canVoid =
+        businessContext.can(Cap.paymentRecord) && !businessContext.offline;
     return Column(
       key: const Key('payments-ledger'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -132,27 +142,42 @@ class _PaymentsLedgerState extends State<PaymentsLedger> {
       minTileHeight: Hit.row,
       contentPadding: EdgeInsets.zero,
       title: Text(
-        [paymentMethodLabel(r.method), if (r.customerName != null) r.customerName!].join(' · '),
+        [
+          paymentMethodLabel(r.method),
+          if (r.customerName != null) r.customerName!,
+        ].join(' · '),
         style: AppText.body.copyWith(color: muted ? p.muted : p.ink),
       ),
-      subtitle: sub.isEmpty ? null : Text(sub, style: AppText.secondary.copyWith(color: p.muted)),
-      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-        AmountText(r.amountMinor),
-        if (canVoid && r.mayVoid)
-          _busyId == r.id
-              ? const Padding(
-                  padding: EdgeInsets.all(Space.s),
-                  child: SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-                )
-              : MoreMenu(items: [
-                  MoreMenuItem(
-                    label: DocumentHe.voidPayment,
-                    destructive: true,
-                    onSelected: () => _void(r),
+      subtitle: sub.isEmpty
+          ? null
+          : Text(sub, style: AppText.secondary.copyWith(color: p.muted)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AmountText(r.amountMinor),
+          if (canVoid && r.mayVoid)
+            _busyId == r.id
+                ? const Padding(
+                    padding: EdgeInsets.all(Space.s),
+                    child: SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : MoreMenu(
+                    items: [
+                      MoreMenuItem(
+                        label: DocumentHe.voidPayment,
+                        destructive: true,
+                        onSelected: () => _void(r),
+                      ),
+                    ],
                   ),
-                ]),
-      ]),
-      onTap: r.receiptDocumentId == null ? null : () => openDocument(context, r.receiptDocumentId!),
+        ],
+      ),
+      onTap: r.receiptDocumentId == null
+          ? null
+          : () => openDocument(context, r.receiptDocumentId!),
     );
   }
 }

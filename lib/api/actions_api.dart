@@ -23,7 +23,8 @@ import 'payments_api.dart' show withMoneyErrors;
 import 'quotes_api.dart' show convertQuoteToInvoice, quoteAcceptUrl;
 import 'signing_api.dart';
 
-export 'payments_api.dart' show canRecordPaymentOn, paymentNeedsReceipt, withMoneyErrors;
+export 'payments_api.dart'
+    show canRecordPaymentOn, paymentNeedsReceipt, withMoneyErrors;
 export 'quotes_api.dart' show fetchQuote, setQuoteStatus;
 
 final _api = ApiClient.instance;
@@ -32,8 +33,12 @@ final _api = ApiClient.instance;
 /// (409 transition, 403, 422 …): the pending key file is dropped. Offline,
 /// 5xx, 401 (log in again) and 429 keep it for the retry.
 bool _permanent(ApiException e) =>
-    !e.isNetwork && e.status >= 400 && e.status < 500 && e.status != 401 && e.status != 408 && e.status != 429;
-
+    !e.isNetwork &&
+    e.status >= 400 &&
+    e.status < 500 &&
+    e.status != 401 &&
+    e.status != 408 &&
+    e.status != 429;
 
 // ---- reads ----------------------------------------------------------------
 
@@ -42,7 +47,8 @@ Future<DocumentDetail> fetchDocumentDetail(String id) => fetchDocument(id);
 
 /// GET /documents/:id as raw JSON (D reads the BE-36/37 fields the shared
 /// model does not carry, e.g. `cancelled`, `submitted_at`).
-Future<Map<String, dynamic>> fetchDocumentJson(String id) => _api.get('/documents/$id');
+Future<Map<String, dynamic>> fetchDocumentJson(String id) =>
+    _api.get('/documents/$id');
 
 /// GET /customers/:id (BE-09; customers_api falls back on the list).
 /// Null when the customer is gone.
@@ -59,11 +65,14 @@ Future<Customer?> fetchCustomerById(String id) async {
 /// with the documentNumber filter. Null when the server has no such row.
 Future<DocumentSummary?> fetchDocumentRow(DocumentDetail doc) async {
   if (doc.documentNumber == null) return null;
-  final json = await _api.get('/documents', query: {
-    'documentNumber': doc.documentNumber!,
-    'documentType': doc.documentType,
-    'limit': '5',
-  });
+  final json = await _api.get(
+    '/documents',
+    query: {
+      'documentNumber': doc.documentNumber!,
+      'documentType': doc.documentType,
+      'limit': '5',
+    },
+  );
   for (final r in json['documents'] as List? ?? const []) {
     final row = DocumentSummary.fromJson(r as Map<String, dynamic>);
     if (row.id == doc.id) return row;
@@ -78,7 +87,8 @@ Future<Uint8List> fetchOriginalPdf(String documentId) =>
 /// "PDF העתק נאמן למקור": POST /artifact?type=COPY, then GET /pdf?type=COPY.
 /// A 404 on the read → create once and retry once (§6.D edge).
 Future<Uint8List> fetchCopyPdf(String documentId) async {
-  Future<Uint8List> read() => _api.getBytes('/documents/$documentId/pdf', query: {'type': 'COPY'});
+  Future<Uint8List> read() =>
+      _api.getBytes('/documents/$documentId/pdf', query: {'type': 'COPY'});
   try {
     return await read();
   } on ApiException catch (e) {
@@ -123,8 +133,11 @@ Future<void> revokeShareLink(String documentId) async {
 
 /// POST /documents/:id/send → deliveryId. Throws CONSENT_REQUIRED (409) when
 /// the customer must agree to computerized documents first.
-Future<String> sendDocumentEmail(String documentId, String recipient,
-    {String? paymentUrl}) async {
+Future<String> sendDocumentEmail(
+  String documentId,
+  String recipient, {
+  String? paymentUrl,
+}) async {
   final json = await _api.post('/documents/$documentId/send', {
     'recipient': recipient,
     if (paymentUrl != null && paymentUrl.isNotEmpty) 'paymentUrl': paymentUrl,
@@ -147,7 +160,11 @@ Future<void> recordConsent(String customerId) =>
 
 /// Result of "אשר והפק".
 class ApproveOutcome {
-  const ApproveOutcome({required this.status, this.documentNumber, this.signingPending = false});
+  const ApproveOutcome({
+    required this.status,
+    this.documentNumber,
+    this.signingPending = false,
+  });
 
   /// FINALIZED | WAITING_FOR_ALLOCATION
   final String status;
@@ -159,8 +176,10 @@ class ApproveOutcome {
 
 /// POST /documents/:id/approve [Idempotency-Key] → original (+ signing).
 /// The key is kept per document until the original exists.
-Future<ApproveOutcome> approveDocument(DocumentDetail doc,
-    {required PassphrasePrompt askPassphrase}) async {
+Future<ApproveOutcome> approveDocument(
+  DocumentDetail doc, {
+  required PassphrasePrompt askPassphrase,
+}) async {
   final name = 'pending_approve_${doc.id}';
   final saved = await AppCache.read(name);
   final p = saved is Map<String, dynamic>
@@ -171,8 +190,9 @@ Future<ApproveOutcome> approveDocument(DocumentDetail doc,
   if (p['status'] == null) {
     final Map<String, dynamic> json;
     try {
-      json = await _api.post('/documents/${doc.id}/approve',
-          {'scopeKey': doc.numberingScopeKey ?? 'default'}, p['key'] as String);
+      json = await _api.post('/documents/${doc.id}/approve', {
+        'scopeKey': doc.numberingScopeKey ?? 'default',
+      }, p['key'] as String);
     } on ApiException catch (e) {
       if (_permanent(e)) await AppCache.remove(name);
       rethrow;
@@ -183,14 +203,18 @@ Future<ApproveOutcome> approveDocument(DocumentDetail doc,
   }
   var signingPending = false;
   if (p['status'] == 'FINALIZED') {
-    signingPending = !await issueSignedOriginal(doc.id, askPassphrase: askPassphrase);
+    signingPending = !await issueSignedOriginal(
+      doc.id,
+      askPassphrase: askPassphrase,
+    );
   }
   await AppCache.remove(name);
   notifyDocumentsChanged();
   return ApproveOutcome(
-      status: p['status'] as String,
-      documentNumber: p['documentNumber'] as String?,
-      signingPending: signingPending);
+    status: p['status'] as String,
+    documentNumber: p['documentNumber'] as String?,
+    signingPending: signingPending,
+  );
 }
 
 /// POST /documents/:id/reject {reason} (reason required, §4.8).
@@ -204,7 +228,12 @@ Future<void> rejectDocument(String documentId, String reason) async {
 // ---- credit / void (S8, §8.3) ---------------------------------------------------
 
 class CreditOutcome {
-  const CreditOutcome({this.creditId, this.status, this.documentNumber, this.signingPending = false});
+  const CreditOutcome({
+    this.creditId,
+    this.status,
+    this.documentNumber,
+    this.signingPending = false,
+  });
 
   final String? creditId;
 
@@ -216,17 +245,17 @@ class CreditOutcome {
 
 /// The original lines as [CreditSourceLine]s.
 List<CreditSourceLine> creditSourceOf(DocumentDetail doc) => [
-      for (final l in doc.lines)
-        CreditSourceLine(
-          description: l.description,
-          quantityMicros: l.quantityMicros,
-          unitPriceMinor: l.unitPriceMinor,
-          discountMinor: l.discountMinor,
-          taxRateBasisPoints: l.taxRateBasisPoints,
-          totalMinor: l.totalMinor,
-          itemId: l.itemId,
-        )
-    ];
+  for (final l in doc.lines)
+    CreditSourceLine(
+      description: l.description,
+      quantityMicros: l.quantityMicros,
+      unitPriceMinor: l.unitPriceMinor,
+      discountMinor: l.discountMinor,
+      taxRateBasisPoints: l.taxRateBasisPoints,
+      totalMinor: l.totalMinor,
+      itemId: l.itemId,
+    ),
+];
 
 /// The most that can still be credited: total − credited (§8.3).
 BigInt creditableOf(DocumentDetail doc) {
@@ -273,19 +302,16 @@ Future<CreditOutcome> creditDocument(
     await save(); // before the call: a lost response keeps the key
     final Map<String, dynamic> json;
     try {
-      json = await _api.post(
-          '/documents/${doc.id}/credit',
-          {
-            'scopeKey': doc.numberingScopeKey ?? 'default',
-            'lines': creditLines(
-              source: creditSourceOf(doc),
-              totalMinor: doc.totalMinor,
-              alreadyCreditedMinor: doc.creditedMinor ?? BigInt.zero,
-              amountMinor: amountMinor,
-              partialDescription: DocumentHe.partialCreditLine(doc.documentNumber),
-            ),
-          },
-          p['key'] as String);
+      json = await _api.post('/documents/${doc.id}/credit', {
+        'scopeKey': doc.numberingScopeKey ?? 'default',
+        'lines': creditLines(
+          source: creditSourceOf(doc),
+          totalMinor: doc.totalMinor,
+          alreadyCreditedMinor: doc.creditedMinor ?? BigInt.zero,
+          amountMinor: amountMinor,
+          partialDescription: DocumentHe.partialCreditLine(doc.documentNumber),
+        ),
+      }, p['key'] as String);
     } on ApiException catch (e) {
       if (e.code == 'CREDIT_LIMIT_EXCEEDED') {
         await AppCache.remove(name);
@@ -307,8 +333,10 @@ Future<CreditOutcome> creditDocument(
   }
   var signingPending = false;
   if (p['status'] == 'FINALIZED') {
-    signingPending =
-        !await issueSignedOriginal(p['creditId'] as String, askPassphrase: askPassphrase);
+    signingPending = !await issueSignedOriginal(
+      p['creditId'] as String,
+      askPassphrase: askPassphrase,
+    );
   }
   await AppCache.remove(name);
   notifyDocumentsChanged();
@@ -326,7 +354,9 @@ Future<CreditOutcome> creditDocument(
 /// DOCUMENT_ALREADY_VOIDED 409 (a lost response: treated as done).
 Future<void> voidDocument(String documentId, String reason) async {
   try {
-    await withMoneyErrors(() => _api.post('/documents/$documentId/void', {'reason': reason.trim()}));
+    await withMoneyErrors(
+      () => _api.post('/documents/$documentId/void', {'reason': reason.trim()}),
+    );
   } on ApiException catch (e) {
     if (e.code != 'DOCUMENT_ALREADY_VOIDED') rethrow;
   }
@@ -352,10 +382,13 @@ class AllocationState {
       state: j['state'] as String? ?? 'NOT_EVALUATED',
       labelHe: j['labelHe'] as String?,
       allocationNumber: j['allocationNumber']?.toString(),
-      detailHe: (j['evaluation'] as Map<String, dynamic>?)?['detailHe'] as String? ??
+      detailHe:
+          (j['evaluation'] as Map<String, dynamic>?)?['detailHe'] as String? ??
           j['userFacingHe'] as String?,
       serviceNoticeHe: degradation?['noticeHe'] as String?,
-      nextAutoRetryAt: DateTime.tryParse(degradation?['nextAutoRetryAt'] as String? ?? ''),
+      nextAutoRetryAt: DateTime.tryParse(
+        degradation?['nextAutoRetryAt'] as String? ?? '',
+      ),
     );
   }
 
@@ -372,7 +405,8 @@ class AllocationState {
   final DateTime? nextAutoRetryAt;
 
   /// "המשך בלי מספר" is allowed only here (server: recordAllocationDecision).
-  bool get decisionAllowed => state == 'USER_ACTION_REQUIRED' || state == 'HEARING_PENDING';
+  bool get decisionAllowed =>
+      state == 'USER_ACTION_REQUIRED' || state == 'HEARING_PENDING';
 
   /// The tax-authority connection is missing (P0: "המשך במחשב").
   bool get needsAuthorization => state == 'AUTHORIZATION_REQUIRED';
@@ -380,7 +414,9 @@ class AllocationState {
 }
 
 Future<AllocationState> fetchAllocationState(String documentId) async =>
-    AllocationState.fromJson(await _api.get('/documents/$documentId/allocation'));
+    AllocationState.fromJson(
+      await _api.get('/documents/$documentId/allocation'),
+    );
 
 /// "נסה שוב": reconcile an in-flight request, otherwise request again.
 /// While the Tax Authority is down the server fails fast (SHAAM_SERVICE_UNAVAILABLE) without
@@ -400,13 +436,17 @@ Future<AllocationState> retryAllocation(String documentId) async {
 
 /// "הזן מספר ידנית" (only with /me.shaam.manualEntryEnabled).
 Future<void> attachManualAllocation(String documentId, String number) async {
-  await _api.post('/documents/$documentId/allocation/manual', {'allocationNumber': number.trim()});
+  await _api.post('/documents/$documentId/allocation/manual', {
+    'allocationNumber': number.trim(),
+  });
   notifyDocumentsChanged();
 }
 
 /// "המשך בלי מספר" (only when [AllocationState.decisionAllowed]).
 Future<void> continueWithoutAllocation(String documentId) async {
-  await _api.post('/documents/$documentId/allocation/decision', {'decision': 'CONTINUE'});
+  await _api.post('/documents/$documentId/allocation/decision', {
+    'decision': 'CONTINUE',
+  });
   notifyDocumentsChanged();
 }
 
@@ -415,7 +455,9 @@ Future<void> continueWithoutAllocation(String documentId) async {
 /// the number is reserved at lock time → 409 ALLOCATION_NUMBER_RESERVED, shown
 /// in Hebrew ("המשך בלי מספר" / "נסה שוב" stay on the ⋯).
 Future<void> cancelAllocationRequest(String documentId) async {
-  await withMoneyErrors(() => _api.post('/documents/$documentId/allocation/cancel', const {}));
+  await withMoneyErrors(
+    () => _api.post('/documents/$documentId/allocation/cancel', const {}),
+  );
   notifyDocumentsChanged();
 }
 
@@ -426,17 +468,23 @@ Future<void> cancelAllocationRequest(String documentId) async {
 /// businesses, 300 (rate 0) for exempt / nonprofit. BE-06: each line keeps its
 /// own rate; [vatRateBasisPoints] is the fallback for lines without one.
 /// Returns the new draft id (C opens it prefilled).
-Future<String> quoteToInvoice(Quote quote,
-    {required bool vatExempt, required int vatRateBasisPoints}) async {
-  final id = await convertQuoteToInvoice(quote,
-      documentType: vatExempt ? 'TRANSACTION_INVOICE' : 'TAX_INVOICE',
-      taxRateBasisPoints: vatExempt ? 0 : vatRateBasisPoints);
+Future<String> quoteToInvoice(
+  Quote quote, {
+  required bool vatExempt,
+  required int vatRateBasisPoints,
+}) async {
+  final id = await convertQuoteToInvoice(
+    quote,
+    documentType: vatExempt ? 'TRANSACTION_INVOICE' : 'TAX_INVOICE',
+    taxRateBasisPoints: vatExempt ? 0 : vatRateBasisPoints,
+  );
   notifyDocumentsChanged();
   return id;
 }
 
 /// BE-06: the quote PDF, rendered on demand (never an accounting artifact).
-Future<Uint8List> quotePdfBytes(String quoteId) => _api.getBytes('/quotes/$quoteId/pdf');
+Future<Uint8List> quotePdfBytes(String quoteId) =>
+    _api.getBytes('/quotes/$quoteId/pdf');
 
 /// BE-06: POST /quotes/:id/share-link → `/d/<token>`, shared as `/q/<token>`
 /// (the customer's accept page, same token).
@@ -466,7 +514,9 @@ Future<String> duplicateDocument(DocumentDetail doc) async {
     notifyDocumentsChanged();
     return json['id'] as String;
   } on ApiException catch (e) {
-    if (!isMissingRoute(e)) rethrow; // the route itself is missing (before BE-08)
+    if (!isMissingRoute(e)) {
+      rethrow; // the route itself is missing (before BE-08)
+    }
   }
   final json = await _api.post('/documents', {
     'documentType': doc.documentType,
@@ -482,7 +532,7 @@ Future<String> duplicateDocument(DocumentDetail doc) async {
           'discountMinor': l.discountMinor.toString(),
           'taxRateBasisPoints': l.taxRateBasisPoints,
           'itemId': ?l.itemId,
-        }
+        },
     ],
   });
   notifyDocumentsChanged();
@@ -494,8 +544,12 @@ Future<String> duplicateDocument(DocumentDetail doc) async {
 /// link: true}`. The CONVERTED_FROM link is written when the new 305 is
 /// finalized (it then clears TAX_INVOICE_DUE). Returns the draft id.
 Future<String> issueTaxInvoiceFrom(String documentId) async {
-  final json = await withMoneyErrors(() => _api.post(
-      '/documents/$documentId/clone', {'documentType': 'TAX_INVOICE', 'link': true}));
+  final json = await withMoneyErrors(
+    () => _api.post('/documents/$documentId/clone', {
+      'documentType': 'TAX_INVOICE',
+      'link': true,
+    }),
+  );
   notifyDocumentsChanged();
   return json['id'] as String;
 }
@@ -507,7 +561,9 @@ Future<String> issueTaxInvoiceFrom(String documentId) async {
 /// the V1 settings code until squad E removes the template editor.
 const waTemplateKey = 'wa_template';
 const waTemplateStorage = FlutterSecureStorage(
-  iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device),
+  iOptions: IOSOptions(
+    accessibility: KeychainAccessibility.first_unlock_this_device,
+  ),
 );
 
 /// §13.5 fixed wording.
@@ -522,7 +578,9 @@ Future<String> loadWhatsAppTemplate() async {
   } on Object {
     text = null;
   }
-  return text != null && text.trim().isNotEmpty ? text : defaultWhatsAppTemplate;
+  return text != null && text.trim().isNotEmpty
+      ? text
+      : defaultWhatsAppTemplate;
 }
 
 /// Fills {שם} {סוג} {מספר} {סכום} {עסק} {קישור}. A template without {קישור}
@@ -542,13 +600,18 @@ String buildWhatsAppMessage({
   final name = customerName?.trim() ?? '';
   var text = template
       .replaceAll(RegExp(r' ?\{שם\}'), name.isEmpty ? '' : ' $name')
-      .replaceAll(" מס' {מספר}", documentNumber == null ? '' : " מס' $documentNumber")
+      .replaceAll(
+        " מס' {מספר}",
+        documentNumber == null ? '' : " מס' $documentNumber",
+      )
       .replaceAll('{סוג}', docTypeLabel(documentType))
       .replaceAll(' {מספר}', documentNumber == null ? '' : ' $documentNumber')
       .replaceAll('{מספר}', documentNumber ?? '')
       .replaceAll('{סכום}', formatMoney(totalMinor, trimZeroAgorot: true))
       .replaceAll('{עסק}', businessName);
-  text = text.contains('{קישור}') ? text.replaceAll('{קישור}', link) : '$text\n$link';
+  text = text.contains('{קישור}')
+      ? text.replaceAll('{קישור}', link)
+      : '$text\n$link';
   if (balanceMinor != null &&
       balanceMinor > BigInt.zero &&
       paymentLinkUrl != null &&
@@ -566,15 +629,14 @@ String whatsAppMessage({
   required BigInt totalMinor,
   required String businessName,
   required String link,
-}) =>
-    buildWhatsAppMessage(
-      customerName: customerName,
-      documentType: documentType,
-      documentNumber: documentNumber,
-      totalMinor: totalMinor,
-      businessName: businessName,
-      link: link,
-    );
+}) => buildWhatsAppMessage(
+  customerName: customerName,
+  documentType: documentType,
+  documentNumber: documentNumber,
+  totalMinor: totalMinor,
+  businessName: businessName,
+  link: link,
+);
 
 /// Quote text (§8.2.4). P1 (BE-06): with [link] to the quote's page and PDF;
 /// P0 (no link): header and amount only.
@@ -586,7 +648,9 @@ String quoteWhatsAppMessage({
   String? link,
 }) {
   final name = customerName?.trim() ?? '';
-  final until = validUntil == null ? '' : ', בתוקף עד ${formatDateHe(validUntil)}';
+  final until = validUntil == null
+      ? ''
+      : ', בתוקף עד ${formatDateHe(validUntil)}';
   final view = link == null ? '' : '. לצפייה: $link';
   return 'שלום${name.isEmpty ? '' : ' $name'}, הצעת מחיר על סך '
       '${formatMoney(totalMinor, trimZeroAgorot: true)}$until$view. תודה, $businessName';

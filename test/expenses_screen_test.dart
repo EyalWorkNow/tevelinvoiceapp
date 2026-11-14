@@ -12,6 +12,7 @@ import 'package:invoice/screens/people/sheets/s2_customer.dart';
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/ui/ds.dart';
+import 'package:invoice/util/labels/common_he.dart';
 import 'package:invoice/util/labels/people_he.dart';
 
 import 'fakes/fake_api.dart';
@@ -30,6 +31,8 @@ void main() {
   setUp(() async {
     resetSession();
     await AppCache.clearAll();
+    // OCR consent was given (QA 3.5); the consent test clears it.
+    await AppCache.writeUserData('expense_ocr_consent', true);
     backend = FakeBackend()..install();
     taps = 0;
     pickContact = () async => null;
@@ -56,6 +59,7 @@ void main() {
     WidgetTester tester,
     Widget home, {
     Preset preset = Preset.owner,
+    Brightness brightness = Brightness.light,
   }) async {
     tester.view.physicalSize = const Size(1170, 2532);
     tester.view.devicePixelRatio = 3;
@@ -68,7 +72,7 @@ void main() {
         locale: const Locale('he', 'IL'),
         supportedLocales: const [Locale('he', 'IL')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: buildTheme(Brightness.light),
+        theme: buildTheme(brightness),
         home: home,
       ),
     );
@@ -160,6 +164,18 @@ void main() {
       await tap(tester, find.byKey(const Key('expense-primary')));
       expect(s.expense('e1')!['status'], 'READY_TO_APPROVE');
       expect(backend.calls('POST', '/expenses/:id/approve'), isEmpty);
+    },
+  );
+
+  testWidgets(
+    'QA 0.1 (A10): dark theme keeps ⋯ "דחה", progress and list switch',
+    (tester) async {
+      installPeopleFakes(backend, expenses: [read('e1'), read('e2')]);
+      await pump(tester, const ExpensesScreen(), brightness: Brightness.dark);
+      expect(find.byKey(const Key('expense-progress')), findsOneWidget);
+      expect(find.byKey(const Key('expense-mode')), findsOneWidget);
+      await tap(tester, find.byTooltip(CommonHe.more));
+      expect(find.text(ExpenseHe.reject), findsOneWidget);
     },
   );
 
@@ -280,6 +296,35 @@ void main() {
     expect(backend.calls('POST', '/expenses/:id/extract'), hasLength(1));
     expect(find.byKey(const Key('expense-amount')), findsOneWidget);
   });
+
+  testWidgets(
+    'QA 3.5: a failed OCR read is not re-run when the screen opens again',
+    (tester) async {
+      installPeopleFakes(
+        backend,
+        expenses: [expenseJson('e1', filename: 'x.pdf')],
+      );
+      await pump(tester, const ExpensesScreen());
+      await pump(tester, const ExpensesScreen(key: ValueKey('reopened')));
+      expect(backend.calls('POST', '/expenses/:id/extract'), hasLength(1));
+    },
+  );
+
+  testWidgets(
+    'QA 3.5: asks before the receipt goes to OCR; "הזנה ידנית" sends nothing',
+    (tester) async {
+      await tester.runAsync(AppCache.clearAll);
+      installPeopleFakes(
+        backend,
+        expenses: [expenseJson('e1', filename: 'x.pdf')],
+      );
+      await pump(tester, const ExpensesScreen());
+      expect(find.text(ExpenseOcrHe.consentTitle), findsOneWidget);
+      await tap(tester, find.byKey(const Key('expense-ocr-manual')));
+      expect(backend.calls('POST', '/expenses/:id/extract'), isEmpty);
+      expect(find.byKey(const Key('expense-amount')), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'AT-19: opens on the just-captured expense among older pending ones; OCR result shows '

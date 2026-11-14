@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../money_text.dart';
@@ -36,75 +35,9 @@ class PersonRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     final hasAmount = amountMinor != null && amountLabel != null;
-    final inTest = Platform.environment.containsKey('FLUTTER_TEST');
 
     Widget content;
-    if (inTest) {
-      content = Row(
-        children: [
-          PersonAvatar(name: name),
-          const SizedBox(width: Space.m),
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: Space.s,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(name, style: AppText.body),
-                    if (badge != null)
-                      Text(
-                        badge!,
-                        style: AppText.secondary.copyWith(
-                          color: p.muted,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                  ],
-                ),
-                if (subtitle != null && hasAmount)
-                  Text(
-                    ltrIsolate(formatPhoneHe(subtitle!)),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.secondary.copyWith(color: p.muted),
-                  ),
-              ],
-            ),
-          ),
-          if (!hasAmount && subtitle != null) ...[
-            const SizedBox(width: Space.s),
-            Flexible(
-              flex: 3,
-              child: Text(
-                formatPhoneHe(subtitle!),
-                textDirection: TextDirection.ltr,
-                overflow: TextOverflow.ellipsis,
-                style: AppText.body,
-              ),
-            ),
-          ],
-          if (hasAmount) ...[
-            const SizedBox(width: Space.s),
-            Flexible(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    amountLabel!,
-                    style: AppText.secondary.copyWith(color: p.muted),
-                  ),
-                  AmountText(amountMinor!, color: p.warn),
-                ],
-              ),
-            ),
-          ],
-        ],
-      );
-    } else if (subtitleOnLeft == true) {
+    if (subtitleOnLeft == true) {
       content = Row(
         children: [
           PersonAvatar(name: name),
@@ -119,10 +52,15 @@ class PersonRow extends StatelessWidget {
           ),
           if (subtitle != null) ...[
             const SizedBox(width: Space.s),
-            Text(
-              formatPhoneHe(subtitle!),
-              textDirection: TextDirection.ltr,
-              style: AppText.secondary.copyWith(color: p.muted),
+            Flexible(
+              flex: 2,
+              child: Text(
+                formatPhoneHe(subtitle!),
+                textDirection: TextDirection.ltr,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.secondary.copyWith(color: p.muted),
+              ),
             ),
           ],
         ],
@@ -133,21 +71,21 @@ class PersonRow extends StatelessWidget {
           PersonAvatar(name: name),
           const SizedBox(width: Space.m),
           Expanded(
+            flex: 3,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  spacing: Space.s,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Flexible(
-                      child: Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.body,
-                      ),
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.body,
                     ),
                     if (badge != null) ...[
-                      const SizedBox(width: Space.s),
                       Text(
                         badge!,
                         style: AppText.secondary.copyWith(
@@ -172,15 +110,18 @@ class PersonRow extends StatelessWidget {
           ),
           if (hasAmount) ...[
             const SizedBox(width: Space.m),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  amountLabel!,
-                  style: AppText.secondary.copyWith(color: p.muted),
-                ),
-                AmountText(amountMinor!, color: p.warn),
-              ],
+            Flexible(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    amountLabel!,
+                    style: AppText.secondary.copyWith(color: p.muted),
+                  ),
+                  AmountText(amountMinor!, color: p.warn),
+                ],
+              ),
             ),
           ],
         ],

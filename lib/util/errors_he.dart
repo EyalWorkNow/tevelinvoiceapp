@@ -9,6 +9,11 @@ String errorMessageHe(String code, {String? serverMessage, int status = 0}) {
   if (code == 'VALIDATION') return validationMessageHe(serverMessage);
   final known = _mobileMessages[code] ?? _webMessages[code];
   if (known != null) return known;
+  // The server already wrote a Hebrew sentence for codes the app does not know.
+  final server = serverMessage?.trim();
+  if (server != null && server.length <= 300 && _hebrew.hasMatch(server)) {
+    return server;
+  }
   if (status == 429) return _webMessages['RATE_LIMITED']!;
   if (status == 503 || status == 502 || status == 504) {
     return _mobileMessages['SERVICE_UNAVAILABLE']!;
@@ -16,10 +21,19 @@ String errorMessageHe(String code, {String? serverMessage, int status = 0}) {
   return 'שגיאה לא צפויה ($code)';
 }
 
+final RegExp _hebrew = RegExp(r'[\u05D0-\u05EA]');
+
+/// CRM changes the server refused for good (kept in a backup file on the device).
+String crmRejectedNoticeHe(int count) => count == 1
+    ? 'שינוי אחד בתיק הלקוח נדחה על ידי השרת ולא נשמר. עותק נשמר במכשיר.'
+    : '$count שינויים בתיקי לקוחות נדחו על ידי השרת ולא נשמרו. עותק נשמר במכשיר.';
+
 /// VALIDATION carries a meaningful English server message; the common ones in Hebrew.
 String validationMessageHe(String? raw) {
   final text = (raw ?? '').replaceFirst(RegExp(r'^VALIDATION:\s*'), '').trim();
   if (text.isEmpty) return _webMessages['VALIDATION']!;
+  // QA 3.1/3.6: the server already wrote it in Hebrew (tax id, phone).
+  if (_hebrew.hasMatch(text) && text.length <= 300) return text;
   final exact = _validationMessages[text];
   if (exact != null) return exact;
   if (text.startsWith('logo image is too large')) {
@@ -37,6 +51,18 @@ String validationMessageHe(String? raw) {
 }
 
 const Map<String, String> _mobileMessages = {
+  'SUPABASE_AUTH_DISABLED': 'שירות ההתחברות עדיין לא הוגדר. פנו לתמיכה.',
+  'SUPABASE_AUTH_UNAVAILABLE':
+      'שירות ההתחברות לא זמין זמנית. נסו שוב בעוד רגע.',
+  'SUPABASE_TOKEN_INVALID': 'לא ניתן לאמת את ההתחברות. נסו להתחבר שוב.',
+  'SUPABASE_EMAIL_NOT_CONFIRMED':
+      'כתובת האימייל עדיין לא אושרה. פתחו את הקישור שנשלח אליכם ואז התחברו.',
+  'SUPABASE_USER_BANNED': 'החשבון הזה חסום להתחברות. פנו לתמיכה.',
+  'SUPABASE_LOGIN_INVALID_INPUT': 'יש להזין כתובת אימייל וסיסמה תקינות.',
+  'SUPABASE_RECOVERY_SUPPORT_REQUIRED': 'לאיפוס הסיסמה בחשבון זה פנו לתמיכה.',
+  'CUSTOMER_DUPLICATE': 'לקוח עם אותו מספר ח.פ. / ת.ז. כבר קיים',
+  'CRM_CONFLICT': 'המידע עודכן במכשיר אחר. השינויים שלך שמורים עד לבחירת גרסה.',
+  'CRM_MUTATION_REUSED': 'לא ניתן לאשר את הסנכרון הזה. יש לרענן את תיק הלקוח.',
   'PAYMENT_METHOD_NOT_AVAILABLE':
       'ביט אינו פעיל במסוף הזה. אפשר לבחור כרטיס או להפעיל את השירות בקארדקום.',
   'SMS_UNAVAILABLE':
@@ -71,6 +97,26 @@ const Map<String, String> _mobileMessages = {
       'משלוח WhatsApp אוטומטי ייפתח לאחר חיבור החשבון העסקי.',
   'WHATSAPP_DELIVERY_UNKNOWN':
       'מצב המשלוח עדיין בבדיקה אצל הספק. אין צורך לשלוח שוב.',
+  // QA 2026-11-12 (report 04 · M1): server codes the app did not map.
+  'CUSTOMER_PHONE_INVALID':
+      'מספר הטלפון של הלקוח אינו תקין. יש לתקן אותו בכרטיס הלקוח.',
+  'WHATSAPP_SEND_FAILED':
+      'הודעת ה-WhatsApp לא נשלחה אצל הספק. אפשר לשלוח שוב או לשתף בקישור.',
+  'BILLING_CONSENT_REQUIRED': 'יש לאשר את פרטי המסלול לפני ההמשך.',
+  'PLAN_INVALID': 'יש לבחור מסלול תקין.',
+  'APPLE_TRANSACTION_ALREADY_LINKED':
+      'הרכישה הזו כבר משויכת לעסק אחר. פנו לתמיכה לשיוך מחדש.',
+  'APPLE_ACCOUNT_MISMATCH':
+      'הרכישה שייכת לחשבון Apple אחר. היכנסו עם החשבון שביצע את הרכישה.',
+  'IDEMPOTENCY_KEY_INVALID': 'הבקשה לא תקינה — נסו שוב',
+  'ACCOUNT_ALREADY_EXISTS': 'כבר קיים חשבון עם הכתובת הזו. אפשר להתחבר אליו.',
+  'EMAIL_INVALID': 'כתובת האימייל אינה תקינה',
+  'BUSINESS_NAME_INVALID': 'שם העסק אינו תקין',
+  'TAX_RATE_MISSING': 'לא מוגדר שיעור מע״מ לתאריך הזה. פנו לתמיכה.',
+  'QUOTE_CHANGED': 'הצעת המחיר עודכנה בינתיים. פתחו אותה שוב ובדקו לפני ההמשך.',
+  'PUSH_MFA_REQUIRED':
+      'התראות למכשיר זמינות רק אחרי אימות דו-שלבי. התנתקו והתחברו שוב עם קוד אימות.',
+  'API_CONFIG_INVALID': 'כתובת השרת בגרסה הזו אינה תקינה. פנו לתמיכה.',
   // Client-side (no HTTP response).
   'NETWORK': 'אין חיבור לשרת — בדקו את החיבור לאינטרנט ונסו שוב',
   'TIMEOUT': 'השרת לא הגיב בזמן — נסו שוב',

@@ -34,8 +34,12 @@ final Map<String, Supplier> captureSupplierHints = {};
 /// אשר) — the upload starts as soon as a file is picked, and a received
 /// expense replaces this screen with its review card in E.
 class ExpenseCaptureScreen extends StatefulWidget {
-  const ExpenseCaptureScreen(
-      {super.key, this.picker, this.pickPdf, this.autoOpenCamera = true});
+  const ExpenseCaptureScreen({
+    super.key,
+    this.picker,
+    this.pickPdf,
+    this.autoOpenCamera = true,
+  });
 
   /// Injectable for tests.
   final ImagePicker? picker;
@@ -62,7 +66,9 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
   void initState() {
     super.initState();
     if (widget.autoOpenCamera && !session.offline) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _pick(ImageSource.camera, quiet: true));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _pick(ImageSource.camera, quiet: true),
+      );
     }
   }
 
@@ -90,11 +96,11 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
         if (!quiet || denied) {
           _pickProblem = denied
               ? (source == ImageSource.camera
-                  ? ExpenseHe.noCameraAccess
-                  : ExpenseHe.noPhotosAccess)
+                    ? ExpenseHe.noCameraAccess
+                    : ExpenseHe.noPhotosAccess)
               : (source == ImageSource.camera
-                  ? ExpenseHe.cameraUnavailable
-                  : ExpenseHe.galleryFailed);
+                    ? ExpenseHe.cameraUnavailable
+                    : ExpenseHe.galleryFailed);
         }
       });
       return;
@@ -123,7 +129,9 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
     });
     final Uint8List? bytes;
     try {
-      bytes = await (widget.pickPdf ?? () => _pdfChannel.invokeMethod<Uint8List>('pickPdf'))();
+      bytes =
+          await (widget.pickPdf ??
+              () => _pdfChannel.invokeMethod<Uint8List>('pickPdf'))();
     } on Exception {
       // PlatformException, or MissingPluginException off iOS.
       if (mounted) setState(() => _pickProblem = ExpenseHe.filesFailed);
@@ -131,9 +139,11 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
     }
     if (bytes == null || !mounted) return; // cancelled: stay on the chooser
     if (!isPdf(bytes) || bytes.length > maxExpensePdfBytes) {
-      setState(() => _pickProblem = isPdf(bytes!)
-          ? ExpenseHe.fileTooBig
-          : ExpenseHe.pdfInvalid);
+      setState(
+        () => _pickProblem = isPdf(bytes!)
+            ? ExpenseHe.fileTooBig
+            : ExpenseHe.pdfInvalid,
+      );
       return;
     }
     _jpeg = bytes;
@@ -151,17 +161,21 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
     try {
       final now = DateTime.now();
       String two(int n) => n.toString().padLeft(2, '0');
-      final name = 'receipt-${now.year}${two(now.month)}${two(now.day)}-'
+      final name =
+          'receipt-${now.year}${two(now.month)}${two(now.day)}-'
           '${two(now.hour)}${two(now.minute)}${two(now.second)}.${_isPdf ? 'pdf' : 'jpg'}';
-      final result = await uploadExpense(jpeg,
-          filename: name,
-          contentType: _isPdf ? 'application/pdf' : 'image/jpeg',
-          // Closing the screen stops the scan polling (the upload is already in).
-          cancelled: () => !mounted, onStage: (stage) {
-        if (mounted && stage == ExpenseUploadStage.scanning) {
-          setState(() => _step = _Step.scanning);
-        }
-      });
+      final result = await uploadExpense(
+        jpeg,
+        filename: name,
+        contentType: _isPdf ? 'application/pdf' : 'image/jpeg',
+        // Closing the screen stops the scan polling (the upload is already in).
+        cancelled: () => !mounted,
+        onStage: (stage) {
+          if (mounted && stage == ExpenseUploadStage.scanning) {
+            setState(() => _step = _Step.scanning);
+          }
+        },
+      );
       if (!mounted) return;
       HapticFeedback.heavyImpact();
       final id = result.expenseId;
@@ -189,15 +203,17 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
   }
 
   void _restart() => setState(() {
-        _jpeg = null;
-        _isPdf = false;
-        _result = null;
-        _error = null;
-        _step = _Step.choose;
-      });
+    _jpeg = null;
+    _isPdf = false;
+    _result = null;
+    _error = null;
+    _step = _Step.choose;
+  });
 
   bool get _busy =>
-      _step == _Step.preparing || _step == _Step.uploading || _step == _Step.scanning;
+      _step == _Step.preparing ||
+      _step == _Step.uploading ||
+      _step == _Step.scanning;
 
   @override
   Widget build(BuildContext context) {
@@ -233,15 +249,24 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
           const SizedBox(height: Space.xl),
           _Frame(child: Icon(Iconsax.receipt_item, size: 72, color: p.muted)),
           const SizedBox(height: Space.xl),
-          Text(ExpenseHe.captureHeadline,
-              style: AppText.title, textAlign: TextAlign.center),
+          Text(
+            ExpenseHe.captureHeadline,
+            style: AppText.title,
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: Space.s),
-          Text(ExpenseHe.captureSub,
-              style: AppText.body.copyWith(color: p.muted), textAlign: TextAlign.center),
+          Text(
+            ExpenseHe.captureSub,
+            style: AppText.body.copyWith(color: p.muted),
+            textAlign: TextAlign.center,
+          ),
           if (_pickProblem != null) ...[
             const SizedBox(height: Space.l),
-            Text(_pickProblem!,
-                style: AppText.body.copyWith(color: p.warn), textAlign: TextAlign.center),
+            Text(
+              _pickProblem!,
+              style: AppText.body.copyWith(color: p.warn),
+              textAlign: TextAlign.center,
+            ),
             if (_cameraDenied)
               TextButton(
                 onPressed: () => launchAllowed(Uri.parse('app-settings:')),
@@ -250,8 +275,11 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
           ],
           if (session.offline) ...[
             const SizedBox(height: Space.l),
-            Text(ExpenseHe.offlineCapture,
-                style: AppText.body.copyWith(color: p.warn), textAlign: TextAlign.center),
+            Text(
+              ExpenseHe.offlineCapture,
+              style: AppText.body.copyWith(color: p.warn),
+              textAlign: TextAlign.center,
+            ),
           ],
           const SizedBox(height: Space.xxl),
           BigButton(
@@ -264,7 +292,9 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
             label: ExpenseHe.fromGallery,
             icon: Iconsax.gallery,
             variant: BigButtonVariant.secondary,
-            onPressed: session.offline ? null : () => _pick(ImageSource.gallery),
+            onPressed: session.offline
+                ? null
+                : () => _pick(ImageSource.gallery),
           ),
           const SizedBox(height: Space.m),
           BigButton(
@@ -288,24 +318,31 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
           const SizedBox(height: Space.xl),
           Semantics(
             liveRegion: true,
-            child: Text(r.stillScanning ? ExpenseHe.received : ExpenseHe.captured,
-                style: AppText.title, textAlign: TextAlign.center),
+            child: Text(
+              r.stillScanning ? ExpenseHe.received : ExpenseHe.captured,
+              style: AppText.title,
+              textAlign: TextAlign.center,
+            ),
           ),
           const SizedBox(height: Space.s),
           Text(
-            r.stillScanning
-                ? ExpenseHe.stillScanning
-                : ExpenseHe.willAppear,
+            r.stillScanning ? ExpenseHe.stillScanning : ExpenseHe.willAppear,
             style: AppText.body.copyWith(color: p.muted),
             textAlign: TextAlign.center,
           ),
           if (r.duplicate) ...[
             const SizedBox(height: Space.m),
-            Text(ExpenseHe.uploadedBefore,
-                style: AppText.body.copyWith(color: p.warn), textAlign: TextAlign.center),
+            Text(
+              ExpenseHe.uploadedBefore,
+              style: AppText.body.copyWith(color: p.warn),
+              textAlign: TextAlign.center,
+            ),
           ],
           const SizedBox(height: Space.xxl),
-          BigButton(label: ExpenseHe.finish, onPressed: () => Navigator.of(context).pop()),
+          BigButton(
+            label: ExpenseHe.finish,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
           const SizedBox(height: Space.m),
           BigButton(
             label: ExpenseHe.captureAnother,
@@ -324,17 +361,23 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
         final reshoot = blocked || code == 'UPLOAD_REJECTED';
         return _scrollColumn([
           const SizedBox(height: Space.xxl),
-          Icon(blocked ? Iconsax.shield_cross : Iconsax.danger,
-              size: 64, color: blocked ? p.danger : p.muted),
+          Icon(
+            blocked ? Iconsax.shield_cross : Iconsax.danger,
+            size: 64,
+            color: blocked ? p.danger : p.muted,
+          ),
           const SizedBox(height: Space.l),
           Semantics(
             liveRegion: true,
             child: Text(
-                blocked
-                    ? ExpenseHe.blocked
-                    : (e is ApiException && e.isNetwork ? CommonHe.offlineButton : ExpenseHe.sendFailed),
-                style: AppText.title,
-                textAlign: TextAlign.center),
+              blocked
+                  ? ExpenseHe.blocked
+                  : (e is ApiException && e.isNetwork
+                        ? CommonHe.offlineButton
+                        : ExpenseHe.sendFailed),
+              style: AppText.title,
+              textAlign: TextAlign.center,
+            ),
           ),
           const SizedBox(height: Space.s),
           Text(
@@ -350,7 +393,9 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
           BigButton(
             label: ExpenseHe.reshoot,
             icon: Iconsax.camera,
-            variant: reshoot ? BigButtonVariant.primary : BigButtonVariant.secondary,
+            variant: reshoot
+                ? BigButtonVariant.primary
+                : BigButtonVariant.secondary,
             onPressed: () {
               _restart();
               _pick(ImageSource.camera);
@@ -361,9 +406,12 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
   }
 
   Widget _scrollColumn(List<Widget> children) => SingleChildScrollView(
-        padding: const EdgeInsets.all(Space.page),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
-      );
+    padding: const EdgeInsets.all(Space.page),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
+    ),
+  );
 }
 
 /// Dashed-feel receipt frame (visual guide).
@@ -426,7 +474,8 @@ class _SuccessMark extends StatelessWidget {
         tween: Tween(begin: reduce ? 1 : 0.4, end: 1),
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutBack,
-        builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+        builder: (context, scale, child) =>
+            Transform.scale(scale: scale, child: child),
         child: CircleAvatar(
           radius: 44,
           backgroundColor: p.accent,

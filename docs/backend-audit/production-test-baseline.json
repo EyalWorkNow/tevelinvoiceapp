@@ -1,0 +1,542 @@
+{
+  "date": "2026-11-09",
+  "baseline": {
+    "passed": 698,
+    "failed": 74
+  },
+  "scope": "Full mobile test baseline before release hardening; focused fixes are recorded separately, not a claim that the full suite passed.",
+  "failures": [
+    {
+      "file": "test/shell_test.dart",
+      "test": "large reserved glass navigation; create action only at home"
+    },
+    {
+      "file": "test/people_screens_test.dart",
+      "test": "P · לקוחות capped open documents hide balances; 500 customers → \"המשך במחשב\" line"
+    },
+    {
+      "file": "test/home_screen_test.dart",
+      "test": "employee: no money card, only \"בקש תשלום\", role tag, own cards"
+    },
+    {
+      "file": "test/home_screen_test.dart",
+      "test": "צפייה בלבד: money card, no intents, no \"לטיפול\""
+    },
+    {
+      "file": "test/people_screens_test.dart",
+      "test": "P · לקוחות empty → teaching sentence + \"הוסף מאנשי הקשר\" opens S2 page 2 with the picker"
+    },
+    {
+      "file": "test/home_screen_test.dart",
+      "test": "more than one business: the header is a button (→ S14)"
+    },
+    {
+      "file": "test/branding_screen_test.dart",
+      "test": "branding fits 320.0 pt at 200 percent text"
+    },
+    {
+      "file": "test/people_screens_test.dart",
+      "test": "S2 · לקוח J1-new inside S2: \"+ לקוח חדש\" → contact → \"שמור\" = 3 taps; consent switch → consent call"
+    },
+    {
+      "file": "test/layout_overflow_test.dart",
+      "test": "report rows R2 · income (3 money columns) fit (320pt × 2.0)"
+    },
+    {
+      "file": "test/layout_overflow_test.dart",
+      "test": "report rows R2 · vat (6 money columns) fit (320pt × 2.0)"
+    },
+    {
+      "file": "test/people_screens_test.dart",
+      "test": "S2 · לקוח duplicate phone → \"כבר קיים: X · השתמש בו\" returns the existing one"
+    },
+    {
+      "file": "test/layout_overflow_test.dart",
+      "test": "report rows R2 · items (1 money columns) fit (320pt × 2.0)"
+    },
+    {
+      "file": "test/business/business_screen_test.dart",
+      "test": "§4.4 rows per preset (hidden, not disabled) owner: commerce rows in order; approvals only with another member"
+    },
+    {
+      "file": "test/business/business_screen_test.dart",
+      "test": "§4.4 rows per preset (hidden, not disabled) partner = owner rows; employee: expenses + account only"
+    },
+    {
+      "file": "test/business/business_screen_test.dart",
+      "test": "§4.4 rows per preset (hidden, not disabled) accountant (P0): reports live on the home tab; viewer: account only"
+    },
+    {
+      "file": "test/business/business_screen_test.dart",
+      "test": "owner list: business name header, rows, no PrimaryButton (read screen)"
+    },
+    {
+      "file": "test/layout_overflow_test.dart",
+      "test": "report rows R2 · income (3 money columns) fit (375pt × 2.0)"
+    },
+    {
+      "file": "test/layout_overflow_test.dart",
+      "test": "report rows R2 · vat (6 money columns) fit (375pt × 2.0)"
+    },
+    {
+      "file": "test/layout_overflow_test.dart",
+      "test": "report rows R2 · items (1 money columns) fit (375pt × 2.0)"
+    },
+    {
+      "file": "test/layout_overflow_test.dart",
+      "test": "report rows R2 · income (3 money columns) fit (402pt × 2.0)"
+    },
+    {
+      "file": "test/layout_overflow_test.dart",
+      "test": "report rows R2 · vat (6 money columns) fit (402pt × 2.0)"
+    },
+    {
+      "file": "test/layout_overflow_test.dart",
+      "test": "report rows R2 · items (1 money columns) fit (402pt × 2.0)"
+    },
+    {
+      "file": "test/business/business_screen_test.dart",
+      "test": "S13 13.9 המשך במחשב → POST /mobile/web-handoff {topic}; 404 → mailto to self"
+    },
+    {
+      "file": "test/business/p1p2_test.dart",
+      "test": "B row \"תזכורות אוטומטיות\" (BE-19) switch in the row → confirm → PUT /settings/reminders; owner includes commerce settings"
+    },
+    {
+      "file": "test/business/business_screen_test.dart",
+      "test": "Dynamic Type 200% + dark: B, צוות, חשבון, רשות המסים, R do not overflow (AT-70)"
+    },
+    {
+      "file": "test/business/business_screen_test.dart",
+      "test": "VoiceOver: every B row is a labelled button"
+    },
+    {
+      "file": "test/golden/ds_widgets_test.dart",
+      "test": "200% text on a 320pt phone: no overflow in any component"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden primary_button_dark_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden primary_button_dark_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden primary_button_light_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden primary_button_light_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden intent_button_dark_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden intent_button_dark_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden intent_button_light_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden intent_button_light_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden inbox_card_dark_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden inbox_card_dark_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden inbox_card_light_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden inbox_card_light_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden summary_card_dark_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden summary_card_dark_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden summary_card_light_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden summary_card_light_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden person_row_dark_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden person_row_dark_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden person_row_light_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden person_row_light_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden doc_row_dark_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden doc_row_dark_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden chip_row_dark_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden chip_row_dark_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden chip_row_light_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden chip_row_light_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden more_menu_dark_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden more_menu_dark_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden more_menu_light_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden more_menu_light_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden states_dark_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden states_dark_2x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden states_light_1x"
+    },
+    {
+      "file": "test/golden/ds_golden_test.dart",
+      "test": "golden states_light_2x"
+    },
+    {
+      "file": "test/compose_screen_test.dart",
+      "test": "AT-12 J2: REQUEST → 305 in 3 taps, link contains /d/"
+    },
+    {
+      "file": "test/spec_lint_test.dart",
+      "test": "AT-92: no Hebrew string literal in a button outside lib/util/labels/"
+    },
+    {
+      "file": "test/compose_screen_test.dart",
+      "test": "tap on the VAT line toggles כולל ↔ לפני מע״מ"
+    },
+    {
+      "file": "test/compose_screen_test.dart",
+      "test": "AT-16: ≥ ₪50,000 → one confirmation dialog"
+    },
+    {
+      "file": "test/compose_screen_test.dart",
+      "test": "AT-17b: unknown dealer status → \"עוסק מורשה?\" → כן → finalize"
+    },
+    {
+      "file": "test/document/document_screen_test.dart",
+      "test": "AT-70: 200% text on a 320pt phone — D, S5, S6, S8 and a quote lay out without overflow"
+    },
+    {
+      "file": "test/compose_screen_test.dart",
+      "test": "AT-20: from a SENT quote → ACCEPTED, convert, prefilled 305 → issue"
+    },
+    {
+      "file": "test/compose_screen_test.dart",
+      "test": "P1 TAX_INVOICE_DUE (BE-08): TYPE:305 from the paid 300 → linked clone, no POST /documents"
+    },
+    {
+      "file": "test/compose_screen_test.dart",
+      "test": "P1 BE-07/09: the due date follows the customer terms; S3 shows it"
+    },
+    {
+      "file": "test/compose_screen_test.dart",
+      "test": "AT-70: 200% text on a 375×667 phone — no overflow; amount and primary visible"
+    },
+    {
+      "file": "test/auth_screens_test.dart",
+      "test": "password → device token → several businesses → required picker"
+    },
+    {
+      "file": "test/auth_screens_test.dart",
+      "test": "app lock: privacy cover in background, Face ID after the lock delay"
+    },
+    {
+      "file": "test/reports/reports_test.dart",
+      "test": "J9/AT-26: accountant home = R; VAT card → \"שתף\" = 2 taps"
+    }
+  ],
+  "latest": {
+    "passed": 731,
+    "failed": 55,
+    "failures": [
+      {
+        "file": "test/shell_test.dart",
+        "test": "large reserved glass navigation; create action only at home"
+      },
+      {
+        "file": "test/home_screen_test.dart",
+        "test": "employee: no money card, only \"בקש תשלום\", role tag, own cards"
+      },
+      {
+        "file": "test/home_screen_test.dart",
+        "test": "צפייה בלבד: money card, no intents, no \"לטיפול\""
+      },
+      {
+        "file": "test/people_screens_test.dart",
+        "test": "P · לקוחות empty → teaching sentence + \"הוסף מאנשי הקשר\" opens S2 page 2 with the picker"
+      },
+      {
+        "file": "test/people_screens_test.dart",
+        "test": "P2 · כרטיס J11 (AT-28, BE-17): לקוחות → לקוח → \"שלח כרטסת\" = 3 taps; e-mailed for this year"
+      },
+      {
+        "file": "test/business/business_screen_test.dart",
+        "test": "§4.4 rows per preset (hidden, not disabled) owner: commerce rows in order; approvals only with another member"
+      },
+      {
+        "file": "test/business/business_screen_test.dart",
+        "test": "§4.4 rows per preset (hidden, not disabled) partner = owner rows; employee: expenses + account only"
+      },
+      {
+        "file": "test/business/business_screen_test.dart",
+        "test": "§4.4 rows per preset (hidden, not disabled) accountant (P0): reports live on the home tab; viewer: account only"
+      },
+      {
+        "file": "test/people_screens_test.dart",
+        "test": "S2 · לקוח J1-new inside S2: \"+ לקוח חדש\" → contact → \"שמור\" = 3 taps; consent switch → consent call"
+      },
+      {
+        "file": "test/business/business_screen_test.dart",
+        "test": "owner list: business name header, rows, no PrimaryButton (read screen)"
+      },
+      {
+        "file": "test/people_screens_test.dart",
+        "test": "S2 · לקוח duplicate phone → \"כבר קיים: X · השתמש בו\" returns the existing one"
+      },
+      {
+        "file": "test/business/business_screen_test.dart",
+        "test": "S13 13.9 המשך במחשב → POST /mobile/web-handoff {topic}; 404 → mailto to self"
+      },
+      {
+        "file": "test/business/business_screen_test.dart",
+        "test": "VoiceOver: every B row is a labelled button"
+      },
+      {
+        "file": "test/business/p1p2_test.dart",
+        "test": "B row \"תזכורות אוטומטיות\" (BE-19) switch in the row → confirm → PUT /settings/reminders; owner includes commerce settings"
+      },
+      {
+        "file": "test/golden/ds_widgets_test.dart",
+        "test": "200% text on a 320pt phone: no overflow in any component"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden primary_button_dark_1x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden primary_button_dark_2x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden primary_button_light_1x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden primary_button_light_2x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden intent_button_dark_1x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden intent_button_dark_2x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden intent_button_light_1x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden intent_button_light_2x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden inbox_card_dark_1x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden inbox_card_dark_2x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden inbox_card_light_1x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden inbox_card_light_2x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden summary_card_dark_1x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden summary_card_dark_2x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden summary_card_light_1x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden summary_card_light_2x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden person_row_dark_1x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden person_row_dark_2x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden person_row_light_1x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden person_row_light_2x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden doc_row_dark_1x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden doc_row_dark_2x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden more_menu_dark_1x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden more_menu_dark_2x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden more_menu_light_1x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden more_menu_light_2x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden states_dark_1x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden states_dark_2x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden states_light_1x"
+      },
+      {
+        "file": "test/golden/ds_golden_test.dart",
+        "test": "golden states_light_2x"
+      },
+      {
+        "file": "test/compose_screen_test.dart",
+        "test": "AT-12 J2: REQUEST → 305 in 3 taps, link contains /d/"
+      },
+      {
+        "file": "test/spec_lint_test.dart",
+        "test": "AT-92: no Hebrew string literal in a button outside lib/util/labels/"
+      },
+      {
+        "file": "test/compose_screen_test.dart",
+        "test": "tap on the VAT line toggles כולל ↔ לפני מע״מ"
+      },
+      {
+        "file": "test/compose_screen_test.dart",
+        "test": "AT-16: ≥ ₪50,000 → one confirmation dialog"
+      },
+      {
+        "file": "test/compose_screen_test.dart",
+        "test": "AT-17b: unknown dealer status → \"עוסק מורשה?\" → כן → finalize"
+      },
+      {
+        "file": "test/compose_screen_test.dart",
+        "test": "AT-20: from a SENT quote → ACCEPTED, convert, prefilled 305 → issue"
+      },
+      {
+        "file": "test/compose_screen_test.dart",
+        "test": "P1 TAX_INVOICE_DUE (BE-08): TYPE:305 from the paid 300 → linked clone, no POST /documents"
+      },
+      {
+        "file": "test/compose_screen_test.dart",
+        "test": "P1 BE-07/09: the due date follows the customer terms; S3 shows it"
+      },
+      {
+        "file": "test/auth_screens_test.dart",
+        "test": "app lock: privacy cover in background, Face ID after the lock delay"
+      },
+      {
+        "file": "test/reports/reports_test.dart",
+        "test": "J9/AT-26: accountant home = R; VAT card → \"שתף\" = 2 taps"
+      }
+    ]
+  },
+  "qualification": {
+    "passed": 786,
+    "failed": 0,
+    "command": "dart run tool/build_release.dart (flutter test --no-pub --concurrency=1)",
+    "analysis": "passed",
+    "archive": "passed",
+    "ipaExport": "passed",
+    "source": "lib/main.dart",
+    "uploaded": false
+  }
+}

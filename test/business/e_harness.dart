@@ -35,16 +35,17 @@ Future<FakeBackend> eSetUp() async {
   return backend;
 }
 
-Widget eApp(Widget home, {Brightness brightness = Brightness.light}) => MaterialApp(
-  navigatorKey: navigatorKey,
-  scaffoldMessengerKey: messengerKey,
-  navigatorObservers: [AppRouter.instance.observer],
-  locale: const Locale('he', 'IL'),
-  supportedLocales: const [Locale('he', 'IL')],
-  localizationsDelegates: GlobalMaterialLocalizations.delegates,
-  theme: buildTheme(brightness),
-  home: home,
-);
+Widget eApp(Widget home, {Brightness brightness = Brightness.light}) =>
+    MaterialApp(
+      navigatorKey: navigatorKey,
+      scaffoldMessengerKey: messengerKey,
+      navigatorObservers: [AppRouter.instance.observer],
+      locale: const Locale('he', 'IL'),
+      supportedLocales: const [Locale('he', 'IL')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      theme: buildTheme(brightness),
+      home: home,
+    );
 
 void phone(WidgetTester tester) {
   tester.view.physicalSize = const Size(1170, 2532);
@@ -80,9 +81,13 @@ Future<void> pumpAs(
 
 /// pumpAndSettle that also lets the fake's real async work (cache files) run.
 Future<void> settle(WidgetTester tester) async {
-  for (var i = 0; i < 12; i++) {
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 5)));
-    await tester.pump();
+  var quietFrames = 0;
+  for (var i = 0; i < 400 && quietFrames < 12; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 5)),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+    quietFrames = tester.binding.hasScheduledFrame ? 0 : quietFrames + 1;
   }
   await tester.pumpAndSettle();
 }
@@ -93,7 +98,13 @@ class Taps {
 
   Future<void> tap(WidgetTester tester, Finder f) async {
     count++;
+    // Disk-backed caches and asynchronous feature probes can complete after
+    // route animation settles, especially when the suite runs concurrently.
+    for (var i = 0; i < 50 && f.evaluate().isEmpty; i++) {
+      await settle(tester);
+    }
     await tester.ensureVisible(f);
+    await tester.pump();
     await tester.tap(f);
     await settle(tester);
   }

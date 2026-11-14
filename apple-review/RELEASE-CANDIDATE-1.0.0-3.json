@@ -1,0 +1,38 @@
+{
+  "version": "1.0.0",
+  "build": "3",
+  "ipa": "build/ios/candidates/1.0.0-3/\u05ea\u05d1\u05dc.ipa",
+  "bytes": 25276022,
+  "sha256": "8e1e098cee20b00b9d15bcec8ba3ada41a65946809968146842d91a3742e93c0",
+  "builtAtUtc": "2026-11-09T19:01:02.725366+00:00",
+  "uploaded": false,
+  "entrypoint": "lib/main.dart",
+  "apiOrigin": "https://invoice.crm.tevel.space",
+  "verification": {
+    "mobileTestsPassed": 786,
+    "mobileTestsFailed": 0,
+    "flutterAnalyze": "passed",
+    "backendBrowserE2EPassed": 10,
+    "backendBrowserE2EFailed": 0
+  },
+  "bundles": [
+    {
+      "id": "space.tevel.invoice",
+      "profile": "Tevel Invoice App Store",
+      "development": false,
+      "signature": "verified",
+      "pushEnvironment": "production"
+    },
+    {
+      "id": "space.tevel.invoice.TevelActivity",
+      "profile": "Tevel Activity App Store",
+      "development": false,
+      "signature": "verified",
+      "pushEnvironment": null
+    }
+  ],
+  "sourceTreeSha256": "81a47e8f556f42493f94b79a4a22618a0fbf45b8414771d7ce8cd9b010e05c18",
+  "sourceFileCount": 261,
+  "gitCommit": "cad0a43360433a29aff2d9f18a4175fca4355458",
+  "workingTreeDirty": true
+}

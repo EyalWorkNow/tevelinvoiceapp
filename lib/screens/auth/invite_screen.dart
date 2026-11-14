@@ -88,7 +88,10 @@ class _InviteScreenState extends State<InviteScreen> {
         displayName: invite.accountExists ? null : _name.text,
       );
       if (!mounted) return;
-      await finishSignIn(context, const SignInResult(mfaRequired: false, businesses: []));
+      await finishSignIn(
+        context,
+        const SignInResult(mfaRequired: false, businesses: []),
+      );
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -118,7 +121,9 @@ class _InviteScreenState extends State<InviteScreen> {
             ? EmptyState(
                 icon: Iconsax.calendar_remove,
                 title: AuthHe.expiredAskAgain(
-                  (invite?.inviterName ?? '').isEmpty ? AuthHe.inviterFallback : invite!.inviterName,
+                  (invite?.inviterName ?? '').isEmpty
+                      ? AuthHe.inviterFallback
+                      : invite!.inviterName,
                 ),
                 actionLabel: CommonHe.open,
                 onAction: resetToLogin,
@@ -171,10 +176,16 @@ class _InviteScreenState extends State<InviteScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: Space.xl),
-            Text(ltrIsolate(invite.email), style: AppText.headline, textAlign: TextAlign.center),
+            Text(
+              ltrIsolate(invite.email),
+              style: AppText.headline,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: Space.l),
             Text(
-              invite.accountExists ? AuthHe.joinWithPassword : AuthHe.createPassword,
+              invite.accountExists
+                  ? AuthHe.joinWithPassword
+                  : AuthHe.createPassword,
               style: AppText.headline,
             ),
             const SizedBox(height: Space.s),
@@ -183,7 +194,9 @@ class _InviteScreenState extends State<InviteScreen> {
                 controller: _name,
                 textInputAction: TextInputAction.next,
                 autofillHints: const [AutofillHints.name],
-                decoration: const InputDecoration(labelText: AuthHe.displayName),
+                decoration: const InputDecoration(
+                  labelText: AuthHe.displayName,
+                ),
               ),
               const SizedBox(height: Space.m),
             ],
@@ -194,7 +207,11 @@ class _InviteScreenState extends State<InviteScreen> {
               autocorrect: false,
               enableSuggestions: false,
               textDirection: TextDirection.ltr,
-              autofillHints: [invite.accountExists ? AutofillHints.password : AutofillHints.newPassword],
+              autofillHints: [
+                invite.accountExists
+                    ? AutofillHints.password
+                    : AutofillHints.newPassword,
+              ],
               onSubmitted: (_) => _join(),
               decoration: InputDecoration(
                 labelText: AuthHe.password,
@@ -207,7 +224,8 @@ class _InviteScreenState extends State<InviteScreen> {
               Align(
                 alignment: AlignmentDirectional.centerStart,
                 child: TextButton(
-                  onPressed: () => showForgotPasswordSheet(context, invite.email),
+                  onPressed: () =>
+                      showForgotPasswordSheet(context, invite.email),
                   child: const Text(AuthHe.forgotPassword),
                 ),
               ),

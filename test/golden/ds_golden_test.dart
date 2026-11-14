@@ -26,7 +26,11 @@ final Map<String, Widget Function()> specimens = {
       ),
       const PrimaryScope(
         child: BottomActionArea(
-          child: PrimaryButton(label: 'הפק', loadingText: 'חותם…', onPressed: _noop),
+          child: PrimaryButton(
+            label: 'הפק',
+            loadingText: 'חותם…',
+            onPressed: _noop,
+          ),
         ),
       ),
       const PrimaryScope(
@@ -36,7 +40,11 @@ final Map<String, Widget Function()> specimens = {
       ),
       const PrimaryScope(
         child: BottomActionArea(
-          child: PrimaryButton(label: 'הפק זיכוי', destructive: true, onPressed: _noop),
+          child: PrimaryButton(
+            label: 'הפק זיכוי',
+            destructive: true,
+            onPressed: _noop,
+          ),
         ),
       ),
     ],
@@ -56,7 +64,11 @@ final Map<String, Widget Function()> specimens = {
         ),
         SizedBox(width: Space.m),
         Expanded(
-          child: IntentButton(icon: Iconsax.send_2, label: 'בקש תשלום', onPressed: _noop),
+          child: IntentButton(
+            icon: Iconsax.send_2,
+            label: 'בקש תשלום',
+            onPressed: _noop,
+          ),
         ),
       ],
     ),
@@ -115,7 +127,11 @@ final Map<String, Widget Function()> specimens = {
     padding: const EdgeInsets.all(Space.page),
     child: SummaryCard(
       children: [
-        const SummaryRow(icon: Iconsax.note_text, value: 'תיקון דוד', onTap: _noop),
+        const SummaryRow(
+          icon: Iconsax.note_text,
+          value: 'תיקון דוד',
+          onTap: _noop,
+        ),
         ChipRow<String>(
           padding: const EdgeInsets.all(Space.m),
           options: const [
@@ -128,7 +144,10 @@ final Map<String, Widget Function()> specimens = {
         ),
         Align(
           alignment: AlignmentDirectional.centerStart,
-          child: TextButton(onPressed: _noop, child: const Text('פרטים נוספים')),
+          child: TextButton(
+            onPressed: _noop,
+            child: const Text('פרטים נוספים'),
+          ),
         ),
       ],
     ),
@@ -143,7 +162,11 @@ final Map<String, Widget Function()> specimens = {
         amountMinor: BigInt.from(599000),
         onTap: _noop,
       ),
-      const PersonRow(name: 'אבי ספקים בע"מ', subtitle: 'avi@example.com', badge: 'ספק'),
+      const PersonRow(
+        name: 'אבי ספקים בע"מ',
+        subtitle: 'avi@example.com',
+        badge: 'ספק',
+      ),
       const PersonRow(name: 'רון', badge: 'בארכיון'),
     ],
   ),

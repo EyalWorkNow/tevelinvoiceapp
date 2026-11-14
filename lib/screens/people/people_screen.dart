@@ -360,7 +360,9 @@ class _PeopleScreenState extends State<PeopleScreen> {
     return ListView.builder(
       key: const Key('people-list'),
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 140),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.paddingOf(context).bottom + Space.xl,
+      ),
       itemCount: rows.length + (showCap ? 1 : 0),
       itemBuilder: (context, i) {
         if (i == rows.length) {
@@ -380,7 +382,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
           name: c.name,
           subtitle: (c.phone != null && c.phone!.isNotEmpty)
               ? formatPhoneHe(c.phone)
-              : (context.isDark ? '052-0000111' : null),
+              : null,
           badge: c.isArchived ? PeopleHe.archivedBadge : null,
           amountLabel: owed != null ? PeopleHe.owesYou : null,
           amountMinor: owed,
@@ -440,7 +442,9 @@ class _PeopleScreenState extends State<PeopleScreen> {
     }
     return ListView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 140),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.paddingOf(context).bottom + Space.xl,
+      ),
       itemCount: rows.length,
       itemBuilder: (context, i) {
         final s = rows[i];

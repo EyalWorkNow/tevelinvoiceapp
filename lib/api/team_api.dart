@@ -20,7 +20,8 @@ import 'models/models.dart';
 
 final _api = ApiClient.instance;
 
-Future<TeamList> fetchTeam() async => TeamList.fromJson(await _api.get('/business/members'));
+Future<TeamList> fetchTeam() async =>
+    TeamList.fromJson(await _api.get('/business/members'));
 
 // Not 'pending_…': AppCache treats that prefix as an unfinished money
 // operation (kept on expiry, sign-out warning). Grants are not money.
@@ -41,18 +42,24 @@ Future<Map<String, dynamic>?> _readPending() async {
   return null;
 }
 
-Future<void> _writePending(Map<String, dynamic> map) =>
-    map.isEmpty ? AppCache.remove(_pendingKey()) : AppCache.write(_pendingKey(), map);
+Future<void> _writePending(Map<String, dynamic> map) => map.isEmpty
+    ? AppCache.remove(_pendingKey())
+    : AppCache.write(_pendingKey(), map);
 
 /// Invites [email] as [preset]. Sends the grants (BE-41); a server that did
 /// not store them gets them later via [completePendingGrants].
-Future<InviteResult> inviteMember(String email, Preset preset, {bool issuer = false}) async {
+Future<InviteResult> inviteMember(
+  String email,
+  Preset preset, {
+  bool issuer = false,
+}) async {
   final address = email.trim().toLowerCase();
-  Future<Map<String, dynamic>> send((String, List<String>) target) => _api.post('/business/members/invite', {
-    'email': address,
-    'role': target.$1,
-    if (target.$2.isNotEmpty) 'permissions': target.$2,
-  });
+  Future<Map<String, dynamic>> send((String, List<String>) target) =>
+      _api.post('/business/members/invite', {
+        'email': address,
+        'role': target.$1,
+        if (target.$2.isNotEmpty) 'permissions': target.$2,
+      });
   final (role, grants) = presetToServer(preset, issuer: issuer);
   final (json, asRep) = await _withRepFallback(
     preset,
@@ -137,17 +144,29 @@ bool get accountantRepMaybeSupported => _repRoleSupported != false;
 /// so it has none). No role comparison here (AT-48).
 List<TeamMember> p0Accountants(TeamList team) => [
   for (final m in team.active)
-    if (!m.isSelf && m.preset == Preset.accountantRep && m.grants.contains('expense:approve')) m,
+    if (!m.isSelf &&
+        m.preset == Preset.accountantRep &&
+        m.grants.contains('expense:approve'))
+      m,
 ];
 
-Future<void> saveMemberRole(TeamMember member, (String, List<String>) target) async {
-  await _api.put('/business/members/${member.userId}/role', {'role': target.$1});
-  await _api.put('/business/members/${member.userId}/permissions', {'permissions': target.$2});
+Future<void> saveMemberRole(
+  TeamMember member,
+  (String, List<String>) target,
+) async {
+  await _api.put('/business/members/${member.userId}/role', {
+    'role': target.$1,
+  });
+  await _api.put('/business/members/${member.userId}/permissions', {
+    'permissions': target.$2,
+  });
 }
 
 /// BE-41: new token, fresh 7 days, e-mail sent again.
 Future<InviteResult> resendInvitation(String invitationId) async =>
-    InviteResult.fromJson(await _api.post('/business/invitations/$invitationId/resend'));
+    InviteResult.fromJson(
+      await _api.post('/business/invitations/$invitationId/resend'),
+    );
 
 Future<void> revokeInvitation(String invitationId) async {
   await _api.post('/business/invitations/$invitationId/revoke');
@@ -156,7 +175,11 @@ Future<void> revokeInvitation(String invitationId) async {
 /// §12.3: PUT role, then PUT the preset's grants (same role is a no-op on the
 /// server). Grants outside the preset ("מותאם אישית") are replaced — the
 /// editor only saves after the owner picked a preset.
-Future<void> saveMemberPreset(TeamMember member, Preset preset, {bool issuer = false}) async {
+Future<void> saveMemberPreset(
+  TeamMember member,
+  Preset preset, {
+  bool issuer = false,
+}) async {
   await _withRepFallback(
     preset,
     () => saveMemberRole(member, accountantRepTarget),
@@ -167,7 +190,10 @@ Future<void> saveMemberPreset(TeamMember member, Preset preset, {bool issuer = f
 // ---- BE-04: the representing accountant role ---------------------------------
 
 /// The accountant preset after BE-04: its own server role, no extra grants.
-const (String, List<String>) accountantRepTarget = ('ACCOUNTANT_REP', <String>[]);
+const (String, List<String>) accountantRepTarget = (
+  'ACCOUNTANT_REP',
+  <String>[],
+);
 
 /// null = not tried yet; false = this server refused ACCOUNTANT_REP (pre-BE-04).
 bool? _repRoleSupported;
@@ -189,7 +215,9 @@ Future<(T, bool)> _withRepFallback<T>(
       _repRoleSupported = true;
       return (r, true);
     } on ApiException catch (e) {
-      if (!(e.status == 400 || e.status == 422) || _repRoleSupported == true) rethrow;
+      if (!(e.status == 400 || e.status == 422) || _repRoleSupported == true) {
+        rethrow;
+      }
       _repRoleSupported = false;
     }
   }
@@ -200,14 +228,19 @@ Future<(T, bool)> _withRepFallback<T>(
 
 /// Step 1: e-mails a 6-digit code to the owner. Returns the masked address.
 Future<String?> requestOwnershipTransfer(String toUserId) async {
-  final json = await _api.post('/business/ownership/transfer', {'toUserId': toUserId});
+  final json = await _api.post('/business/ownership/transfer', {
+    'toUserId': toUserId,
+  });
   return json['sentTo'] as String?;
 }
 
 /// Step 2: with the code the member becomes OWNER and the caller ADMIN.
 /// Reloads /me (the caller's capabilities change).
 Future<void> confirmOwnershipTransfer(String toUserId, String code) async {
-  await _api.post('/business/ownership/transfer', {'toUserId': toUserId, 'code': code.trim()});
+  await _api.post('/business/ownership/transfer', {
+    'toUserId': toUserId,
+    'code': code.trim(),
+  });
   await session.refreshBusiness();
   await session.refreshAccount();
 }

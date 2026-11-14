@@ -21,7 +21,9 @@ class AppCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(Radii.card);
     return Material(
-      color: color ?? (context.isDark ? DesignTokens.glass : context.palette.surface),
+      color:
+          color ??
+          (context.isDark ? DesignTokens.glass : context.palette.surface),
       borderRadius: radius,
       clipBehavior: Clip.antiAlias,
       child: InkWell(

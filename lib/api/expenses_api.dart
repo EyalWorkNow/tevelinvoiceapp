@@ -32,7 +32,8 @@ class ExpenseFileUnsupported implements Exception {
   const ExpenseFileUnsupported();
 }
 
-bool _isJpeg(Uint8List b) => b.length > 3 && b[0] == 0xff && b[1] == 0xd8 && b[2] == 0xff;
+bool _isJpeg(Uint8List b) =>
+    b.length > 3 && b[0] == 0xff && b[1] == 0xd8 && b[2] == 0xff;
 
 /// Server limit (packages/expense-ingestion upload-validation.ts). PDFs are
 /// sent as-is, so they only have to fit this.
@@ -40,14 +41,22 @@ const int maxExpensePdfBytes = 20 * 1024 * 1024;
 
 /// Starts with `%PDF-` (the server sniffs the same magic bytes).
 bool isPdf(Uint8List b) =>
-    b.length > 4 && b[0] == 0x25 && b[1] == 0x50 && b[2] == 0x44 && b[3] == 0x46 && b[4] == 0x2d;
+    b.length > 4 &&
+    b[0] == 0x25 &&
+    b[1] == 0x50 &&
+    b[2] == 0x44 &&
+    b[3] == 0x46 &&
+    b[4] == 0x2d;
 
 /// Bytes ready for upload: a JPEG ≤ [maxBytes]. A small JPEG passes through
 /// untouched; anything else is decoded (EXIF rotation applied), resized to
 /// [maxSide] and re-encoded with decreasing quality until it fits.
 /// Runs in a background isolate. Throws [ExpenseFileUnsupported].
-Future<Uint8List> prepareExpenseJpeg(Uint8List input,
-    {int maxBytes = maxExpenseBytes, int maxSide = maxExpenseSide}) {
+Future<Uint8List> prepareExpenseJpeg(
+  Uint8List input, {
+  int maxBytes = maxExpenseBytes,
+  int maxSide = maxExpenseSide,
+}) {
   if (_isJpeg(input) && input.length <= maxBytes) return Future.value(input);
   return Isolate.run(() => _toJpeg(input, maxBytes, maxSide));
 }
@@ -83,7 +92,11 @@ String sha256Hex(List<int> bytes) => sha256.convert(bytes).toString();
 enum ExpenseUploadStage { uploading, scanning }
 
 class ExpenseUploadResult {
-  const ExpenseUploadResult({this.expenseId, this.duplicate = false, this.stillScanning = false});
+  const ExpenseUploadResult({
+    this.expenseId,
+    this.duplicate = false,
+    this.stillScanning = false,
+  });
 
   final String? expenseId;
 
@@ -118,13 +131,19 @@ Future<ExpenseUploadResult> uploadExpense(
   final uploadId = init['uploadId'] as String;
   final target = init['upload'] as Map<String, dynamic>;
   final headers = {
-    for (final e in (target['headers'] as Map? ?? const {}).entries) '${e.key}': '${e.value}'
+    for (final e in (target['headers'] as Map? ?? const {}).entries)
+      '${e.key}': '${e.value}',
   };
   final url = target['url'] as String;
   if (target['kind'] == 'signed') {
     await _putSigned(url, bytes, headers);
   } else {
-    await _api.putBytes(url, bytes, headers['Content-Type'] ?? contentType, filename: filename);
+    await _api.putBytes(
+      url,
+      bytes,
+      headers['Content-Type'] ?? contentType,
+      filename: filename,
+    );
   }
 
   onStage?.call(ExpenseUploadStage.scanning);
@@ -135,16 +154,18 @@ Future<ExpenseUploadResult> uploadExpense(
       return const ExpenseUploadResult(stillScanning: true);
     }
     await Future<void>.delayed(pollEvery);
-    if (cancelled?.call() ?? false) return const ExpenseUploadResult(stillScanning: true);
+    if (cancelled?.call() ?? false) {
+      return const ExpenseUploadResult(stillScanning: true);
+    }
     json = await _api.get('/expenses/uploads/$uploadId');
   }
   return switch (json['status']) {
     'REJECTED_MALWARE' => throw _fail('SCANNER_INFECTED', 422),
     'SCAN_FAILED' => throw _fail('SCAN_FAILED', 422),
     _ => ExpenseUploadResult(
-        expenseId: json['expenseId'] as String?,
-        duplicate: json['duplicateOfExpenseId'] != null,
-      ),
+      expenseId: json['expenseId'] as String?,
+      duplicate: json['duplicateOfExpenseId'] != null,
+    ),
   };
 }
 
@@ -152,7 +173,11 @@ ApiException _fail(String code, int status) =>
     ApiException(status, code, errorMessageHe(code, status: status));
 
 /// Signed storage URL (prod: Supabase): plain PUT, no app credentials.
-Future<void> _putSigned(String url, Uint8List bytes, Map<String, String> headers) async {
+Future<void> _putSigned(
+  String url,
+  Uint8List bytes,
+  Map<String, String> headers,
+) async {
   final http.Response response;
   try {
     response = await _api.httpClient
@@ -173,7 +198,7 @@ Future<List<ExpenseRow>> fetchExpenseInbox() async {
   final json = await _api.get('/expenses/inbox');
   return [
     for (final e in (json['expenses'] as List? ?? const []))
-      ExpenseRow.fromJson(Map<String, dynamic>.from(e as Map))
+      ExpenseRow.fromJson(Map<String, dynamic>.from(e as Map)),
   ];
 }
 
@@ -183,11 +208,13 @@ String _categoriesKey(String? bid) => 'expense_categories_$bid';
 Future<List<ExpenseCategory>> fetchExpenseCategories() async {
   final bid = session.business?.businessId;
   List<ExpenseCategory> parse(Object? list) => [
-        for (final c in (list as List? ?? const []))
-          ExpenseCategory.fromJson(Map<String, dynamic>.from(c as Map))
-      ];
+    for (final c in (list as List? ?? const []))
+      ExpenseCategory.fromJson(Map<String, dynamic>.from(c as Map)),
+  ];
   try {
-    final raw = (await _api.get('/expense-categories'))['categories'] as List? ?? const [];
+    final raw =
+        (await _api.get('/expense-categories'))['categories'] as List? ??
+        const [];
     try {
       await AppCache.write(_categoriesKey(bid), raw);
     } on Object {
@@ -229,7 +256,10 @@ class ExpenseDraftResult {
 }
 
 /// PATCH /expenses/:id/draft with the whole draft (the server replaces every field).
-Future<ExpenseDraftResult> saveExpenseDraft(String id, ExpenseDraft draft) async {
+Future<ExpenseDraftResult> saveExpenseDraft(
+  String id,
+  ExpenseDraft draft,
+) async {
   final json = await _api.patch('/expenses/$id/draft', draft.toJson());
   final validation = json['validation'];
   final warnings = <String>[
@@ -248,13 +278,17 @@ Future<void> rejectExpense(String id, String reason) =>
 
 /// POST /expenses/:id/duplicate {duplicateOfExpenseId}.
 Future<void> markExpenseDuplicate(String id, String duplicateOfExpenseId) =>
-    _api.post('/expenses/$id/duplicate', {'duplicateOfExpenseId': duplicateOfExpenseId});
+    _api.post('/expenses/$id/duplicate', {
+      'duplicateOfExpenseId': duplicateOfExpenseId,
+    });
 
 /// POST /expenses/:id/undo-duplicate → back to NEEDS_REVIEW ("לא, זו הוצאה אחרת").
-Future<void> undoExpenseDuplicate(String id) => _api.post('/expenses/$id/undo-duplicate');
+Future<void> undoExpenseDuplicate(String id) =>
+    _api.post('/expenses/$id/undo-duplicate');
 
 /// GET /expenses/:id/source → the original image / PDF bytes.
-Future<Uint8List> fetchExpenseSource(String id) => _api.getBytes('/expenses/$id/source');
+Future<Uint8List> fetchExpenseSource(String id) =>
+    _api.getBytes('/expenses/$id/source');
 
 /// Approve a reviewed card: save the draft, then approve. Throws
 /// ApiException EXPENSE_VALIDATION_FAILED when the server says it is not
@@ -262,8 +296,11 @@ Future<Uint8List> fetchExpenseSource(String id) => _api.getBytes('/expenses/$id/
 Future<void> saveAndApproveExpense(String id, ExpenseDraft draft) async {
   final saved = await saveExpenseDraft(id, draft);
   if (!saved.readyToApprove) {
-    throw ApiException(422, 'EXPENSE_VALIDATION_FAILED',
-        errorMessageHe('EXPENSE_VALIDATION_FAILED', status: 422));
+    throw ApiException(
+      422,
+      'EXPENSE_VALIDATION_FAILED',
+      errorMessageHe('EXPENSE_VALIDATION_FAILED', status: 422),
+    );
   }
   await approveExpense(id);
 }
@@ -280,17 +317,25 @@ class ExpensePage {
 
 /// GET /expenses?q=&mine=1&offset=&limit= (BE-44), or null when the server
 /// has no such route yet (the list then falls back to the inbox).
-Future<ExpensePage?> fetchExpenses({String q = '', bool mine = false, int offset = 0, int limit = 50}) async {
+Future<ExpensePage?> fetchExpenses({
+  String q = '',
+  bool mine = false,
+  int offset = 0,
+  int limit = 50,
+}) async {
   try {
-    final json = await _api.get('/expenses', query: {
-      if (q.trim().isNotEmpty) 'q': q.trim(),
-      if (mine) 'mine': '1',
-      if (offset > 0) 'offset': '$offset',
-      'limit': '$limit',
-    });
+    final json = await _api.get(
+      '/expenses',
+      query: {
+        if (q.trim().isNotEmpty) 'q': q.trim(),
+        if (mine) 'mine': '1',
+        if (offset > 0) 'offset': '$offset',
+        'limit': '$limit',
+      },
+    );
     return ExpensePage([
       for (final e in (json['expenses'] as List? ?? const []))
-        ExpenseRow.fromJson(Map<String, dynamic>.from(e as Map))
+        ExpenseRow.fromJson(Map<String, dynamic>.from(e as Map)),
     ], total: (json['total'] as num?)?.toInt());
   } on ApiException catch (e) {
     if (e.status == 404 && e.code == 'NOT_FOUND') return null;
@@ -299,7 +344,8 @@ Future<ExpensePage?> fetchExpenses({String q = '', bool mine = false, int offset
 }
 
 /// PATCH /expenses/:id with the whole draft — also after APPROVED (BE-44, audited).
-Future<void> updateExpense(String id, ExpenseDraft draft) => _api.patch('/expenses/$id', draft.toJson());
+Future<void> updateExpense(String id, ExpenseDraft draft) =>
+    _api.patch('/expenses/$id', draft.toJson());
 
 /// DELETE /expenses/:id (BE-44, soft delete).
 Future<void> deleteExpense(String id) => _api.delete('/expenses/$id');
@@ -314,7 +360,8 @@ bool expenseMatches(ExpenseRow r, String query) {
   final digits = q.replaceAll(RegExp(r'\D'), '');
   if (digits.length < 2) return false;
   final total = r.totalMinor;
-  return total != null && (total ~/ BigInt.from(100)).toString().contains(digits);
+  return total != null &&
+      (total ~/ BigInt.from(100)).toString().contains(digits);
 }
 
 // ---- "mine" on this device (P0; BE-44 adds createdBy) ------------------------
@@ -333,7 +380,10 @@ Future<Set<String>> readMyExpenseIds() async {
 /// Remember an expense captured on this device (newest first, ≤200).
 Future<void> rememberMyExpense(String id) async {
   final bid = session.business?.businessId;
-  final ids = [id, ...(await readMyExpenseIds()).where((e) => e != id)].take(200).toList();
+  final ids = [
+    id,
+    ...(await readMyExpenseIds()).where((e) => e != id),
+  ].take(200).toList();
   try {
     await AppCache.write(_mineKey(bid), ids);
   } on Object {
@@ -357,14 +407,18 @@ Future<String?> lastExpenseCategory(String? supplierName) async {
   }
 }
 
-Future<void> rememberExpenseCategory(String? supplierName, String categoryId) async {
+Future<void> rememberExpenseCategory(
+  String? supplierName,
+  String categoryId,
+) async {
   final bid = session.business?.businessId;
   try {
     final v = await AppCache.read(_catKey(bid));
     await AppCache.write(_catKey(bid), {
       if (v is Map) ...v,
       '': categoryId,
-      if ((supplierName ?? '').trim().isNotEmpty) supplierName!.trim(): categoryId,
+      if ((supplierName ?? '').trim().isNotEmpty)
+        supplierName!.trim(): categoryId,
     });
   } on Object {
     // best effort
@@ -376,18 +430,34 @@ Future<void> rememberExpenseCategory(String? supplierName, String categoryId) as
 /// Cards for E (§6.E): reviewable + still processing, oldest first so the
 /// count "3 מתוך 7" walks forward. Without expense.approve a member sees
 /// only [mine] (P0: captured on this device; BE-44: createdBy == [userId]).
-List<ExpenseRow> expenseReviewQueue(Iterable<ExpenseRow> rows,
-    {required bool approver, Set<String> mine = const {}, String? userId}) {
-  bool own(ExpenseRow r) => mine.contains(r.id) || (userId != null && r.createdBy == userId);
+List<ExpenseRow> expenseReviewQueue(
+  Iterable<ExpenseRow> rows, {
+  required bool approver,
+  Set<String> mine = const {},
+  String? userId,
+}) {
+  bool own(ExpenseRow r) =>
+      mine.contains(r.id) || (userId != null && r.createdBy == userId);
   return [
     for (final r in rows)
-      if ((r.isReviewable || r.isProcessing || r.status == 'ERROR') && (approver || own(r))) r
+      if ((r.isReviewable || r.isProcessing || r.status == 'ERROR') &&
+          (approver || own(r)))
+        r,
   ].reversed.toList();
 }
 
 /// The list view (§6.E רשימה): everything visible to the member, newest first.
-List<ExpenseRow> expenseListRows(Iterable<ExpenseRow> rows,
-    {required bool approver, bool mineOnly = false, Set<String> mine = const {}, String? userId}) {
-  bool own(ExpenseRow r) => mine.contains(r.id) || (userId != null && r.createdBy == userId);
-  return [for (final r in rows) if ((approver && !mineOnly) || own(r)) r];
+List<ExpenseRow> expenseListRows(
+  Iterable<ExpenseRow> rows, {
+  required bool approver,
+  bool mineOnly = false,
+  Set<String> mine = const {},
+  String? userId,
+}) {
+  bool own(ExpenseRow r) =>
+      mine.contains(r.id) || (userId != null && r.createdBy == userId);
+  return [
+    for (final r in rows)
+      if ((approver && !mineOnly) || own(r)) r,
+  ];
 }

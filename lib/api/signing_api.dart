@@ -42,7 +42,8 @@ FlutterSecureStorage signingStorage = const FlutterSecureStorage(
   ),
 );
 
-String _key() => 'signing_passphrase_${session.business?.businessId ?? _api.businessId ?? 'none'}';
+String _key() =>
+    'signing_passphrase_${session.business?.businessId ?? _api.businessId ?? 'none'}';
 
 Future<String?> _saved() async {
   try {
@@ -73,7 +74,8 @@ Future<void> unlockSigningSession(String passphrase) =>
 /// (Face ID or the dialog). Throws ApiException for server errors other than
 /// a wrong saved passphrase (which is forgotten and asked again).
 Future<bool> unlockSigning({required PassphrasePrompt askPassphrase}) async {
-  final saved = await _saved(); // the OS Face ID prompt (null = cancelled / none)
+  final saved =
+      await _saved(); // the OS Face ID prompt (null = cancelled / none)
   if (saved != null) {
     try {
       await unlockSigningSession(saved);
@@ -99,7 +101,8 @@ Future<bool> unlockSigning({required PassphrasePrompt askPassphrase}) async {
 /// signing of POST /artifact.
 enum ArtifactSigning { signed, locked, notApplicable }
 
-ArtifactSigning _signingOf(Map<String, dynamic> json) => switch (json['signing']) {
+ArtifactSigning _signingOf(Map<String, dynamic> json) =>
+    switch (json['signing']) {
       'SIGNED' => ArtifactSigning.signed,
       'LOCKED' => ArtifactSigning.locked,
       _ => ArtifactSigning.notApplicable,
@@ -117,7 +120,8 @@ Future<ArtifactSigning> createOriginalArtifact(String documentId) async {
 }
 
 /// POST /documents/:id/sign (an ARTIFACT_PENDING original, session unlocked).
-Future<void> signPendingOriginal(String documentId) => _api.post('/documents/$documentId/sign');
+Future<void> signPendingOriginal(String documentId) =>
+    _api.post('/documents/$documentId/sign');
 
 /// The whole step 4 for one document: original → (LOCKED) unlock → sign.
 /// [alreadySealed] = the document is ARTIFACT_PENDING (§6.D row 6): skip

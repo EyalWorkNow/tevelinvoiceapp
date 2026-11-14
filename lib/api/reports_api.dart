@@ -19,7 +19,8 @@ import 'models/models.dart';
 
 final _api = ApiClient.instance;
 
-Future<DashboardKpis> fetchDashboardKpis() async => DashboardKpis.fromJson(await _api.get('/dashboard'));
+Future<DashboardKpis> fetchDashboardKpis() async =>
+    DashboardKpis.fromJson(await _api.get('/dashboard'));
 
 final Map<String, bool> _available = {};
 
@@ -29,7 +30,10 @@ Future<bool> reportsAvailable(ReportPeriod period) async {
   final known = _available[business];
   if (known != null) return known;
   try {
-    await _api.get('/reports/income', query: {'from': period.fromIso, 'to': period.toIso});
+    await _api.get(
+      '/reports/income',
+      query: {'from': period.fromIso, 'to': period.toIso},
+    );
     return _available[business] = true;
   } on ApiException catch (e) {
     if (e.status == 404) return _available[business] = false;
@@ -40,9 +44,13 @@ Future<bool> reportsAvailable(ReportPeriod period) async {
 /// Test hook: forget the BE-18 probe results.
 void resetReportsProbe() => _available.clear();
 
-Future<ReportData> fetchReport(String kind, ReportPeriod period) async => ReportData.fromJson(
-  await _api.get('/reports/$kind', query: {'from': period.fromIso, 'to': period.toIso}),
-);
+Future<ReportData> fetchReport(String kind, ReportPeriod period) async =>
+    ReportData.fromJson(
+      await _api.get(
+        '/reports/$kind',
+        query: {'from': period.fromIso, 'to': period.toIso},
+      ),
+    );
 
 /// A file ready for the share sheet.
 class ExportFile {
@@ -54,21 +62,36 @@ class ExportFile {
 }
 
 /// BE-18 file of one report (pdf | csv | xlsx).
-Future<ExportFile> fetchReportFile(String kind, ReportPeriod period, String format) async {
+Future<ExportFile> fetchReportFile(
+  String kind,
+  ReportPeriod period,
+  String format,
+) async {
   final bytes = await _api.getBytes(
     '/reports/$kind',
     query: {'from': period.fromIso, 'to': period.toIso, 'format': format},
   );
-  return ExportFile(bytes, '$kind-${period.fromIso}-${period.toIso}.$format', _mime(format));
+  return ExportFile(
+    bytes,
+    '$kind-${period.fromIso}-${period.toIso}.$format',
+    _mime(format),
+  );
 }
 
 /// [kind]: 'accountant' (ZIP: PDFs + expense files) | 'excel' (XLSX).
 Future<ExportFile> exportPeriod(String kind, ReportPeriod period) async {
-  final json = await _api.post('/exports/$kind', {'fromDate': period.fromIso, 'toDate': period.toIso});
+  final json = await _api.post('/exports/$kind', {
+    'fromDate': period.fromIso,
+    'toDate': period.toIso,
+  });
   final key = json['storageKey'] as String;
   final bytes = await _api.getBytes('/exports/download', query: {'key': key});
   final name = key.split('/').last;
-  return ExportFile(bytes, name, kind == 'excel' ? _mime('xlsx') : 'application/zip');
+  return ExportFile(
+    bytes,
+    name,
+    kind == 'excel' ? _mime('xlsx') : 'application/zip',
+  );
 }
 
 String _mime(String format) => switch (format) {
@@ -80,14 +103,23 @@ String _mime(String format) => switch (format) {
 };
 
 /// Opens the system share sheet with a file. Tests replace it.
-typedef FileSharer = Future<void> Function(ExportFile file, {String? subject, String? text});
+typedef FileSharer =
+    Future<void> Function(ExportFile file, {String? subject, String? text});
 
 FileSharer fileSharer = _shareFile;
 
-Future<void> _shareFile(ExportFile file, {String? subject, String? text}) async {
+Future<void> _shareFile(
+  ExportFile file, {
+  String? subject,
+  String? text,
+}) async {
   final dir = await getTemporaryDirectory();
   final path = '${dir.path}/${file.name}';
-  await XFile.fromData(file.bytes, mimeType: file.mimeType, name: file.name).saveTo(path);
+  await XFile.fromData(
+    file.bytes,
+    mimeType: file.mimeType,
+    name: file.name,
+  ).saveTo(path);
   await SharePlus.instance.share(
     ShareParams(
       files: [XFile(path, mimeType: file.mimeType)],
@@ -102,13 +134,16 @@ Future<void> _shareFile(ExportFile file, {String? subject, String? text}) async 
 /// POST /reports/:kind/send {to, from, to-date} — the server e-mails the
 /// report. False when the server has no send route (the caller shares the
 /// file instead).
-Future<bool> sendReportByEmail(String kind, ReportPeriod period, String to) async {
+Future<bool> sendReportByEmail(
+  String kind,
+  ReportPeriod period,
+  String to,
+) async {
   try {
-    await _api.post('/reports/$kind/send?from=${period.fromIso}&to=${period.toIso}', {
-      'to': to,
-      'from': period.fromIso,
-      'toDate': period.toIso,
-    });
+    await _api.post(
+      '/reports/$kind/send?from=${period.fromIso}&to=${period.toIso}',
+      {'to': to, 'from': period.fromIso, 'toDate': period.toIso},
+    );
     return true;
   } on ApiException catch (e) {
     if (e.status == 404 && e.code == 'NOT_FOUND') return false;
@@ -126,12 +161,20 @@ const int _ledgerLimit = 500;
 
 /// The payments ledger of [period] as an R2 report: KPIs (total when the
 /// whole period fits, count) + rows date · customer · method · receipt · amount.
-Future<ReportData> fetchPaymentsLedger(ReportPeriod period, {String Function(String)? methodLabel}) async {
+Future<ReportData> fetchPaymentsLedger(
+  ReportPeriod period, {
+  String Function(String)? methodLabel,
+}) async {
   final json = await _api.get(
     '/payments',
-    query: {'from': period.fromIso, 'to': period.toIso, 'limit': '$_ledgerLimit'},
+    query: {
+      'from': period.fromIso,
+      'to': period.toIso,
+      'limit': '$_ledgerLimit',
+    },
   );
-  final list = (json['payments'] as List? ?? const []).cast<Map<String, dynamic>>();
+  final list = (json['payments'] as List? ?? const [])
+      .cast<Map<String, dynamic>>();
   final total = (json['total'] as num?)?.toInt() ?? list.length;
   var sum = BigInt.zero;
   final rows = <Map<String, dynamic>>[];
@@ -149,7 +192,8 @@ Future<ReportData> fetchPaymentsLedger(ReportPeriod period, {String Function(Str
   }
   return ReportData(
     kpis: [
-      if (total <= list.length) ReportKpi(label: 'סה״כ תקבולים', amountMinor: sum),
+      if (total <= list.length)
+        ReportKpi(label: 'סה״כ תקבולים', amountMinor: sum),
       ReportKpi(label: 'מספר תקבולים', text: '$total'),
     ],
     columns: const [
@@ -179,13 +223,19 @@ ExportFile reportCsv(String kind, ReportPeriod period, ReportData data) {
     final m = BigInt.tryParse('$v') ?? BigInt.zero;
     final neg = m.isNegative;
     final a = m.abs();
-    final s = '${a ~/ BigInt.from(100)}.${(a % BigInt.from(100)).toString().padLeft(2, '0')}';
+    final s =
+        '${a ~/ BigInt.from(100)}.${(a % BigInt.from(100)).toString().padLeft(2, '0')}';
     return neg ? '-$s' : s;
   }
 
-  final b = StringBuffer('\uFEFF')..writeln(data.columns.map((c) => cell(c.label)).join(','));
+  final b = StringBuffer('\uFEFF')
+    ..writeln(data.columns.map((c) => cell(c.label)).join(','));
   for (final r in data.rows) {
-    b.writeln(data.columns.map((c) => c.money ? money(r[c.key]) : cell(r[c.key])).join(','));
+    b.writeln(
+      data.columns
+          .map((c) => c.money ? money(r[c.key]) : cell(r[c.key]))
+          .join(','),
+    );
   }
   return ExportFile(
     Uint8List.fromList(utf8.encode(b.toString())),
@@ -210,7 +260,8 @@ Future<List<InboxItem>> fetchAccountantInbox() async {
     final json = await _api.get('/mobile/inbox', query: {'limit': '10'});
     return [
       for (final c in (json['cards'] as List? ?? const []))
-        if (InboxKind.fromWire((c as Map)['kind'] as String?) case final k? when kinds.contains(k))
+        if (InboxKind.fromWire((c as Map)['kind'] as String?) case final k?
+            when kinds.contains(k))
           InboxItem.fromJson(c.cast<String, dynamic>()),
     ].take(3).toList();
   } on ApiException catch (e) {

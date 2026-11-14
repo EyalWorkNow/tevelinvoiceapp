@@ -31,7 +31,11 @@ void main() {
 
   group('calculateLine (server line-calculation.ts)', () {
     test('1 × ₪1,000 at 18% = 1,180', () {
-      final l = calculateLine(quantityMicros: oneQuantity, unitPriceMinor: b(100000), taxRateBasisPoints: 1800);
+      final l = calculateLine(
+        quantityMicros: oneQuantity,
+        unitPriceMinor: b(100000),
+        taxRateBasisPoints: 1800,
+      );
       expect(l.subtotalMinor, b(100000));
       expect(l.taxMinor, b(18000));
       expect(l.totalMinor, b(118000));
@@ -39,23 +43,33 @@ void main() {
     test('fractional quantity rounds the gross, then VAT rounds', () {
       // 1.5 × 333 = 499.5 → 500; VAT 18% of 500 = 90.
       final l = calculateLine(
-          quantityMicros: b(1500000), unitPriceMinor: b(333), taxRateBasisPoints: 1800);
+        quantityMicros: b(1500000),
+        unitPriceMinor: b(333),
+        taxRateBasisPoints: 1800,
+      );
       expect(l.subtotalMinor, b(500));
       expect(l.taxMinor, b(90));
     });
     test('discount is subtracted before VAT', () {
       final l = calculateLine(
-          quantityMicros: oneQuantity,
-          unitPriceMinor: b(10000),
-          discountMinor: b(1000),
-          taxRateBasisPoints: 1800);
+        quantityMicros: oneQuantity,
+        unitPriceMinor: b(10000),
+        discountMinor: b(1000),
+        taxRateBasisPoints: 1800,
+      );
       expect(l.subtotalMinor, b(9000));
       expect(l.taxMinor, b(1620));
     });
     test('VAT half agora rounds up', () {
       // 25 × 18% = 4.5 → 5
-      expect(calculateLine(quantityMicros: oneQuantity, unitPriceMinor: b(25), taxRateBasisPoints: 1800).taxMinor,
-          b(5));
+      expect(
+        calculateLine(
+          quantityMicros: oneQuantity,
+          unitPriceMinor: b(25),
+          taxRateBasisPoints: 1800,
+        ).taxMinor,
+        b(5),
+      );
     });
   });
 
@@ -74,43 +88,72 @@ void main() {
       expect(splitGross(BigInt.zero, 1800).netMinor, BigInt.zero);
     });
 
-    test('₪100 at 18% is not reachable with one line → nearest, lower on tie', () {
-      // net 84.74 → 99.99; net 84.75 → 100.01
-      expect(bruteNet(b(10000), 1800), isNull);
-      final s = splitGross(b(10000), 1800);
-      expect(s.exact, isFalse);
-      expect(s.totalMinor, b(9999));
-      expect(s.netMinor, b(8474));
-    });
+    test(
+      '₪100 at 18% is not reachable with one line → nearest, lower on tie',
+      () {
+        // net 84.74 → 99.99; net 84.75 → 100.01
+        expect(bruteNet(b(10000), 1800), isNull);
+        final s = splitGross(b(10000), 1800);
+        expect(s.exact, isFalse);
+        expect(s.totalMinor, b(9999));
+        expect(s.netMinor, b(8474));
+      },
+    );
 
-    test('1000 random amounts: exact whenever any net exists, else 1 agora away', () {
-      final rnd = Random(20261030);
-      var exact = 0;
-      for (var i = 0; i < 1000; i++) {
-        // mix of small, typical and very large amounts
-        final magnitude = [100, 10000, 1000000, 100000000, 99999999999][i % 5];
-        final gross = b(1 + rnd.nextInt(magnitude > 1 << 31 ? 1 << 31 : magnitude)) *
-            (magnitude > 1 << 31 ? b(37) : BigInt.one);
-        for (final bp in [1800, 1700, 1750, 0]) {
-          final s = splitGross(gross, bp);
-          // the split is what the server will compute for that net
-          final line = calculateLine(quantityMicros: oneQuantity, unitPriceMinor: s.netMinor, taxRateBasisPoints: bp);
-          expect(line.totalMinor, s.totalMinor, reason: 'gross $gross bp $bp');
-          expect(line.taxMinor, s.taxMinor);
-          final brute = bruteNet(gross, bp);
-          if (brute != null) {
-            expect(s.exact, isTrue, reason: 'gross $gross bp $bp should be exact');
-            expect(s.totalMinor, gross);
-            if (bp == 1800) exact++;
-          } else {
-            expect(s.exact, isFalse);
-            expect((s.totalMinor - gross).abs(), BigInt.one, reason: 'gross $gross bp $bp');
+    test(
+      '1000 random amounts: exact whenever any net exists, else 1 agora away',
+      () {
+        final rnd = Random(20261030);
+        var exact = 0;
+        for (var i = 0; i < 1000; i++) {
+          // mix of small, typical and very large amounts
+          final magnitude = [
+            100,
+            10000,
+            1000000,
+            100000000,
+            99999999999,
+          ][i % 5];
+          final gross =
+              b(1 + rnd.nextInt(magnitude > 1 << 31 ? 1 << 31 : magnitude)) *
+              (magnitude > 1 << 31 ? b(37) : BigInt.one);
+          for (final bp in [1800, 1700, 1750, 0]) {
+            final s = splitGross(gross, bp);
+            // the split is what the server will compute for that net
+            final line = calculateLine(
+              quantityMicros: oneQuantity,
+              unitPriceMinor: s.netMinor,
+              taxRateBasisPoints: bp,
+            );
+            expect(
+              line.totalMinor,
+              s.totalMinor,
+              reason: 'gross $gross bp $bp',
+            );
+            expect(line.taxMinor, s.taxMinor);
+            final brute = bruteNet(gross, bp);
+            if (brute != null) {
+              expect(
+                s.exact,
+                isTrue,
+                reason: 'gross $gross bp $bp should be exact',
+              );
+              expect(s.totalMinor, gross);
+              if (bp == 1800) exact++;
+            } else {
+              expect(s.exact, isFalse);
+              expect(
+                (s.totalMinor - gross).abs(),
+                BigInt.one,
+                reason: 'gross $gross bp $bp',
+              );
+            }
           }
         }
-      }
-      // sanity: the large majority of amounts are exact
-      expect(exact, greaterThan(800));
-    });
+        // sanity: the large majority of amounts are exact
+        expect(exact, greaterThan(800));
+      },
+    );
 
     test('every amount ₪0.01–₪300.00 at 18% (exhaustive)', () {
       for (var g = 1; g <= 30000; g++) {

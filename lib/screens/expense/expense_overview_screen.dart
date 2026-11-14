@@ -1,7 +1,10 @@
+import '../../util/labels/customer_crm_he.dart';
+import '../../util/labels/people_he.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../../api/client.dart';
 import '../../api/commerce_api.dart';
 import '../../api/expenses_api.dart';
@@ -34,6 +37,24 @@ const _months = [
   'נובמבר',
   'דצמבר',
 ];
+const _commonExpenseTypes = [
+  'עלות מכירות: מלאי וקניות',
+  'משכורות ושכר עבודה והוצאות נלוות',
+  'עבודות חוץ וקבלנות משנה',
+  'שירותים אחרים: ייעוץ, תוכנה, פרסום וסליקה',
+  'הוצאות מימון: ריבית והפרשי הצמדה',
+  'הוצאות רכב: דלק, ביטוח ואחזקה',
+  'אחזקה ותיקונים שוטפים',
+  'הוצאות משרדיות: ציוד, תקשורת ואינטרנט',
+  'הנהלת חשבונות והגשת דוח שנתי',
+  'דמי שכירות ותמלוגים',
+  'הוצאות לפי תקנות: נסיעות, לינה והוצאות נוספות',
+  'מיסים עירוניים, אגרות והיטלים',
+  'ביטוח עסקי',
+  'חובות רעים',
+  'הוצאות אחרות',
+  'פחת על ציוד ורכוש',
+];
 
 class ExpenseOverviewScreen extends StatefulWidget {
   const ExpenseOverviewScreen({super.key});
@@ -49,6 +70,7 @@ class _ExpenseOverviewScreenState extends State<ExpenseOverviewScreen> {
   bool _showingDemoData = false;
   int _generation = 0;
   String? _category, _business;
+  bool _showAllExpenseTypes = false;
   List<ExpenseCategory> _categories = [];
   final GlobalKey _expenseListKey = GlobalKey();
   bool get _canShowDemoData =>
@@ -175,7 +197,7 @@ class _ExpenseOverviewScreenState extends State<ExpenseOverviewScreen> {
                     Row(
                       children: [
                         IconButton(
-                          tooltip: 'החודש הקודם',
+                          tooltip: CustomerCrmHe.previousMonth,
                           onPressed: () => _move(-1),
                           icon: const Icon(Icons.chevron_right_rounded),
                         ),
@@ -187,7 +209,7 @@ class _ExpenseOverviewScreenState extends State<ExpenseOverviewScreen> {
                           ),
                         ),
                         IconButton(
-                          tooltip: 'החודש הבא',
+                          tooltip: CustomerCrmHe.nextMonth,
                           onPressed:
                               _month.isBefore(
                                 DateTime(
@@ -243,13 +265,16 @@ class _ExpenseOverviewScreenState extends State<ExpenseOverviewScreen> {
                                   Row(
                                     children: [
                                       Expanded(
-                                        child: TextButton.icon(
+                                        child: FilledButton.icon(
+                                          key: const Key('expense-upload-new'),
                                           onPressed: () =>
                                               openExpenseCapture(context),
                                           icon: const Icon(
                                             Icons.add_a_photo_outlined,
                                           ),
-                                          label: const Text('הוספת הוצאה'),
+                                          label: const Text(
+                                            ExpenseHe.newExpense,
+                                          ),
                                         ),
                                       ),
                                       Expanded(
@@ -259,7 +284,9 @@ class _ExpenseOverviewScreenState extends State<ExpenseOverviewScreen> {
                                           icon: const Icon(
                                             Icons.fact_check_outlined,
                                           ),
-                                          label: const Text('בדיקה ואישור'),
+                                          label: const Text(
+                                            ExpenseHe.reviewAndApprove,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -345,7 +372,9 @@ class _ExpenseOverviewScreenState extends State<ExpenseOverviewScreen> {
                                               Icons.tune_rounded,
                                               size: 17,
                                             ),
-                                            label: const Text('לסיווג ההוצאות'),
+                                            label: const Text(
+                                              ExpenseHe.classifyExpenses,
+                                            ),
                                             style: TextButton.styleFrom(
                                               padding: EdgeInsets.zero,
                                               minimumSize: const Size(0, 36),
@@ -424,16 +453,21 @@ class _ExpenseOverviewScreenState extends State<ExpenseOverviewScreen> {
                                         data.categories[i],
                                         i,
                                         data.total,
+                                        data.expenses,
                                       ),
                                     if (_category != null)
                                       TextButton(
                                         onPressed: () =>
                                             setState(() => _category = null),
-                                        child: const Text('הצגת כל הקטגוריות'),
+                                        child: const Text(
+                                          ExpenseHe.showAllCategories,
+                                        ),
                                       ),
                                   ],
                                 ),
                               ),
+                            const SizedBox(height: 12),
+                            _expenseTypeCatalog(context),
                             const SizedBox(height: 16),
                             if (data.trend.isNotEmpty)
                               _trendChart(context, data.trend),
@@ -451,7 +485,9 @@ class _ExpenseOverviewScreenState extends State<ExpenseOverviewScreen> {
                                   ),
                                   TextButton(
                                     onPressed: () => openExpenses(context),
-                                    child: const Text('לכל ההוצאות'),
+                                    child: const Text(
+                                      ExpenseHe.allExpensesAction,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -590,6 +626,115 @@ class _ExpenseOverviewScreenState extends State<ExpenseOverviewScreen> {
       ),
     ),
   );
+
+  Widget _expenseTypeCatalog(BuildContext context) {
+    final p = context.palette;
+    final names = <String>{
+      ..._commonExpenseTypes,
+      ..._categories.map((category) => category.name),
+    }.toList();
+    final visible = _showAllExpenseTypes ? names : names.take(5).toList();
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: DesignTokens.lavender.withValues(alpha: .16),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Iconsax.category,
+                  color: DesignTokens.lavender,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'קטגוריות הוצאה לפי טופס 1320',
+                      style: AppText.headline,
+                    ),
+                    Text(
+                      '${names.length} סעיפי הוצאה',
+                      style: AppText.secondary.copyWith(color: p.muted),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'סעיפי טופס 1320. שיעור ההכרה נקבע לכל הוצאה לפי סוגה, השימוש בפועל והכללים החלים.',
+            style: AppText.secondary.copyWith(color: p.muted, height: 1.45),
+          ),
+          const SizedBox(height: 12),
+          AnimatedSize(
+            duration: context.motion(260),
+            curve: Curves.easeOutCubic,
+            child: Column(
+              children: [
+                for (final name in visible)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _categoryIcon(name),
+                          size: 19,
+                          color: DesignTokens.lavender,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(name, style: AppText.body)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          TextButton.icon(
+            key: const Key('expense-show-all-types'),
+            onPressed: () =>
+                setState(() => _showAllExpenseTypes = !_showAllExpenseTypes),
+            icon: Icon(
+              _showAllExpenseTypes ? Iconsax.arrow_up_2 : Iconsax.arrow_down_1,
+            ),
+            label: Text(
+              _showAllExpenseTypes
+                  ? ExpenseHe.showLess
+                  : ExpenseHe.showAllExpenseTypes,
+            ),
+          ),
+          const SizedBox(height: Space.s),
+          SizedBox(
+            height: Hit.primary,
+            child: FilledButton.icon(
+              key: const Key('expense-upload-new-catalog'),
+              onPressed: () => openExpenseCapture(context),
+              icon: const Icon(Iconsax.document_upload),
+              label: const Text(ExpenseHe.uploadExpenseAction),
+            ),
+          ),
+          const SizedBox(height: Space.m),
+          Text(
+            'הרשימה מבוססת על סעיפי ההוצאות בטופס 1320. ההכרה בפועל תלויה בשימוש העסקי, באסמכתאות ובתקנות; מומלץ לאשר את הסיווג עם רואה החשבון.',
+            style: AppText.secondary.copyWith(
+              color: p.muted,
+              fontSize: 13,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _trendChart(BuildContext context, List<Map<String, dynamic>> rows) {
     final p = context.palette;
@@ -797,52 +942,107 @@ class _ExpenseOverviewScreenState extends State<ExpenseOverviewScreen> {
     );
   }
 
-  Widget _categoryRow(Map<String, dynamic> category, int index, BigInt total) {
+  Widget _categoryRow(
+    Map<String, dynamic> category,
+    int index,
+    BigInt total,
+    List<Map<String, dynamic>> expenses,
+  ) {
     final amount = BigInt.parse(category['totalMinor'] as String);
     final name = category['name'] as String;
+    final categoryExpenses = expenses.where(
+      (expense) => expense['categoryName'] == name,
+    );
+    var classifiedMinor = BigInt.zero;
+    var recognizedMinor = BigInt.zero;
+    for (final expense in categoryExpenses) {
+      final recognized = expense['recognizedMinor'];
+      final expenseTotal = expense['totalMinor'];
+      if (recognized is String && expenseTotal is String) {
+        classifiedMinor += BigInt.tryParse(expenseTotal) ?? BigInt.zero;
+        recognizedMinor += BigInt.tryParse(recognized) ?? BigInt.zero;
+      }
+    }
+    final recognizedPercent = classifiedMinor > BigInt.zero
+        ? recognizedMinor * BigInt.from(100) ~/ classifiedMinor
+        : null;
     return InkWell(
       onTap: () => setState(() => _category = _category == name ? null : name),
       borderRadius: BorderRadius.circular(14),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: _chartColors[index % _chartColors.length].withValues(
-                  alpha: .16,
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: _chartColors[index % _chartColors.length].withValues(
+                      alpha: .16,
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _categoryIcon(name),
+                    color: _chartColors[index % _chartColors.length],
+                    size: 19,
+                  ),
                 ),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                _categoryIcon(name),
-                color: _chartColors[index % _chartColors.length],
-                size: 19,
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.body,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(child: AmountText(amount, style: AppText.secondary)),
+                const SizedBox(width: 10),
+                Text(
+                  '${total > BigInt.zero ? (amount * BigInt.from(100) ~/ total) : 0}%',
+                  textDirection: TextDirection.ltr,
+                  style: AppText.secondary.copyWith(
+                    color: _category == name
+                        ? context.palette.ink
+                        : context.palette.muted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppText.body,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Flexible(child: AmountText(amount, style: AppText.secondary)),
-            const SizedBox(width: 10),
-            Text(
-              '${total > BigInt.zero ? (amount * BigInt.from(100) ~/ total) : 0}%',
-              textDirection: TextDirection.ltr,
-              style: AppText.secondary.copyWith(
-                color: _category == name
-                    ? context.palette.ink
-                    : context.palette.muted,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
+            const SizedBox(height: 3),
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: 50),
+              child: Row(
+                children: [
+                  Icon(
+                    recognizedPercent == null
+                        ? Iconsax.info_circle
+                        : Iconsax.tick_circle,
+                    size: 14,
+                    color: recognizedPercent == null
+                        ? context.palette.muted
+                        : DesignTokens.green,
+                  ),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      recognizedPercent == null
+                          ? 'טרם סווגו הוצאות בתחום'
+                          : 'מוכר לפי הסיווג: $recognizedPercent% · ${moneyInline(recognizedMinor)}',
+                      style: AppText.secondary.copyWith(
+                        color: context.palette.muted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1310,8 +1510,8 @@ class _RecognitionSheetState extends State<_RecognitionSheet> {
             ),
           const SizedBox(height: 20),
           PrimaryButton(
-            label: 'שומרים סיווג',
-            loadingText: _busy ? 'שומרים…' : null,
+            label: ExpenseHe.savingClassification,
+            loadingText: _busy ? ExpenseHe.savingInProgress : null,
             onPressed: _save,
           ),
         ],

@@ -47,7 +47,10 @@ class AmountDisplay extends StatelessWidget {
           transitionBuilder: (child, animation) => FadeTransition(
             opacity: animation,
             child: SlideTransition(
-              position: Tween(begin: const Offset(0, 0.15), end: Offset.zero).animate(animation),
+              position: Tween(
+                begin: const Offset(0, 0.15),
+                end: Offset.zero,
+              ).animate(animation),
               child: child,
             ),
           ),
@@ -69,7 +72,12 @@ class AmountDisplay extends StatelessWidget {
 /// Small inline amount for rows and cards: LTR, tabular, Hebrew spoken
 /// label, honours [AmountPrivacy]. Shrinks rather than wraps.
 class AmountText extends StatelessWidget {
-  const AmountText(this.amountMinor, {super.key, this.style = AppText.amountRow, this.color});
+  const AmountText(
+    this.amountMinor, {
+    super.key,
+    this.style = AppText.amountRow,
+    this.color,
+  });
 
   final BigInt amountMinor;
   final TextStyle style;

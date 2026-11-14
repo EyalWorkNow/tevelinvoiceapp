@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/client.dart';
 import '../../api/inbox_api.dart';
 import '../../api/models/models.dart';
@@ -16,6 +17,7 @@ import '../../ui/ds.dart';
 import '../../util/labels/common_he.dart';
 import '../../util/labels/inbox_he.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'doc_rows.dart' show docSubtitle;
 import '../document/dialogs.dart' show askSigningPassphrase;
 
 String inboxTitle(InboxItem c) => switch (c.kind) {
@@ -218,11 +220,19 @@ Future<void> runInboxAction(
   }
 }
 
-void _toast(BuildContext context, String text, {SnackBarAction? action}) {
+void _toast(
+  BuildContext context,
+  String text, {
+  SnackBarAction? action,
+  NoticeMotion motion = NoticeMotion.saved,
+}) {
   if (!context.mounted) return;
   ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(text), action: action));
+    ..hideCurrentNotchNotice()
+    ..showNotchNotice(
+      SnackBar(content: Text(text), action: action),
+      motion: motion,
+    );
 }
 
 Future<void> _retryAllocation(
@@ -234,7 +244,9 @@ Future<void> _retryAllocation(
     await retryAllocation(c.documentIds);
     if (context.mounted) _toast(context, InboxHe.allocationRetried);
   } on ApiException catch (e) {
-    if (context.mounted) _toast(context, e.messageHe);
+    if (context.mounted) {
+      _toast(context, e.messageHe, motion: NoticeMotion.error);
+    }
   }
   onChanged();
 }
@@ -255,10 +267,12 @@ Future<void> _signAll(
       },
     );
     if (signed > 0 && context.mounted) {
-      _toast(context, InboxHe.signedDone(signed));
+      _toast(context, InboxHe.signedDone(signed), motion: NoticeMotion.signed);
     }
   } on ApiException catch (e) {
-    if (context.mounted) _toast(context, e.messageHe);
+    if (context.mounted) {
+      _toast(context, e.messageHe, motion: NoticeMotion.error);
+    }
   }
   onChanged();
 }
@@ -267,31 +281,59 @@ Future<void> _signAll(
 Future<void> _continueOnComputer(BuildContext context) async {
   try {
     await sendWebHandoff('TAX_AUTHORITY', InboxHe.handoffShaam);
-    if (context.mounted) _toast(context, InboxHe.handoffSent);
+    if (context.mounted) {
+      _toast(context, InboxHe.handoffSent, motion: NoticeMotion.sent);
+    }
   } on ApiException catch (e) {
-    if (context.mounted) _toast(context, e.messageHe);
+    if (context.mounted) {
+      _toast(context, e.messageHe, motion: NoticeMotion.error);
+    }
   }
 }
 
-/// J10 (§9.3): one tap sends every e-mail reminder; customers without
-/// e-mail / consent are offered WhatsApp, one tap each.
+/// J10 (§9.3) + 0.8: the tap opens a preview of the overdue invoices; nothing
+/// is sent before the explicit confirm, and only to the rows left checked.
+/// Customers without e-mail / consent are offered WhatsApp, one tap each.
 Future<void> runReminders(
   BuildContext context, {
   required VoidCallback onChanged,
 }) async {
-  _toast(context, InboxHe.remindersSending);
+  final List<DocumentSummary> overdue;
+  try {
+    overdue = await fetchOverdueDocuments();
+  } on ApiException catch (e) {
+    if (context.mounted) {
+      _toast(context, e.messageHe, motion: NoticeMotion.error);
+    }
+    return;
+  }
+  if (!context.mounted) return;
+  if (overdue.isEmpty) {
+    _toast(context, InboxHe.remindersNone);
+    onChanged();
+    return;
+  }
+  final chosen = await showReminderPreview(context, overdue);
+  if (chosen == null || chosen.isEmpty || !context.mounted) return;
+  _toast(context, InboxHe.remindersSending, motion: NoticeMotion.reminder);
   final profile = businessContext.profile;
   final ReminderResult result;
   try {
-    result = await sendReminders(paymentUrl: profile?.paymentLinkUrl);
+    result = await sendReminders(
+      paymentUrl: profile?.paymentLinkUrl,
+      only: chosen,
+    );
   } on ApiException catch (e) {
-    if (context.mounted) _toast(context, e.messageHe);
+    if (context.mounted) {
+      _toast(context, e.messageHe, motion: NoticeMotion.error);
+    }
     return;
   }
   if (!context.mounted) return;
   _toast(
     context,
     InboxHe.remindersDone(result.sent, result.whatsapp.length),
+    motion: NoticeMotion.reminder,
     action: result.whatsapp.isEmpty
         ? null
         : SnackBarAction(
@@ -301,6 +343,64 @@ Future<void> runReminders(
           ),
   );
   onChanged();
+}
+
+/// The "באיחור" preview: every overdue invoice, checked by default. Returns
+/// the ids to remind, or null when the user cancels.
+Future<Set<String>?> showReminderPreview(
+  BuildContext context,
+  List<DocumentSummary> overdue,
+) {
+  final chosen = {for (final d in overdue) d.id};
+  return showDialog<Set<String>>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setState) => AlertDialog(
+        key: const Key('reminders-preview'),
+        title: const Text(InboxHe.remindersPreviewTitle),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Text(InboxHe.remindersPreviewBody, style: AppText.secondary),
+              const SizedBox(height: Space.s),
+              for (final d in overdue)
+                CheckboxListTile(
+                  key: Key('reminder-${d.id}'),
+                  contentPadding: EdgeInsets.zero,
+                  value: chosen.contains(d.id),
+                  onChanged: (on) => setState(() {
+                    on == true ? chosen.add(d.id) : chosen.remove(d.id);
+                  }),
+                  title: Text(
+                    d.customerName == null || d.customerName!.isEmpty
+                        ? InboxHe.noCustomer
+                        : d.customerName!,
+                  ),
+                  subtitle: Text(docSubtitle(d)),
+                  secondary: AmountText(d.openMinor ?? d.totalMinor),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            key: const Key('reminders-cancel'),
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text(InboxHe.remindersCancel),
+          ),
+          FilledButton(
+            key: const Key('reminders-confirm'),
+            onPressed: chosen.isEmpty
+                ? null
+                : () => Navigator.of(dialogContext).pop({...chosen}),
+            child: Text(InboxHe.remindersConfirm(chosen.length)),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// The WhatsApp list (a system dialog, not a sheet — F4).
@@ -332,7 +432,11 @@ Future<void> showWhatsAppReminders(
                     );
                   } on ApiException catch (e) {
                     if (dialogContext.mounted) {
-                      _toast(dialogContext, e.messageHe);
+                      _toast(
+                        dialogContext,
+                        e.messageHe,
+                        motion: NoticeMotion.error,
+                      );
                     }
                   }
                 },

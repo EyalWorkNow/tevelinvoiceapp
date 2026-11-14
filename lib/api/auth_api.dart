@@ -4,6 +4,9 @@
 
 import 'client.dart';
 import 'models/models.dart';
+import 'supabase_auth.dart';
+import 'environment.dart';
+import '../util/errors_he.dart';
 
 final _api = ApiClient.instance;
 
@@ -12,9 +15,11 @@ class SignInResult {
   const SignInResult({required this.mfaRequired, required this.businesses});
 
   factory SignInResult.fromJson(Map<String, dynamic> json) => SignInResult(
-    mfaRequired: json['mfaRequired'] == true || json['status'] == 'MFA_REQUIRED',
+    mfaRequired:
+        json['mfaRequired'] == true || json['status'] == 'MFA_REQUIRED',
     businesses: [
-      for (final b in (json['businesses'] as List? ?? const [])) Business.fromJson(b as Map<String, dynamic>),
+      for (final b in (json['businesses'] as List? ?? const []))
+        Business.fromJson(b as Map<String, dynamic>),
     ],
   );
 
@@ -31,16 +36,37 @@ void _freshCookiePhase() => _api.clearCredentials();
 
 Future<SignInResult> signInWithPassword(String email, String password) async {
   _freshCookiePhase();
-  final json = await _api.post('/auth/login', {'email': email.trim(), 'password': password});
+  if (SupabaseAuthSettings.configured.enabled) {
+    final token = await supabasePasswordToken(
+      email,
+      password,
+      client: _api.httpClient,
+    );
+    return signInWithSupabase(token);
+  }
+  final json = await _api.post('/auth/login', {
+    'email': email.trim(),
+    'password': password,
+  });
+  return SignInResult.fromJson(json);
+}
+
+Future<SignInResult> signInWithSupabase(String accessToken) async {
+  _freshCookiePhase();
+  final json = await _api.post('/auth/supabase', {'accessToken': accessToken});
   return SignInResult.fromJson(json);
 }
 
 /// CONTRACT A. [fullName] only exists on the very first Apple authorisation.
-Future<SignInResult> signInWithApple(String identityToken, {String? fullName}) async {
+Future<SignInResult> signInWithApple(
+  String identityToken, {
+  String? fullName,
+}) async {
   _freshCookiePhase();
   final json = await _api.post('/auth/apple', {
     'identityToken': identityToken,
-    if (fullName != null && fullName.trim().isNotEmpty) 'fullName': fullName.trim(),
+    if (fullName != null && fullName.trim().isNotEmpty)
+      'fullName': fullName.trim(),
   });
   return SignInResult.fromJson(json);
 }
@@ -55,6 +81,13 @@ Future<SignInResult> signInWithGoogle(String idToken) async {
 
 /// Always "ok" (no account enumeration). The reset link opens the web app.
 Future<void> requestPasswordReset(String email) async {
+  if (SupabaseAuthSettings.configured.enabled) {
+    throw ApiException(
+      409,
+      'SUPABASE_RECOVERY_SUPPORT_REQUIRED',
+      errorMessageHe('SUPABASE_RECOVERY_SUPPORT_REQUIRED'),
+    );
+  }
   await _api.post('/auth/password/forgot', {'email': email.trim()});
 }
 
@@ -71,7 +104,8 @@ class MfaMethods {
     totp: json['totp'] == true,
     email: (json['email'] as Map<String, dynamic>?)?['enabled'] == true,
     emailAvailable: json['emailAvailable'] != false,
-    recoveryCodesRemaining: (json['recoveryCodesRemaining'] as num?)?.toInt() ?? 0,
+    recoveryCodesRemaining:
+        (json['recoveryCodesRemaining'] as num?)?.toInt() ?? 0,
   );
 
   final bool totp;
@@ -83,7 +117,8 @@ class MfaMethods {
   bool get useEmail => email && emailAvailable;
 }
 
-Future<MfaMethods> fetchMfaMethods() async => MfaMethods.fromJson(await _api.get('/auth/mfa/methods'));
+Future<MfaMethods> fetchMfaMethods() async =>
+    MfaMethods.fromJson(await _api.get('/auth/mfa/methods'));
 
 /// LOGIN (verify an enrolled e-mail method) or ENROLL (first-time setup).
 enum MfaPurpose { login, enroll }
@@ -104,7 +139,9 @@ class EmailCodeSent {
 }
 
 Future<EmailCodeSent> sendEmailCode(MfaPurpose purpose) async =>
-    EmailCodeSent.fromJson(await _api.post('/auth/mfa/email/send', {'purpose': _purpose(purpose)}));
+    EmailCodeSent.fromJson(
+      await _api.post('/auth/mfa/email/send', {'purpose': _purpose(purpose)}),
+    );
 
 /// Verifies an e-mail code. Returns recovery codes when the server issued
 /// them (show once), else null. Cookie + csrf rotate inside ApiClient.
@@ -114,7 +151,9 @@ Future<List<String>?> verifyEmailCode(String code, MfaPurpose purpose) async {
     if (purpose == MfaPurpose.enroll) 'purpose': 'ENROLL',
   });
   final codes = json['recoveryCodes'];
-  return codes is List && codes.isNotEmpty ? [for (final c in codes) c.toString()] : null;
+  return codes is List && codes.isNotEmpty
+      ? [for (final c in codes) c.toString()]
+      : null;
 }
 
 /// TOTP (6 digits) or a recovery code.
@@ -135,11 +174,16 @@ Future<InvitationPreview> fetchInvitation(String token) async {
 /// (not MFA-satisfied yet). The caller continues with finishSignIn.
 /// Errors: INVALID_CREDENTIALS (existing account, wrong password),
 /// PASSWORD_POLICY (new account), MEMBER_EXISTS, INVITATION_*.
-Future<void> acceptInvitation(String token, {required String password, String? displayName}) async {
+Future<void> acceptInvitation(
+  String token, {
+  required String password,
+  String? displayName,
+}) async {
   _freshCookiePhase();
   await _api.post('/auth/invite/$token/accept', {
     'password': password,
-    if (displayName != null && displayName.trim().isNotEmpty) 'displayName': displayName.trim(),
+    if (displayName != null && displayName.trim().isNotEmpty)
+      'displayName': displayName.trim(),
   });
 }
 
@@ -188,7 +232,8 @@ bool isValidIsraeliPhone(String raw) => RegExp(
   r'^(\+972|0)(5\d{8}|[2-4789]\d{7}|7[2-9]\d{7})$',
 ).hasMatch(raw.replaceAll(RegExp(r'[\s\-()]'), ''));
 
-bool isValidEmail(String raw) => RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$').hasMatch(raw.trim());
+bool isValidEmail(String raw) =>
+    RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$').hasMatch(raw.trim());
 
 // ---- business list (S14, BE-24) and another business (BE-40) --------------
 
@@ -203,12 +248,20 @@ Future<({int total, List<Business> businesses})?> searchBusinesses(
   try {
     final json = await _api.get(
       '/mobile/businesses',
-      query: {if (query.trim().isNotEmpty) 'q': query.trim(), 'offset': '$offset', 'limit': '$limit'},
+      query: {
+        if (query.trim().isNotEmpty) 'q': query.trim(),
+        'offset': '$offset',
+        'limit': '$limit',
+      },
     );
     final rows = [
-      for (final b in (json['businesses'] as List? ?? const [])) Business.fromJson(b as Map<String, dynamic>),
+      for (final b in (json['businesses'] as List? ?? const []))
+        Business.fromJson(b as Map<String, dynamic>),
     ];
-    return (total: (json['total'] as num?)?.toInt() ?? rows.length, businesses: rows);
+    return (
+      total: (json['total'] as num?)?.toInt() ?? rows.length,
+      businesses: rows,
+    );
   } on ApiException catch (e) {
     if (e.status == 404 && e.code == 'NOT_FOUND') return null;
     rethrow;
@@ -229,7 +282,11 @@ Future<String> createBusiness({
   });
   final nested = json['business'];
   final id =
-      json['businessId'] ?? json['id'] ?? (nested is Map ? nested['businessId'] ?? nested['id'] : null);
-  if (id is! String) throw const FormatException('POST /businesses: no business id');
+      json['businessId'] ??
+      json['id'] ??
+      (nested is Map ? nested['businessId'] ?? nested['id'] : null);
+  if (id is! String) {
+    throw const FormatException('POST /businesses: no business id');
+  }
   return id;
 }

@@ -16,12 +16,12 @@ class ApprovalPolicy {
   }) : _threshold = thresholdMinor;
 
   factory ApprovalPolicy.fromJson(Map<String, dynamic> json) => ApprovalPolicy(
-        mode: jStr(json['mode']) ?? 'NONE',
-        thresholdMinor: jBig(json['thresholdMinor']),
-        includesVat: json['includesVat'] != false,
-        selfApprovalAllowed: json['selfApprovalAllowed'] != false,
-        otherApproverExists: jBool(json['otherApproverExists']),
-      );
+    mode: jStr(json['mode']) ?? 'NONE',
+    thresholdMinor: jBig(json['thresholdMinor']),
+    includesVat: json['includesVat'] != false,
+    selfApprovalAllowed: json['selfApprovalAllowed'] != false,
+    otherApproverExists: jBool(json['otherApproverExists']),
+  );
 
   static const none = ApprovalPolicy(mode: 'NONE');
 
@@ -49,12 +49,12 @@ class ShaamState {
   });
 
   factory ShaamState.fromJson(Map<String, dynamic> json) => ShaamState(
-        status: jStr(json['status']) ?? 'UNKNOWN',
-        refreshTokenExpiresAt: jStr(json['refreshTokenExpiresAt']),
-        lastVerifiedAt: jStr(json['lastVerifiedAt']),
-        manualEntryEnabled: jBool(json['manualEntryEnabled']),
-        canConfigure: jBool(json['canConfigure']),
-      );
+    status: jStr(json['status']) ?? 'UNKNOWN',
+    refreshTokenExpiresAt: jStr(json['refreshTokenExpiresAt']),
+    lastVerifiedAt: jStr(json['lastVerifiedAt']),
+    manualEntryEnabled: jBool(json['manualEntryEnabled']),
+    canConfigure: jBool(json['canConfigure']),
+  );
 
   final String status;
   final String? refreshTokenExpiresAt;
@@ -65,13 +65,17 @@ class ShaamState {
 
 /// `/me.rules` (exempt-dealer ceiling, BE-02).
 class BusinessRules {
-  const BusinessRules({this.exemptCeilingMinor, this.exemptCeilingYear, this.yearTurnoverMinor});
+  const BusinessRules({
+    this.exemptCeilingMinor,
+    this.exemptCeilingYear,
+    this.yearTurnoverMinor,
+  });
 
   factory BusinessRules.fromJson(Map<String, dynamic> json) => BusinessRules(
-        exemptCeilingMinor: jBigOrNull(json['exemptCeilingMinor']),
-        exemptCeilingYear: jIntOrNull(json['exemptCeilingYear']),
-        yearTurnoverMinor: jBigOrNull(json['yearTurnoverMinor']),
-      );
+    exemptCeilingMinor: jBigOrNull(json['exemptCeilingMinor']),
+    exemptCeilingYear: jIntOrNull(json['exemptCeilingYear']),
+    yearTurnoverMinor: jBigOrNull(json['yearTurnoverMinor']),
+  );
 
   final BigInt? exemptCeilingMinor;
   final int? exemptCeilingYear;
@@ -113,7 +117,9 @@ class Me {
       userId: json['userId'] as String,
       role: json['role'] as String,
       isOwner: json.containsKey('isOwner') ? jBool(json['isOwner']) : null,
-      permissions: json['permissions'] is List ? jStrings(json['permissions']) : null,
+      permissions: json['permissions'] is List
+          ? jStrings(json['permissions'])
+          : null,
       mfaEnrolled: jBool(json['mfaEnrolled']),
       onboardingCompleted: jBool(onboarding['completed']),
       onboardingStep: jIntOrNull(onboarding['step']),
@@ -141,6 +147,7 @@ class Me {
   /// OWNER | ADMIN | ACCOUNTANT | EMPLOYEE | READ_ONLY (| ACCOUNTANT_REP after BE-04).
   /// Read ONLY by lib/state/caps.dart.
   final String role;
+
   /// Null before BE-02 (caps.dart then falls back on the OWNER role).
   final bool? isOwner;
 

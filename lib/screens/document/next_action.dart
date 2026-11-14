@@ -10,7 +10,7 @@
 // | 6  | ARTIFACT_PENDING (or issued, PDF missing) + doc.issue   | חתום והפק PDF               | — |
 // | 7  | ARTIFACT_PENDING (or issued, PDF missing) otherwise     | — "ממתין לחתימה…"           | — |
 // | 8  | 300/305 open, never sent + doc.send                     | שלח בווטסאפ / שלח           | קיבלתי תשלום (payment.record) |
-// | 9  | 300/305 open + payment.record                           | קיבלתי תשלום                | שלח שוב (doc.send) |
+// | 9  | 300/305 open + payment.record                           | קיבלתי תשלום (+ שלח תזכורת) | שלח שוב (doc.send) |
 // | 10 | 300/305 open + doc.send                                 | שלח תזכורת                  | — |
 // | 11 | quote DRAFT + doc.send                                  | שלח הצעה                    | הפוך לחשבונית |
 // | 12 | quote SENT + doc.draft                                  | הפוך לחשבונית               | הלקוח דחה · שלח שוב |
@@ -118,13 +118,13 @@ class DocFacts {
   final bool pdfMissing;
 
   CancelFacts get cancelFacts => CancelFacts(
-        documentType: documentType,
-        status: status,
-        totalMinor: totalMinor,
-        creditedMinor: creditedMinor,
-        paidMinor: paidMinor,
-        voidedAt: voidedAt,
-      );
+    documentType: documentType,
+    status: status,
+    totalMinor: totalMinor,
+    creditedMinor: creditedMinor,
+    paidMinor: paidMinor,
+    voidedAt: voidedAt,
+  );
 }
 
 /// Who is looking, in which business.
@@ -151,7 +151,14 @@ class DocViewer {
 }
 
 class NextAction {
-  const NextAction({required this.row, this.primary, this.label, this.waiting, this.menu = const []});
+  const NextAction({
+    required this.row,
+    this.primary,
+    this.label,
+    this.secondary,
+    this.waiting,
+    this.menu = const [],
+  });
 
   /// §6.D row (1–16), 0 = nothing applies (e.g. a draft for a viewer).
   final int row;
@@ -159,6 +166,10 @@ class NextAction {
   /// Null = no PrimaryButton ("—" rows, F2).
   final DocAction? primary;
   final String? label;
+
+  /// A second visible action beside the primary (row 9: "שלח תזכורת"), not
+  /// buried in ⋯ (QA 1.1).
+  final DocAction? secondary;
 
   /// "—" rows: the one line shown instead of a button.
   final String? waiting;
@@ -171,15 +182,26 @@ class NextAction {
   String toString() => 'NextAction(row $row, $primary "$label", menu $menu)';
 }
 
-const Set<String> _draft = {'DRAFT', 'VALIDATING', 'READY_TO_FINALIZE', 'REJECTED'};
+const Set<String> _draft = {
+  'DRAFT',
+  'VALIDATING',
+  'READY_TO_FINALIZE',
+  'REJECTED',
+};
 const Set<String> _issued = {'FINALIZED', 'SIGNED', 'ARCHIVED', 'SENT'};
 const Set<String> _duplicable = {
-  'TRANSACTION_INVOICE', 'TAX_INVOICE', 'TAX_INVOICE_RECEIPT', 'SALES_ORDER', 'PURCHASE_ORDER',
+  'TRANSACTION_INVOICE',
+  'TAX_INVOICE',
+  'TAX_INVOICE_RECEIPT',
+  'SALES_ORDER',
+  'PURCHASE_ORDER',
 };
 
 /// Open receivable (§15.5): 300/305, issued, not cancelled, open > 0.
 bool isOpenReceivable(DocFacts d) {
-  if (!isCollectionType(d.documentType) || !_issued.contains(d.status)) return false;
+  if (!isCollectionType(d.documentType) || !_issued.contains(d.status)) {
+    return false;
+  }
   if (d.voidedAt != null) return false;
   final credited = d.creditedMinor ?? BigInt.zero;
   if (d.totalMinor > BigInt.zero && credited >= d.totalMinor) return false;
@@ -187,58 +209,85 @@ bool isOpenReceivable(DocFacts d) {
 }
 
 /// The label of [a] in D (buttons and ⋯ rows).
-String docActionLabel(DocAction a, {bool rejected = false, bool hasPhone = true}) => switch (a) {
-      DocAction.approve => DocumentHe.approveAndIssue,
-      DocAction.reject => DocumentHe.reject,
-      DocAction.continueDraft => rejected ? DocumentHe.fixAndResend : DocumentHe.continueDraft,
-      DocAction.retryAllocation => DocumentHe.retry,
-      DocAction.manualAllocation => DocumentHe.manualAllocation,
-      DocAction.continueWithoutNumber => DocumentHe.continueWithoutNumber,
-      DocAction.cancelAllocation => DocumentHe.cancelAllocation,
-      DocAction.connectTaxAuthority => DocumentHe.connectTaxAuthority,
-      DocAction.signAndIssue => DocumentHe.signAndIssue,
-      DocAction.sendWhatsApp => hasPhone ? DocumentHe.sendWhatsApp : DocumentHe.send,
-      DocAction.send => DocumentHe.send,
-      DocAction.recordPayment => DocumentHe.recordPayment,
-      DocAction.sendAgain => DocumentHe.sendAgain,
-      DocAction.sendReminder => DocumentHe.sendReminder,
-      DocAction.sendQuote => DocumentHe.sendQuote,
-      DocAction.convertQuote => DocumentHe.convertToInvoice,
-      DocAction.customerRejected => DocumentHe.customerRejected,
-      DocAction.openInvoice => DocumentHe.openInvoice,
-      DocAction.issueTaxInvoice => DocumentHe.issueTaxInvoice,
-      DocAction.share => DocumentHe.share,
-      DocAction.duplicate => DocumentHe.duplicate,
-      DocAction.cancelOrCredit => DocumentHe.cancelOrCredit,
-    };
+String docActionLabel(
+  DocAction a, {
+  bool rejected = false,
+  bool hasPhone = true,
+}) => switch (a) {
+  DocAction.approve => DocumentHe.approveAndIssue,
+  DocAction.reject => DocumentHe.reject,
+  DocAction.continueDraft =>
+    rejected ? DocumentHe.fixAndResend : DocumentHe.continueDraft,
+  DocAction.retryAllocation => DocumentHe.retry,
+  DocAction.manualAllocation => DocumentHe.manualAllocation,
+  DocAction.continueWithoutNumber => DocumentHe.continueWithoutNumber,
+  DocAction.cancelAllocation => DocumentHe.cancelAllocation,
+  DocAction.connectTaxAuthority => DocumentHe.connectTaxAuthority,
+  DocAction.signAndIssue => DocumentHe.signAndIssue,
+  DocAction.sendWhatsApp =>
+    hasPhone ? DocumentHe.sendWhatsApp : DocumentHe.send,
+  DocAction.send => DocumentHe.send,
+  DocAction.recordPayment => DocumentHe.recordPayment,
+  DocAction.sendAgain => DocumentHe.sendAgain,
+  DocAction.sendReminder => DocumentHe.sendReminder,
+  DocAction.sendQuote => DocumentHe.sendQuote,
+  DocAction.convertQuote => DocumentHe.convertToInvoice,
+  DocAction.customerRejected => DocumentHe.customerRejected,
+  DocAction.openInvoice => DocumentHe.openInvoice,
+  DocAction.issueTaxInvoice => DocumentHe.issueTaxInvoice,
+  DocAction.share => DocumentHe.share,
+  DocAction.duplicate => DocumentHe.duplicate,
+  DocAction.cancelOrCredit => DocumentHe.cancelOrCredit,
+};
 
 /// §6.D. Pure: same input → same output.
 NextAction nextAction(DocFacts d, DocViewer v) {
   final (row, primary, waiting, state) = _row(d, v);
+  final secondary = row == 9 && v.can(Cap.docSend)
+      ? DocAction.sendReminder
+      : null;
   final menu = <DocAction>[...state];
-  final mayShare = v.can(Cap.docView) && !d.amountHidden && primary != DocAction.share;
-  if (!d.isQuote && _mayIssueTaxInvoice(d, v)) menu.add(DocAction.issueTaxInvoice);
+  final mayShare =
+      v.can(Cap.docView) && !d.amountHidden && primary != DocAction.share;
+  if (!d.isQuote && _mayIssueTaxInvoice(d, v)) {
+    menu.add(DocAction.issueTaxInvoice);
+  }
   if (d.isQuote && d.quoteFull) {
     if (mayShare) menu.add(DocAction.share);
     if (v.can(Cap.docDraft)) menu.add(DocAction.duplicate);
   }
   if (!d.isQuote) {
-    if (mayShare && _issued.contains(d.status) && !state.contains(DocAction.sendAgain)) {
+    if (mayShare &&
+        _issued.contains(d.status) &&
+        !state.contains(DocAction.sendAgain)) {
       menu.add(DocAction.share);
     }
-    if (v.can(Cap.docDraft) && _duplicable.contains(d.documentType) && _issued.contains(d.status)) {
+    if (v.can(Cap.docDraft) &&
+        _duplicable.contains(d.documentType) &&
+        _issued.contains(d.status)) {
       menu.add(DocAction.duplicate);
     }
     if (!d.amountHidden &&
-        showCancelItem(d.cancelFacts,
-        canCancel: v.can(Cap.docCancel), vatExempt: v.vatExempt, voidAvailable: v.voidAvailable)) {
+        showCancelItem(
+          d.cancelFacts,
+          canCancel: v.can(Cap.docCancel),
+          vatExempt: v.vatExempt,
+          voidAvailable: v.voidAvailable,
+        )) {
       menu.add(DocAction.cancelOrCredit);
     }
   }
   return NextAction(
     row: row,
     primary: primary,
-    label: primary == null ? null : docActionLabel(primary, rejected: d.rejected, hasPhone: d.customerHasPhone),
+    label: primary == null
+        ? null
+        : docActionLabel(
+            primary,
+            rejected: d.rejected,
+            hasPhone: d.customerHasPhone,
+          ),
+    secondary: secondary,
     waiting: waiting,
     menu: menu,
   );
@@ -246,7 +295,9 @@ NextAction nextAction(DocFacts d, DocViewer v) {
 
 /// §8.1 / §8.2.3: 100 → 305, and 300 → 305 for a VAT business (BE-08).
 bool _mayIssueTaxInvoice(DocFacts d, DocViewer v) {
-  final fromType = d.documentType == 'SALES_ORDER' || (d.documentType == 'TRANSACTION_INVOICE' && !v.vatExempt);
+  final fromType =
+      d.documentType == 'SALES_ORDER' ||
+      (d.documentType == 'TRANSACTION_INVOICE' && !v.vatExempt);
   return fromType &&
       _issued.contains(d.status) &&
       d.voidedAt == null &&
@@ -266,7 +317,9 @@ bool _mayIssueTaxInvoice(DocFacts d, DocViewer v) {
     return (2, null, DocumentHe.waitingApproval, const []);
   }
   if (_draft.contains(s)) {
-    if (v.can(Cap.docDraft)) return (3, DocAction.continueDraft, null, const []);
+    if (v.can(Cap.docDraft)) {
+      return (3, DocAction.continueDraft, null, const []);
+    }
     return (0, null, null, const []);
   }
   if (s == 'WAITING_FOR_ALLOCATION') {
@@ -280,7 +333,7 @@ bool _mayIssueTaxInvoice(DocFacts d, DocViewer v) {
           if (d.allocationDecisionAllowed) DocAction.continueWithoutNumber,
           DocAction.cancelAllocation,
           if (d.allocationNeedsAuthorization) DocAction.connectTaxAuthority,
-        ]
+        ],
       );
     }
     return (5, null, DocumentHe.waitingAllocation, const []);
@@ -291,10 +344,20 @@ bool _mayIssueTaxInvoice(DocFacts d, DocViewer v) {
   }
   if (!d.amountHidden && isOpenReceivable(d)) {
     if (d.sentAt == null && v.can(Cap.docSend)) {
-      return (8, DocAction.sendWhatsApp, null, [if (v.can(Cap.paymentRecord)) DocAction.recordPayment]);
+      return (
+        8,
+        DocAction.sendWhatsApp,
+        null,
+        [if (v.can(Cap.paymentRecord)) DocAction.recordPayment],
+      );
     }
     if (v.can(Cap.paymentRecord)) {
-      return (9, DocAction.recordPayment, null, [if (v.can(Cap.docSend)) DocAction.sendAgain]);
+      return (
+        9,
+        DocAction.recordPayment,
+        null,
+        [if (v.can(Cap.docSend)) DocAction.sendAgain],
+      );
     }
     if (v.can(Cap.docSend)) return (10, DocAction.sendReminder, null, const []);
   }
@@ -309,22 +372,33 @@ bool _mayIssueTaxInvoice(DocFacts d, DocViewer v) {
   switch (d.status) {
     case 'DRAFT':
       if (send) {
-        return (11, DocAction.sendQuote, null, [if (v.can(Cap.docDraft)) DocAction.convertQuote]);
+        return (
+          11,
+          DocAction.sendQuote,
+          null,
+          [if (v.can(Cap.docDraft)) DocAction.convertQuote],
+        );
       }
-      if (v.can(Cap.docDraft)) return (11, DocAction.convertQuote, null, const []);
+      if (v.can(Cap.docDraft)) {
+        return (11, DocAction.convertQuote, null, const []);
+      }
     case 'SENT':
       if (v.can(Cap.docDraft)) {
         return (
           12,
           DocAction.convertQuote,
           null,
-          [DocAction.customerRejected, if (send) DocAction.sendAgain]
+          [DocAction.customerRejected, if (send) DocAction.sendAgain],
         );
       }
     case 'ACCEPTED':
-      if (v.can(Cap.docDraft)) return (13, DocAction.convertQuote, null, const []);
+      if (v.can(Cap.docDraft)) {
+        return (13, DocAction.convertQuote, null, const []);
+      }
     case 'CONVERTED':
-      if (d.convertedDocumentId != null) return (14, DocAction.openInvoice, null, const []);
+      if (d.convertedDocumentId != null) {
+        return (14, DocAction.openInvoice, null, const []);
+      }
     case 'REJECTED' || 'EXPIRED':
       return (15, null, DocumentHe.notRelevant, const []);
   }

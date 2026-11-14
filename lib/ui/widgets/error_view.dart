@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'notch_notice.dart';
 import '../../api/client.dart';
 import '../../util/labels/common_he.dart';
 import 'empty_state.dart';
@@ -30,9 +31,12 @@ class ErrorView extends StatelessWidget {
   }
 }
 
-/// Snackbar with the Hebrew error (for actions, not screens).
+/// Action feedback with the Hebrew error.
 void showErrorSnack(BuildContext context, Object error) {
   ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(errorTextHe(error))));
+    ..hideCurrentNotchNotice()
+    ..showNotchNotice(
+      SnackBar(content: Text(errorTextHe(error))),
+      motion: NoticeMotion.error,
+    );
 }

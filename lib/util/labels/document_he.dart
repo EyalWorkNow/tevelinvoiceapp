@@ -35,22 +35,38 @@ String docTypeLabel(String type) => docTypeLabels[type] ?? type;
 
 /// Document types where VAT is forbidden (web VAT_FORBIDDEN_TYPES).
 const Set<String> vatForbiddenTypes = {
-  'DELIVERY_NOTE', 'AGENT_DELIVERY_NOTE', 'RETURN_NOTE', 'RECEIPT', 'DONATION_RECEIPT',
-  'PETTY_CASH_OUT', 'BANK_DEPOSIT', 'GOODS_RECEIVED_NOTE', 'VENDOR_RETURN_NOTE',
-  'INVENTORY_OPENING', 'STOCK_ENTRY', 'STOCK_EXIT', 'WAREHOUSE_TRANSFER',
-  'STOCKTAKE_ADJUSTMENT', 'PRODUCTION_ENTRY', 'PRODUCTION_EXIT',
+  'DELIVERY_NOTE',
+  'AGENT_DELIVERY_NOTE',
+  'RETURN_NOTE',
+  'RECEIPT',
+  'DONATION_RECEIPT',
+  'PETTY_CASH_OUT',
+  'BANK_DEPOSIT',
+  'GOODS_RECEIVED_NOTE',
+  'VENDOR_RETURN_NOTE',
+  'INVENTORY_OPENING',
+  'STOCK_ENTRY',
+  'STOCK_EXIT',
+  'WAREHOUSE_TRANSFER',
+  'STOCKTAKE_ADJUSTMENT',
+  'PRODUCTION_ENTRY',
+  'PRODUCTION_EXIT',
 };
 
 /// Short type names for the D header ("חשבונית מס 1042").
 String docTitle(String documentType, String? number) =>
-    number == null || number.isEmpty ? docTypeLabel(documentType) : '${docTypeLabel(documentType)} $number';
+    number == null || number.isEmpty
+    ? docTypeLabel(documentType)
+    : '${docTypeLabel(documentType)} $number';
 
 /// D · S6 · S8 wording (squad C). F11: buttons are imperative verbs.
 abstract final class DocumentHe {
+  static String customerSms(String business, String link) =>
+      'המסמך שלך מ$business:\n$link';
   // §6.D primary buttons (nextAction rows 1–16).
   static const approveAndIssue = 'אשר והפק';
   static const reject = 'דחה';
-  static const continueDraft = 'המשך';
+  static const continueDraft = 'המשך להפקה';
   static const fixAndResend = 'תקן ושלח שוב';
   static const retry = 'נסה שוב';
   static const signAndIssue = 'חתום והפק PDF';
@@ -64,6 +80,13 @@ abstract final class DocumentHe {
   static const customerRejected = 'הלקוח דחה';
   static const openInvoice = 'פתח חשבונית';
   static const share = 'שתף';
+
+  // After issue (QA 1.2): one success state on D.
+  static String issuedTitle(String title) => 'הופק ✓ · $title';
+  static const issuedSendHint = 'אפשר לשלוח ללקוח עכשיו';
+  static const shareMore = 'עוד';
+  static const goToCustomer = 'עבור ללקוח';
+  static const refreshing = 'מעדכן…';
 
   // Row 4 menu (allocation).
   static const manualAllocation = 'הזן מספר ידנית';
@@ -122,11 +145,13 @@ abstract final class DocumentHe {
   static const rememberWithFaceId = 'שמור עם Face ID';
   static const saveWithFaceId = 'שמור עם Face ID';
   static const consentTitle = 'הלקוח הסכים לקבל מסמכים במייל?';
-  static const consentBody = 'לפי הוראות ניהול ספרים, מסמך ממוחשב נשלח במייל רק בהסכמת הלקוח.';
+  static const consentBody =
+      'לפי הוראות ניהול ספרים, מסמך ממוחשב נשלח במייל רק בהסכמת הלקוח.';
   static const consentYes = 'כן, הסכים';
   static const consentNoWhatsApp = 'שלח בווטסאפ במקום';
   static const continueOnComputerTitle = 'המשך במחשב';
-  static const continueOnComputerBody = 'נשלח אליך קישור במייל כדי להמשיך במחשב.';
+  static const continueOnComputerBody =
+      'נשלח אליך קישור במייל כדי להמשיך במחשב.';
   static const sendMeLink = 'שלח לי קישור';
 
   // S6.
@@ -160,7 +185,8 @@ abstract final class DocumentHe {
   static const creditEffect = 'יופק מסמך זיכוי ללקוח. המסמך המקורי לא נמחק.';
   static const creditPaidNote =
       'הזיכוי לא מחזיר כסף. אם החזרת כסף ללקוח – זה נעשה מחוץ לאפליקציה';
-  static const credit320Note = 'התשלום שבמסמך נשאר רשום; הזיכוי יוצר יתרת זכות ללקוח.';
+  static const credit320Note =
+      'התשלום שבמסמך נשאר רשום; הזיכוי יוצר יתרת זכות ללקוח.';
   static const voidEffect = 'המסמך יסומן "בוטל". לא נוצר מסמך חדש.';
   static const voidHasPayments = 'יש תשלום. בטל קודם את הקבלה במחשב';
   static const voidReason = 'סיבת הביטול';
@@ -192,6 +218,7 @@ abstract final class DocumentHe {
     'document.share_downloaded': 'הלקוח צפה',
     'document.share_revoked': 'הקישור בוטל',
     'document.sent': 'נשלח במייל',
+    'document.whatsapp_sent': 'נשלח בווטסאפ',
     'document.send_failed': 'שליחת המייל נכשלה',
     'document.send_blocked_no_consent': 'המייל לא נשלח – אין הסכמה',
     'document.credited': 'זוכה',
@@ -231,8 +258,10 @@ abstract final class DocumentHe {
         'התשלום כלול במסמך שהופק. לביטול – הפק זיכוי, או בטל את הקבלה במחשב.',
     'PAYMENT_VOIDED': 'התשלום בוטל ולא ניתן להשתמש בו.',
     'PAYMENT_NOT_FOUND': 'התשלום לא נמצא.',
-    'PAYMENT_METHOD_NOT_ENABLED': 'אמצעי התשלום עדיין לא זמין. רשום אותו כהעברה בנקאית.',
-    'DOCUMENT_VOID_NOT_ALLOWED': 'אפשר לבטל כך רק חשבון עסקה, הזמנה או הזמנת רכש שהופקו.',
+    'PAYMENT_METHOD_NOT_ENABLED':
+        'אמצעי התשלום עדיין לא זמין. רשום אותו כהעברה בנקאית.',
+    'DOCUMENT_VOID_NOT_ALLOWED':
+        'אפשר לבטל כך רק חשבון עסקה, הזמנה או הזמנת רכש שהופקו.',
     'DOCUMENT_ALREADY_VOIDED': 'המסמך כבר בוטל.',
     'DOCUMENT_HAS_PAYMENTS': 'יש תשלום. בטל קודם את הקבלה במחשב',
     'CLONE_TYPE_NOT_ALLOWED': 'אי אפשר לשכפל לסוג המסמך הזה.',

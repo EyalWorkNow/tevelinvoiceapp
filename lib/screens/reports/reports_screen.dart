@@ -14,6 +14,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/client.dart' show ApiException;
 import '../../api/models/models.dart';
 import '../../api/reports_api.dart';
@@ -220,9 +221,10 @@ class _ReportsState extends State<_Reports> {
     try {
       await sendWebHandoff('UNIFORM_FORMAT', ReportsHe.uniformFormat);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text(BusinessHe.desktopSent)));
+        ScaffoldMessenger.of(context).showNotchNotice(
+          const SnackBar(content: Text(BusinessHe.desktopSent)),
+          motion: NoticeMotion.sent,
+        );
       }
     } on Object catch (e) {
       if (mounted) showErrorSnack(context, e);
@@ -343,16 +345,20 @@ class _ReportsState extends State<_Reports> {
                       color: context.palette.tint(context.palette.info),
                       borderRadius: BorderRadius.circular(Radii.button),
                     ),
-                    child: Icon(switch (k) {
-                      'vat' => Iconsax.percentage_circle,
-                      'debts' || 'receivables' => Iconsax.wallet_2,
-                      paymentsReportKind => Iconsax.money_recive,
-                      'expenses' => Iconsax.receipt_item,
-                      'customers' => Iconsax.profile_2user,
-                      'items' => Iconsax.box,
-                      'continuity' => Iconsax.document_text,
-                      _ => Iconsax.chart_2,
-                    }, color: context.palette.info, size: 21),
+                    child: Icon(
+                      switch (k) {
+                        'vat' => Iconsax.percentage_circle,
+                        'debts' || 'receivables' => Iconsax.wallet_2,
+                        paymentsReportKind => Iconsax.money_recive,
+                        'expenses' => Iconsax.receipt_item,
+                        'customers' => Iconsax.profile_2user,
+                        'items' => Iconsax.box,
+                        'continuity' => Iconsax.document_text,
+                        _ => Iconsax.chart_2,
+                      },
+                      color: context.palette.info,
+                      size: 21,
+                    ),
                   ),
                   const SizedBox(width: Space.m),
                   Expanded(
@@ -363,7 +369,9 @@ class _ReportsState extends State<_Reports> {
                         const SizedBox(height: Space.xs),
                         Text(
                           _reportHint(k),
-                          style: AppText.secondary.copyWith(color: context.palette.muted),
+                          style: AppText.secondary.copyWith(
+                            color: context.palette.muted,
+                          ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -371,7 +379,11 @@ class _ReportsState extends State<_Reports> {
                     ),
                   ),
                   const SizedBox(width: Space.s),
-                  Icon(Iconsax.arrow_left_2, size: 20, color: context.palette.muted),
+                  Icon(
+                    Iconsax.arrow_left_2,
+                    size: 20,
+                    color: context.palette.muted,
+                  ),
                 ],
               ),
             ),
@@ -398,7 +410,7 @@ class _ReportsState extends State<_Reports> {
         Space.page,
         widget.embedded ? Space.xl : Space.s,
         Space.page,
-        Space.xl,
+        MediaQuery.paddingOf(context).bottom + Space.xl,
       ),
       children: content,
     );
@@ -423,7 +435,7 @@ class _ReportsState extends State<_Reports> {
           ? null
           : AppBar(title: const Text(ReportsHe.title)),
       body: SafeArea(
-        bottom: bottom == null,
+        bottom: false,
         child: Column(
           children: [
             if (!widget.embedded && context.isDark)

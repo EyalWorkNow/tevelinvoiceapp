@@ -1,0 +1,57 @@
+{
+  "version": "1.0.0",
+  "build": "6",
+  "ipa": "build/ios/ipa/תבל.ipa",
+  "bytes": 25299631,
+  "sha256": "aa04b64094ff72ee43f955507549298037d0281baae84f2ed95b4882bfac7a99",
+  "builtAtUtc": "2026-11-11T00:47:27.458805+00:00",
+  "uploaded": true,
+  "entrypoint": "lib/main.dart",
+  "apiOrigin": "https://invoice.crm.tevel.space",
+  "authOrigin": "https://lyfojepvxzskyoesbmqx.supabase.co",
+  "authProjectRef": "lyfojepvxzskyoesbmqx",
+  "backendCandidateCommit": "b6c6fe3a9fb2eb74a7f2aa46b7be6ad0429f7150",
+  "productionActivated": true,
+  "verification": {
+    "flutterAnalyze": "passed",
+    "iosArchive": "passed",
+    "ipaExport": "passed",
+    "ipaSignature": "passed",
+    "mobileTests": "not run for Build 6",
+    "shaamPackageTypecheck": "passed",
+    "testAccountAuth": "invalid_credentials on 2026-11-11; account provisioning/linking required",
+    "productionHealth": "health/ready HTTP 200; unauthenticated me HTTP 401, verified 2026-11-11",
+    "testFlightUpload": "delivered to App Store Connect app 6831079441 at 2026-11-11T00:47:27.458805+00:00; Apple processing in progress"
+  },
+  "bundles": [
+    {
+      "id": "space.tevel.invoice",
+      "profile": "Tevel Invoice App Store",
+      "development": false,
+      "signature": "verified",
+      "pushEnvironment": "production"
+    },
+    {
+      "id": "space.tevel.invoice.TevelActivity",
+      "profile": "Tevel Activity App Store",
+      "development": false,
+      "signature": "verified",
+      "pushEnvironment": null
+    }
+  ],
+  "sourceTreeSha256": "78f8c927f392255e3a5e58fd699592c197f24ede4c4da10917bb64563fa5e72c",
+  "sourceFingerprintMethod": "sha256(path + NUL + bytes + NUL), sorted tracked and untracked non-ignored lib/ ios/ assets/ pubspec.yaml pubspec.lock tool/build_release.dart",
+  "sourceFileCount": 273,
+  "gitCommit": "cad0a43360433a29aff2d9f18a4175fca4355458",
+  "workingTreeDirty": true,
+  "publicReleaseQualified": false,
+  "remainingGates": [
+    "Wait for App Store Connect processing; then add/select internal TestFlight testers",
+    "Provision and link the test@test.com identity to a safe active Tevel test business; current password auth returns invalid_credentials",
+    "Verify expense upload and contacts flow with a valid signed-in account on a physical device",
+    "Install production APNs credentials and verify remote push delivery",
+    "Verify StoreKit purchase and restore on a physical device",
+    "Complete SHAAM production credentials and onboarding; donations and Eilat approval services still require separate scoped integrations"
+  ],
+  "uploadedAtUtc": "2026-11-11T00:47:27.458805+00:00"
+}

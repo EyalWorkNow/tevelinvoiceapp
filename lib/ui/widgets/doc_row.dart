@@ -1,13 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
 import '../money_text.dart';
 import '../theme.dart';
-import '../../util/money.dart';
 import 'amount_display.dart';
 import 'status_pill.dart';
-import 'design_controls.dart';
 
 /// Document list row (spec V2 §15.2), ≥64pt.
 /// Line 1: [title] (customer) + amount. Line 2: [subtitle] ("חשבונית מס 1042")
@@ -24,10 +21,12 @@ class DocRow extends StatelessWidget {
     this.onTap,
     this.swipeLabel,
     this.onSwipe,
+    this.meta,
   });
 
   final String title;
   final String subtitle;
+
   /// Null = amount hidden (read gating): no amount drawn or spoken.
   final BigInt? amountMinor;
   final StatusPill status;
@@ -35,6 +34,9 @@ class DocRow extends StatelessWidget {
   final VoidCallback? onTap;
   final String? swipeLabel;
   final VoidCallback? onSwipe;
+
+  /// Quiet text beside the single status in the compact row (the date).
+  final String? meta;
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +67,10 @@ class DocRow extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: Hit.row),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.page, vertical: Space.s + 2),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.page,
+              vertical: Space.s + 2,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -99,10 +104,16 @@ class DocRow extends StatelessWidget {
                   runSpacing: Space.xs,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Text(subtitle, style: AppText.secondary.copyWith(color: p.muted)),
+                    Text(
+                      subtitle,
+                      style: AppText.secondary.copyWith(color: p.muted),
+                    ),
                     status,
                     for (final a in attributes)
-                      Text(a, style: AppText.secondary.copyWith(color: p.muted)),
+                      Text(
+                        a,
+                        style: AppText.secondary.copyWith(color: p.muted),
+                      ),
                   ],
                 ),
               ],
@@ -123,14 +134,16 @@ class DocRow extends StatelessWidget {
         color: p.accent,
         alignment: AlignmentDirectional.centerStart,
         padding: const EdgeInsets.symmetric(horizontal: Space.page),
-        child: Text(swipeLabel!, style: AppText.headline.copyWith(color: p.accentInk)),
+        child: Text(
+          swipeLabel!,
+          style: AppText.headline.copyWith(color: p.accentInk),
+        ),
       ),
       child: row,
     );
   }
 
   Widget _buildDark(BuildContext context) {
-    final inTest = Platform.environment.containsKey('FLUTTER_TEST');
     final p = context.palette;
     final amountColor = status.isOverdue
         ? p.danger
@@ -138,28 +151,8 @@ class DocRow extends StatelessWidget {
         ? p.muted
         : p.ink;
     final isExpense = amountColor == p.danger || amountColor == p.muted;
-    Widget avatarWidget;
-    if (title.contains('דלק')) {
-      avatarWidget = ClipOval(
-        child: Image.asset(
-          'assets/design/delek_avatar.png',
-          width: 38,
-          height: 38,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => PersonAvatar(name: title),
-        ),
-      );
-    } else {
-      avatarWidget = ClipOval(
-        child: Image.asset(
-          'assets/design/danielle_avatar.png',
-          width: 38,
-          height: 38,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => PersonAvatar(name: title),
-        ),
-      );
-    }
+    // 1.7: the customer's initials, never a stock face.
+    final avatarWidget = _InitialsAvatar(name: title);
     final row = Semantics(
       button: onTap != null,
       label: [
@@ -176,12 +169,9 @@ class DocRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: inTest ? Hit.row : 48),
+          constraints: BoxConstraints(minHeight: 48),
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: Space.page,
-              vertical: inTest ? Space.s + 2 : 6,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: Space.page, vertical: 6),
             child: Row(
               children: [
                 avatarWidget,
@@ -195,7 +185,9 @@ class DocRow extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+                        style: AppText.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -205,14 +197,18 @@ class DocRow extends StatelessWidget {
                         style: AppText.secondary.copyWith(color: p.muted),
                       ),
                       const SizedBox(height: 2),
+                      // 1.7: one status. Attributes ("נשלח", "נצפה") stay in
+                      // the spoken label and on D, not as a second status.
                       Wrap(
                         spacing: Space.s,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          if (inTest) status,
-                          for (final a in attributes)
-                            Text(a, style: AppText.secondary.copyWith(color: p.muted)),
-                          if (!inTest) Text(status.label, style: AppText.secondary.copyWith(color: p.muted)),
+                          status,
+                          if (meta != null && meta!.isNotEmpty)
+                            Text(
+                              meta!,
+                              style: AppText.secondary.copyWith(color: p.muted),
+                            ),
                         ],
                       ),
                     ],
@@ -220,37 +216,11 @@ class DocRow extends StatelessWidget {
                 ),
                 if (amountMinor != null) ...[
                   const SizedBox(width: Space.s),
-                  if (inTest)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: isExpense
-                                ? const Color(0xFFFA597D)
-                                : const Color(0xFF81FFA8),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              isExpense ? '-' : '+',
-                              style: TextStyle(
-                                color: isExpense ? Colors.white : Colors.black,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                height: 1,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        AmountText(amountMinor!, style: AppText.body, color: p.ink),
-                      ],
-                    )
-                  else
-                    Directionality(
+                  // Sized by the amount itself, so the type and number keep
+                  // the rest of the line (1.7).
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 140),
+                    child: Directionality(
                       textDirection: TextDirection.ltr,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -268,7 +238,9 @@ class DocRow extends StatelessWidget {
                               child: Text(
                                 isExpense ? '-' : '+',
                                 style: TextStyle(
-                                  color: isExpense ? Colors.white : Colors.black,
+                                  color: isExpense
+                                      ? Colors.white
+                                      : Colors.black,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   height: 1,
@@ -277,16 +249,19 @@ class DocRow extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 5),
-                          Text(
-                            '₪ ${_formatDarkAmount(amountMinor!)}',
-                            style: AppText.body.copyWith(
-                              fontWeight: FontWeight.w600,
+                          Flexible(
+                            child: AmountText(
+                              amountMinor!,
+                              style: AppText.body.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
                               color: p.ink,
                             ),
                           ),
                         ],
                       ),
                     ),
+                  ),
                 ],
               ],
             ),
@@ -306,16 +281,63 @@ class DocRow extends StatelessWidget {
         color: p.accent,
         alignment: AlignmentDirectional.centerStart,
         padding: const EdgeInsets.symmetric(horizontal: Space.page),
-        child: Text(swipeLabel!, style: AppText.headline.copyWith(color: p.accentInk)),
+        child: Text(
+          swipeLabel!,
+          style: AppText.headline.copyWith(color: p.accentInk),
+        ),
       ),
       child: row,
     );
   }
+}
 
-  String _formatDarkAmount(BigInt minor) {
-    final abs = minor.abs();
-    final cents = (abs % BigInt.from(100)).toInt();
-    final whole = formatWhole(abs);
-    return cents == 0 ? whole : '$whole.${cents.toString().padLeft(2, '0')}';
+/// First letters of up to two words of [name] on a calm tint (1.7).
+class _InitialsAvatar extends StatelessWidget {
+  const _InitialsAvatar({required this.name});
+
+  final String name;
+
+  static String initialsOf(String name) {
+    final words = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .take(2);
+    return words.map((w) => String.fromCharCode(w.runes.first)).join();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const colors = [
+      DesignTokens.yellow,
+      DesignTokens.green,
+      DesignTokens.coral,
+      DesignTokens.lavender,
+    ];
+    final initials = initialsOf(name);
+    return Container(
+      key: const Key('doc-row-initials'),
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: colors[name.hashCode.abs() % colors.length],
+      ),
+      alignment: Alignment.center,
+      child: initials.isEmpty
+          ? const Icon(
+              Icons.person_outline_rounded,
+              size: 20,
+              color: Colors.black87,
+            )
+          : Text(
+              initials,
+              maxLines: 1,
+              style: AppText.secondary.copyWith(
+                color: const Color(0xFF302139),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+    );
   }
 }

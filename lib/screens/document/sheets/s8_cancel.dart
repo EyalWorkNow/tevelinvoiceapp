@@ -6,7 +6,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../api/actions_api.dart';
-import '../../../api/client.dart';
 import '../../../api/models/models.dart';
 import '../../../state/business_context.dart';
 import '../../../ui/ds.dart';
@@ -23,8 +22,11 @@ class CancelResult {
   final bool voided;
 }
 
-Future<CancelResult?> showCancelSheet(BuildContext context,
-    {required String documentId, DocumentDetail? doc}) {
+Future<CancelResult?> showCancelSheet(
+  BuildContext context, {
+  required String documentId,
+  DocumentDetail? doc,
+}) {
   return showAppSheet<CancelResult>(
     context,
     builder: (_) => CancelSheet(documentId: documentId, doc: doc),
@@ -73,7 +75,10 @@ class _CancelSheetState extends State<CancelSheet> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _action != CancelAction.credit) return;
         _focus.requestFocus();
-        _amount.selection = TextSelection(baseOffset: 0, extentOffset: _amount.text.length);
+        _amount.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: _amount.text.length,
+        );
       });
     } on Object catch (e) {
       if (mounted) setState(() => _loadError = e);
@@ -88,23 +93,28 @@ class _CancelSheetState extends State<CancelSheet> {
     super.dispose();
   }
 
-  CancelAction get _action => cancelActionFor(_doc!.documentType, vatExempt: businessContext.isVatExempt);
+  CancelAction get _action => cancelActionFor(
+    _doc!.documentType,
+    vatExempt: businessContext.isVatExempt,
+  );
 
   CancelFacts get _facts => CancelFacts(
-        documentType: _doc!.documentType,
-        status: _doc!.status,
-        totalMinor: _doc!.totalMinor,
-        creditedMinor: _doc!.creditedMinor,
-        paidMinor: _doc!.paidTotalMinor,
-        voidedAt: _doc!.voidedAt,
-      );
+    documentType: _doc!.documentType,
+    status: _doc!.status,
+    totalMinor: _doc!.totalMinor,
+    creditedMinor: _doc!.creditedMinor,
+    paidMinor: _doc!.paidTotalMinor,
+    voidedAt: _doc!.voidedAt,
+  );
 
   BigInt get _limit => _max ?? creditableOf(_doc!);
 
   Future<void> _credit() async {
     final amount = parseAmount(_amount.text) ?? BigInt.zero;
     if (amount <= BigInt.zero || amount > _limit) {
-      setState(() => _invalid = DocumentHe.creditMax(moneyText(context, _limit)));
+      setState(
+        () => _invalid = DocumentHe.creditMax(moneyText(context, _limit)),
+      );
       return;
     }
     setState(() {
@@ -113,8 +123,11 @@ class _CancelSheetState extends State<CancelSheet> {
       _error = null;
     });
     try {
-      final out = await creditDocument(_doc!,
-          amountMinor: amount, askPassphrase: () => askSigningPassphrase(context));
+      final out = await creditDocument(
+        _doc!,
+        amountMinor: amount,
+        askPassphrase: () => askSigningPassphrase(context),
+      );
       if (mounted) Navigator.of(context).pop(CancelResult(credit: out));
     } on CreditLimitExceeded catch (e) {
       if (mounted) {
@@ -143,7 +156,7 @@ class _CancelSheetState extends State<CancelSheet> {
     try {
       await voidDocument(_doc!.id, _reason.text);
       if (mounted) Navigator.of(context).pop(const CancelResult(voided: true));
-    } on ApiException catch (e) {
+    } on Object catch (e) {
       if (mounted) setState(() => _error = e);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -156,13 +169,17 @@ class _CancelSheetState extends State<CancelSheet> {
     if (doc == null) {
       return SizedBox(
         height: 240,
-        child: _loadError == null ? const SkeletonList(rows: 3) : ErrorView(error: _loadError!, onRetry: _load),
+        child: _loadError == null
+            ? const SkeletonList(rows: 3)
+            : ErrorView(error: _loadError!, onRetry: _load),
       );
     }
     final p = context.palette;
     final action = _action;
     final note = Text.rich(
-      TextSpan(text: _invalid ?? (_error == null ? null : errorTextHe(_error!))),
+      TextSpan(
+        text: _invalid ?? (_error == null ? null : errorTextHe(_error!)),
+      ),
       key: const Key('s8-error'),
       style: AppText.body.copyWith(color: p.danger),
     );
@@ -171,13 +188,22 @@ class _CancelSheetState extends State<CancelSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SheetTitle(DocumentHe.cancelTitle, subtitle: docTitle(doc.documentType, doc.documentNumber)),
+          SheetTitle(
+            DocumentHe.cancelTitle,
+            subtitle: docTitle(doc.documentType, doc.documentNumber),
+          ),
           if (action == CancelAction.credit) ..._creditBody(doc, p),
           if (action == CancelAction.voidDocument) ..._voidBody(doc, p),
           if (action == CancelAction.none)
-            Text(CommonHe.continueOnComputer, style: AppText.body.copyWith(color: p.muted)),
+            Text(
+              CommonHe.continueOnComputer,
+              style: AppText.body.copyWith(color: p.muted),
+            ),
           if (_invalid != null || _error != null)
-            Padding(padding: const EdgeInsets.only(bottom: Space.s), child: Semantics(liveRegion: true, child: note)),
+            Padding(
+              padding: const EdgeInsets.only(bottom: Space.s),
+              child: Semantics(liveRegion: true, child: note),
+            ),
           if (action == CancelAction.credit)
             PrimaryButton(
               key: const Key('s8-credit'),
@@ -187,7 +213,8 @@ class _CancelSheetState extends State<CancelSheet> {
               loadingText: _busy ? DocumentHe.issueCredit : null,
               onPressed: _credit,
             ),
-          if (action == CancelAction.voidDocument && !voidBlockedByPayments(_facts))
+          if (action == CancelAction.voidDocument &&
+              !voidBlockedByPayments(_facts))
             PrimaryButton(
               key: const Key('s8-void'),
               label: DocumentHe.voidDocument,
@@ -206,7 +233,9 @@ class _CancelSheetState extends State<CancelSheet> {
     final full = amount == _limit;
     return [
       Text(
-        full ? DocumentHe.fullCredit(moneyText(context, _limit)) : DocumentHe.partialCredit,
+        full
+            ? DocumentHe.fullCredit(moneyText(context, _limit))
+            : DocumentHe.partialCredit,
         key: const Key('s8-kind'),
         style: AppText.headline,
       ),
@@ -218,16 +247,28 @@ class _CancelSheetState extends State<CancelSheet> {
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         textDirection: TextDirection.ltr,
         style: AppText.amountCard,
-        decoration: const InputDecoration(labelText: DocumentHe.creditAmount, prefixText: '₪ '),
+        decoration: const InputDecoration(
+          labelText: DocumentHe.creditAmount,
+          prefixText: '₪ ',
+        ),
         onChanged: (_) => setState(() => _invalid = null),
       ),
       const SizedBox(height: Space.m),
-      Text(DocumentHe.creditEffect, style: AppText.secondary.copyWith(color: p.muted)),
+      Text(
+        DocumentHe.creditEffect,
+        style: AppText.secondary.copyWith(color: p.muted),
+      ),
       if (doc.documentType == 'TAX_INVOICE_RECEIPT')
-        Text(DocumentHe.credit320Note, style: AppText.secondary.copyWith(color: p.muted)),
+        Text(
+          DocumentHe.credit320Note,
+          style: AppText.secondary.copyWith(color: p.muted),
+        ),
       if (doc.paidTotalMinor > BigInt.zero)
-        Text(DocumentHe.creditPaidNote,
-            key: const Key('s8-paid-note'), style: AppText.secondary.copyWith(color: p.muted)),
+        Text(
+          DocumentHe.creditPaidNote,
+          key: const Key('s8-paid-note'),
+          style: AppText.secondary.copyWith(color: p.muted),
+        ),
       const SizedBox(height: Space.l),
     ];
   }
@@ -235,18 +276,28 @@ class _CancelSheetState extends State<CancelSheet> {
   List<Widget> _voidBody(DocumentDetail doc, AppPalette p) {
     if (voidBlockedByPayments(_facts)) {
       return [
-        Text(DocumentHe.voidHasPayments, key: const Key('s8-void-blocked'), style: AppText.body),
+        Text(
+          DocumentHe.voidHasPayments,
+          key: const Key('s8-void-blocked'),
+          style: AppText.body,
+        ),
         const SizedBox(height: Space.l),
       ];
     }
     return [
-      Text(DocumentHe.voidEffect, style: AppText.secondary.copyWith(color: p.muted)),
+      Text(
+        DocumentHe.voidEffect,
+        style: AppText.secondary.copyWith(color: p.muted),
+      ),
       const SizedBox(height: Space.s),
       TextField(
         key: const Key('s8-reason'),
         controller: _reason,
         maxLength: 300,
-        decoration: const InputDecoration(labelText: DocumentHe.voidReason, counterText: ''),
+        decoration: const InputDecoration(
+          labelText: DocumentHe.voidReason,
+          counterText: '',
+        ),
       ),
       const SizedBox(height: Space.l),
     ];

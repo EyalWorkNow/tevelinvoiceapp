@@ -9,9 +9,11 @@ import '../theme.dart';
 /// `util/labels/status_he.dart`. "נשלח"/"נצפה" are attributes shown beside
 /// the pill (see DocRow), never a status.
 class StatusPill extends StatelessWidget {
-  const StatusPill.doc(DocStatus this.docStatus, {super.key}) : quoteStatus = null;
+  const StatusPill.doc(DocStatus this.docStatus, {super.key})
+    : quoteStatus = null;
 
-  const StatusPill.quote(QuoteListStatus this.quoteStatus, {super.key}) : docStatus = null;
+  const StatusPill.quote(QuoteListStatus this.quoteStatus, {super.key})
+    : docStatus = null;
 
   final DocStatus? docStatus;
   final QuoteListStatus? quoteStatus;
@@ -20,8 +22,9 @@ class StatusPill extends StatelessWidget {
       ? labels.docStatusLabels[docStatus]!
       : labels.quoteStatusLabels[quoteStatus]!;
 
-  labels.Tone get _tone =>
-      docStatus != null ? labels.docStatusTones[docStatus]! : labels.quoteStatusTones[quoteStatus]!;
+  labels.Tone get _tone => docStatus != null
+      ? labels.docStatusTones[docStatus]!
+      : labels.quoteStatusTones[quoteStatus]!;
 
   bool get isOverdue => docStatus == DocStatus.overdue;
 
@@ -43,7 +46,10 @@ class StatusPill extends StatelessWidget {
       child: Text(
         label,
         maxLines: 1,
-        style: AppText.secondary.copyWith(color: color, fontWeight: FontWeight.w600),
+        style: AppText.secondary.copyWith(
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

@@ -6,7 +6,6 @@ import '../../ui/theme.dart';
 import '../../util/biometric.dart';
 import 'app_lock.dart';
 import 'auth_flow.dart';
-import 'login_screen.dart' show TevelLogo;
 
 /// S0 · Splash: Keychain token → GET /mobile/session (+ /me, profile) →
 /// Face ID if enabled → G2 / S2 / home. Offline → home from cache.
@@ -17,19 +16,47 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with TickerProviderStateMixin {
   bool _locked = false;
   bool _slow = false;
+  late final AnimationController _intro;
+  late final AnimationController _pulse;
+  late final Stopwatch _visibleFor;
+
+  // Long enough to read as intentional, short enough for a cache start (2.1).
+  static const _minimumSplashTime = Duration(milliseconds: 400);
 
   Biometric get _bio => Biometric.instance;
 
   @override
   void initState() {
     super.initState();
+    _visibleFor = Stopwatch()..start();
+    _intro = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 920),
+    )..forward();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2100),
+    )..repeat(reverse: true);
     Future<void>.delayed(const Duration(milliseconds: 700), () {
       if (mounted) setState(() => _slow = true);
     });
     _start();
+  }
+
+  @override
+  void dispose() {
+    _intro.dispose();
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  Future<void> _finishIntro() async {
+    final remaining = _minimumSplashTime - _visibleFor.elapsed;
+    if (remaining > Duration.zero) await Future<void>.delayed(remaining);
   }
 
   Future<void> _start() async {
@@ -38,6 +65,7 @@ class _SplashScreenState extends State<SplashScreen> {
     } on Object {
       // Keychain failure → treat as signed out.
     }
+    await _finishIntro();
     if (!mounted) return;
     if (session.status != SessionStatus.signedIn) {
       resetToLogin(expired: session.expired);
@@ -64,24 +92,104 @@ class _SplashScreenState extends State<SplashScreen> {
       return LockView(onUnlock: _retryUnlock, onSignOut: session.signOut);
     }
     final p = context.palette;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     return Scaffold(
       backgroundColor: p.charcoal,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const TevelLogo(size: 96),
-            const SizedBox(height: Space.xl),
-            SizedBox.square(
-              dimension: 24,
-              child: AnimatedOpacity(
-                opacity: _slow ? 1 : 0,
-                duration: const Duration(milliseconds: 200),
-                child: CircularProgressIndicator(
-                    strokeWidth: 2.5, color: p.accent, semanticsLabel: 'טוען'),
-              ),
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          color: p.charcoal,
+          gradient: RadialGradient(
+            center: const Alignment(0, -0.12),
+            radius: 1.05,
+            colors: [p.surface.withValues(alpha: 0.78), p.charcoal],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: AnimatedBuilder(
+              animation: Listenable.merge([_intro, _pulse]),
+              builder: (context, _) {
+                final entrance = reduceMotion
+                    ? 1.0
+                    : Curves.easeOutBack.transform(_intro.value);
+                final brandProgress = reduceMotion
+                    ? 1.0
+                    : Curves.easeOutCubic.transform(
+                        ((_intro.value - 0.28) / 0.72)
+                            .clamp(0.0, 1.0)
+                            .toDouble(),
+                      );
+                final pulse = reduceMotion ? 0.0 : _pulse.value;
+                final pulseScale = 0.985 + pulse * 0.025;
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Transform.scale(
+                      scale: (0.84 + entrance * 0.16) * pulseScale,
+                      child: Opacity(
+                        opacity: reduceMotion ? 1 : _intro.value,
+                        child: Container(
+                          width: 264,
+                          height: 142,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(72),
+                            gradient: RadialGradient(
+                              colors: [
+                                p.accent.withValues(
+                                  alpha: 0.10 + pulse * 0.045,
+                                ),
+                                p.surface.withValues(alpha: 0.12),
+                                Colors.transparent,
+                              ],
+                              stops: const [0, 0.58, 1],
+                            ),
+                          ),
+                          child: Image.asset(
+                            'assets/brand/tevel_logo.png',
+                            width: 218,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
+                            semanticLabel: 'תבל',
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: Space.xl),
+                    Opacity(
+                      opacity: brandProgress,
+                      child: Transform.translate(
+                        offset: Offset(0, (1 - brandProgress) * 8),
+                        child: Text(
+                          'העסק שלך, מסודר.',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: p.onCharcoalMuted,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 0.15,
+                              ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: Space.xl),
+                    SizedBox.square(
+                      dimension: 22,
+                      child: AnimatedOpacity(
+                        opacity: _slow ? 1 : 0,
+                        duration: const Duration(milliseconds: 240),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: p.accent,
+                          semanticsLabel: 'טוען',
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
-          ],
+          ),
         ),
       ),
     );

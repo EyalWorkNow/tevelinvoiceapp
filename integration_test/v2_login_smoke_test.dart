@@ -28,8 +28,12 @@ import 'package:invoice/screens/business/sheets/s14_switch.dart';
 import 'package:invoice/screens/home/home_screen.dart';
 import 'package:invoice/screens/reports/reports_screen.dart';
 import 'package:invoice/state/session.dart';
+import 'qa_plans_guard.dart';
 
-const email = String.fromEnvironment('EMAIL', defaultValue: 'mobile-staff@tevel.test');
+const email = String.fromEnvironment(
+  'EMAIL',
+  defaultValue: 'mobile-staff@tevel.test',
+);
 const mailDir = String.fromEnvironment('MAILDIR');
 const password = 'Mobile12345678';
 final shotName = email.split('@').first.replaceFirst('mobile-', '');
@@ -51,19 +55,29 @@ Future<void> shot(WidgetTester tester, String name) async {
 String? latestCode(String to, DateTime since) {
   final dir = Directory(mailDir);
   if (mailDir.isEmpty || !dir.existsSync()) return null;
-  final files = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.json')).toList()
-    ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+  final files =
+      dir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.json'))
+          .toList()
+        ..sort(
+          (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
+        );
   for (final f in files) {
     if (f.statSync().modified.isBefore(since)) break;
     final m = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
     final subject = '${m['subject']}';
-    if (m['to'] == to && RegExp(r'^\d{6}').hasMatch(subject)) return subject.substring(0, 6);
+    if (m['to'] == to && RegExp(r'^\d{6}').hasMatch(subject)) {
+      return subject.substring(0, 6);
+    }
   }
   return null;
 }
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  dismissPlansDuringTests();
 
   testWidgets('V2 sign-in → home ($email)', (tester) async {
     // Start signed out (a stale Keychain token would open the app lock).
@@ -107,31 +121,48 @@ void main() {
         }
         expect(code, isNotNull, reason: 'no MFA e-mail for $email in $mailDir');
         await shot(tester, 'mfa');
-        final field = find.descendant(of: find.byType(CodeBoxes), matching: find.byType(TextField));
+        final field = find.descendant(
+          of: find.byType(CodeBoxes),
+          matching: find.byType(TextField),
+        );
         await tester.enterText(field, code!);
         mfaDone = true;
       }
       if (find.byType(SwitchBusinessSheet).evaluate().isNotEmpty) {
         await shot(tester, 's14');
-        final rows = find.byWidgetPredicate((w) =>
-            w.key is ValueKey<String> &&
-            (w.key! as ValueKey<String>).value.startsWith('s14-3b773037'));
-        if (rows.evaluate().isNotEmpty) await tester.tap(rows.first, warnIfMissed: false);
+        final rows = find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              (w.key! as ValueKey<String>).value.startsWith('s14-3b773037'),
+        );
+        if (rows.evaluate().isNotEmpty) {
+          await tester.tap(rows.first, warnIfMissed: false);
+        }
       }
     }
     expect(find.byType(AppShell), findsOneWidget);
     // Accountant presets: the home tab is R (§4.4), not H.
     final homeIsReports = businessContext.caps.homeIsReports;
-    expect(find.byType(homeIsReports ? ReportsScreen : HomeScreen), findsOneWidget);
-    await pumpFor(tester, const Duration(seconds: 4)); // home data (cache → network)
+    expect(
+      find.byType(homeIsReports ? ReportsScreen : HomeScreen),
+      findsOneWidget,
+    );
+    await pumpFor(
+      tester,
+      const Duration(seconds: 4),
+    ); // home data (cache → network)
     debugPrint('ME role=${session.me?.role} perms=${session.me?.permissions}');
-    debugPrint('DIAG business=${session.business?.businessId} be05=$mobileInboxAvailable '
-        'preset=${businessContext.caps.preset} money=${find.byKey(const Key('home-money')).evaluate().length}');
+    debugPrint(
+      'DIAG business=${session.business?.businessId} be05=$mobileInboxAvailable '
+      'preset=${businessContext.caps.preset} money=${find.byKey(const Key('home-money')).evaluate().length}',
+    );
     // BE-05 answered (not the P0 fallback, not an error) and money follows caps.
     if (!homeIsReports) {
       expect(mobileInboxAvailable, isTrue);
-      expect(find.byKey(const Key('home-money')).evaluate().length,
-          businessContext.caps.can(Cap.moneyView) ? 1 : 0);
+      expect(
+        find.byKey(const Key('home-money')).evaluate().length,
+        businessContext.caps.can(Cap.moneyView) ? 1 : 0,
+      );
     }
     await shot(tester, 'home');
 

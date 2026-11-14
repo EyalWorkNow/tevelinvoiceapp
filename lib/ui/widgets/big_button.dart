@@ -57,8 +57,12 @@ class BigButton extends StatelessWidget {
             foregroundColor: fg,
             disabledBackgroundColor: bg.withValues(alpha: loading ? 1 : 0.45),
             disabledForegroundColor: fg.withValues(alpha: loading ? 1 : 0.6),
-            side: variant == BigButtonVariant.secondary ? BorderSide(color: p.line) : null,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.button)),
+            side: variant == BigButtonVariant.secondary
+                ? BorderSide(color: p.line)
+                : null,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(Radii.button),
+            ),
             textStyle: AppText.button,
           ),
           child: loading
@@ -69,8 +73,13 @@ class BigButton extends StatelessWidget {
               : Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (icon != null) ...[Icon(icon, size: 22), const SizedBox(width: Space.s)],
-                    Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+                    if (icon != null) ...[
+                      Icon(icon, size: 22),
+                      const SizedBox(width: Space.s),
+                    ],
+                    Flexible(
+                      child: Text(label, overflow: TextOverflow.ellipsis),
+                    ),
                   ],
                 ),
         ),

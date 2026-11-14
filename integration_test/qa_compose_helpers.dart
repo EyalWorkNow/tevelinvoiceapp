@@ -26,8 +26,12 @@ import 'package:invoice/state/cache.dart';
 import 'package:invoice/api/client.dart' show ApiClient;
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/ds.dart';
+import 'qa_plans_guard.dart';
 
-const String apiBase = String.fromEnvironment('API_BASE', defaultValue: 'http://127.0.0.1:3031');
+const String apiBase = String.fromEnvironment(
+  'API_BASE',
+  defaultValue: 'http://127.0.0.1:3031',
+);
 
 /// Dev MFA mails (JSON files; the code is the first 6 chars of `subject`).
 /// The simulator can read the host file system; pass
@@ -43,12 +47,14 @@ const String patur = 'c934a7a8-df74-433d-a5e2-e342c16142b1';
 /// Preset accounts (docs/API-MOBILE.md "Role presets").
 const String ownerEmail = 'mobile-owner@tevel.test';
 const String partnerEmail = 'mobile-partner@tevel.test';
-const String employeeSelfEmail = 'mobile-employee@tevel.test'; // עובד + מפיק בעצמו
+const String employeeSelfEmail =
+    'mobile-employee@tevel.test'; // עובד + מפיק בעצמו
 const String staffEmail = 'mobile-staff@tevel.test'; // עובד
 const String paturEmail = 'mobile-patur@tevel.test';
 
 final Random _rnd = Random();
-String uniq() => '${DateTime.now().millisecondsSinceEpoch % 100000000}${_rnd.nextInt(90) + 10}';
+String uniq() =>
+    '${DateTime.now().millisecondsSinceEpoch % 100000000}${_rnd.nextInt(90) + 10}';
 String today() {
   final d = DateTime.now();
   return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -74,10 +80,16 @@ class ApiRes {
   String toString() => 'HTTP $status $raw';
 }
 
-final HttpClient _http = HttpClient()..connectionTimeout = const Duration(seconds: 10);
+final HttpClient _http = HttpClient()
+  ..connectionTimeout = const Duration(seconds: 10);
 
-Future<ApiRes> _send(String method, String path,
-    {Object? body, Map<String, String> headers = const {}, List<Cookie>? jar}) async {
+Future<ApiRes> _send(
+  String method,
+  String path, {
+  Object? body,
+  Map<String, String> headers = const {},
+  List<Cookie>? jar,
+}) async {
   final req = await _http.openUrl(method, Uri.parse('$apiBase$path'));
   headers.forEach(req.headers.set);
   if (jar != null && jar.isNotEmpty) req.cookies.addAll(jar);
@@ -118,24 +130,43 @@ class DevUser {
   final String businessId;
   final String token;
 
-  Future<ApiRes> call(String method, String path, {Object? body, bool idempotent = false}) => _send(
-        method,
-        path,
-        body: body,
-        headers: {
-          'authorization': 'Bearer $token',
-          'x-business-id': businessId,
-          if (idempotent) 'idempotency-key': 'qa-compose-${uniq()}-${_rnd.nextInt(1 << 30)}',
-        },
-      );
+  Future<ApiRes> call(
+    String method,
+    String path, {
+    Object? body,
+    bool idempotent = false,
+  }) => _send(
+    method,
+    path,
+    body: body,
+    headers: {
+      'authorization': 'Bearer $token',
+      'x-business-id': businessId,
+      if (idempotent)
+        'idempotency-key': 'qa-compose-${uniq()}-${_rnd.nextInt(1 << 30)}',
+    },
+  );
 
   Future<ApiRes> get(String path) => call('GET', path);
-  Future<ApiRes> post(String path, [Object? body = const {}, bool idem = false]) =>
-      call('POST', path, body: body, idempotent: idem);
+  Future<ApiRes> post(
+    String path, [
+    Object? body = const {},
+    bool idem = false,
+  ]) => call('POST', path, body: body, idempotent: idem);
 
   /// Like [post] but fails the test on a non-2xx answer.
-  Future<Map<String, dynamic>> must(String method, String path, [Object? body, bool idem = false]) async {
-    final r = await call(method, path, body: body ?? (method == 'GET' ? null : const {}), idempotent: idem);
+  Future<Map<String, dynamic>> must(
+    String method,
+    String path, [
+    Object? body,
+    bool idem = false,
+  ]) async {
+    final r = await call(
+      method,
+      path,
+      body: body ?? (method == 'GET' ? null : const {}),
+      idempotent: idem,
+    );
     expect(r.ok, isTrue, reason: '$email $method $path → $r');
     return r.json;
   }
@@ -149,18 +180,37 @@ Future<DevUser> devUser(String email, {String businessId = murshe}) async {
   final cached = _users[key];
   if (cached != null) return cached;
   final jar = <Cookie>[];
-  final login = await _send('POST', '/auth/login', body: {'email': email, 'password': devPassword}, jar: jar);
+  final login = await _send(
+    'POST',
+    '/auth/login',
+    body: {'email': email, 'password': devPassword},
+    jar: jar,
+  );
   expect(login.ok, isTrue, reason: 'login $email → $login');
   var csrf = login.json['csrfToken'] as String;
   Future<void> mfa(String purpose) async {
-    expect(mailDir, isNotEmpty, reason: 'MFA user $email needs --dart-define=MAILDIR=…');
+    expect(
+      mailDir,
+      isNotEmpty,
+      reason: 'MFA user $email needs --dart-define=MAILDIR=…',
+    );
     final since = DateTime.now().subtract(const Duration(seconds: 2));
-    var sent = await _send('POST', '/auth/mfa/email/send',
-        body: {'purpose': purpose}, headers: {'x-csrf-token': csrf}, jar: jar);
+    var sent = await _send(
+      'POST',
+      '/auth/mfa/email/send',
+      body: {'purpose': purpose},
+      headers: {'x-csrf-token': csrf},
+      jar: jar,
+    );
     if (sent.error == 'MFA_EMAIL_THROTTLED') {
       await Future<void>.delayed(const Duration(seconds: 46));
-      sent = await _send('POST', '/auth/mfa/email/send',
-          body: {'purpose': purpose}, headers: {'x-csrf-token': csrf}, jar: jar);
+      sent = await _send(
+        'POST',
+        '/auth/mfa/email/send',
+        body: {'purpose': purpose},
+        headers: {'x-csrf-token': csrf},
+        jar: jar,
+      );
     }
     expect(sent.ok, isTrue, reason: 'mfa send $email → $sent');
     String? code;
@@ -169,21 +219,36 @@ Future<DevUser> devUser(String email, {String businessId = murshe}) async {
       code = _latestCode(email, since);
     }
     expect(code, isNotNull, reason: 'no MFA e-mail for $email in $mailDir');
-    final verified = await _send('POST', '/auth/mfa/email/verify',
-        body: {'code': code, if (purpose == 'ENROLL') 'purpose': purpose}, headers: {'x-csrf-token': csrf}, jar: jar);
+    final verified = await _send(
+      'POST',
+      '/auth/mfa/email/verify',
+      body: {'code': code, if (purpose == 'ENROLL') 'purpose': purpose},
+      headers: {'x-csrf-token': csrf},
+      jar: jar,
+    );
     expect(verified.ok, isTrue, reason: 'mfa verify $email → $verified');
     csrf = verified.json['csrfToken'] as String? ?? csrf;
   }
 
   if (login.json['status'] == 'MFA_REQUIRED') await mfa('LOGIN');
-  var dt = await _send('POST', '/auth/device-token',
-      body: {'deviceName': 'qa-compose'}, headers: {'x-csrf-token': csrf}, jar: jar);
+  var dt = await _send(
+    'POST',
+    '/auth/device-token',
+    body: {'deviceName': 'qa-compose'},
+    headers: {'x-csrf-token': csrf},
+    jar: jar,
+  );
   if (dt.error == 'MFA_REQUIRED') {
     // Privileged role without an enrolled method (e.g. a P0 accountant moved
     // to ACCOUNTANT_REP by the owner's B·צוות visit): enrol e-mail first.
     await mfa('ENROLL');
-    dt = await _send('POST', '/auth/device-token',
-        body: {'deviceName': 'qa-compose'}, headers: {'x-csrf-token': csrf}, jar: jar);
+    dt = await _send(
+      'POST',
+      '/auth/device-token',
+      body: {'deviceName': 'qa-compose'},
+      headers: {'x-csrf-token': csrf},
+      jar: jar,
+    );
   }
   expect(dt.ok, isTrue, reason: 'device-token $email → $dt');
   return _users[key] = DevUser(email, businessId, dt.json['token'] as String);
@@ -192,13 +257,22 @@ Future<DevUser> devUser(String email, {String businessId = murshe}) async {
 String? _latestCode(String to, DateTime since) {
   final dir = Directory(mailDir);
   if (!dir.existsSync()) return null;
-  final files = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.json')).toList()
-    ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+  final files =
+      dir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.json'))
+          .toList()
+        ..sort(
+          (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
+        );
   for (final f in files.take(50)) {
     if (f.statSync().modified.isBefore(since)) break;
     final m = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
     final subject = '${m['subject']}';
-    if (m['to'] == to && RegExp(r'^\d{6}').hasMatch(subject)) return subject.substring(0, 6);
+    if (m['to'] == to && RegExp(r'^\d{6}').hasMatch(subject)) {
+      return subject.substring(0, 6);
+    }
   }
   return null;
 }
@@ -206,7 +280,12 @@ String? _latestCode(String to, DateTime since) {
 /// Revokes every device token this run minted.
 Future<void> revokeDevUsers() async {
   for (final u in _users.values) {
-    await _send('POST', '/mobile/logout', body: const {}, headers: {'authorization': 'Bearer ${u.token}'});
+    await _send(
+      'POST',
+      '/mobile/logout',
+      body: const {},
+      headers: {'authorization': 'Bearer ${u.token}'},
+    );
   }
   _users.clear();
 }
@@ -214,8 +293,14 @@ Future<void> revokeDevUsers() async {
 // ---- server fixtures --------------------------------------------------------------
 
 /// A fresh customer (unique name) — tests never depend on seed rows.
-Future<String> createCustomer(DevUser u,
-    {String? name, String? phone, String? email, String? taxId, String? vatDealerStatus}) async {
+Future<String> createCustomer(
+  DevUser u, {
+  String? name,
+  String? phone,
+  String? email,
+  String? taxId,
+  String? vatDealerStatus,
+}) async {
   final json = await u.must('POST', '/customers', {
     'name': name ?? 'QA-C ${uniq()}',
     'customerType': taxId == null ? 'INDIVIDUAL' : 'BUSINESS',
@@ -227,14 +312,43 @@ Future<String> createCustomer(DevUser u,
   return json['id'] as String;
 }
 
-String randomPhone() => '05${_rnd.nextInt(9) + 1}${(_rnd.nextInt(9000000) + 1000000)}';
+String randomPhone() =>
+    '05${_rnd.nextInt(9) + 1}${(_rnd.nextInt(9000000) + 1000000)}';
 
-Map<String, dynamic> line(String description, int unitPriceMinor, {int vatBp = 1800}) => {
-      'description': description,
-      'quantityMicros': '1000000',
-      'unitPriceMinor': '$unitPriceMinor',
-      'taxRateBasisPoints': vatBp,
-    };
+/// Israeli 9-digit id check digit (ת.ז. / ע.מ. / ח.פ.): weights 1,2,1,2,…,
+/// digits of products > 9 summed, total divisible by 10 — the server's
+/// `isValidIsraeliId` (packages/shared/src/israel.ts).
+bool isValidIsraeliId(String id) {
+  if (!RegExp(r'^\d{1,9}$').hasMatch(id)) return false;
+  final d = id.padLeft(9, '0');
+  var sum = 0;
+  for (var i = 0; i < 9; i++) {
+    final n = int.parse(d[i]) * (i.isEven ? 1 : 2);
+    sum += n > 9 ? n - 9 : n;
+  }
+  return sum % 10 == 0;
+}
+
+/// A random valid ח.פ. (starts with 51, company) — unique per call so the
+/// server's duplicate-tax-id guard (409 CUSTOMER_DUPLICATE) never trips.
+String randomCompanyId() {
+  final body = '51${(_rnd.nextInt(900000) + 100000)}';
+  for (var c = 0; c < 10; c++) {
+    if (isValidIsraeliId('$body$c')) return '$body$c';
+  }
+  throw StateError('unreachable: one check digit always fits');
+}
+
+Map<String, dynamic> line(
+  String description,
+  int unitPriceMinor, {
+  int vatBp = 1800,
+}) => {
+  'description': description,
+  'quantityMicros': '1000000',
+  'unitPriceMinor': '$unitPriceMinor',
+  'taxRateBasisPoints': vatBp,
+};
 
 /// POST /documents (+ finalize, artifact, share-link). Returns the id.
 Future<String> createDocument(
@@ -256,7 +370,9 @@ Future<String> createDocument(
   });
   final id = created['id'] as String;
   if (!finalize) return id;
-  final fin = await u.must('POST', '/documents/$id/finalize', {'scopeKey': 'default'}, true);
+  final fin = await u.must('POST', '/documents/$id/finalize', {
+    'scopeKey': 'default',
+  }, true);
   expect(fin['status'], 'FINALIZED', reason: 'finalize $type → $fin');
   await u.must('POST', '/documents/$id/artifact');
   if (shareLink) await u.must('POST', '/documents/$id/share-link');
@@ -280,11 +396,19 @@ Future<Map<String, dynamic>> quoteDetail(DevUser u, String id) async =>
     (await u.must('GET', '/quotes/$id'))['quote'] as Map<String, dynamic>;
 
 /// POST /quotes (lines at 18%) [+ status SENT]. Returns the id.
-Future<String> createQuote(DevUser u, String customerId, int unitPriceMinor, {bool sent = false}) async {
+Future<String> createQuote(
+  DevUser u,
+  String customerId,
+  int unitPriceMinor, {
+  bool sent = false,
+}) async {
   final j = await u.must('POST', '/quotes', {
     'customerId': customerId,
     'currency': 'ILS',
-    'validUntil': DateTime.now().add(const Duration(days: 14)).toIso8601String().substring(0, 10),
+    'validUntil': DateTime.now()
+        .add(const Duration(days: 14))
+        .toIso8601String()
+        .substring(0, 10),
     'lines': [line('QA הצעה', unitPriceMinor)],
   });
   final id = j['id'] as String;
@@ -293,9 +417,20 @@ Future<String> createQuote(DevUser u, String customerId, int unitPriceMinor, {bo
 }
 
 /// PUT /settings/approval (owner). [thresholdMinor] is incl. VAT (§4.8).
-Future<ApiRes> setApproval(DevUser owner, {required String mode, int thresholdMinor = 0, bool self = false}) =>
-    owner.call('PUT', '/settings/approval',
-        body: {'mode': mode, 'thresholdMinor': '$thresholdMinor', 'selfApprovalAllowed': self});
+Future<ApiRes> setApproval(
+  DevUser owner, {
+  required String mode,
+  int thresholdMinor = 0,
+  bool self = false,
+}) => owner.call(
+  'PUT',
+  '/settings/approval',
+  body: {
+    'mode': mode,
+    'thresholdMinor': '$thresholdMinor',
+    'selfApprovalAllowed': self,
+  },
+);
 
 int minor(Object? v) => v == null ? -1 : int.parse('$v');
 
@@ -309,9 +444,14 @@ class TapCounter {
 
   /// A counted tap on [f] (must exist), then a short settle.
   Future<void> tap(Finder f, {String? why}) async {
-    expect(f, findsWidgets, reason: 'tap target missing${why == null ? '' : ' ($why)'}: $f');
+    expect(
+      f,
+      findsWidgets,
+      reason: 'tap target missing${why == null ? '' : ' ($why)'}: $f',
+    );
     await tester.ensureVisible(f.first);
     await tester.pump(const Duration(milliseconds: 100));
+    await uncover(tester, f.first);
     taps++;
     await tester.tap(f.first, warnIfMissed: false);
     await pumpFor(tester, const Duration(milliseconds: 600));
@@ -329,8 +469,12 @@ Future<void> pumpFor(WidgetTester tester, Duration d) async {
 }
 
 /// Pumps until [f] finds something (real network: up to [timeout]).
-Future<void> pumpUntil(WidgetTester tester, Finder f,
-    {Duration timeout = const Duration(seconds: 45), String? reason}) async {
+Future<void> pumpUntil(
+  WidgetTester tester,
+  Finder f, {
+  Duration timeout = const Duration(seconds: 45),
+  String? reason,
+}) async {
   final end = DateTime.now().add(timeout);
   while (f.evaluate().isEmpty && DateTime.now().isBefore(end)) {
     await tester.pump(const Duration(milliseconds: 200));
@@ -339,8 +483,11 @@ Future<void> pumpUntil(WidgetTester tester, Finder f,
 }
 
 /// Pumps until [cond] holds (e.g. a server state polled elsewhere).
-Future<void> pumpWhile(WidgetTester tester, bool Function() cond,
-    {Duration timeout = const Duration(seconds: 45)}) async {
+Future<void> pumpWhile(
+  WidgetTester tester,
+  bool Function() cond, {
+  Duration timeout = const Duration(seconds: 45),
+}) async {
   final end = DateTime.now().add(timeout);
   while (cond() && DateTime.now().isBefore(end)) {
     await tester.pump(const Duration(milliseconds: 200));
@@ -348,7 +495,10 @@ Future<void> pumpWhile(WidgetTester tester, bool Function() cond,
 }
 
 const FlutterSecureStorage _keychain = FlutterSecureStorage(
-    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device));
+  iOptions: IOSOptions(
+    accessibility: KeychainAccessibility.first_unlock_this_device,
+  ),
+);
 
 /// Puts the app in front of [u] on H the way a returning user opens it:
 /// Keychain token + business (Face ID lock off) → app.main() → splash →
@@ -380,10 +530,18 @@ Future<void> signInApp(WidgetTester tester, DevUser u) async {
   app.main();
   // The previous user's H can still be the first route for a moment: wait for
   // the restore itself, then for H.
-  await pumpWhile(tester,
-      () => session.status != SessionStatus.signedIn || session.business?.businessId != u.businessId,
-      timeout: const Duration(seconds: 45));
-  await pumpUntil(tester, find.byType(HomeScreen), reason: 'H after restore as ${u.email}');
+  await pumpWhile(
+    tester,
+    () =>
+        session.status != SessionStatus.signedIn ||
+        session.business?.businessId != u.businessId,
+    timeout: const Duration(seconds: 45),
+  );
+  await pumpUntil(
+    tester,
+    find.byType(HomeScreen),
+    reason: 'H after restore as ${u.email}',
+  );
   expect(session.status, SessionStatus.signedIn);
   expect(session.business?.businessId, u.businessId);
   await pumpFor(tester, const Duration(seconds: 2)); // H: cache → network
@@ -392,7 +550,9 @@ Future<void> signInApp(WidgetTester tester, DevUser u) async {
 /// Keypad digits ("1180", "4999.99"). Typing is not counted (F3.1).
 Future<void> typeAmount(WidgetTester tester, String text) async {
   for (final ch in text.split('')) {
-    await tester.tap(find.descendant(of: find.byType(Keypad), matching: find.text(ch)).first);
+    await tester.tap(
+      find.descendant(of: find.byType(Keypad), matching: find.text(ch)).first,
+    );
     await tester.pump(const Duration(milliseconds: 60));
   }
   await pumpFor(tester, const Duration(milliseconds: 400));
@@ -401,7 +561,13 @@ Future<void> typeAmount(WidgetTester tester, String text) async {
 /// Clears the keypad amount (long press on "מחק").
 Future<void> clearAmount(WidgetTester tester) async {
   await tester.longPress(
-      find.descendant(of: find.byType(Keypad), matching: find.byIcon(Icons.backspace_outlined)).first);
+    find
+        .descendant(
+          of: find.byType(Keypad),
+          matching: find.byIcon(Icons.backspace_outlined),
+        )
+        .first,
+  );
   await pumpFor(tester, const Duration(milliseconds: 300));
 }
 
@@ -416,15 +582,21 @@ String? primaryLabel(WidgetTester tester, Key key) {
 void expectAtMostOnePrimary(String where) {
   // Per screen/sheet (AT-90): when a sheet is open, D's own primary below it
   // is still on stage — count only the top route's buttons.
-  final all = find.byType(PrimaryButton, skipOffstage: true).evaluate().toList();
+  final all = find
+      .byType(PrimaryButton, skipOffstage: true)
+      .evaluate()
+      .toList();
   final top = all.where((e) => ModalRoute.of(e)?.isCurrent ?? true).toList();
   final found = top.isEmpty ? all : top;
   final labels = [
     for (final e in found)
-      '${(e.widget as PrimaryButton).label}@${ModalRoute.of(e)?.settings.name ?? ModalRoute.of(e).runtimeType}'
+      '${(e.widget as PrimaryButton).label}@${ModalRoute.of(e)?.settings.name ?? ModalRoute.of(e).runtimeType}',
   ];
-  expect(found.length, lessThanOrEqualTo(1),
-      reason: 'AT-90 F2: more than one PrimaryButton on $where: $labels');
+  expect(
+    found.length,
+    lessThanOrEqualTo(1),
+    reason: 'AT-90 F2: more than one PrimaryButton on $where: $labels',
+  );
 }
 
 /// The "⋯" of the top route.
@@ -440,7 +612,8 @@ BuildContext navContext() => navigatorKey.currentContext!;
 Finder shell() => find.byType(AppShell);
 
 /// A customer used on this device before (S2 shows it as a recent circle).
-Future<void> rememberRecentForTest(String customerId) => rememberRecentCustomer(customerId);
+Future<void> rememberRecentForTest(String customerId) =>
+    rememberRecentCustomer(customerId);
 
 /// D of a document / quote, pushed like a row in L would.
 Future<void> openDocumentForTest(String id) => openDocument(navContext(), id);

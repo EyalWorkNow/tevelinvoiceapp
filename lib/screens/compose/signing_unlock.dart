@@ -10,7 +10,8 @@ import 'compose_dialogs.dart';
 
 /// True when the business signing session is unlocked now; false when the
 /// user cancelled (the document then waits in ARTIFACT_PENDING, D state 6).
-Future<bool> ensureSigningUnlocked(BuildContext context) => signing.unlockSigning(
+Future<bool> ensureSigningUnlocked(BuildContext context) =>
+    signing.unlockSigning(
       askPassphrase: () async {
         if (!context.mounted) return null;
         final e = await askSigningPassphrase(context);

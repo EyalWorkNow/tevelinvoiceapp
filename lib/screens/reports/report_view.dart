@@ -10,6 +10,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/widgets/notch_notice.dart';
 import '../../api/client.dart';
 import '../../api/models/models.dart';
 import '../../api/reports_api.dart';
@@ -92,7 +93,10 @@ class _ReportViewState extends State<ReportView> {
     try {
       sent = await sendReportByEmail(widget.kind, _period, to);
       if (sent && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ReportsHe.sentToAccountant(to))));
+        ScaffoldMessenger.of(context).showNotchNotice(
+          SnackBar(content: Text(ReportsHe.sentToAccountant(to))),
+          motion: NoticeMotion.sent,
+        );
       }
     } on Object catch (e) {
       sent = true; // the error is shown; do not open the share sheet too
@@ -115,9 +119,20 @@ class _ReportViewState extends State<ReportView> {
           if (data != null)
             MoreMenu(
               items: [
-                if (!_ledger) MoreMenuItem(label: ReportsHe.pdf, onSelected: () => _share('pdf')),
-                MoreMenuItem(label: ReportsHe.csv, onSelected: () => _share('csv')),
-                if (!_ledger) MoreMenuItem(label: ReportsHe.exportExcel, onSelected: () => _share('xlsx')),
+                if (!_ledger)
+                  MoreMenuItem(
+                    label: ReportsHe.pdf,
+                    onSelected: () => _share('pdf'),
+                  ),
+                MoreMenuItem(
+                  label: ReportsHe.csv,
+                  onSelected: () => _share('csv'),
+                ),
+                if (!_ledger)
+                  MoreMenuItem(
+                    label: ReportsHe.exportExcel,
+                    onSelected: () => _share('xlsx'),
+                  ),
               ],
             ),
         ],
@@ -136,10 +151,14 @@ class _ReportViewState extends State<ReportView> {
           : BottomActionArea(
               child: PrimaryButton(
                 key: const Key('report-share'),
-                label: accountant ? ReportsHe.share : ReportsHe.sendToAccountant,
+                label: accountant
+                    ? ReportsHe.share
+                    : ReportsHe.sendToAccountant,
                 loadingText: _sharing ? ReportsHe.preparing : null,
                 offline: session.offline,
-                onPressed: accountant || _ledger ? () => _share(_ledger ? 'csv' : 'pdf') : _sendToAccountant,
+                onPressed: accountant || _ledger
+                    ? () => _share(_ledger ? 'csv' : 'pdf')
+                    : _sendToAccountant,
               ),
             ),
     );
@@ -147,7 +166,10 @@ class _ReportViewState extends State<ReportView> {
 
   Widget _body(BuildContext context, ReportData? data) {
     if (_missing) {
-      return const EmptyState(icon: Iconsax.status_up, title: ReportsHe.notAvailable);
+      return const EmptyState(
+        icon: Iconsax.status_up,
+        title: ReportsHe.notAvailable,
+      );
     }
     if (_error != null) return ErrorView(error: _error!, onRetry: _load);
     final p = context.palette;
@@ -155,7 +177,12 @@ class _ReportViewState extends State<ReportView> {
         ? const <Map<String, dynamic>>[]
         : (_showAll ? data.rows : data.rows.take(20).toList());
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.page, Space.s, Space.page, Space.xl),
+      padding: const EdgeInsets.fromLTRB(
+        Space.page,
+        Space.s,
+        Space.page,
+        Space.xl,
+      ),
       children: [
         PeriodChips(
           selected: _key,
@@ -168,31 +195,20 @@ class _ReportViewState extends State<ReportView> {
         if (data == null)
           const SizedBox(height: 320, child: SkeletonList(rows: 4))
         else ...[
-          Wrap(
-            spacing: Space.m,
-            runSpacing: Space.m,
-            children: [
-              for (final k in data.kpis.take(4))
-                AppCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(k.label, style: AppText.secondary.copyWith(color: p.muted)),
-                      if (k.amountMinor != null)
-                        AmountText(k.amountMinor!)
-                      else
-                        Text(k.text ?? '', style: AppText.headline),
-                    ],
-                  ),
-                ),
-            ],
-          ),
+          _kpiGrid(context, data.kpis.take(4).toList()),
           const SizedBox(height: Space.section),
           // תקבולים: squad C's ledger body (tap → D, ⋯ "בטל תשלום", paging).
           if (_ledger)
-            PaymentsLedger(key: ValueKey(_period.fromIso), from: _period.fromIso, to: _period.toIso)
+            PaymentsLedger(
+              key: ValueKey(_period.fromIso),
+              from: _period.fromIso,
+              to: _period.toIso,
+            )
           else if (data.rows.isEmpty)
-            Text(ReportsHe.emptyRows, style: AppText.body.copyWith(color: p.muted))
+            Text(
+              ReportsHe.emptyRows,
+              style: AppText.body.copyWith(color: p.muted),
+            )
           else
             for (final r in rows) _row(context, data.columns, r),
           if (!_ledger && !_showAll && data.rows.length > 20)
@@ -206,7 +222,54 @@ class _ReportViewState extends State<ReportView> {
     );
   }
 
-  Widget _row(BuildContext context, List<ReportColumn> columns, Map<String, dynamic> row) {
+  Widget _kpiGrid(BuildContext context, List<ReportKpi> values) {
+    if (values.isEmpty) return const SizedBox.shrink();
+    return Column(
+      children: [
+        for (var i = 0; i < values.length; i += 2) ...[
+          if (i > 0) const SizedBox(height: Space.m),
+          Row(
+            children: [
+              if (i + 1 < values.length) ...[
+                Expanded(child: _kpiCard(context, values[i])),
+                const SizedBox(width: Space.m),
+                Expanded(child: _kpiCard(context, values[i + 1])),
+              ] else if (values.length > 1) ...[
+                Expanded(child: _kpiCard(context, values[i])),
+              ] else ...[
+                Expanded(child: _kpiCard(context, values[i])),
+              ],
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _kpiCard(BuildContext context, ReportKpi value) => AppCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value.label,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: AppText.secondary.copyWith(color: context.palette.muted),
+        ),
+        const SizedBox(height: Space.xs),
+        if (value.amountMinor != null)
+          AmountText(value.amountMinor!)
+        else
+          Text(value.text ?? '', style: AppText.headline),
+      ],
+    ),
+  );
+
+  Widget _row(
+    BuildContext context,
+    List<ReportColumn> columns,
+    Map<String, dynamic> row,
+  ) {
     final p = context.palette;
     final first = columns.isEmpty ? null : columns.first;
     final money = [
@@ -231,8 +294,13 @@ class _ReportViewState extends State<ReportView> {
         children: [
           Row(
             children: [
+              Icon(_reportRowIcon(first?.key ?? ''), size: 18, color: p.info),
+              const SizedBox(width: Space.s),
               Expanded(
-                child: Text(first == null ? '' : '${row[first.key] ?? ''}', style: AppText.body),
+                child: Text(
+                  first == null ? '' : '${row[first.key] ?? ''}',
+                  style: AppText.body,
+                ),
               ),
               if (money.isNotEmpty) ...[
                 const SizedBox(width: Space.m),
@@ -260,7 +328,10 @@ class _ReportViewState extends State<ReportView> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Flexible(
-                        child: Text('${c.label}:', style: AppText.secondary.copyWith(color: p.muted)),
+                        child: Text(
+                          '${c.label}:',
+                          style: AppText.secondary.copyWith(color: p.muted),
+                        ),
                       ),
                       const SizedBox(width: Space.xs),
                       Flexible(
@@ -278,4 +349,26 @@ class _ReportViewState extends State<ReportView> {
       ),
     );
   }
+}
+
+IconData _reportRowIcon(String key) {
+  final value = key.toLowerCase();
+  if (value.contains('date') || value.contains('period')) {
+    return Iconsax.calendar_1;
+  }
+  if (value.contains('customer') ||
+      value.contains('supplier') ||
+      value.contains('party')) {
+    return Iconsax.profile_2user;
+  }
+  if (value.contains('vat') || value.contains('tax')) {
+    return Iconsax.percentage_circle;
+  }
+  if (value.contains('amount') ||
+      value.contains('total') ||
+      value.contains('money')) {
+    return Iconsax.money_4;
+  }
+  if (value.contains('status')) return Iconsax.status_up;
+  return Iconsax.document_text;
 }

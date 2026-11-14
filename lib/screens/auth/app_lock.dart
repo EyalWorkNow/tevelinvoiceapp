@@ -22,7 +22,11 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 /// Integrator hook in main.dart (MaterialApp):
 ///   `builder: (context, child) => AppLockGate(child: child!),`
 class AppLockGate extends StatefulWidget {
-  const AppLockGate({super.key, required this.child, this.lockAfter = Biometric.lockAfter});
+  const AppLockGate({
+    super.key,
+    required this.child,
+    this.lockAfter = Biometric.lockAfter,
+  });
 
   final Widget child;
 
@@ -69,7 +73,11 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
   }
 
   Future<void> _onApiEvent(ApiEvent event) async {
-    if (event != ApiEvent.mfaRequired || !_signedIn || !ApiClient.instance.hasDeviceToken) return;
+    if (event != ApiEvent.mfaRequired ||
+        !_signedIn ||
+        !ApiClient.instance.hasDeviceToken) {
+      return;
+    }
     await session.signOutLocally();
     resetToLogin(expired: true);
   }
@@ -81,7 +89,9 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
-        if (state != AppLifecycleState.inactive) _backgroundAt ??= DateTime.now();
+        if (state != AppLifecycleState.inactive) {
+          _backgroundAt ??= DateTime.now();
+        }
         if (_signedIn && !_covered) setState(() => _covered = true);
       case AppLifecycleState.resumed:
         _onResumed();
@@ -93,7 +103,8 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
   Future<void> _onResumed() async {
     final away = _backgroundAt;
     _backgroundAt = null;
-    final due = away != null && DateTime.now().difference(away) >= widget.lockAfter;
+    final due =
+        away != null && DateTime.now().difference(away) >= widget.lockAfter;
     if (_signedIn && (due || _locked) && await _bio.shouldLock()) {
       if (!mounted) return;
       setState(() => _locked = true);
@@ -126,7 +137,10 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
         // through the lock) nor keep animating underneath.
         ExcludeSemantics(
           excluding: _locked || _covered,
-          child: TickerMode(enabled: !_locked && !_covered, child: widget.child),
+          child: TickerMode(
+            enabled: !_locked && !_covered,
+            child: widget.child,
+          ),
         ),
         if (_locked)
           LockView(onUnlock: _unlock, onSignOut: session.signOut)
@@ -143,9 +157,9 @@ class PrivacyCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ColoredBox(
-        color: context.palette.charcoal,
-        child: const Center(child: TevelLogo(size: 96)),
-      );
+    color: context.palette.charcoal,
+    child: const Center(child: TevelLogo(size: 96)),
+  );
 }
 
 /// Locked: Face ID / passcode button + sign-out escape hatch.
@@ -192,8 +206,11 @@ class _LockViewState extends State<LockView> {
               const SizedBox(height: Space.xl),
               Icon(Iconsax.lock, color: p.accent, size: 28),
               const SizedBox(height: Space.s),
-              Text('תבל נעולה',
-                  style: AppText.title.copyWith(color: Colors.white), textAlign: TextAlign.center),
+              Text(
+                'תבל נעולה',
+                style: AppText.title.copyWith(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
               const Spacer(),
               BigButton(
                 label: AuthHe.unlockWith(_method),
@@ -205,7 +222,9 @@ class _LockViewState extends State<LockView> {
               TextButton(
                 onPressed: _busy ? null : widget.onSignOut,
                 style: TextButton.styleFrom(
-                    foregroundColor: Colors.white70, minimumSize: const Size(Hit.min, Hit.min)),
+                  foregroundColor: Colors.white70,
+                  minimumSize: const Size(Hit.min, Hit.min),
+                ),
                 child: const Text(AuthHe.lockSignOut),
               ),
             ],

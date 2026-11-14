@@ -82,7 +82,15 @@ enum Cap {
 }
 
 /// What the owner picks in an invitation (§4.3), derived from role + grants.
-enum Preset { owner, partner, employee, employeeIssuer, accountantRep, accountantFull, viewer }
+enum Preset {
+  owner,
+  partner,
+  employee,
+  employeeIssuer,
+  accountantRep,
+  accountantFull,
+  viewer,
+}
 
 /// Server role table (packages/security/src/rbac.ts ROLE_PERMISSIONS + BE-03a).
 /// Used ONLY when /me has no `permissions` (server without BE-02): grants are
@@ -91,21 +99,48 @@ const Map<String, List<String>> rolePermissionsFallback = {
   'OWNER': _all,
   'ADMIN': _all,
   'ACCOUNTANT': [
-    'document:read', 'document:draft:write', 'document:finalize', 'document:send',
-    'payment:record', 'expense:record', 'expense:approve', 'document:cancel', 'approval:decide',
+    'document:read',
+    'document:draft:write',
+    'document:finalize',
+    'document:send',
+    'payment:record',
+    'expense:record',
+    'expense:approve',
+    'document:cancel',
+    'approval:decide',
   ],
-  'EMPLOYEE': ['document:read', 'document:draft:write', 'document:send', 'expense:record'],
+  'EMPLOYEE': [
+    'document:read',
+    'document:draft:write',
+    'document:send',
+    'expense:record',
+  ],
   'READ_ONLY': ['document:read'],
   'ACCOUNTANT_REP': [
-    'document:read', 'expense:record', 'expense:approve', 'money:read', 'report:read',
-    'export:run', 'allocation:request', 'settings:numbering', 'customer:accountKey',
+    'document:read',
+    'expense:record',
+    'expense:approve',
+    'money:read',
+    'report:read',
+    'export:run',
+    'allocation:request',
+    'settings:numbering',
+    'customer:accountKey',
   ],
 };
 
 const List<String> _all = [
-  'document:read', 'document:draft:write', 'document:finalize', 'document:send',
-  'payment:record', 'expense:record', 'expense:approve', 'business:configure',
-  'membership:manage', 'document:cancel', 'approval:decide',
+  'document:read',
+  'document:draft:write',
+  'document:finalize',
+  'document:send',
+  'payment:record',
+  'expense:record',
+  'expense:approve',
+  'business:configure',
+  'membership:manage',
+  'document:cancel',
+  'approval:decide',
 ];
 
 /// Immutable capability set for one user in one business.
@@ -113,13 +148,21 @@ class Caps {
   Caps._(this._caps, this.preset, this.approvalPolicy, this.fromFallback);
 
   /// No business / signed out / /me older than 24h: nothing is shown.
-  static final Caps none = Caps._(const {}, Preset.viewer, ApprovalPolicy.none, true);
+  static final Caps none = Caps._(
+    const {},
+    Preset.viewer,
+    ApprovalPolicy.none,
+    true,
+  );
 
   factory Caps.fromMe(Me me) {
     final role = me.role;
-    final perms = (me.permissions ?? rolePermissionsFallback[role] ?? const <String>[]).toSet();
+    final perms =
+        (me.permissions ?? rolePermissionsFallback[role] ?? const <String>[])
+            .toSet();
     bool has(String p) => perms.contains(p);
-    final gated = me.readGating; // BE-03 is live: read permissions are explicit.
+    final gated =
+        me.readGating; // BE-03 is live: read permissions are explicit.
 
     final Preset preset;
     if (role == 'OWNER') {
@@ -128,7 +171,8 @@ class Caps {
       preset = Preset.partner;
     } else if (role == 'ACCOUNTANT') {
       preset = Preset.accountantFull;
-    } else if (role == 'ACCOUNTANT_REP' || (role == 'READ_ONLY' && has('expense:approve'))) {
+    } else if (role == 'ACCOUNTANT_REP' ||
+        (role == 'READ_ONLY' && has('expense:approve'))) {
       preset = Preset.accountantRep;
     } else if (role == 'EMPLOYEE') {
       preset = has('document:finalize') && has('payment:record')
@@ -137,10 +181,12 @@ class Caps {
     } else {
       preset = Preset.viewer;
     }
-    final managerRole = role == 'OWNER' || role == 'ADMIN' || role == 'ACCOUNTANT';
+    final managerRole =
+        role == 'OWNER' || role == 'ADMIN' || role == 'ACCOUNTANT';
     final docDraft = has('document:draft:write');
-    final reportView =
-        gated ? has('report:read') : managerRole || preset == Preset.accountantRep;
+    final reportView = gated
+        ? has('report:read')
+        : managerRole || preset == Preset.accountantRep;
 
     final caps = <Cap>{
       if (has('document:read')) Cap.docView,
@@ -152,11 +198,13 @@ class Caps {
       if (has('payment:record') && has('document:finalize')) Cap.paymentRecord,
       if (has('payment:refund')) Cap.paymentRefund,
       if (has('approval:decide')) Cap.approvalDecide,
-      if (gated ? has('allocation:request') : has('document:finalize')) Cap.allocationRequest,
+      if (gated ? has('allocation:request') : has('document:finalize'))
+        Cap.allocationRequest,
       if (gated ? has('money:read') : role != 'EMPLOYEE') Cap.moneyView,
       if (gated ? has('customer:manage') : managerRole) Cap.customerManage,
       if (has('customer:accountKey')) Cap.customerAccountKey,
-      if (gated ? has('supplier:manage') : has('expense:record')) Cap.supplierManage,
+      if (gated ? has('supplier:manage') : has('expense:record'))
+        Cap.supplierManage,
       if (gated ? has('item:manage') : docDraft) Cap.itemManage,
       if (has('expense:record')) Cap.expenseCapture,
       if (has('expense:approve')) Cap.expenseApprove,
@@ -196,10 +244,17 @@ class Caps {
   }
 
   /// Accountant presets see Reports (R) as their home tab (§4.4).
-  bool get homeIsReports => preset == Preset.accountantRep || preset == Preset.accountantFull;
+  bool get homeIsReports =>
+      preset == Preset.accountantRep || preset == Preset.accountantFull;
 
-  /// The ＋ tab exists only when S1 has a tile (§4.5): every tile needs docDraft.
+  /// The ＋ action (opens the Composer) exists only when the caps let this
+  /// member create documents — issue, or draft for approval (§4.5, PM
+  /// 2026-11-12: the cap decides, never the role or the home tab).
   bool get showCreateTab => can(Cap.docDraft);
+
+  /// The "לקוחות" tab (§4.4, §5; PM 2026-11-12): the customer list is part of
+  /// reading the business's documents, so it follows `doc.view`.
+  bool get showPeopleTab => can(Cap.docView);
 
   /// "קיבלתי תשלום" / "בקש תשלום" on H.
   bool get showIntentButtons => can(Cap.docDraft) && !homeIsReports;

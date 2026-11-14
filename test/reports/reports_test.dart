@@ -291,17 +291,23 @@ void main() {
       'advances',
       'receivables',
     ]) {
-      await tester.scrollUntilVisible(find.byKey(Key('report-card-$k')), 200);
+      await tester.scrollUntilVisible(
+        find.byKey(Key('report-card-$k')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
     }
     await tester.scrollUntilVisible(
       find.byKey(const Key('export-accountant')),
       200,
+      scrollable: find.byType(Scrollable).first,
     );
     expect(find.byKey(const Key('export-excel')), findsOneWidget);
     expect(find.byKey(const Key('tab-create')), findsNothing); // AT-44: no ＋
     await tester.scrollUntilVisible(
       find.byKey(const Key('report-card-vat')),
       -200,
+      scrollable: find.byType(Scrollable).first,
     );
     final taps = Taps();
     await taps.tap(tester, find.byKey(const Key('report-card-vat')));

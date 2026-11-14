@@ -8,6 +8,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/widgets/notch_notice.dart';
+import '../../api/customers_api.dart' show rememberRecentPaymentCustomer;
 import '../../api/models/models.dart';
 import '../../state/business_context.dart';
 import '../../state/caps.dart';
@@ -17,6 +19,7 @@ import '../../util/intent_resolver.dart';
 import '../../util/labels/labels.dart';
 import '../../util/money.dart';
 import '../people/sheets/s2_customer.dart';
+import 'compose_dialogs.dart';
 import 'compose_loader.dart';
 import 'compose_memory.dart';
 import 'compose_submit.dart';
@@ -29,6 +32,10 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 /// S2 (squad D). Tests replace it to simulate one tap on a recent customer.
 Future<Customer?> Function(BuildContext context) pickCustomer = (c) =>
     showCustomerSheet(c);
+
+/// S2 with recent recipients for the “received payment” flow.
+Future<Customer?> Function(BuildContext context) pickPaymentCustomer = (c) =>
+    showCustomerSheet(c, recentPayments: true);
 
 /// S2 in supplier mode for a 500 purchase order (shown in the same chip).
 Future<Customer?> Function(BuildContext context) pickSupplier = (c) async =>
@@ -66,13 +73,21 @@ class _ComposeScreenState extends State<ComposeScreen> {
   bool _issuedOrLeft = false;
   bool _pickingInitialCustomer = false;
 
+  /// U1: the primary button appears where the keypad's bottom row was a
+  /// moment ago; taps on it are ignored for [_armDelay] after it appears.
+  static const _armDelay = Duration(milliseconds: 400);
+  bool _armed = true;
+  bool _wasReady = false;
+  Timer? _armTimer;
+
   @override
   void initState() {
     super.initState();
     // Toasts from the previous issue would sit over the issue button and eat the first tap.
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) =>
-          mounted ? ScaffoldMessenger.maybeOf(context)?.clearSnackBars() : null,
+      (_) => mounted
+          ? ScaffoldMessenger.maybeOf(context)?.clearNotchNotices()
+          : null,
     );
     _start();
   }
@@ -97,6 +112,14 @@ class _ComposeScreenState extends State<ComposeScreen> {
         _load = load;
         _pickingInitialCustomer = load.state.customer == null;
       });
+      _wasReady = load.state.ready;
+      if (load.leftoverForm != null) {
+        await _waitForEntrance();
+        if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+        await _askLeftover(load);
+        if (!mounted) return;
+        setState(() => _pickingInitialCustomer = load.state.customer == null);
+      }
       if (load.state.customer == null) {
         await _waitForEntrance();
         if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
@@ -135,12 +158,39 @@ class _ComposeScreenState extends State<ComposeScreen> {
     await ready.future;
   }
 
+  /// U5: what was left here last time is offered, never restored silently.
+  Future<void> _askLeftover(ComposeLoad load) async {
+    final form = load.leftoverForm!;
+    final customer = form['customer'];
+    final resume = await askResumeDraft(
+      context,
+      customerName: customer is Map ? customer['name'] as String? : null,
+      amountMinor: keypadToAgorot(form['amountText'] as String? ?? ''),
+    );
+    if (resume) {
+      load.resumeLeftover();
+    } else {
+      await load.dropLeftover();
+    }
+  }
+
   void _changed() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final ready = _load?.state.ready ?? false;
+    if (ready && !_wasReady) {
+      _armed = false;
+      _armTimer?.cancel();
+      _armTimer = Timer(_armDelay, () {
+        if (mounted) setState(() => _armed = true);
+      });
+    }
+    _wasReady = ready;
+    setState(() {});
   }
 
   @override
   void dispose() {
+    _armTimer?.cancel();
     final s = _load?.state;
     s?.removeListener(_changed);
     // Leaving with data → local draft without a dialog (§6.C edge).
@@ -153,7 +203,11 @@ class _ComposeScreenState extends State<ComposeScreen> {
   Future<Customer?> _chooseCustomer() async {
     final s = _load!.state;
     final supplier = s.config.counterparty == Counterparty.supplier;
-    final c = await (supplier ? pickSupplier : pickCustomer)(context);
+    final c = supplier
+        ? await pickSupplier(context)
+        : s.config.paid && s.config.counterparty == Counterparty.customer
+        ? await pickPaymentCustomer(context)
+        : await pickCustomer(context);
     if (c == null || !mounted || ModalRoute.of(context)?.isCurrent != true) {
       return null;
     }
@@ -181,7 +235,34 @@ class _ComposeScreenState extends State<ComposeScreen> {
         setState(() => _step = step);
       },
     );
-    if (mounted && run.pending?.stage.name == 'done') _issuedOrLeft = true;
+    if (mounted && run.pending?.stage.name == 'done') {
+      _issuedOrLeft = true;
+      if (load.state.kind == DocKind.receipt ||
+          load.state.kind == DocKind.taxInvoiceReceipt) {
+        final customer = load.state.customer;
+        if (customer != null) {
+          unawaited(rememberRecentPaymentCustomer(customer.id));
+        }
+      }
+    }
+  }
+
+  /// U0: ✕ always leaves the Composer in one tap (the customer is changed
+  /// from the chip). With an amount: "לשמור טיוטה?" – save (the local draft
+  /// is written on dispose), discard, or stay.
+  Future<void> _close() async {
+    final s = _load?.state;
+    if (!_issuedOrLeft && s != null && s.amountMinor > BigInt.zero) {
+      FocusScope.of(context).unfocus();
+      final save = await askSaveDraft(context);
+      if (save == null || !mounted) return;
+      if (!save) {
+        _issuedOrLeft = true; // nothing to keep
+        await clearLocalDraft();
+        if (!mounted) return;
+      }
+    }
+    await Navigator.of(context).maybePop();
   }
 
   @override
@@ -189,23 +270,25 @@ class _ComposeScreenState extends State<ComposeScreen> {
     final load = _load;
     return Scaffold(
       body: SafeArea(
-        child: _unavailable
-            ? const EmptyState(
-                icon: Iconsax.forbidden_2,
-                title: ComposeHe.notAvailable,
+        child: _unavailable || _error != null
+            // U3: never a dead end – the message keeps the ✕.
+            ? Column(
+                children: [
+                  _closeHeader(),
+                  Expanded(
+                    child: _unavailable
+                        ? const EmptyState(
+                            icon: Iconsax.forbidden_2,
+                            title: ComposeHe.notAvailable,
+                          )
+                        : ErrorView(error: _error!, onRetry: _start),
+                  ),
+                ],
               )
-            : _error != null
-            ? ErrorView(error: _error!, onRetry: _start)
             : (load == null || _pickingInitialCustomer)
             ? Column(
                 children: [
-                  const Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: Padding(
-                      padding: EdgeInsets.all(Space.page),
-                      child: DesignBackButton(),
-                    ),
-                  ),
+                  _closeHeader(),
                   if (!_pickingInitialCustomer) const SkeletonList(rows: 3),
                 ],
               )
@@ -213,6 +296,14 @@ class _ComposeScreenState extends State<ComposeScreen> {
       ),
     );
   }
+
+  Widget _closeHeader() => Align(
+    alignment: AlignmentDirectional.centerEnd,
+    child: Padding(
+      padding: const EdgeInsets.all(Space.page),
+      child: _CloseButton(onPressed: _close),
+    ),
+  );
 
   Widget _kindActions(ComposeLoad load) {
     final s = load.state;
@@ -302,7 +393,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
                   onTap: _chooseCustomer,
                 ),
               ),
-              const DesignBackButton(),
+              _CloseButton(onPressed: _close),
             ],
           ),
         ),
@@ -311,20 +402,40 @@ class _ComposeScreenState extends State<ComposeScreen> {
             padding: const EdgeInsets.symmetric(horizontal: Space.page),
             child: Column(
               children: [
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 AmountField(state: s),
                 if (s.totalMinor == BigInt.zero) ...[
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   _kindActions(load),
                   const SizedBox(height: 24),
                 ],
                 if (s.totalMinor > BigInt.zero)
-                  SummarySection(
-                    state: s,
-                    onMoreDetails: () => showMoreDetailsSheet(
-                      context,
-                      state: s,
-                      kinds: load.switchKinds,
+                  Padding(
+                    padding: const EdgeInsets.only(top: Space.l),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 352),
+                        child: SummarySection(
+                          state: s,
+                          onMoreDetails: () => showMoreDetailsSheet(
+                            context,
+                            state: s,
+                            kinds: load.switchKinds,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (!s.discountValid)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Space.s),
+                    child: Text(
+                      ComposeHe.discountTooBig,
+                      key: const Key('compose-discount-error'),
+                      textAlign: TextAlign.center,
+                      style: AppText.secondary.copyWith(
+                        color: context.palette.danger,
+                      ),
                     ),
                   ),
               ],
@@ -341,18 +452,58 @@ class _ComposeScreenState extends State<ComposeScreen> {
             },
           ),
         ),
-        if (s.ready || bc.offline)
-          BottomActionArea(
-            note: note,
-            child: PrimaryButton(
-              key: const Key('compose-primary'),
-              label: actionLabel(action),
-              offline: bc.offline,
-              loadingText: _step,
-              onPressed: () => _press(action, needsApproval),
-            ),
-          ),
+        // U1: the area is always there (empty until ready), so the keypad
+        // never jumps up under the finger when the button appears.
+        BottomActionArea(
+          note: note,
+          child: s.ready || bc.offline
+              ? PrimaryButton(
+                  key: const Key('compose-primary'),
+                  label: actionLabel(action),
+                  offline: bc.offline,
+                  loadingText: _step,
+                  onPressed: () {
+                    if (_armed) _press(action, needsApproval);
+                  },
+                )
+              : const _ButtonSpace(),
+        ),
       ],
     );
   }
+}
+
+/// ✕ of the Composer (same control as the design back button).
+class _CloseButton extends StatelessWidget {
+  const _CloseButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: 57.303,
+    child: IconButton(
+      key: const Key('compose-close'),
+      tooltip: CommonHe.close,
+      onPressed: onPressed,
+      style: IconButton.styleFrom(backgroundColor: DesignTokens.control),
+      icon: Icon(Icons.close_rounded, color: context.palette.ink),
+    ),
+  );
+}
+
+/// The height of the primary button, empty: reserved before it appears.
+class _ButtonSpace extends StatelessWidget {
+  const _ButtonSpace();
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: Hit.primary),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: Space.m),
+        child: Text('', style: AppText.button),
+      ),
+    ),
+  );
 }

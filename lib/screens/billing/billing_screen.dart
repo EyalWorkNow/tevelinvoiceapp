@@ -1,8 +1,9 @@
+import '../../util/labels/common_he.dart';
+import '../../util/labels/business_he.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../api/commerce_api.dart';
 import '../../api/client.dart';
 import '../../state/business_context.dart';
@@ -22,6 +23,12 @@ Future<void> showBillingPlans(BuildContext context) async {
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
+    sheetAnimationStyle: const AnimationStyle(
+      duration: Duration(milliseconds: 420),
+      reverseDuration: Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    ),
     builder: (_) => const PlansSheet(),
   );
   if (plan != null && context.mounted) {
@@ -32,7 +39,17 @@ Future<void> showBillingPlans(BuildContext context) async {
 }
 
 class PlansSheet extends StatefulWidget {
-  const PlansSheet({super.key});
+  const PlansSheet({
+    super.key,
+    this.requiredForAccess = false,
+    this.onSubscribed,
+    this.onExit,
+  });
+
+  final bool requiredForAccess;
+  final VoidCallback? onSubscribed;
+  final VoidCallback? onExit;
+
   @override
   State<PlansSheet> createState() => _PlansSheetState();
 }
@@ -52,6 +69,7 @@ class _PlansSheetState extends State<PlansSheet> with WidgetsBindingObserver {
 
   Object? _error;
   String? _selected;
+  bool _returnedAfterSubscription = false;
   @override
   void initState() {
     super.initState();
@@ -96,6 +114,14 @@ class _PlansSheetState extends State<PlansSheet> with WidgetsBindingObserver {
           _selected = c.plans.length > 1 ? c.plans[1].code : c.plans.first.code;
           _error = null;
         });
+        if (widget.requiredForAccess &&
+            subscription.active &&
+            !_returnedAfterSubscription) {
+          _returnedAfterSubscription = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) widget.onSubscribed?.call();
+          });
+        }
       }
     } on Object catch (e) {
       if (mounted) setState(() => _error = e);
@@ -104,10 +130,12 @@ class _PlansSheetState extends State<PlansSheet> with WidgetsBindingObserver {
 
   Future<void> _cancel() async {
     if (_subscription?.billingProvider == 'APPLE') {
-      final opened = await launchUrl(
-        Uri.parse('https://apps.apple.com/account/subscriptions'),
-        mode: LaunchMode.externalApplication,
-      );
+      var opened = false;
+      try {
+        opened = await launchAllowed(appleSubscriptionsUri);
+      } on Object {
+        opened = false;
+      }
       if (!opened && mounted) {
         setState(() => _error = 'לא ניתן לפתוח את ניהול המינויים של Apple.');
       }
@@ -123,11 +151,11 @@ class _PlansSheetState extends State<PlansSheet> with WidgetsBindingObserver {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('נשארים במסלול'),
+            child: const Text(BusinessHe.keepSubscription),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('ביטול החידוש'),
+            child: const Text(BusinessHe.cancelRenewalAction),
           ),
         ],
       ),
@@ -144,194 +172,257 @@ class _PlansSheetState extends State<PlansSheet> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _continueWithPlan(BillingPlan plan) async {
+    if (!widget.requiredForAccess) {
+      Navigator.pop(context, plan);
+      return;
+    }
+    await Navigator.of(context).push<void>(
+      AppPageRoute<void>(builder: (_) => BillingCheckoutScreen(plan: plan)),
+    );
+    if (mounted) await _load();
+  }
+
   @override
-  Widget build(BuildContext context) => SafeArea(
-    top: false,
-    child: SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text('מקום לגדול', style: AppText.displayTitle),
-              ),
-              IconButton(
-                tooltip: 'סגור',
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ],
-          ),
-          Text(
-            'מסלול קטן. שקט גדול.\nבוחרים מה שמתאים לעסק שלך.',
-            style: AppText.body.copyWith(
-              color: context.palette.muted,
-              height: 1.6,
+  Widget build(BuildContext context) => PopScope(
+    canPop: !widget.requiredForAccess,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop && widget.requiredForAccess) widget.onExit?.call();
+    },
+    child: SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('מקום לגדול', style: AppText.displayTitle),
+                ),
+                if (!widget.requiredForAccess || widget.onExit != null)
+                  IconButton(
+                    tooltip: CommonHe.close,
+                    onPressed: widget.requiredForAccess
+                        ? widget.onExit
+                        : () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+              ],
             ),
-          ),
-          const SizedBox(height: 24),
-          if (_error != null)
-            ErrorView(error: _error!, onRetry: _load)
-          else if (_catalog == null)
-            const SkeletonList(rows: 3)
-          else ...[
-            if (_subscription?.active == true) ...[
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text('המסלול שלך פעיל', style: AppText.headline),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${_subscription!.used} מסמכי הכנסה הופקו החודש',
-                      style: AppText.body,
-                    ),
-                    if (_subscription!.cancelAtPeriodEnd)
-                      const Text(
-                        'החידוש בוטל. המסלול פעיל עד סוף התקופה ששולמה.',
-                        style: AppText.secondary,
-                      )
-                    else
-                      TextButton(
-                        onPressed: _cancelling ? null : _cancel,
-                        child: Text(
-                          _subscription!.billingProvider == 'APPLE'
-                              ? 'ניהול מינוי Apple'
-                              : 'ביטול חידוש המסלול',
+            Text(
+              'מסלול קטן. שקט גדול.\nבוחרים מה שמתאים לעסק שלך.',
+              style: AppText.body.copyWith(
+                color: context.palette.muted,
+                height: 1.6,
+              ),
+            ),
+            const SizedBox(height: 24),
+            if (_error != null)
+              ErrorView(error: _error!, onRetry: _load)
+            else if (_catalog == null)
+              const SkeletonList(rows: 3)
+            else ...[
+              if (_subscription?.active == true) ...[
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text('המסלול שלך פעיל', style: AppText.headline),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_subscription!.used} מסמכי הכנסה הופקו החודש',
+                        style: AppText.body,
+                      ),
+                      if (_subscription!.cancelAtPeriodEnd)
+                        const Text(
+                          'החידוש בוטל. המסלול פעיל עד סוף התקופה ששולמה.',
+                          style: AppText.secondary,
+                        )
+                      else
+                        TextButton(
+                          onPressed: _cancelling ? null : _cancel,
+                          child: Text(
+                            _subscription!.billingProvider == 'APPLE'
+                                ? BusinessHe.manageAppleSubscription
+                                : BusinessHe.cancelPlanRenewal,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+              SizedBox(
+                height:
+                    500 *
+                    MediaQuery.textScalerOf(context).scale(1).clamp(1, 2.0),
+                child: PageView.builder(
+                  key: const Key('plans-carousel'),
+                  controller: _pages,
+                  itemCount: _catalog!.plans.length,
+                  onPageChanged: (index) =>
+                      setState(() => _selected = _catalog!.plans[index].code),
+                  itemBuilder: (context, index) => AnimatedBuilder(
+                    animation: _pages,
+                    builder: (context, _) {
+                      final page =
+                          _pages.hasClients &&
+                              _pages.position.hasContentDimensions
+                          ? _pages.page ?? 1
+                          : 1.0;
+                      final distance = (page - index).clamp(-1.0, 1.0);
+                      final reduced = MediaQuery.disableAnimationsOf(context);
+                      return Transform.rotate(
+                        angle: reduced ? 0 : distance * .055,
+                        child: Transform.scale(
+                          scale: reduced ? 1 : 1 - distance.abs() * .07,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 12,
+                            ),
+                            child: _PlanCard(
+                              plan: _catalog!.plans[index],
+                              localizedPrice:
+                                  _products[_catalog!
+                                          .plans[index]
+                                          .appleProductId]
+                                      ?.price,
+                              color: _planColors[index % 3],
+                              selected:
+                                  _selected == _catalog!.plans[index].code,
+                              onTap: () => _pages.animateToPage(
+                                index,
+                                duration: context.motion(300),
+                                curve: Curves.easeOutCubic,
+                              ),
+                              onContinue: () =>
+                                  _continueWithPlan(_catalog!.plans[index]),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < _catalog!.plans.length; i++)
+                    Semantics(
+                      selected: _selected == _catalog!.plans[i].code,
+                      button: true,
+                      label: 'בחירת מסלול ${_catalog!.plans[i].name}',
+                      child: InkWell(
+                        key: Key('plan-dot-${_catalog!.plans[i].code}'),
+                        onTap: () => _pages.animateToPage(
+                          i,
+                          duration: context.motion(300),
+                          curve: Curves.easeOutCubic,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 14,
+                          ),
+                          child: AnimatedContainer(
+                            duration: context.motion(220),
+                            height: 8,
+                            width: _selected == _catalog!.plans[i].code
+                                ? 28
+                                : 8,
+                            decoration: BoxDecoration(
+                              color: _selected == _catalog!.plans[i].code
+                                  ? _planColors[i % 3]
+                                  : context.palette.line,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
                         ),
                       ),
-                  ],
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'המחירים כוללים מע״מ • מכסה חודשית של מסמכי הכנסה',
+                textAlign: TextAlign.center,
+                style: AppText.secondary.copyWith(
+                  color: context.palette.muted,
+                  fontSize: 13,
                 ),
               ),
               const SizedBox(height: 20),
-            ],
-            SizedBox(
-              height:
-                  500 * MediaQuery.textScalerOf(context).scale(1).clamp(1, 2.0),
-              child: PageView.builder(
-                key: const Key('plans-carousel'),
-                controller: _pages,
-                itemCount: _catalog!.plans.length,
-                onPageChanged: (index) =>
-                    setState(() => _selected = _catalog!.plans[index].code),
-                itemBuilder: (context, index) => AnimatedBuilder(
-                  animation: _pages,
-                  builder: (context, _) {
-                    final page =
-                        _pages.hasClients &&
-                            _pages.position.hasContentDimensions
-                        ? _pages.page ?? 1
-                        : 1.0;
-                    final distance = (page - index).clamp(-1.0, 1.0);
-                    final reduced = MediaQuery.disableAnimationsOf(context);
-                    return Transform.rotate(
-                      angle: reduced ? 0 : distance * .055,
-                      child: Transform.scale(
-                        scale: reduced ? 1 : 1 - distance.abs() * .07,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 12,
-                          ),
-                          child: _PlanCard(
-                            plan: _catalog!.plans[index],
-                            localizedPrice:
-                                _products[_catalog!.plans[index].appleProductId]
-                                    ?.price,
-                            color: _planColors[index % 3],
-                            selected: _selected == _catalog!.plans[index].code,
-                            onTap: () => _pages.animateToPage(
-                              index,
-                              duration: context.motion(300),
-                              curve: Curves.easeOutCubic,
-                            ),
-                            onContinue: () =>
-                                Navigator.pop(context, _catalog!.plans[index]),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var i = 0; i < _catalog!.plans.length; i++)
-                  Semantics(
-                    selected: _selected == _catalog!.plans[i].code,
-                    button: true,
-                    label: 'בחירת מסלול ${_catalog!.plans[i].name}',
-                    child: InkWell(
-                      key: Key('plan-dot-${_catalog!.plans[i].code}'),
-                      onTap: () => _pages.animateToPage(
-                        i,
-                        duration: context.motion(300),
-                        curve: Curves.easeOutCubic,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 14,
-                        ),
-                        child: AnimatedContainer(
-                          duration: context.motion(220),
-                          height: 8,
-                          width: _selected == _catalog!.plans[i].code ? 28 : 8,
-                          decoration: BoxDecoration(
-                            color: _selected == _catalog!.plans[i].code
-                                ? _planColors[i % 3]
-                                : context.palette.line,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
+              const Text('טוב לדעת', style: AppText.title),
+              const SizedBox(height: 8),
+              const ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text('מה נספר במכסה החודשית?'),
+                children: [
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      'כל מסמכי ההכנסה שהופקו, כולל חשבוניות וקבלות. טיוטות אינן נספרות.',
                     ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'המחירים כוללים מע״מ • מכסה חודשית של מסמכי הכנסה',
-              textAlign: TextAlign.center,
-              style: AppText.secondary.copyWith(
-                color: context.palette.muted,
-                fontSize: 13,
+                ],
               ),
-            ),
-            const SizedBox(height: 20),
-            const Text('טוב לדעת', style: AppText.title),
-            const SizedBox(height: 8),
-            const ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: Text('מה נספר במכסה החודשית?'),
-              children: [
-                Padding(
-                  padding: EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    'כל מסמכי ההכנסה שהופקו, כולל חשבוניות וקבלות. טיוטות אינן נספרות.',
+              const ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text('אפשר לבטל את החידוש?'),
+                children: [
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      'כן. ניתן לבטל את החידוש בניהול המסלול. התקופה ששולמה נשארת פעילה עד סיומה.',
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: Text('אפשר לבטל את החידוש?'),
-              children: [
-                Padding(
-                  padding: EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    'כן. ניתן לבטל את החידוש בניהול המסלול. התקופה ששולמה נשארת פעילה עד סיומה.',
-                  ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
+            if (widget.requiredForAccess && widget.onExit != null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                key: const Key('required-plan-later'),
+                onPressed: widget.onExit,
+                icon: const Icon(Icons.close_rounded),
+                label: const Text(BusinessHe.planLater),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'אפשר לבחור מסלול בהמשך. בחירת המסלול תופיע שוב בכניסה הבאה.',
+                textAlign: TextAlign.center,
+                style: AppText.secondary.copyWith(color: context.palette.muted),
+              ),
+            ],
           ],
-        ],
+        ),
+      ),
+    ),
+  );
+}
+
+class RequiredSubscriptionScreen extends StatelessWidget {
+  const RequiredSubscriptionScreen({
+    super.key,
+    required this.onSubscribed,
+    required this.onExit,
+  });
+
+  final VoidCallback onSubscribed;
+  final VoidCallback onExit;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: PlansSheet(
+        requiredForAccess: true,
+        onSubscribed: onSubscribed,
+        onExit: onExit,
       ),
     ),
   );
@@ -414,30 +505,39 @@ class _PlanCard extends StatelessWidget {
                           plan.limit == null
                               ? 'מסמכי הכנסה ללא הגבלה'
                               : 'עד ${plan.limit} מסמכי הכנסה בחודש',
-                          'מסמכים במייל וב־QR',
-                          'ניהול הכנסות והוצאות',
+                          'המסמך נשלח ללקוח במייל או בקוד QR',
+                          'מעקב מסודר אחרי הכנסות והוצאות',
                         ])
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.check_circle_outline_rounded,
-                                  size: 20,
-                                  color: ink,
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 260,
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    text,
-                                    style: AppText.secondary.copyWith(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.check_circle_outline_rounded,
+                                      size: 20,
                                       color: ink,
-                                      height: 1.4,
                                     ),
-                                  ),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        text,
+                                        textAlign: TextAlign.center,
+                                        style: AppText.body.copyWith(
+                                          color: ink,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                       ],
@@ -458,7 +558,11 @@ class _PlanCard extends StatelessWidget {
                   ),
                   child: const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Text('בוחרים וממשיכים', textAlign: TextAlign.center),
+                    child: Text(
+                      BusinessHe.selectPlanAndPay,
+                      textAlign: TextAlign.center,
+                      style: AppText.button,
+                    ),
                   ),
                 ),
               ],
@@ -660,10 +764,13 @@ class _BillingCheckoutScreenState extends State<BillingCheckoutScreen>
   }
 
   Future<void> _openLegal(String url) async {
-    final opened = await launchUrl(
-      Uri.parse(url),
-      mode: LaunchMode.externalApplication,
-    );
+    // F6: the legal pages open only through the whitelist (in-app Safari).
+    var opened = false;
+    try {
+      opened = await openSafari(Uri.parse(url));
+    } on Object {
+      opened = false;
+    }
     if (!opened && mounted) {
       setState(() => _error = 'לא ניתן לפתוח את הקישור כרגע.');
     }
@@ -953,16 +1060,12 @@ class _BillingCheckoutScreenState extends State<BillingCheckoutScreen>
                           spacing: 12,
                           children: [
                             TextButton(
-                              onPressed: () => _openLegal(
-                                'https://www.tevel.space/legal/tevel-invoice',
-                              ),
-                              child: const Text('תנאי שימוש'),
+                              onPressed: () => _openLegal(termsUrl),
+                              child: const Text(BusinessHe.termsAction),
                             ),
                             TextButton(
-                              onPressed: () => _openLegal(
-                                'https://www.tevel.space/legal/privacy',
-                              ),
-                              child: const Text('מדיניות פרטיות'),
+                              onPressed: () => _openLegal(privacyUrl),
+                              child: const Text(BusinessHe.privacyAction),
                             ),
                           ],
                         ),
@@ -970,7 +1073,7 @@ class _BillingCheckoutScreenState extends State<BillingCheckoutScreen>
                         TextButton.icon(
                           onPressed: _busy ? null : _restore,
                           icon: const Icon(Icons.restore_rounded),
-                          label: const Text('שחזור רכישות'),
+                          label: const Text(BusinessHe.restorePurchasesAction),
                         )
                       else if (!_paid && _checkoutId != null)
                         TextButton.icon(
@@ -978,8 +1081,8 @@ class _BillingCheckoutScreenState extends State<BillingCheckoutScreen>
                           icon: const Icon(Icons.refresh_rounded),
                           label: Text(
                             _checking
-                                ? 'בודקים את התשלום…'
-                                : 'בדיקת אישור התשלום',
+                                ? BusinessHe.checkingPayment
+                                : BusinessHe.checkPaymentApproval,
                           ),
                         ),
                     ],
@@ -1047,17 +1150,22 @@ class _BillingCheckoutScreenState extends State<BillingCheckoutScreen>
                   PrimaryButton(
                     key: const Key('checkout-pay'),
                     label: _paid
-                        ? 'חוזרים לעסק'
+                        ? BusinessHe.backToBusiness
                         : _isIOS
-                        ? 'מינוי חודשי · ${_product?.price ?? '₪${widget.plan.monthlyMinor ~/ 100}'}'
-                        : 'לתשלום מאובטח · ₪${widget.plan.monthlyMinor ~/ 100}',
+                        ? BusinessHe.monthlySubscriptionPrice(
+                            _product?.price ??
+                                '₪${widget.plan.monthlyMinor ~/ 100}',
+                          )
+                        : BusinessHe.securePaymentPrice(
+                            widget.plan.monthlyMinor,
+                          ),
                     icon: _paid
                         ? Icons.check_rounded
                         : Icons.lock_outline_rounded,
                     loadingText: _busy
                         ? _isIOS
-                              ? 'ממתינים ל־App Store…'
-                              : 'מכינים את דף התשלום…'
+                              ? BusinessHe.waitingForAppStore
+                              : BusinessHe.preparingCheckout
                         : null,
                     onPressed: _paid ? () => Navigator.pop(context) : _pay,
                   ),

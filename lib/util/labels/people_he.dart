@@ -3,6 +3,12 @@
 library;
 
 abstract final class PeopleHe {
+  // Action labels shared by the application screens.
+  static const importContactAction = 'ייבוא מאנשי קשר';
+  static const recentPaymentCustomers = 'לקוחות שקיבלו ממך תשלום';
+  static const contactsPermissionDenied =
+      'כדי לבחור איש קשר, יש לאפשר גישה לאנשי הקשר בהגדרות האייפון.';
+
   // P · לקוחות
   static const title = 'לקוחות';
   static const addCustomer = '+ לקוח';
@@ -15,21 +21,24 @@ abstract final class PeopleHe {
   static const archivedBadge = 'בארכיון';
   static const supplierBadge = 'ספק';
   static const emptyCustomers = 'עוד אין לקוחות. הוסף מאנשי הקשר →';
-  static const emptyCustomersAction = 'הוסף מאנשי הקשר';
+  static const emptyCustomersAction = 'הוסף לקוח';
   static const emptySuppliers = 'עוד אין ספקים. ספק נוצר גם מצילום הוצאה.';
   static const emptyDebtors = 'אף לקוח לא חייב לך כרגע ✓';
   static const noMatches = 'לא נמצא. אפשר להוסיף לקוח חדש.';
-  static const capped500 = 'מוצגים 500 הלקוחות האחרונים · לחיפוש מלא: המשך במחשב';
+  static const capped500 =
+      'מוצגים 500 הלקוחות האחרונים · לחיפוש מלא: המשך במחשב';
 
   // P2 · כרטיס
   static const call = 'חייג';
   static const whatsapp = 'ווטסאפ';
   static const mail = 'מייל';
-  static String newDocFor(String name) => 'מסמך חדש ל-$name';
+  static String newDocFor(String name) => 'חשבונית חדשה ל-$name';
+  static const newInvoice = 'חשבונית חדשה';
   static String newExpenseFrom(String name) => 'הוצאה חדשה מ-$name';
   static const detailsAndEdit = 'פרטים ועריכה';
   static const archive = 'ארכב';
-  static String archiveWithBalance(String amount) => 'ללקוח יש $amount פתוח. לארכב בכל זאת?';
+  static String archiveWithBalance(String amount) =>
+      'ללקוח יש $amount פתוח. לארכב בכל זאת?';
   static const archiveConfirm = 'לארכב את הלקוח?';
   static const archived = 'הלקוח הועבר לארכיון';
   static const documents = 'מסמכים';
@@ -80,9 +89,14 @@ abstract final class PeopleHe {
   static const taxIdInvalid = 'המספר לא תקין — בדוק את הספרות';
   static String alreadyExists(String name) => 'כבר קיים: $name';
   static const useExisting = 'השתמש בו';
+  static const openExisting = 'פתח לקוח קיים';
   static const contactsFailed = 'לא הצלחנו לפתוח את אנשי הקשר';
   static const saving = 'שומר…';
   static const editNote = 'השינוי לא משנה מסמכים שכבר הופקו';
+  static const discardTitle = 'לצאת בלי לשמור?';
+  static const discardBody = 'השינויים שהקלדת לא יישמרו.';
+  static const discardLeave = 'יציאה בלי לשמור';
+  static const discardStay = 'המשך עריכה';
 
   /// BE-09 payment terms codes → words (§10).
   static const Map<String, String> paymentTermsLabels = {
@@ -96,6 +110,19 @@ abstract final class PeopleHe {
 }
 
 abstract final class ExpenseHe {
+  // Action labels shared by the application screens.
+  static const uploadNewExpenseAction = 'העלה הוצאה חדשה';
+  static const newExpense = 'הוצאה חדשה';
+  static const reviewAndApprove = 'בדיקה ואישור';
+  static const classifyExpenses = 'לסיווג ההוצאות';
+  static const showAllCategories = 'הצגת כל הקטגוריות';
+  static const allExpensesAction = 'לכל ההוצאות';
+  static const showLess = 'הצגת פחות';
+  static const showAllExpenseTypes = 'הצגת כל סוגי ההוצאות';
+  static const uploadExpenseAction = 'העלאת הוצאה חדשה';
+  static const savingClassification = 'שומרים סיווג';
+  static const savingInProgress = 'שומרים…';
+
   static const title = 'הוצאות';
   static String progress(int i, int n) => '$i מתוך $n';
   static const approve = 'אשר';
@@ -121,7 +148,8 @@ abstract final class ExpenseHe {
   static const scanning = 'בודק את הקובץ…';
   static const readFailed = 'לא הצלחנו לקרוא את הקבלה. מלא ידנית.';
   static const errorCard = 'לא הצלחנו לעבד את הקובץ. צלם שוב.';
-  static String duplicateOf(String date) => 'נראה כמו הוצאה מ-$date · אותה הוצאה?';
+  static String duplicateOf(String date) =>
+      'נראה כמו הוצאה מ-$date · אותה הוצאה?';
   static const duplicateUnknown = 'נראה כמו הוצאה שכבר הועלתה · אותה הוצאה?';
   static const duplicateYes = 'כן, אותה הוצאה';
   static const duplicateNo = 'לא';
@@ -145,14 +173,18 @@ abstract final class ExpenseHe {
   static const editTitle = 'עריכת הוצאה';
 
   // Capture (＋ → הוצאה)
-  static const noCameraAccess = 'אין גישה למצלמה. אפשר לאשר בהגדרות של האייפון.';
-  static const noPhotosAccess = 'אין גישה לתמונות. אפשר לאשר בהגדרות של האייפון.';
+  static const noCameraAccess =
+      'אין גישה למצלמה. אפשר לאשר בהגדרות של האייפון.';
+  static const noPhotosAccess =
+      'אין גישה לתמונות. אפשר לאשר בהגדרות של האייפון.';
   static const cameraUnavailable = 'המצלמה לא זמינה — אפשר לבחור תמונה מהגלריה';
   static const galleryFailed = 'לא הצלחנו לפתוח את הגלריה';
-  static const imageUnreadable = 'לא הצלחנו לקרוא את התמונה. צלם שוב או בחר תמונה אחרת.';
+  static const imageUnreadable =
+      'לא הצלחנו לקרוא את התמונה. צלם שוב או בחר תמונה אחרת.';
   static const filesFailed = 'לא הצלחנו לפתוח את הקבצים';
   static const fileTooBig = 'הקובץ גדול מדי — עד 20MB';
-  static const pdfInvalid = 'הקובץ אינו PDF תקין. בחר קובץ אחר או צלם את הקבלה.';
+  static const pdfInvalid =
+      'הקובץ אינו PDF תקין. בחר קובץ אחר או צלם את הקבלה.';
   static const captureTitle = 'צילום הוצאה';
   static const captureHeadline = 'צלם את הקבלה מהספק';
   static const captureSub = 'היא תגיע לתיבת ההוצאות לבדיקה';
@@ -165,7 +197,8 @@ abstract final class ExpenseHe {
   static const uploading = 'מעלה את הקבלה…';
   static const received = 'הקבלה התקבלה';
   static const captured = 'ההוצאה נקלטה ✓';
-  static const stillScanning = 'הבדיקה נמשכת ברקע — היא תופיע בתיבת ההוצאות בעוד רגע';
+  static const stillScanning =
+      'הבדיקה נמשכת ברקע — היא תופיע בתיבת ההוצאות בעוד רגע';
   static const willAppear = 'תופיע בהוצאות לבדיקה';
   static const uploadedBefore = 'נראה שהקבלה הזו כבר הועלתה בעבר';
   static const finish = 'סיום';

@@ -61,8 +61,11 @@ Future<HomeData> fetchHome({required Caps caps, DateTime? now}) async {
       mobileInboxAvailable = true;
       final server = HomeData.fromJson(json, now: today);
       // BE-05 knows server drafts only; this device's interrupted issue is ours.
-      data = filterHome(mergeLocalUnfinished(server, await localUnfinishedProbe(), caps: caps),
-          caps: caps, dismissedSetup: dismissed);
+      data = filterHome(
+        mergeLocalUnfinished(server, await localUnfinishedProbe(), caps: caps),
+        caps: caps,
+        dismissedSetup: dismissed,
+      );
       await _writeHome(business, data);
       return data;
     } on ApiException catch (e) {
@@ -71,20 +74,25 @@ Future<HomeData> fetchHome({required Caps caps, DateTime? now}) async {
     }
   }
   final sources = await fetchInboxSources(caps);
-  data = composeHome(sources,
-      ctx: InboxContext(
-        caps: caps,
-        userId: session.me?.userId,
-        businessType: session.me?.businessType ?? session.profile?.businessType ?? 'OSEK_MURSHE',
-        today: today,
-        shaam: session.me?.shaam,
-        paymentLinkUrl: session.profile?.paymentLinkUrl,
-        memberCount: session.me?.memberCount,
-        recoveryCodesSaved: _recoveryCodesSaved(session.me),
-        hasLogo: sources.hasLogo,
-        dismissedSetup: dismissed,
-        localUnfinished: await localUnfinishedProbe(),
-      ));
+  data = composeHome(
+    sources,
+    ctx: InboxContext(
+      caps: caps,
+      userId: session.me?.userId,
+      businessType:
+          session.me?.businessType ??
+          session.profile?.businessType ??
+          'OSEK_MURSHE',
+      today: today,
+      shaam: session.me?.shaam,
+      paymentLinkUrl: session.profile?.paymentLinkUrl,
+      memberCount: session.me?.memberCount,
+      recoveryCodesSaved: _recoveryCodesSaved(session.me),
+      hasLogo: sources.hasLogo,
+      dismissedSetup: dismissed,
+      localUnfinished: await localUnfinishedProbe(),
+    ),
+  );
   await _writeHome(business, data);
   return data;
 }
@@ -101,7 +109,9 @@ Future<void> _writeHome(String business, HomeData data) async {
 /// `/me.mfa.recoveryCodesSaved` (not in BE-02 yet → no card).
 bool? _recoveryCodesSaved(Me? me) {
   final mfa = me?.raw['mfa'];
-  if (mfa is Map && mfa['recoveryCodesSaved'] is bool) return mfa['recoveryCodesSaved'] as bool;
+  if (mfa is Map && mfa['recoveryCodesSaved'] is bool) {
+    return mfa['recoveryCodesSaved'] as bool;
+  }
   return null;
 }
 
@@ -148,9 +158,19 @@ Future<InboxSources> fetchInboxSources(Caps caps) async {
   final expenses = caps.can(Cap.expenseApprove)
       ? _api.get('/expenses/inbox')
       : Future.value(const <String, dynamic>{});
-  final logo = caps.can(Cap.settingsDesign) ? _hasLogo() : Future<bool?>.value(null);
+  final logo = caps.can(Cap.settingsDesign)
+      ? _hasLogo()
+      : Future<bool?>.value(null);
   // Wait for all at once: one failure must not leave the others' errors unhandled.
-  await Future.wait<Object?>([dashboard, documents, allocation, pending, approvals, expenses, logo]);
+  await Future.wait<Object?>([
+    dashboard,
+    documents,
+    allocation,
+    pending,
+    approvals,
+    expenses,
+    logo,
+  ]);
   return InboxSources(
     dashboard: DashboardSummary.fromJson(await dashboard),
     documents: (await documents).documents,
@@ -158,11 +178,11 @@ Future<InboxSources> fetchInboxSources(Caps caps) async {
     artifactPending: (await pending).documents,
     approvals: [
       for (final a in ((await approvals)['approvals'] as List? ?? const []))
-        ApprovalRow.fromJson(a as Map<String, dynamic>)
+        ApprovalRow.fromJson(a as Map<String, dynamic>),
     ],
     expenseStatuses: [
       for (final e in ((await expenses)['expenses'] as List? ?? const []))
-        if (e is Map) '${e['status']}'
+        if (e is Map) '${e['status']}',
     ],
     hasLogo: await logo,
   );
@@ -176,7 +196,8 @@ Future<bool?> _hasLogo() async {
   try {
     final json = await _api.get('/settings/branding');
     final branding = json['branding'];
-    final has = branding is Map && '${branding['logoDataUri'] ?? ''}'.isNotEmpty;
+    final has =
+        branding is Map && '${branding['logoDataUri'] ?? ''}'.isNotEmpty;
     if (has) await AppCache.write(key, true);
     return has;
   } on ApiException catch (e) {
@@ -240,10 +261,16 @@ class InboxContext {
   final LocalUnfinished? localUnfinished;
 
   /// "שלו בלבד לעובד" (§4.4): employees see only their own drafts.
-  bool get ownOnly => caps.preset == Preset.employee || caps.preset == Preset.employeeIssuer;
+  bool get ownOnly =>
+      caps.preset == Preset.employee || caps.preset == Preset.employeeIssuer;
 }
 
-const Set<String> _unfinishedStatuses = {'DRAFT', 'VALIDATING', 'READY_TO_FINALIZE', 'REJECTED'};
+const Set<String> _unfinishedStatuses = {
+  'DRAFT',
+  'VALIDATING',
+  'READY_TO_FINALIZE',
+  'REJECTED',
+};
 const Set<String> _vatBusinesses = {'OSEK_MURSHE', 'COMPANY', 'PARTNERSHIP'};
 const Set<String> _expenseReviewStatuses = {'NEEDS_REVIEW', 'READY_TO_APPROVE'};
 
@@ -264,15 +291,20 @@ HomeData composeHome(InboxSources s, {required InboxContext ctx}) {
         if (a.submittedBy == null ||
             a.submittedBy != ctx.userId ||
             !caps.approvalPolicy.otherApproverExists)
-          a
+          a,
     ];
     if (queue.isNotEmpty) {
-      cards.add(InboxItem(
-        kind: InboxKind.approvalNeeded,
-        count: queue.length,
-        amountMinor: queue.fold<BigInt>(BigInt.zero, (t, a) => t + a.totalMinor),
-        documentIds: [for (final a in queue) a.id],
-      ));
+      cards.add(
+        InboxItem(
+          kind: InboxKind.approvalNeeded,
+          count: queue.length,
+          amountMinor: queue.fold<BigInt>(
+            BigInt.zero,
+            (t, a) => t + a.totalMinor,
+          ),
+          documentIds: [for (final a in queue) a.id],
+        ),
+      );
     }
   }
 
@@ -283,58 +315,68 @@ HomeData composeHome(InboxSources s, {required InboxContext ctx}) {
           d.rejection != null &&
           _unfinishedStatuses.contains(d.status) &&
           (d.submittedBy == null || d.submittedBy == ctx.userId))
-        d
+        d,
   ];
   if (rejected.isNotEmpty) {
     final d = rejected.first;
-    cards.add(InboxItem(
-      kind: InboxKind.myRejected,
-      count: rejected.length,
-      amountMinor: rejected.length == 1 ? d.totalMinor : null,
-      documentIds: [for (final r in rejected) r.id],
-      customerName: d.customerName,
-      documentType: d.documentType,
-      reason: d.rejection!.reason,
-    ));
+    cards.add(
+      InboxItem(
+        kind: InboxKind.myRejected,
+        count: rejected.length,
+        amountMinor: rejected.length == 1 ? d.totalMinor : null,
+        documentIds: [for (final r in rejected) r.id],
+        customerName: d.customerName,
+        documentType: d.documentType,
+        reason: d.rejection!.reason,
+      ),
+    );
   }
 
   // TAX_INVOICE_DUE — a paid 300 at a VAT business needs a 305 (14 days).
   if (caps.can(Cap.docIssue) && _vatBusinesses.contains(ctx.businessType)) {
     final due = [
       for (final d in docs)
-        if (_paidTransactionInvoice(d) && !_hasLaterTaxInvoice(d, docs)) d
+        if (_paidTransactionInvoice(d) && !_hasLaterTaxInvoice(d, docs)) d,
     ];
     if (due.isNotEmpty) {
       final d = due.first;
-      cards.add(InboxItem(
-        kind: InboxKind.taxInvoiceDue,
-        count: due.length,
-        amountMinor: due.length == 1 ? d.totalMinor : null,
-        documentIds: [for (final x in due) x.id],
-        customerName: d.customerName,
-        documentType: d.documentType,
-      ));
+      cards.add(
+        InboxItem(
+          kind: InboxKind.taxInvoiceDue,
+          count: due.length,
+          amountMinor: due.length == 1 ? d.totalMinor : null,
+          documentIds: [for (final x in due) x.id],
+          customerName: d.customerName,
+          documentType: d.documentType,
+        ),
+      );
     }
   }
 
   // ALLOCATION_PROBLEM.
   if (caps.can(Cap.allocationRequest) && s.waitingAllocation.isNotEmpty) {
     final d = s.waitingAllocation.first;
-    cards.add(InboxItem(
-      kind: InboxKind.allocationProblem,
-      count: s.waitingAllocation.length,
-      documentIds: [for (final x in s.waitingAllocation) x.id],
-      documentNumber: s.waitingAllocation.length == 1 ? d.documentNumber : null,
-    ));
+    cards.add(
+      InboxItem(
+        kind: InboxKind.allocationProblem,
+        count: s.waitingAllocation.length,
+        documentIds: [for (final x in s.waitingAllocation) x.id],
+        documentNumber: s.waitingAllocation.length == 1
+            ? d.documentNumber
+            : null,
+      ),
+    );
   }
 
   // SIGNING_LOCKED.
   if (caps.can(Cap.docIssue) && s.artifactPending.isNotEmpty) {
-    cards.add(InboxItem(
-      kind: InboxKind.signingLocked,
-      count: s.artifactPending.length,
-      documentIds: [for (final x in s.artifactPending) x.id],
-    ));
+    cards.add(
+      InboxItem(
+        kind: InboxKind.signingLocked,
+        count: s.artifactPending.length,
+        documentIds: [for (final x in s.artifactPending) x.id],
+      ),
+    );
   }
 
   // UNFINISHED — drafts (own only for employees) + the local issue journal.
@@ -344,33 +386,45 @@ HomeData composeHome(InboxSources s, {required InboxContext ctx}) {
         if (_unfinishedStatuses.contains(d.status) &&
             d.rejection == null &&
             (!ctx.ownOnly || d.createdBy == null || d.createdBy == ctx.userId))
-          d
+          d,
     ];
     final local = ctx.localUnfinished;
-    final localExtra = local != null && !drafts.any((d) => d.id == local.draftId);
+    final localExtra =
+        local != null && !drafts.any((d) => d.id == local.draftId);
     final count = drafts.length + (localExtra ? 1 : 0);
     if (count > 0) {
       final single = count == 1;
       final d = drafts.isEmpty ? null : drafts.first;
-      cards.add(InboxItem(
-        kind: InboxKind.unfinished,
-        count: count,
-        amountMinor: single ? (d?.totalMinor ?? local?.totalMinor) : null,
-        documentIds: [for (final x in drafts) x.id, if (localExtra && local.draftId != null) local.draftId!],
-        customerName: single ? (d?.customerName ?? local?.customerName) : null,
-        documentType: d?.documentType,
-      ));
+      cards.add(
+        InboxItem(
+          kind: InboxKind.unfinished,
+          count: count,
+          amountMinor: single ? (d?.totalMinor ?? local?.totalMinor) : null,
+          documentIds: [
+            for (final x in drafts) x.id,
+            if (localExtra && local.draftId != null) local.draftId!,
+          ],
+          customerName: single
+              ? (d?.customerName ?? local?.customerName)
+              : null,
+          documentType: d?.documentType,
+        ),
+      );
     }
   }
 
   // OVERDUE — server aggregate (BE-01).
   final dash = s.dashboard;
-  if (caps.can(Cap.docSend) && caps.can(Cap.moneyView) && (dash?.overdueCount ?? 0) > 0) {
-    cards.add(InboxItem(
-      kind: InboxKind.overdue,
-      count: dash!.overdueCount!,
-      amountMinor: dash.overdueTotalMinor,
-    ));
+  if (caps.can(Cap.docSend) &&
+      caps.can(Cap.moneyView) &&
+      (dash?.overdueCount ?? 0) > 0) {
+    cards.add(
+      InboxItem(
+        kind: InboxKind.overdue,
+        count: dash!.overdueCount!,
+        amountMinor: dash.overdueTotalMinor,
+      ),
+    );
   }
 
   // EXPENSE_REVIEW.
@@ -381,24 +435,32 @@ HomeData composeHome(InboxSources s, {required InboxContext ctx}) {
 
   // SHAAM_RENEW.
   final shaam = ctx.shaam;
-  if (caps.can(Cap.settingsBusiness) && shaam != null && shaam.status == 'CONNECTED') {
+  if (caps.can(Cap.settingsBusiness) &&
+      shaam != null &&
+      shaam.status == 'CONNECTED') {
     final expires = DateTime.tryParse(shaam.refreshTokenExpiresAt ?? '');
     if (expires != null) {
       final days = expires.difference(ctx.today).inHours ~/ 24;
       if (days <= shaamRenewDays) {
-        cards.add(InboxItem(kind: InboxKind.shaamRenew, daysLeft: days < 0 ? 0 : days));
+        cards.add(
+          InboxItem(kind: InboxKind.shaamRenew, daysLeft: days < 0 ? 0 : days),
+        );
       }
     }
   }
 
   // SETUP — one at a time.
   final step = nextSetupStep(ctx);
-  if (step != null) cards.add(InboxItem(kind: InboxKind.setup, setupStep: step));
+  if (step != null) {
+    cards.add(InboxItem(kind: InboxKind.setup, setupStep: step));
+  }
 
   cards.sort((a, b) => a.kind.index.compareTo(b.kind.index));
   final money = caps.can(Cap.moneyView) && dash != null;
   return HomeData(
-    openMinor: money ? (dash.unpaidTotalMinor ?? dash.unpaidBalanceMinor) : null,
+    openMinor: money
+        ? (dash.unpaidTotalMinor ?? dash.unpaidBalanceMinor)
+        : null,
     overdueMinor: money ? (dash.overdueTotalMinor ?? BigInt.zero) : null,
     cards: cards,
     recent: docs.take(5).toList(),
@@ -408,19 +470,27 @@ HomeData composeHome(InboxSources s, {required InboxContext ctx}) {
 
 /// BE-05 + the local issue journal (AT-18): the interrupted issue joins the
 /// UNFINISHED card unless the server already shows that draft.
-HomeData mergeLocalUnfinished(HomeData data, LocalUnfinished? local, {required Caps caps}) {
+HomeData mergeLocalUnfinished(
+  HomeData data,
+  LocalUnfinished? local, {
+  required Caps caps,
+}) {
   if (local == null || !caps.can(Cap.docDraft)) return data;
   final id = local.draftId;
-  if (id != null && data.cards.any((c) => c.documentIds.contains(id))) return data;
+  if (id != null && data.cards.any((c) => c.documentIds.contains(id))) {
+    return data;
+  }
   final cards = [...data.cards];
   final i = cards.indexWhere((c) => c.kind == InboxKind.unfinished);
   if (i < 0) {
-    cards.add(InboxItem(
-      kind: InboxKind.unfinished,
-      amountMinor: local.totalMinor,
-      documentIds: [?id],
-      customerName: local.customerName,
-    ));
+    cards.add(
+      InboxItem(
+        kind: InboxKind.unfinished,
+        amountMinor: local.totalMinor,
+        documentIds: [?id],
+        customerName: local.customerName,
+      ),
+    );
   } else {
     final c = cards[i];
     cards[i] = InboxItem(
@@ -444,8 +514,12 @@ HomeData mergeLocalUnfinished(HomeData data, LocalUnfinished? local, {required C
 SetupStep? nextSetupStep(InboxContext ctx) {
   final caps = ctx.caps;
   bool open(SetupStep s) => !ctx.dismissedSetup.contains(s);
-  if (ctx.recoveryCodesSaved == false && open(SetupStep.recoveryCodes)) return SetupStep.recoveryCodes;
-  if (caps.can(Cap.settingsDesign) && ctx.hasLogo == false && open(SetupStep.logo)) {
+  if (ctx.recoveryCodesSaved == false && open(SetupStep.recoveryCodes)) {
+    return SetupStep.recoveryCodes;
+  }
+  if (caps.can(Cap.settingsDesign) &&
+      ctx.hasLogo == false &&
+      open(SetupStep.logo)) {
     return SetupStep.logo;
   }
   if (caps.can(Cap.settingsBusiness) &&
@@ -453,18 +527,28 @@ SetupStep? nextSetupStep(InboxContext ctx) {
       open(SetupStep.paymentLink)) {
     return SetupStep.paymentLink;
   }
-  if (caps.can(Cap.teamManage) && ctx.memberCount == 1 && open(SetupStep.team)) return SetupStep.team;
+  if (caps.can(Cap.teamManage) &&
+      ctx.memberCount == 1 &&
+      open(SetupStep.team)) {
+    return SetupStep.team;
+  }
   return null;
 }
 
 /// BE-05 cards are server-filtered; the client still hides what the caps
 /// do not allow (hidden, not disabled) and drops dismissed SETUP steps.
-HomeData filterHome(HomeData data, {required Caps caps, Set<SetupStep> dismissedSetup = const {}}) {
+HomeData filterHome(
+  HomeData data, {
+  required Caps caps,
+  Set<SetupStep> dismissedSetup = const {},
+}) {
   final cards = [
     for (final c in data.cards)
       if (cardAllowed(c, caps) &&
-          !(c.kind == InboxKind.setup && c.setupStep != null && dismissedSetup.contains(c.setupStep)))
-        c
+          !(c.kind == InboxKind.setup &&
+              c.setupStep != null &&
+              dismissedSetup.contains(c.setupStep)))
+        c,
   ]..sort((a, b) => a.kind.index.compareTo(b.kind.index));
   final money = caps.can(Cap.moneyView);
   return HomeData(
@@ -478,23 +562,26 @@ HomeData filterHome(HomeData data, {required Caps caps, Set<SetupStep> dismissed
 
 /// §6.H.1 "נראה ל-" column.
 bool cardAllowed(InboxItem c, Caps caps) => switch (c.kind) {
-      InboxKind.approvalNeeded => caps.can(Cap.approvalDecide),
-      InboxKind.myRejected || InboxKind.unfinished || InboxKind.quoteAccepted => caps.can(Cap.docDraft),
-      InboxKind.taxInvoiceDue || InboxKind.signingLocked => caps.can(Cap.docIssue),
-      InboxKind.allocationProblem => caps.can(Cap.allocationRequest),
-      InboxKind.overdue => caps.can(Cap.docSend) && caps.can(Cap.moneyView),
-      InboxKind.expenseReview => caps.can(Cap.expenseApprove),
-      InboxKind.paymentReceived => caps.can(Cap.paymentRecord),
-      InboxKind.shaamRenew => caps.can(Cap.settingsBusiness),
-      InboxKind.setup => switch (c.setupStep) {
-          SetupStep.recoveryCodes => true,
-          SetupStep.logo => caps.can(Cap.settingsDesign),
-          SetupStep.paymentLink => caps.can(Cap.settingsBusiness),
-          SetupStep.team => caps.can(Cap.teamManage),
-          null => false,
-        },
-      InboxKind.reportReady || InboxKind.continuityGap => caps.can(Cap.reportView) && caps.homeIsReports,
-    };
+  InboxKind.approvalNeeded => caps.can(Cap.approvalDecide),
+  InboxKind.myRejected ||
+  InboxKind.unfinished ||
+  InboxKind.quoteAccepted => caps.can(Cap.docDraft),
+  InboxKind.taxInvoiceDue || InboxKind.signingLocked => caps.can(Cap.docIssue),
+  InboxKind.allocationProblem => caps.can(Cap.allocationRequest),
+  InboxKind.overdue => caps.can(Cap.docSend) && caps.can(Cap.moneyView),
+  InboxKind.expenseReview => caps.can(Cap.expenseApprove),
+  InboxKind.paymentReceived => caps.can(Cap.paymentRecord),
+  InboxKind.shaamRenew => caps.can(Cap.settingsBusiness),
+  InboxKind.setup => switch (c.setupStep) {
+    SetupStep.recoveryCodes => true,
+    SetupStep.logo => caps.can(Cap.settingsDesign),
+    SetupStep.paymentLink => caps.can(Cap.settingsBusiness),
+    SetupStep.team => caps.can(Cap.teamManage),
+    null => false,
+  },
+  InboxKind.reportReady ||
+  InboxKind.continuityGap => caps.can(Cap.reportView) && caps.homeIsReports,
+};
 
 /// A 300 that is issued, fully paid and not cancelled.
 bool _paidTransactionInvoice(DocumentSummary d) =>
@@ -508,12 +595,15 @@ bool _paidTransactionInvoice(DocumentSummary d) =>
 
 /// A 305 for the same customer and total, issued on or after the 300 — the
 /// tax invoice already exists (until BE-08 `CONVERTED_FROM` links them).
-bool _hasLaterTaxInvoice(DocumentSummary t, List<DocumentSummary> docs) => docs.any((d) =>
-    d.documentType == 'TAX_INVOICE' &&
-    !_unfinishedStatuses.contains(d.status) &&
-    d.customerId == t.customerId &&
-    d.totalMinor == t.totalMinor &&
-    (d.issueDate ?? '').compareTo(t.issueDate ?? '') >= 0);
+bool _hasLaterTaxInvoice(DocumentSummary t, List<DocumentSummary> docs) =>
+    docs.any(
+      (d) =>
+          d.documentType == 'TAX_INVOICE' &&
+          !_unfinishedStatuses.contains(d.status) &&
+          d.customerId == t.customerId &&
+          d.totalMinor == t.totalMinor &&
+          (d.issueDate ?? '').compareTo(t.issueDate ?? '') >= 0,
+    );
 
 // ---- SETUP dismissals (✕) -------------------------------------------------------
 
@@ -521,13 +611,15 @@ Future<Set<SetupStep>> readDismissedSetup() async {
   final v = await AppCache.read('home_setup_dismissed_$_bid');
   return {
     for (final s in (v is List ? v : const []))
-      if (SetupStep.fromWire('$s') != null) SetupStep.fromWire('$s')!
+      if (SetupStep.fromWire('$s') != null) SetupStep.fromWire('$s')!,
   };
 }
 
 Future<void> dismissSetup(SetupStep step) async {
   final all = {...await readDismissedSetup(), step};
-  await AppCache.write('home_setup_dismissed_$_bid', [for (final s in all) s.wire]);
+  await AppCache.write('home_setup_dismissed_$_bid', [
+    for (final s in all) s.wire,
+  ]);
 }
 
 // ---- card actions that run in place --------------------------------------------
@@ -537,7 +629,9 @@ Future<void> dismissSetup(SetupStep step) async {
 Future<void> retryAllocation(List<String> documentIds) async {
   for (final id in documentIds) {
     final doc = await _api.get('/documents/$id');
-    final scope = (doc['document'] as Map?)?['numbering_scope_key'] as String? ?? 'default';
+    final scope =
+        (doc['document'] as Map?)?['numbering_scope_key'] as String? ??
+        'default';
     await _api.post('/documents/$id/allocation', {'scopeKey': scope});
   }
 }
@@ -545,10 +639,19 @@ Future<void> retryAllocation(List<String> documentIds) async {
 /// SIGNING_LOCKED "חתום" (one tap): Face ID / passphrase once, then each
 /// sealed original is signed (squad C's signing_api). Returns how many were
 /// signed; stops when the user cancels the release.
-Future<int> signPendingDocuments(List<String> documentIds, {required PassphrasePrompt askPassphrase}) async {
+Future<int> signPendingDocuments(
+  List<String> documentIds, {
+  required PassphrasePrompt askPassphrase,
+}) async {
   var signed = 0;
   for (final id in documentIds) {
-    if (!await issueSignedOriginal(id, askPassphrase: askPassphrase, alreadySealed: true)) break;
+    if (!await issueSignedOriginal(
+      id,
+      askPassphrase: askPassphrase,
+      alreadySealed: true,
+    )) {
+      break;
+    }
     signed++;
   }
   return signed;
@@ -584,19 +687,21 @@ class ReminderResult {
 /// §9.3 P0: every overdue invoice whose customer has an e-mail gets
 /// POST /documents/:id/send {recipient, paymentUrl?} → /deliveries/:id/process.
 /// No e-mail, or CONSENT_REQUIRED → the WhatsApp list. A network error stops.
-Future<ReminderResult> sendReminders({DateTime? now, String? paymentUrl}) async {
-  final today = now ?? DateTime.now();
-  final unpaid = await fetchDocumentRows(unpaid: true, limit: 500);
+/// [only] limits the run to the invoices the user confirmed (H "באיחור" preview).
+Future<ReminderResult> sendReminders({
+  DateTime? now,
+  String? paymentUrl,
+  Set<String>? only,
+}) async {
   final overdue = [
-    for (final d in unpaid.documents)
-      if ((d.openMinor ?? BigInt.zero) > BigInt.zero &&
-          isOverdue(dueDate: d.dueDate, issueDate: d.issueDate, today: today))
-        d
+    for (final d in await fetchOverdueDocuments(now: now))
+      if (only == null || only.contains(d.id)) d,
   ];
   if (overdue.isEmpty) return const ReminderResult(0, []);
   final customers = <String, Customer>{
-    for (final c in ((await _api.get('/customers'))['customers'] as List? ?? const []))
-      (c as Map<String, dynamic>)['id'] as String: Customer.fromJson(c)
+    for (final c
+        in ((await _api.get('/customers'))['customers'] as List? ?? const []))
+      (c as Map<String, dynamic>)['id'] as String: Customer.fromJson(c),
   };
   var sent = 0;
   final whatsapp = <ReminderTarget>[];
@@ -617,7 +722,8 @@ Future<ReminderResult> sendReminders({DateTime? now, String? paymentUrl}) async 
     try {
       final delivery = await _api.post('/documents/${d.id}/send', {
         'recipient': email,
-        if (paymentUrl != null && paymentUrl.isNotEmpty) 'paymentUrl': paymentUrl,
+        if (paymentUrl != null && paymentUrl.isNotEmpty)
+          'paymentUrl': paymentUrl,
       });
       await _api.post('/deliveries/${delivery['deliveryId']}/process');
       sent++;
@@ -629,9 +735,25 @@ Future<ReminderResult> sendReminders({DateTime? now, String? paymentUrl}) async 
   return ReminderResult(sent, whatsapp);
 }
 
+/// Open invoices past due (what [sendReminders] would remind).
+Future<List<DocumentSummary>> fetchOverdueDocuments({DateTime? now}) async {
+  final today = now ?? DateTime.now();
+  final unpaid = await fetchDocumentRows(unpaid: true, limit: 500);
+  return [
+    for (final d in unpaid.documents)
+      if ((d.openMinor ?? BigInt.zero) > BigInt.zero &&
+          isOverdue(dueDate: d.dueDate, issueDate: d.issueDate, today: today))
+        d,
+  ];
+}
+
 /// "שלח בווטסאפ" for one reminder: share link (original created when
 /// missing) → wa.me with the reminder text (AT-95: launchAllowed only).
-Future<void> remindOnWhatsApp(ReminderTarget t, {required String businessName, String? paymentUrl}) async {
+Future<void> remindOnWhatsApp(
+  ReminderTarget t, {
+  required String businessName,
+  String? paymentUrl,
+}) async {
   final link = await shareLinkFor(t.documentId);
   final text = InboxHe.reminderText(
     customer: t.customerName,
@@ -683,23 +805,22 @@ Future<ActivityPage> fetchDocumentRows({
   BigInt? total,
   String? customerId,
 }) async {
-  final json = await _api.get('/documents', query: {
-    if (limit != null) 'limit': '$limit',
-    if (unpaid) 'unpaid': '1',
-    'status': ?status,
-    if (q != null && q.isNotEmpty) 'q': q,
-    if (offset != null) 'offset': '$offset',
-    if (total != null) ...{'minTotal': '$total', 'maxTotal': '$total'},
-    'customerId': ?customerId,
-  });
-  return ActivityPage(
-    (json['total'] as num?)?.toInt() ?? 0,
-    [
-      for (final d in (json['documents'] as List? ?? const []))
-        DocumentSummary.fromJson(d as Map<String, dynamic>)
-    ],
-    serverSearch: json.containsKey('offset'),
+  final json = await _api.get(
+    '/documents',
+    query: {
+      if (limit != null) 'limit': '$limit',
+      if (unpaid) 'unpaid': '1',
+      'status': ?status,
+      if (q != null && q.isNotEmpty) 'q': q,
+      if (offset != null) 'offset': '$offset',
+      if (total != null) ...{'minTotal': '$total', 'maxTotal': '$total'},
+      'customerId': ?customerId,
+    },
   );
+  return ActivityPage((json['total'] as num?)?.toInt() ?? 0, [
+    for (final d in (json['documents'] as List? ?? const []))
+      DocumentSummary.fromJson(d as Map<String, dynamic>),
+  ], serverSearch: json.containsKey('offset'));
 }
 
 /// BE-10 page size of L.
@@ -723,19 +844,45 @@ class SearchPage {
 /// number). An amount ("1,200", "₪1,200.50") → minTotal=maxTotal. Digits
 /// only → document number first, then amount, then the documents of a
 /// customer with that tax ID (GET /customers?q=, BE-09), then the rest.
-Future<SearchPage> serverSearchDocuments(String query, {bool unpaid = false, int offset = 0}) async {
+Future<SearchPage> serverSearchDocuments(
+  String query, {
+  bool unpaid = false,
+  int offset = 0,
+}) async {
   final q = query.trim();
   final amount = parseAmountQuery(q);
   final digitsOnly = RegExp(r'^\d+$').hasMatch(q);
   if (!digitsOnly) {
     final page = amount != null
-        ? await fetchDocumentRows(total: amount, unpaid: unpaid, offset: offset, limit: searchPageSize)
-        : await fetchDocumentRows(q: q, unpaid: unpaid, offset: offset, limit: searchPageSize);
+        ? await fetchDocumentRows(
+            total: amount,
+            unpaid: unpaid,
+            offset: offset,
+            limit: searchPageSize,
+          )
+        : await fetchDocumentRows(
+            q: q,
+            unpaid: unpaid,
+            offset: offset,
+            limit: searchPageSize,
+          );
     return SearchPage(page.total, page.documents, pageable: true);
   }
-  final byText = fetchDocumentRows(q: q, unpaid: unpaid, offset: 0, limit: searchPageSize);
-  final byAmount = fetchDocumentRows(total: amount, unpaid: unpaid, offset: 0, limit: searchPageSize);
-  final byTaxId = q.length >= 8 ? _documentsOfTaxId(q, unpaid: unpaid) : Future.value(const <DocumentSummary>[]);
+  final byText = fetchDocumentRows(
+    q: q,
+    unpaid: unpaid,
+    offset: 0,
+    limit: searchPageSize,
+  );
+  final byAmount = fetchDocumentRows(
+    total: amount,
+    unpaid: unpaid,
+    offset: 0,
+    limit: searchPageSize,
+  );
+  final byTaxId = q.length >= 8
+      ? _documentsOfTaxId(q, unpaid: unpaid)
+      : Future.value(const <DocumentSummary>[]);
   await Future.wait<Object?>([byText, byAmount, byTaxId]);
   final text = (await byText).documents;
   final merged = <String, DocumentSummary>{};
@@ -752,7 +899,10 @@ Future<SearchPage> serverSearchDocuments(String query, {bool unpaid = false, int
 }
 
 /// Documents of the customers whose tax ID is exactly [taxId] (≤3 customers).
-Future<List<DocumentSummary>> _documentsOfTaxId(String taxId, {required bool unpaid}) async {
+Future<List<DocumentSummary>> _documentsOfTaxId(
+  String taxId, {
+  required bool unpaid,
+}) async {
   final Map<String, dynamic> json;
   try {
     json = await _api.get('/customers', query: {'q': taxId, 'limit': '5'});
@@ -762,10 +912,12 @@ Future<List<DocumentSummary>> _documentsOfTaxId(String taxId, {required bool unp
   }
   final ids = [
     for (final c in (json['customers'] as List? ?? const []))
-      if (c is Map<String, dynamic> && Customer.fromJson(c).taxId == taxId) c['id'] as String
+      if (c is Map<String, dynamic> && Customer.fromJson(c).taxId == taxId)
+        c['id'] as String,
   ].take(3);
   final pages = await Future.wait([
-    for (final id in ids) fetchDocumentRows(customerId: id, unpaid: unpaid, limit: searchPageSize)
+    for (final id in ids)
+      fetchDocumentRows(customerId: id, unpaid: unpaid, limit: searchPageSize),
   ]);
   return [for (final p in pages) ...p.documents];
 }
@@ -774,7 +926,8 @@ Future<List<DocumentSummary>> _documentsOfTaxId(String taxId, {required bool unp
 Future<List<QuoteRow>> fetchQuoteRows() async {
   final json = await _api.get('/quotes');
   return [
-    for (final q in (json['quotes'] as List? ?? const [])) QuoteRow.fromJson(q as Map<String, dynamic>)
+    for (final q in (json['quotes'] as List? ?? const []))
+      QuoteRow.fromJson(q as Map<String, dynamic>),
   ];
 }
 
@@ -790,7 +943,10 @@ String get cacheBusinessKey => _bid;
 
 /// Writes L's lists under [business] (captured when the load started); a no-op
 /// once the selected business has changed, so A's rows never land in B's cache.
-Future<void> writeCachedActivity(String business, Map<String, dynamic> json) async {
+Future<void> writeCachedActivity(
+  String business,
+  Map<String, dynamic> json,
+) async {
   if (business != _bid) return;
   try {
     await AppCache.write('activity_$business', json);
@@ -810,7 +966,10 @@ BigInt? parseAmountQuery(String query) {
 
 /// §6.L search over the loaded rows: name, document number, amount.
 /// Digits only → document-number matches first, then amount matches.
-List<DocumentSummary> searchDocuments(List<DocumentSummary> docs, String query) {
+List<DocumentSummary> searchDocuments(
+  List<DocumentSummary> docs,
+  String query,
+) {
   final q = query.trim();
   if (q.isEmpty) return docs;
   final lower = q.toLowerCase();
@@ -843,18 +1002,23 @@ List<QuoteRow> searchQuotes(List<QuoteRow> quotes, String query) {
       if ((amount != null && x.totalMinor == amount) ||
           (x.customerName ?? '').toLowerCase().contains(lower) ||
           (x.title ?? '').toLowerCase().contains(lower))
-        x
+        x,
   ];
 }
 
 /// Rows grouped by month of [dateOf] ('YYYY-MM-DD'; null → [today]'s month),
 /// newest month first; order inside a month is kept.
-List<MonthGroup<T>> groupByMonth<T>(List<T> rows, String? Function(T) dateOf, {DateTime? today}) {
+List<MonthGroup<T>> groupByMonth<T>(
+  List<T> rows,
+  String? Function(T) dateOf, {
+  DateTime? today,
+}) {
   final now = today ?? DateTime.now();
   final groups = <String, MonthGroup<T>>{};
   for (final r in rows) {
     final d = DateTime.tryParse(dateOf(r) ?? '') ?? now;
-    final key = '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}';
+    final key =
+        '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}';
     groups.putIfAbsent(key, () => MonthGroup(d.year, d.month, [])).rows.add(r);
   }
   final keys = groups.keys.toList()..sort((a, b) => b.compareTo(a));

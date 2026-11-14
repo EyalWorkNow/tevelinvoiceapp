@@ -2,7 +2,7 @@
 // Owner: squad B. Everything is per business and best-effort: a cache failure
 // never fails the Composer.
 //
-// * VAT rate (GET /tax-rates, cached; 1800 if never loaded).
+// * VAT rate (GET /tax-rates, cache-first; 1800 if never loaded).
 // * Customers (GET /customers; the Composer only resolves an id → Customer).
 // * Description: last one for the customer (device, then BE-09 server) →
 //   business default (BE-25) → "שירותים".
@@ -10,7 +10,10 @@
 // * "first issue ever" flag (the one-time commitment toast, §6.C step 5).
 // * The unsent Composer state ("יציאה עם נתונים → טיוטה מקומית ללא דיאלוג").
 
+import 'dart:async';
+
 import '../../api/client.dart';
+import '../../api/customers_api.dart' show fetchCustomerDetail;
 import '../../api/issue_api.dart' show cacheWrite, currentBusinessId;
 import '../../api/models/models.dart';
 import '../../state/cache.dart';
@@ -27,32 +30,49 @@ Future<Object?> _read(String name) async {
   }
 }
 
-/// Statutory VAT in basis points.
+/// Statutory VAT in basis points. Cache-first (the customer picker opens at
+/// once): a cached rate is returned now and refreshed in the background; with
+/// nothing cached the server is asked and waited for.
 Future<int> fetchVatRate() async {
   final key = 'nd_vat_$_bid';
+  final cached = await _read(key);
+  if (cached is int) {
+    unawaited(_refreshVatRate(key).then((_) {}, onError: (Object _) {}));
+    return cached;
+  }
   try {
-    final json = await _api.get('/tax-rates');
-    for (final r in (json['rates'] as List? ?? const [])) {
-      final m = r as Map<String, dynamic>;
-      if (m['tax_code'] == 'VAT') {
-        final bp = m['rate_basis_points'] as int;
-        await cacheWrite(key, bp);
-        return bp;
-      }
-    }
+    return await _refreshVatRate(key) ?? 1800;
   } on ApiException catch (e) {
     if (!e.isNetwork) rethrow;
   }
-  final cached = await _read(key);
-  return cached is int ? cached : 1800;
+  return 1800;
 }
 
-/// The customer with [id] (cached list first, then GET /customers).
+/// GET /tax-rates → the VAT rate (also cached); null when the server has none.
+Future<int?> _refreshVatRate(String key) async {
+  final json = await _api.get('/tax-rates');
+  for (final r in (json['rates'] as List? ?? const [])) {
+    final m = r as Map<String, dynamic>;
+    if (m['tax_code'] == 'VAT') {
+      final bp = m['rate_basis_points'] as int;
+      await cacheWrite(key, bp);
+      return bp;
+    }
+  }
+  return null;
+}
+
+/// The customer with [id]: the list row (GET /customers, it carries the
+/// BE-09 extras such as `lastLineDescription`), else GET /customers/:id — the
+/// list is paged at 500, so on a big book a newer customer is not on it
+/// (AT-20). Offline: the device copy. Null when the customer does not exist.
 Future<Customer?> findCustomer(String id) async {
   Customer? from(Object? list) {
     if (list is! List) return null;
     for (final c in list) {
-      if (c is Map<String, dynamic> && c['id'] == id) return Customer.fromJson(c);
+      if (c is Map && c['id'] == id) {
+        return Customer.fromJson(Map<String, dynamic>.from(c));
+      }
     }
     return null;
   }
@@ -62,23 +82,35 @@ Future<Customer?> findCustomer(String id) async {
     final json = await _api.get('/customers');
     final list = json['customers'] as List? ?? const [];
     await cacheWrite(key, list);
-    return from(list);
+    final listed = from(list);
+    if (listed != null) return listed;
+    final detail = await fetchCustomerDetail(id);
+    await cacheWrite(key, [...list, detail.customer.toJson()]);
+    return detail.customer;
   } on ApiException catch (e) {
-    if (!e.isNetwork) rethrow;
-    return from(await _read(key));
+    if (e.isNetwork) return from(await _read(key));
+    if (e.status == 404 || e.code == 'CUSTOMER_NOT_FOUND') return null;
+    rethrow;
   }
 }
 
 /// F8: last description for [customerId] on this device → the customer's
 /// last line on the server ([lastOnServer], BE-09 `lastLineDescription`) →
 /// [businessDefault] (BE-25) → "שירותים".
-Future<String> defaultDescription(String? customerId,
-    {String? lastOnServer, String? businessDefault}) async {
+Future<String> defaultDescription(
+  String? customerId, {
+  String? lastOnServer,
+  String? businessDefault,
+}) async {
   final map = await _read('nd_desc_by_customer_$_bid');
   final last = customerId != null && map is Map ? map[customerId] : null;
   if (last is String && last.trim().isNotEmpty) return last;
-  if (lastOnServer != null && lastOnServer.trim().isNotEmpty) return lastOnServer.trim();
-  if (businessDefault != null && businessDefault.trim().isNotEmpty) return businessDefault;
+  if (lastOnServer != null && lastOnServer.trim().isNotEmpty) {
+    return lastOnServer.trim();
+  }
+  if (businessDefault != null && businessDefault.trim().isNotEmpty) {
+    return businessDefault;
+  }
   return ComposeHe.defaultDescription;
 }
 
@@ -96,7 +128,8 @@ Future<String> lastPaymentMethod() async {
   return v is String ? v : 'CASH';
 }
 
-Future<void> rememberPaymentMethod(String method) => cacheWrite('nd_last_method_$_bid', method);
+Future<void> rememberPaymentMethod(String method) =>
+    cacheWrite('nd_last_method_$_bid', method);
 
 /// True exactly once per device: the first successful issue (§6.C step 5).
 Future<bool> takeFirstIssueFlag() async {

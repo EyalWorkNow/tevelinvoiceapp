@@ -6,8 +6,10 @@
 // instance is one template. Instances by id: see editor_configs.dart.
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
+import '../../../ui/widgets/notch_notice.dart';
 import '../../../state/session.dart';
 import '../../../ui/ds.dart';
 import '../../../util/labels/labels.dart';
@@ -47,7 +49,11 @@ class EditorConfig {
 /// Opens S13. [instance]: '13.1' | '13.2' | '13.6' | '13.9' | '13.3' (loaded by
 /// [editorLoaderFor]), or any id with an explicit [config] ('member', 'invite',
 /// person details). Returns true when saved.
-Future<bool> showEditorSheet(BuildContext context, {required String instance, EditorConfig? config}) async {
+Future<bool> showEditorSheet(
+  BuildContext context, {
+  required String instance,
+  EditorConfig? config,
+}) async {
   if (config == null && editorLoaderFor(instance) == null) return false;
   final saved = await showModalBottomSheet<bool>(
     context: context,
@@ -57,6 +63,66 @@ Future<bool> showEditorSheet(BuildContext context, {required String instance, Ed
     builder: (context) => EditorSheet(instance: instance, config: config),
   );
   return saved ?? false;
+}
+
+/// "לצאת בלי לשמור?" (06·U8). True = leave and drop the changes.
+Future<bool> confirmDiscardChanges(BuildContext context) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text(BusinessHe.discardTitle),
+      content: const Text(BusinessHe.discardBody),
+      actions: [
+        TextButton(
+          key: const Key('discard-keep'),
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text(BusinessHe.keepEditing),
+        ),
+        TextButton(
+          key: const Key('discard-confirm'),
+          style: TextButton.styleFrom(foregroundColor: context.palette.danger),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text(BusinessHe.discardAction),
+        ),
+      ],
+    ),
+  );
+  return ok ?? false;
+}
+
+/// Guards a route against losing [dirty] input: back / barrier tap ask first,
+/// and while dirty a drag on the content does not close a sheet. Does nothing
+/// on a route that cannot pop (a root tab).
+class UnsavedChangesGuard extends StatelessWidget {
+  const UnsavedChangesGuard({
+    super.key,
+    required this.dirty,
+    required this.child,
+  });
+
+  final bool dirty;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!(ModalRoute.of(context)?.canPop ?? false)) return child;
+    return PopScope<Object?>(
+      canPop: !dirty,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final navigator = Navigator.of(context);
+        if (await confirmDiscardChanges(context)) navigator.pop();
+      },
+      // The sheet's own drag-to-close bypasses PopScope; an inner vertical
+      // drag recogniser wins the arena and keeps the sheet open.
+      // Always the same tree (toggling it would remount the form).
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onVerticalDragUpdate: dirty ? (_) {} : null,
+        child: child,
+      ),
+    );
+  }
 }
 
 class EditorSheet extends StatelessWidget {
@@ -78,7 +144,11 @@ class EditorSheet extends StatelessWidget {
 /// Loads an instance's config (current values from the server), then shows
 /// the form. Loading = skeleton, error = message + "נסה שוב".
 class EditorLoader extends StatefulWidget {
-  const EditorLoader({super.key, required this.instance, this.popOnSave = false});
+  const EditorLoader({
+    super.key,
+    required this.instance,
+    this.popOnSave = false,
+  });
 
   final String instance;
   final bool popOnSave;
@@ -99,18 +169,32 @@ class _EditorLoaderState extends State<EditorLoader> {
       if (snap.hasError) {
         return SizedBox(
           height: 320,
-          child: ErrorView(error: snap.error!, onRetry: () => setState(() => _future = _load())),
+          child: ErrorView(
+            error: snap.error!,
+            onRetry: () => setState(() => _future = _load()),
+          ),
         );
       }
-      if (!snap.hasData) return const SizedBox(height: 320, child: SkeletonList(rows: 4));
-      return EditorForm(config: snap.data!, popOnSave: widget.popOnSave, shrinkWrap: widget.popOnSave);
+      if (!snap.hasData) {
+        return const SizedBox(height: 320, child: SkeletonList(rows: 4));
+      }
+      return EditorForm(
+        config: snap.data!,
+        popOnSave: widget.popOnSave,
+        shrinkWrap: widget.popOnSave,
+      );
     },
   );
 }
 
 /// The form body. [popOnSave]: pop the route with `true` after saving (sheet).
 class EditorForm extends StatefulWidget {
-  const EditorForm({super.key, required this.config, this.popOnSave = false, this.shrinkWrap = true});
+  const EditorForm({
+    super.key,
+    required this.config,
+    this.popOnSave = false,
+    this.shrinkWrap = true,
+  });
 
   final EditorConfig config;
   final bool popOnSave;
@@ -123,9 +207,12 @@ class EditorForm extends StatefulWidget {
 }
 
 class _EditorFormState extends State<EditorForm> {
-  late final EditorValues _values = EditorValues({for (final f in widget.config.fields) f.key: f.initial});
+  late final EditorValues _values = EditorValues({
+    for (final f in widget.config.fields) f.key: f.initial,
+  });
   bool _validate = false;
   bool _saving = false;
+  bool _dirty = false;
   String? _error;
 
   List<EditorField> get _visible => [
@@ -150,10 +237,13 @@ class _EditorFormState extends State<EditorForm> {
       await onSave(_values);
       HapticFeedback.mediumImpact();
       if (!mounted) return;
+      setState(() => _dirty = false);
       final msg = widget.config.savedMessage;
       final messenger = ScaffoldMessenger.maybeOf(context);
       if (widget.popOnSave) Navigator.of(context).pop(true);
-      if (msg.isNotEmpty) messenger?.showSnackBar(SnackBar(content: Text(msg)));
+      if (msg.isNotEmpty) {
+        messenger?.showNotchNotice(SnackBar(content: Text(msg)));
+      }
     } on Object catch (e) {
       HapticFeedback.heavyImpact();
       if (mounted) setState(() => _error = errorTextHe(e));
@@ -164,6 +254,7 @@ class _EditorFormState extends State<EditorForm> {
 
   void _changed(String key, Object? value) => setState(() {
     _values[key] = value;
+    _dirty = true;
     _error = null;
   });
 
@@ -214,10 +305,16 @@ class _EditorFormState extends State<EditorForm> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Semantics(header: true, child: Text(cfg.title, style: AppText.title)),
+                Semantics(
+                  header: true,
+                  child: Text(cfg.title, style: AppText.title),
+                ),
                 if (cfg.subtitle != null) ...[
                   const SizedBox(height: Space.xs),
-                  Text(cfg.subtitle!, style: AppText.secondary.copyWith(color: p.muted)),
+                  Text(
+                    cfg.subtitle!,
+                    style: AppText.secondary.copyWith(color: p.muted),
+                  ),
                 ],
               ],
             ),
@@ -232,7 +329,10 @@ class _EditorFormState extends State<EditorForm> {
             padding: const EdgeInsets.only(bottom: Space.m),
             child: Semantics(
               liveRegion: true,
-              child: Text(_error!, style: AppText.body.copyWith(color: p.danger)),
+              child: Text(
+                _error!,
+                style: AppText.body.copyWith(color: p.danger),
+              ),
             ),
           );
     final action = cfg.onSave == null
@@ -255,24 +355,33 @@ class _EditorFormState extends State<EditorForm> {
       ),
     );
     if (widget.shrinkWrap) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Flexible(
-            child: SingleChildScrollView(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [header, body]),
+      return UnsavedChangesGuard(
+        dirty: _dirty,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [header, body],
+                ),
+              ),
             ),
-          ),
-          ?action,
-        ],
+            ?action,
+          ],
+        ),
       );
     }
-    return Column(
-      children: [
-        Expanded(child: ListView(children: [header, body])),
-        ?action,
-      ],
+    return UnsavedChangesGuard(
+      dirty: _dirty,
+      child: Column(
+        children: [
+          Expanded(child: ListView(children: [header, body])),
+          ?action,
+        ],
+      ),
     );
   }
 }

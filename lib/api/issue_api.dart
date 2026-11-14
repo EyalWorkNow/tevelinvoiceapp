@@ -21,6 +21,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../state/cache.dart';
 import '../state/session.dart';
@@ -63,7 +64,12 @@ class IssueCancelled implements Exception {
   const IssueCancelled();
 }
 
-enum IssueOutcome { issued, submittedForApproval, waitingForAllocation, signingLocked }
+enum IssueOutcome {
+  issued,
+  submittedForApproval,
+  waitingForAllocation,
+  signingLocked,
+}
 
 class IssueResult {
   const IssueResult(this.outcome, this.document);
@@ -76,15 +82,29 @@ class IssueResult {
 // ---------------------------------------------------------------------------
 
 /// 'default' when configured, else the first scope from GET /sequences.
+/// Remembered per business for the app run (one round-trip less per issue);
+/// a refused finalize/receipt forgets it, so a removed scope is re-read.
 Future<String> resolveScopeKey() async {
+  final business = currentBusinessId;
+  final known = _scopeKeys[business];
+  if (known != null) return known;
   final json = await _api.get('/sequences');
   final list = [
     for (final s in (json['sequences'] as List? ?? const []))
-      (s as Map<String, dynamic>)['numbering_scope_key'] as String
+      (s as Map<String, dynamic>)['numbering_scope_key'] as String,
   ];
-  if (list.isEmpty || list.contains('default')) return 'default';
-  return list.first;
+  final key = list.isEmpty || list.contains('default') ? 'default' : list.first;
+  return _scopeKeys[business] = key;
 }
+
+final Map<String, String> _scopeKeys = {};
+
+void _forgetScopeKeyOn(ApiException e) {
+  if (!e.isNetwork) _scopeKeys.clear();
+}
+
+@visibleForTesting
+void resetScopeKeyCache() => _scopeKeys.clear();
 
 /// POST /documents/:id/sign (the original exists). Throws SIGNING_LOCKED
 /// while the business signing session is locked.
@@ -116,8 +136,11 @@ Future<String> createIssueShareLink(String id) async {
 /// Continues the saved issue of [documentId] (UNFINISHED card, D "המשך",
 /// after an allocation number or a signature arrived). Null when nothing is
 /// saved for it.
-Future<IssueResult?> resumeIssueFor(String documentId,
-    {SigningUnlocker? unlockSigning, bool skipPayment = false}) async {
+Future<IssueResult?> resumeIssueFor(
+  String documentId, {
+  SigningUnlocker? unlockSigning,
+  bool skipPayment = false,
+}) async {
   final p = await loadPendingIssue();
   if (p == null || p.draftId != documentId) return null;
   if (skipPayment) p.payment = null;
@@ -125,8 +148,10 @@ Future<IssueResult?> resumeIssueFor(String documentId,
 }
 
 /// V1 name kept for callers of the allocation flow.
-Future<IssueResult?> resumeAfterAllocation(String documentId, {bool skipPayment = false}) =>
-    resumeIssueFor(documentId, skipPayment: skipPayment);
+Future<IssueResult?> resumeAfterAllocation(
+  String documentId, {
+  bool skipPayment = false,
+}) => resumeIssueFor(documentId, skipPayment: skipPayment);
 
 // ---------------------------------------------------------------------------
 // The sequence
@@ -150,8 +175,12 @@ Future<IssueResult> runIssue(
   }
 }
 
-Future<IssueResult> _runDocument(PendingIssue p, void Function(IssueStage)? onStage,
-    SigningUnlocker? unlock, VatStatusAsker? askVat) async {
+Future<IssueResult> _runDocument(
+  PendingIssue p,
+  void Function(IssueStage)? onStage,
+  SigningUnlocker? unlock,
+  VatStatusAsker? askVat,
+) async {
   void report() => onStage?.call(p.stage);
   Future<void> save() => savePendingIssue(p);
 
@@ -162,7 +191,10 @@ Future<IssueResult> _runDocument(PendingIssue p, void Function(IssueStage)? onSt
   // Approval policy (§4.8): submit instead of finalize.
   if (p.stage == IssueStage.draft && p.needsApproval) return _submitResult(p);
   if (p.stage == IssueStage.submitted) {
-    return IssueResult(IssueOutcome.submittedForApproval, await fetchDocument(id));
+    return IssueResult(
+      IssueOutcome.submittedForApproval,
+      await fetchDocument(id),
+    );
   }
 
   if (p.stage == IssueStage.draft) {
@@ -177,10 +209,13 @@ Future<IssueResult> _runDocument(PendingIssue p, void Function(IssueStage)? onSt
     await save();
     final Map<String, dynamic> json;
     try {
-      json = await _api.post('/documents/$id/finalize',
-          {'scopeKey': p.scopeKey, if (p.requestAllocation) 'requestAllocation': true}, p.finalizeKey);
+      json = await _api.post('/documents/$id/finalize', {
+        'scopeKey': p.scopeKey,
+        if (p.requestAllocation) 'requestAllocation': true,
+      }, p.finalizeKey);
     } on ApiException catch (e) {
       if (e.code == 'APPROVAL_REQUIRED') return _submitResult(p);
+      _forgetScopeKeyOn(e);
       rethrow;
     }
     p.documentNumber = json['documentNumber']?.toString();
@@ -215,8 +250,10 @@ Future<IssueResult> _runDocument(PendingIssue p, void Function(IssueStage)? onSt
       await _createPayment(p, pay, amount);
       if (doc.paidTotalMinor < amount) {
         try {
-          await _api.post('/documents/$id/payments',
-              {'paymentId': p.paymentId, 'amountMinor': amount.toString()});
+          await _api.post('/documents/$id/payments', {
+            'paymentId': p.paymentId,
+            'amountMinor': amount.toString(),
+          });
         } on ApiException catch (e) {
           // A lost response of an allocation that did happen.
           if (e.code != 'PAYMENT_OVERALLOCATED' ||
@@ -235,7 +272,10 @@ Future<IssueResult> _runDocument(PendingIssue p, void Function(IssueStage)? onSt
 
 /// 400 / 405: POST /payments → POST /receipts → artifact (+ signature).
 Future<IssueResult> _runReceipt(
-    PendingIssue p, void Function(IssueStage)? onStage, SigningUnlocker? unlock) async {
+  PendingIssue p,
+  void Function(IssueStage)? onStage,
+  SigningUnlocker? unlock,
+) async {
   void report() => onStage?.call(p.stage);
   Future<void> save() => savePendingIssue(p);
   if (p.stage.index < IssueStage.finalized.index) {
@@ -244,16 +284,19 @@ Future<IssueResult> _runReceipt(
     p.scopeKey ??= await resolveScopeKey();
     p.receiptKey ??= ApiClient.newIdempotencyKey();
     await save();
-    final json = await _api.post(
-        '/receipts',
-        {
-          'scopeKey': p.scopeKey,
-          'paymentIds': [
-            {'id': p.paymentId}
-          ],
-          if (p.body['customerId'] != null) 'customerId': p.body['customerId'],
-        },
-        p.receiptKey);
+    final Map<String, dynamic> json;
+    try {
+      json = await _api.post('/receipts', {
+        'scopeKey': p.scopeKey,
+        'paymentIds': [
+          {'id': p.paymentId},
+        ],
+        if (p.body['customerId'] != null) 'customerId': p.body['customerId'],
+      }, p.receiptKey);
+    } on ApiException catch (e) {
+      _forgetScopeKeyOn(e);
+      rethrow;
+    }
     final outcome = json['outcome'] as Map<String, dynamic>? ?? const {};
     if (outcome['status'] == 'APPROVAL_REQUIRED') {
       // Before BE-37 a receipt above the threshold is refused (AT-45 edge case).
@@ -297,7 +340,10 @@ Future<void> _requestAllocationOnce(String id) async {
 /// finalized → artifact; LOCKED → [unlock] → /sign. Returns a result when the
 /// sequence has to stop (signature not released).
 Future<IssueResult?> _artifactAndSign(
-    PendingIssue p, SigningUnlocker? unlock, void Function() report) async {
+  PendingIssue p,
+  SigningUnlocker? unlock,
+  void Function() report,
+) async {
   final id = p.draftId!;
   if (p.stage == IssueStage.finalized) {
     final signing = await _createArtifact(id);
@@ -309,7 +355,9 @@ Future<IssueResult?> _artifactAndSign(
   }
   if (p.stage == IssueStage.artifact && p.signingPending) {
     try {
-      await _sign(id); // the session may already be open (another device, earlier unlock)
+      await _sign(
+        id,
+      ); // the session may already be open (another device, earlier unlock)
     } on ApiException catch (e) {
       if (e.code != 'SIGNING_LOCKED') rethrow;
       final unlocked = unlock != null && await unlock();
@@ -338,12 +386,20 @@ Future<String?> _createArtifact(String id) async {
   }
 }
 
-Future<void> _createPayment(PendingIssue p, PaymentInput pay, BigInt amount) async {
+Future<void> _createPayment(
+  PendingIssue p,
+  PaymentInput pay,
+  BigInt amount,
+) async {
   if (p.paymentId != null) return;
   p.paymentKey ??= ApiClient.newIdempotencyKey();
   p.paymentDate ??= todayIso();
   await savePendingIssue(p);
-  final json = await _api.post('/payments', pay.requestBody(amount, p.paymentDate!), p.paymentKey);
+  final json = await _api.post(
+    '/payments',
+    pay.requestBody(amount, p.paymentDate!),
+    p.paymentKey,
+  );
   p.paymentId = json['paymentId'] as String;
   await savePendingIssue(p);
 }
@@ -358,15 +414,19 @@ Future<void> _evaluate(PendingIssue p, VatStatusAsker? askVat) async {
     return; // advisory: finalize still applies the server rule
   }
   if (view['state'] != 'REQUIRES_USER_INPUT') return;
-  final reason = (view['evaluation'] as Map<String, dynamic>?)?['reasonCode'] as String? ??
+  final reason =
+      (view['evaluation'] as Map<String, dynamic>?)?['reasonCode'] as String? ??
       'CUSTOMER_VAT_STATUS_UNKNOWN';
   final answer = askVat == null ? null : await askVat(reason);
   if (answer == null) throw const IssueCancelled();
   final customerId = p.body['customerId'] as String?;
   if (customerId != null) {
     await _api.patch('/customers/$customerId', {
-      'vatDealerStatus': answer.authorizedDealer ? 'AUTHORIZED_DEALER' : 'PRIVATE',
-      if (answer.taxId != null && answer.taxId!.isNotEmpty) 'taxId': answer.taxId,
+      'vatDealerStatus': answer.authorizedDealer
+          ? 'AUTHORIZED_DEALER'
+          : 'PRIVATE',
+      if (answer.taxId != null && answer.taxId!.isNotEmpty)
+        'taxId': answer.taxId,
     });
   }
   try {
@@ -392,7 +452,10 @@ Future<IssueResult> _submitResult(PendingIssue p) async {
   }
   p.stage = IssueStage.submitted;
   await clearPendingIssue(p.businessId); // the approver takes it from here
-  return IssueResult(IssueOutcome.submittedForApproval, await fetchDocument(p.draftId!));
+  return IssueResult(
+    IssueOutcome.submittedForApproval,
+    await fetchDocument(p.draftId!),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -402,7 +465,10 @@ Future<IssueResult> _submitResult(PendingIssue p) async {
 Future<void> _ensureDraft(PendingIssue p) async {
   Future<void> save() => savePendingIssue(p);
   // Another type (S3 switch after a failure): PUT keeps the old type → replace.
-  if (p.draftId != null && p.editable && p.draftType != null && p.draftType != p.documentType) {
+  if (p.draftId != null &&
+      p.editable &&
+      p.draftType != null &&
+      p.draftType != p.documentType) {
     try {
       await _api.delete('/documents/${p.draftId}');
       p.forgetDraft();
@@ -433,7 +499,8 @@ Future<void> _ensureDraft(PendingIssue p) async {
   }
   // BE-08 linked conversion (300/100 → 305): clone, then the PUT below.
   if (p.draftId == null && p.cloneFrom != null) {
-    p.createAttemptTotal = p.cloneTotal; // a lost clone response is adopted like a lost POST
+    p.createAttemptTotal =
+        p.cloneTotal; // a lost clone response is adopted like a lost POST
     await save();
     final cloned = await _cloneLinked(p);
     if (cloned != null) {
@@ -461,12 +528,16 @@ Future<void> _ensureDraft(PendingIssue p) async {
       await _api.put('/documents/${p.draftId}', p.body);
       p
         ..bodyHash = hash
-        ..finalizeKey = null // new content → new finalize key
+        ..finalizeKey =
+            null // new content → new finalize key
         ..evaluated = false;
       if (p.stage == IssueStage.start) p.stage = IssueStage.draft;
       await save();
     } on ApiException catch (e) {
-      if (e.code != 'DOCUMENT_ALREADY_FINALIZED' && e.code != 'DOCUMENT_INVALID_TRANSITION') rethrow;
+      if (e.code != 'DOCUMENT_ALREADY_FINALIZED' &&
+          e.code != 'DOCUMENT_INVALID_TRANSITION') {
+        rethrow;
+      }
     }
   }
 }
@@ -476,12 +547,18 @@ Future<void> _ensureDraft(PendingIssue p) async {
 /// without BE-08 or a source that cannot be linked.
 Future<String?> _cloneLinked(PendingIssue p) async {
   try {
-    final json = await _api
-        .post('/documents/${p.cloneFrom}/clone', {'documentType': p.documentType, 'link': true});
+    final json = await _api.post('/documents/${p.cloneFrom}/clone', {
+      'documentType': p.documentType,
+      'link': true,
+    });
     return json['id'] as String;
   } on ApiException catch (e) {
     final missingRoute = e.status == 404 && e.code == 'NOT_FOUND';
-    if (!missingRoute && e.code != 'DOCUMENT_NOT_FINAL' && e.code != 'CLONE_TYPE_NOT_ALLOWED') rethrow;
+    if (!missingRoute &&
+        e.code != 'DOCUMENT_NOT_FINAL' &&
+        e.code != 'CLONE_TYPE_NOT_ALLOWED') {
+      rethrow;
+    }
     p
       ..cloneFrom = null
       ..createAttemptTotal = null;
@@ -495,11 +572,14 @@ Future<String?> _findLostDraft(PendingIssue p) async {
   final total = p.createAttemptTotal;
   final customerId = p.body['customerId'];
   if (total == null || customerId is! String) return null;
-  final json = await _api.get('/documents', query: {
-    'status': 'DRAFT',
-    'documentType': p.documentType,
-    'customerId': customerId,
-  });
+  final json = await _api.get(
+    '/documents',
+    query: {
+      'status': 'DRAFT',
+      'documentType': p.documentType,
+      'customerId': customerId,
+    },
+  );
   for (final d in (json['documents'] as List? ?? const [])) {
     final m = d as Map<String, dynamic>;
     if (m['status'] == 'DRAFT' &&
@@ -515,7 +595,9 @@ Future<String?> _findLostDraft(PendingIssue p) async {
 /// "בטל" on an unfinished issue: deletes the server draft when nothing was
 /// numbered yet; never touches an issued document.
 Future<void> discardPendingIssue(PendingIssue p) async {
-  final draftId = p.draftId ?? (p.editable && !p.receiptOnly ? await _findLostDraft(p) : null);
+  final draftId =
+      p.draftId ??
+      (p.editable && !p.receiptOnly ? await _findLostDraft(p) : null);
   if (draftId != null && p.editable && !p.receiptOnly) {
     try {
       await _api.delete('/documents/$draftId');
@@ -531,7 +613,8 @@ Future<void> discardPendingIssue(PendingIssue p) async {
 // ---------------------------------------------------------------------------
 
 /// The selected business ('none' when signed out).
-String get currentBusinessId => session.business?.businessId ?? _api.businessId ?? 'none';
+String get currentBusinessId =>
+    session.business?.businessId ?? _api.businessId ?? 'none';
 
 /// Cache writes are a convenience: a full disk must never fail an API call.
 Future<void> cacheWrite(String name, Object? json) async {
@@ -549,7 +632,16 @@ String todayIso([DateTime? now]) {
 }
 
 /// How far the issue sequence got. Order matters (index comparisons).
-enum IssueStage { start, draft, submitted, waitingAllocation, finalized, artifact, paymentRecorded, done }
+enum IssueStage {
+  start,
+  draft,
+  submitted,
+  waitingAllocation,
+  finalized,
+  artifact,
+  paymentRecorded,
+  done,
+}
 
 /// The money received in a PAID issue (§9.1). CHECK: reference = cheque number.
 class PaymentInput {
@@ -562,12 +654,12 @@ class PaymentInput {
   });
 
   factory PaymentInput.fromJson(Map<String, dynamic> j) => PaymentInput(
-        method: j['method'] as String,
-        bankNumber: j['bankNumber'] as String?,
-        branchNumber: j['branchNumber'] as String?,
-        accountNumber: j['accountNumber'] as String?,
-        checkNumber: j['checkNumber'] as String?,
-      );
+    method: j['method'] as String,
+    bankNumber: j['bankNumber'] as String?,
+    branchNumber: j['branchNumber'] as String?,
+    accountNumber: j['accountNumber'] as String?,
+    checkNumber: j['checkNumber'] as String?,
+  );
 
   /// CASH | BANK_TRANSFER | CREDIT_CARD | CHECK | DIRECT_DEBIT | OTHER
   final String method;
@@ -577,27 +669,27 @@ class PaymentInput {
   final String? checkNumber;
 
   Map<String, dynamic> toJson() => {
-        'method': method,
-        'bankNumber': bankNumber,
-        'branchNumber': branchNumber,
-        'accountNumber': accountNumber,
-        'checkNumber': checkNumber,
-      };
+    'method': method,
+    'bankNumber': bankNumber,
+    'branchNumber': branchNumber,
+    'accountNumber': accountNumber,
+    'checkNumber': checkNumber,
+  };
 
   /// POST /payments body. Only CHECK writes `reference` (it is part of the
   /// idempotency hash; "העברה / ביט" never writes it, §9.1).
   Map<String, dynamic> requestBody(BigInt amountMinor, String paymentDate) => {
-        'method': method,
-        'amountMinor': amountMinor.toString(),
-        'currency': 'ILS',
-        'paymentDate': paymentDate,
-        if (method == 'CHECK') ...{
-          'bankNumber': bankNumber,
-          'branchNumber': branchNumber,
-          'accountNumber': accountNumber,
-          'reference': checkNumber,
-        },
-      };
+    'method': method,
+    'amountMinor': amountMinor.toString(),
+    'currency': 'ILS',
+    'paymentDate': paymentDate,
+    if (method == 'CHECK') ...{
+      'bankNumber': bankNumber,
+      'branchNumber': branchNumber,
+      'accountNumber': accountNumber,
+      'reference': checkNumber,
+    },
+  };
 }
 
 /// One issue in progress. [form] is the Composer state (restored on resume).
@@ -632,35 +724,35 @@ class PendingIssue {
   }) : createdAt = createdAt ?? DateTime.now();
 
   factory PendingIssue.fromJson(Map<String, dynamic> j) => PendingIssue(
-        businessId: j['businessId'] as String,
-        body: Map<String, dynamic>.from(j['body'] as Map),
-        form: Map<String, dynamic>.from(j['form'] as Map),
-        payment: j['payment'] == null
-            ? null
-            : PaymentInput.fromJson(Map<String, dynamic>.from(j['payment'] as Map)),
-        totalMinor: BigInt.parse(j['totalMinor'] as String),
-        needsApproval: j['needsApproval'] == true,
-        evaluate: j['evaluate'] == true,
-        requestAllocation: j['requestAllocation'] == true,
-        receiptOnly: j['receiptOnly'] == true,
-        stage: IssueStage.values.byName(j['stage'] as String),
-        draftId: j['draftId'] as String?,
-        draftType: j['draftType'] as String?,
-        createAttemptTotal: j['createAttemptTotal'] as String?,
-        bodyHash: j['bodyHash'] as String?,
-        finalizeKey: j['finalizeKey'] as String?,
-        scopeKey: j['scopeKey'] as String?,
-        paymentKey: j['paymentKey'] as String?,
-        receiptKey: j['receiptKey'] as String?,
-        paymentDate: j['paymentDate'] as String?,
-        paymentId: j['paymentId'] as String?,
-        documentNumber: j['documentNumber'] as String?,
-        evaluated: j['evaluated'] == true,
-        signingPending: j['signingPending'] == true,
-        cloneFrom: j['cloneFrom'] as String?,
-        cloneTotal: j['cloneTotal'] as String?,
-        createdAt: DateTime.tryParse(j['createdAt'] as String? ?? ''),
-      );
+    businessId: j['businessId'] as String,
+    body: Map<String, dynamic>.from(j['body'] as Map),
+    form: Map<String, dynamic>.from(j['form'] as Map),
+    payment: j['payment'] == null
+        ? null
+        : PaymentInput.fromJson(Map<String, dynamic>.from(j['payment'] as Map)),
+    totalMinor: BigInt.parse(j['totalMinor'] as String),
+    needsApproval: j['needsApproval'] == true,
+    evaluate: j['evaluate'] == true,
+    requestAllocation: j['requestAllocation'] == true,
+    receiptOnly: j['receiptOnly'] == true,
+    stage: IssueStage.values.byName(j['stage'] as String),
+    draftId: j['draftId'] as String?,
+    draftType: j['draftType'] as String?,
+    createAttemptTotal: j['createAttemptTotal'] as String?,
+    bodyHash: j['bodyHash'] as String?,
+    finalizeKey: j['finalizeKey'] as String?,
+    scopeKey: j['scopeKey'] as String?,
+    paymentKey: j['paymentKey'] as String?,
+    receiptKey: j['receiptKey'] as String?,
+    paymentDate: j['paymentDate'] as String?,
+    paymentId: j['paymentId'] as String?,
+    documentNumber: j['documentNumber'] as String?,
+    evaluated: j['evaluated'] == true,
+    signingPending: j['signingPending'] == true,
+    cloneFrom: j['cloneFrom'] as String?,
+    cloneTotal: j['cloneTotal'] as String?,
+    createdAt: DateTime.tryParse(j['createdAt'] as String? ?? ''),
+  );
 
   final String businessId;
 
@@ -729,33 +821,33 @@ class PendingIssue {
   }
 
   Map<String, dynamic> toJson() => {
-        'businessId': businessId,
-        'body': body,
-        'form': form,
-        'payment': payment?.toJson(),
-        'totalMinor': totalMinor.toString(),
-        'needsApproval': needsApproval,
-        'evaluate': evaluate,
-        'requestAllocation': requestAllocation,
-        'receiptOnly': receiptOnly,
-        'stage': stage.name,
-        'draftId': draftId,
-        'draftType': draftType,
-        'createAttemptTotal': createAttemptTotal,
-        'bodyHash': bodyHash,
-        'finalizeKey': finalizeKey,
-        'scopeKey': scopeKey,
-        'paymentKey': paymentKey,
-        'receiptKey': receiptKey,
-        'paymentDate': paymentDate,
-        'paymentId': paymentId,
-        'documentNumber': documentNumber,
-        'evaluated': evaluated,
-        'signingPending': signingPending,
-        'cloneFrom': cloneFrom,
-        'cloneTotal': cloneTotal,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'businessId': businessId,
+    'body': body,
+    'form': form,
+    'payment': payment?.toJson(),
+    'totalMinor': totalMinor.toString(),
+    'needsApproval': needsApproval,
+    'evaluate': evaluate,
+    'requestAllocation': requestAllocation,
+    'receiptOnly': receiptOnly,
+    'stage': stage.name,
+    'draftId': draftId,
+    'draftType': draftType,
+    'createAttemptTotal': createAttemptTotal,
+    'bodyHash': bodyHash,
+    'finalizeKey': finalizeKey,
+    'scopeKey': scopeKey,
+    'paymentKey': paymentKey,
+    'receiptKey': receiptKey,
+    'paymentDate': paymentDate,
+    'paymentId': paymentId,
+    'documentNumber': documentNumber,
+    'evaluated': evaluated,
+    'signingPending': signingPending,
+    'cloneFrom': cloneFrom,
+    'cloneTotal': cloneTotal,
+    'createdAt': createdAt.toIso8601String(),
+  };
 }
 
 String _pendingKey(String businessId) => 'nd_pending_issue_$businessId';
@@ -776,7 +868,8 @@ Future<PendingIssue?> loadPendingIssue() async {
   }
 }
 
-Future<void> savePendingIssue(PendingIssue p) => cacheWrite(_pendingKey(p.businessId), p.toJson());
+Future<void> savePendingIssue(PendingIssue p) =>
+    cacheWrite(_pendingKey(p.businessId), p.toJson());
 
 Future<void> clearPendingIssue([String? businessId]) async {
   try {

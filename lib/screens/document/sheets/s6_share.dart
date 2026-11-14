@@ -176,6 +176,7 @@ class _ShareSheetState extends State<ShareSheet> {
   bool _emailOpen = false, _smsOpen = false;
   String? _qrLink;
   bool _linkMade = false;
+  bool _moreOpen = false;
   final _email = TextEditingController();
   final _phone = TextEditingController();
 
@@ -309,123 +310,20 @@ class _ShareSheetState extends State<ShareSheet> {
         children: [
           SheetTitle(DocumentHe.shareTitle, subtitle: subtitle),
           if (_canSend) ...[
+            // QA 1.2: three main ways + "עוד" (nothing removed, only folded).
             PrimaryButton(
-              key: const Key('s6-qr'),
-              label: 'סריקה לקבלת החשבונית',
-              icon: Iconsax.scan_barcode,
+              key: const Key('s6-whatsapp'),
+              label: DocumentHe.sendWhatsApp,
+              icon: Iconsax.message,
               offline: _offline,
-              loadingText: _busy == _Busy.qr ? 'מכינים קישור…' : null,
-              onPressed: () => _run(_Busy.qr, () async {
-                final link = _qrLink ?? await createShareLink(doc);
-                _linkMade = true;
-                if (mounted) setState(() => _qrLink = link);
-                return null;
-              }),
-            ),
-            ..._qrRows(doc),
-            _row(
-              Iconsax.message,
-              'קבלה למספר טלפון',
-              const Key('s6-sms'),
-              () => setState(() => _smsOpen = !_smsOpen),
-            ),
-            if (_smsOpen)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    key: const Key('s6-phone-field'),
-                    controller: _phone,
-                    keyboardType: TextInputType.phone,
-                    textDirection: TextDirection.ltr,
-                    decoration: const InputDecoration(
-                      labelText: 'מספר הטלפון של הלקוח',
-                    ),
-                  ),
-                  const Text(
-                    'תיפתח הודעת SMS עם הקישור. יש לאשר את השליחה במכשיר.',
-                    style: AppText.secondary,
-                  ),
-                  TextButton(
-                    key: const Key('s6-sms-send'),
-                    onPressed: _offline || _busy != null
-                        ? null
-                        : () => _run(_Busy.sms, () async {
-                            final number = waPhone(_phone.text);
-                            if (number == null) {
-                              throw ApiException(
-                                422,
-                                'CUSTOMER_PHONE_INVALID',
-                                'יש להזין מספר טלפון תקין',
-                              );
-                            }
-                            final link = await createShareLink(doc);
-                            final result = await smsComposer(
-                              '+$number',
-                              'המסמך שלך מ$_businessName:\n$link',
-                            );
-                            if (result == 'SENT') return 'ההודעה נשלחה מהמכשיר';
-                            if (result == 'UNAVAILABLE') {
-                              throw ApiException(
-                                503,
-                                'SMS_UNAVAILABLE',
-                                'שליחת SMS אינה זמינה במכשיר הזה. אפשר לקבל את המסמך בסריקה או במייל.',
-                              );
-                            }
-                            if (result == 'FAILED') {
-                              throw ApiException(
-                                502,
-                                'SMS_FAILED',
-                                'ההודעה לא נשלחה. ניתן לנסות שוב.',
-                              );
-                            }
-                            return null;
-                          }),
-                    child: const Text('פותחים הודעה לשליחה'),
-                  ),
-                ],
-              ),
-            _row(
-              Iconsax.message,
-              DocumentHe.sendWhatsApp,
-              const Key('s6-whatsapp'),
-              () => _run(_Busy.whatsapp, () async {
+              loadingText: _busy == _Busy.whatsapp
+                  ? DocumentHe.sendWhatsApp
+                  : null,
+              onPressed: () => _run(_Busy.whatsapp, () async {
                 await sendDocumentWhatsApp(doc, _customer);
                 return '';
               }),
             ),
-            const SizedBox(height: Space.s),
-            _row(
-              Icons.send_rounded,
-              'שליחה אוטומטית ללקוח',
-              const Key('s6-automatic'),
-              () => _run(_Busy.automatic, () async {
-                final result = await dispatchDocument(doc.id);
-                return result.message;
-              }),
-              busy: _busy == _Busy.automatic,
-              subtitle: 'במייל או ב־WhatsApp, לפי פרטי הלקוח',
-            ),
-            _row(
-              Iconsax.sms,
-              DocumentHe.email,
-              const Key('s6-email'),
-              () => setState(() => _emailOpen = !_emailOpen),
-            ),
-            if (_emailOpen) _emailForm(),
-            if (businessContext.can(Cap.paymentRecord) &&
-                doc.balanceMinor > BigInt.zero)
-              _row(
-                Iconsax.card,
-                'קישור תשלום בקארדקום',
-                const Key('s6-cardcom'),
-                () => _run(_Busy.paymentLink, () async {
-                  final link = await createCustomerPaymentLink(doc.id);
-                  await textSharer('לתשלום ל$_businessName:\n$link');
-                  return 'קישור התשלום מוכן לשיתוף';
-                }),
-                busy: _busy == _Busy.paymentLink,
-              ),
             _row(
               Iconsax.link,
               DocumentHe.copyLink,
@@ -439,7 +337,155 @@ class _ShareSheetState extends State<ShareSheet> {
               }),
               busy: _busy == _Busy.copy,
             ),
-          ] else
+            _row(
+              Iconsax.document_text,
+              DocumentHe.pdf,
+              const Key('s6-pdf'),
+              () => _run(_Busy.pdf, () async {
+                await sharePdf(doc);
+                return '';
+              }),
+              busy: _busy == _Busy.pdf,
+            ),
+            _row(
+              Iconsax.more,
+              DocumentHe.shareMore,
+              const Key('s6-more'),
+              () => setState(() => _moreOpen = !_moreOpen),
+            ),
+            if (_moreOpen) ...[
+              _row(
+                Iconsax.scan_barcode,
+                BusinessHe.scanInvoiceAction,
+                const Key('s6-qr'),
+                () => _run(_Busy.qr, () async {
+                  final link = _qrLink ?? await createShareLink(doc);
+                  _linkMade = true;
+                  if (mounted) setState(() => _qrLink = link);
+                  return null;
+                }),
+                busy: _busy == _Busy.qr,
+              ),
+              ..._qrRows(doc),
+              _row(
+                Iconsax.message,
+                'קבלה למספר טלפון',
+                const Key('s6-sms'),
+                () => setState(() => _smsOpen = !_smsOpen),
+              ),
+              if (_smsOpen)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      key: const Key('s6-phone-field'),
+                      controller: _phone,
+                      keyboardType: TextInputType.phone,
+                      textDirection: TextDirection.ltr,
+                      decoration: const InputDecoration(
+                        labelText: 'מספר הטלפון של הלקוח',
+                      ),
+                    ),
+                    const Text(
+                      'תיפתח הודעת SMS עם הקישור. יש לאשר את השליחה במכשיר.',
+                      style: AppText.secondary,
+                    ),
+                    TextButton(
+                      key: const Key('s6-sms-send'),
+                      onPressed: _offline || _busy != null
+                          ? null
+                          : () => _run(_Busy.sms, () async {
+                              final number = waPhone(_phone.text);
+                              if (number == null) {
+                                throw ApiException(
+                                  422,
+                                  'CUSTOMER_PHONE_INVALID',
+                                  BusinessHe.validPhoneRequired,
+                                );
+                              }
+                              final link = await createShareLink(doc);
+                              final result = await smsComposer(
+                                '+$number',
+                                DocumentHe.customerSms(_businessName, link),
+                              );
+                              if (result == 'SENT') {
+                                return BusinessHe.messageSentFromDevice;
+                              }
+                              if (result == 'UNAVAILABLE') {
+                                throw ApiException(
+                                  503,
+                                  'SMS_UNAVAILABLE',
+                                  BusinessHe.smsUnavailable,
+                                );
+                              }
+                              if (result == 'FAILED') {
+                                throw ApiException(
+                                  502,
+                                  'SMS_FAILED',
+                                  BusinessHe.smsFailed,
+                                );
+                              }
+                              return null;
+                            }),
+                      child: const Text(BusinessHe.openingMessage),
+                    ),
+                  ],
+                ),
+              _row(
+                Icons.send_rounded,
+                'שליחה אוטומטית ללקוח',
+                const Key('s6-automatic'),
+                () => _run(_Busy.automatic, () async {
+                  final result = await dispatchDocument(doc.id);
+                  return result.message;
+                }),
+                busy: _busy == _Busy.automatic,
+                subtitle: 'במייל או ב־WhatsApp, לפי פרטי הלקוח',
+              ),
+              _row(
+                Iconsax.sms,
+                DocumentHe.email,
+                const Key('s6-email'),
+                () => setState(() => _emailOpen = !_emailOpen),
+              ),
+              if (_emailOpen) _emailForm(),
+              if (businessContext.can(Cap.paymentRecord) &&
+                  doc.balanceMinor > BigInt.zero)
+                _row(
+                  Iconsax.card,
+                  'קישור תשלום בקארדקום',
+                  const Key('s6-cardcom'),
+                  () => _run(_Busy.paymentLink, () async {
+                    final link = await createCustomerPaymentLink(doc.id);
+                    await textSharer('לתשלום ל$_businessName:\n$link');
+                    return 'קישור התשלום מוכן לשיתוף';
+                  }),
+                  busy: _busy == _Busy.paymentLink,
+                ),
+              _row(
+                Iconsax.copy,
+                DocumentHe.pdfCopy,
+                const Key('s6-pdf-copy'),
+                () => _run(_Busy.pdfCopy, () async {
+                  await sharePdf(doc, copy: true);
+                  return '';
+                }),
+                busy: _busy == _Busy.pdfCopy,
+              ),
+              if (_linkMade)
+                _row(
+                  Iconsax.link_circle,
+                  DocumentHe.revokeLink,
+                  const Key('s6-revoke'),
+                  () => _run(_Busy.revoke, () async {
+                    await revokeShareLink(doc.id);
+                    return DocumentHe.linkRevoked;
+                  }),
+                  busy: _busy == _Busy.revoke,
+                  color: p.danger,
+                ),
+            ],
+          ] else ...[
             PrimaryButton(
               key: const Key('s6-pdf-primary'),
               label: DocumentHe.pdf,
@@ -451,40 +497,17 @@ class _ShareSheetState extends State<ShareSheet> {
                 return '';
               }),
             ),
-          if (_canSend)
             _row(
-              Iconsax.document_text,
-              DocumentHe.pdf,
-              const Key('s6-pdf'),
-              () => _run(_Busy.pdf, () async {
-                await sharePdf(doc);
+              Iconsax.copy,
+              DocumentHe.pdfCopy,
+              const Key('s6-pdf-copy'),
+              () => _run(_Busy.pdfCopy, () async {
+                await sharePdf(doc, copy: true);
                 return '';
               }),
-              busy: _busy == _Busy.pdf,
+              busy: _busy == _Busy.pdfCopy,
             ),
-          _row(
-            Iconsax.copy,
-            DocumentHe.pdfCopy,
-            const Key('s6-pdf-copy'),
-            () => _run(_Busy.pdfCopy, () async {
-              await sharePdf(doc, copy: true);
-              return '';
-            }),
-            busy: _busy == _Busy.pdfCopy,
-          ),
-
-          if (_canSend && _linkMade)
-            _row(
-              Iconsax.link_circle,
-              DocumentHe.revokeLink,
-              const Key('s6-revoke'),
-              () => _run(_Busy.revoke, () async {
-                await revokeShareLink(doc.id);
-                return DocumentHe.linkRevoked;
-              }),
-              busy: _busy == _Busy.revoke,
-              color: p.danger,
-            ),
+          ],
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: Space.m),

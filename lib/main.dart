@@ -1,15 +1,18 @@
+import 'state/customer_crm_store.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'ui/widgets/notch_notice.dart';
 import 'api/settings_api.dart' show hideAmounts, loadHideAmounts;
 import 'router.dart';
 import 'screens/auth/app_lock.dart';
 import 'screens/auth/splash_screen.dart';
 import 'screens/people/sheets/s2_customer.dart';
 import 'state/session.dart';
+import 'state/system_notices.dart';
 import 'ui/money_text.dart' show AmountPrivacy;
 import 'ui/theme.dart';
 
@@ -17,7 +20,7 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   AppRouter.instance.install();
   loadHideAmounts();
-  if (!kReleaseMode) {
+  if (kDebugMode) {
     _startDevServer();
   }
   runApp(const TevelApp());
@@ -25,7 +28,7 @@ void main() {
 
 Future<void> _startDevServer() async {
   try {
-    final server = await HttpServer.bind(InternetAddress.anyIPv4, 9999);
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 9999);
     server.listen((req) async {
       final to = req.uri.queryParameters['to'];
       final sheet = req.uri.queryParameters['sheet'];
@@ -71,6 +74,8 @@ class _TevelAppState extends State<TevelApp> {
   void initState() {
     super.initState();
     session.addListener(_onSession);
+    systemNotices.install();
+    CustomerCrmStore.instance.install();
   }
 
   @override
@@ -83,6 +88,7 @@ class _TevelAppState extends State<TevelApp> {
   void _onSession() {
     final now = session.status;
     if (_last == SessionStatus.signedIn && now == SessionStatus.signedOut) {
+      notchNoticeKey.currentState?.clear();
       resetToLogin(expired: session.expired);
     }
     _last = now;
@@ -107,7 +113,10 @@ class _TevelAppState extends State<TevelApp> {
         builder: (context, hidden, _) => AppBackground(
           child: AmountPrivacy(
             hidden: hidden,
-            child: AppLockGate(child: child!),
+            child: NotchNoticeHost(
+              key: notchNoticeKey,
+              child: AppLockGate(child: child!),
+            ),
           ),
         ),
       ),

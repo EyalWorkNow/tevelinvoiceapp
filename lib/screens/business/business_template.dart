@@ -37,39 +37,53 @@ class BusinessPage extends StatelessWidget {
         Space.page,
         showAppBar ? Space.s : Space.xl,
         Space.page,
-        showAppBar ? Space.xl : 110,
+        MediaQuery.paddingOf(context).bottom + Space.xl,
       ),
       children: [
-        if (!showAppBar) Semantics(header: true, child: Text(title, style: AppText.displayTitle)),
+        if (!showAppBar)
+          Semantics(
+            header: true,
+            child: Text(title, style: AppText.displayTitle),
+          ),
         ?header,
         const SizedBox(height: Space.s),
         ...children,
       ],
     );
+    // One look in every theme (the title row, not an AppBar). The back
+    // button only when there is somewhere to go back to: as a root tab
+    // (פרופיל → החשבון שלי) it would do nothing.
+    final canPop = ModalRoute.of(context)?.canPop ?? false;
     return Scaffold(
-      appBar: (showAppBar && !context.isDark) ? AppBar(title: Text(title)) : null,
       body: SafeArea(
-        bottom: bottom == null,
+        bottom: false,
         child: Column(
           children: [
-            if (showAppBar && context.isDark)
+            if (showAppBar)
               Padding(
-                padding: const EdgeInsets.fromLTRB(Space.page, Space.m, Space.page, Space.s),
+                padding: const EdgeInsets.fromLTRB(
+                  Space.page,
+                  Space.m,
+                  Space.page,
+                  Space.s,
+                ),
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        title,
-                        style: AppText.displayTitle,
+                      child: Semantics(
+                        header: true,
+                        child: Text(title, style: AppText.displayTitle),
                       ),
                     ),
-                    const DesignBackButton(),
+                    if (canPop) const DesignBackButton(),
                   ],
                 ),
               ),
             OfflineBanner(visible: session.offline),
             Expanded(
-              child: onRefresh == null ? list : RefreshIndicator(onRefresh: onRefresh!, child: list),
+              child: onRefresh == null
+                  ? list
+                  : RefreshIndicator(onRefresh: onRefresh!, child: list),
             ),
           ],
         ),
@@ -125,7 +139,11 @@ class BusinessRow extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(label, style: AppText.body.copyWith(color: color)),
-                      if (value != null) Text(value!, style: AppText.secondary.copyWith(color: p.muted)),
+                      if (value != null)
+                        Text(
+                          value!,
+                          style: AppText.secondary.copyWith(color: p.muted),
+                        ),
                     ],
                   ),
                 ),
@@ -152,5 +170,6 @@ class RowGroupGap extends StatelessWidget {
   const RowGroupGap({super.key});
 
   @override
-  Widget build(BuildContext context) => Divider(height: Space.xl, color: context.palette.line);
+  Widget build(BuildContext context) =>
+      Divider(height: Space.m, color: context.palette.line);
 }

@@ -16,15 +16,15 @@ class Item {
   });
 
   factory Item.fromJson(Map<String, dynamic> json) => Item(
-        id: json['id'] as String,
-        sku: jStr(json['sku']),
-        name: jStr(json['name']) ?? '',
-        itemType: jStr(json['item_type']) ?? 'SERVICE',
-        unit: jStr(json['unit']),
-        defaultUnitPriceMinor: jBigOrNull(json['default_unit_price_minor']),
-        currency: jStr(json['currency']) ?? 'ILS',
-        isActive: json['is_active'] != false,
-      );
+    id: json['id'] as String,
+    sku: jStr(json['sku']),
+    name: jStr(json['name']) ?? '',
+    itemType: jStr(json['item_type']) ?? 'SERVICE',
+    unit: jStr(json['unit']),
+    defaultUnitPriceMinor: jBigOrNull(json['default_unit_price_minor']),
+    currency: jStr(json['currency']) ?? 'ILS',
+    isActive: json['is_active'] != false,
+  );
 
   final String id;
   final String? sku;

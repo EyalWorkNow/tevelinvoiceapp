@@ -22,14 +22,26 @@ enum CancelAction {
 }
 
 const Set<String> _creditable = {'TAX_INVOICE', 'TAX_INVOICE_RECEIPT'};
-const Set<String> _voidable = {'TRANSACTION_INVOICE', 'SALES_ORDER', 'PURCHASE_ORDER'};
-const Set<String> _issued = {'FINALIZED', 'ARTIFACT_PENDING', 'SIGNED', 'ARCHIVED', 'SENT'};
+const Set<String> _voidable = {
+  'TRANSACTION_INVOICE',
+  'SALES_ORDER',
+  'PURCHASE_ORDER',
+};
+const Set<String> _issued = {
+  'FINALIZED',
+  'ARTIFACT_PENDING',
+  'SIGNED',
+  'ARCHIVED',
+  'SENT',
+};
 
 /// The S8 action for a document type (ignores status and permissions).
 /// An exempt dealer has no 305/320, so it never gets [CancelAction.credit]
 /// (the server answers CREDIT_SOURCE_TYPE_INVALID).
 CancelAction cancelActionFor(String documentType, {required bool vatExempt}) {
-  if (_creditable.contains(documentType)) return vatExempt ? CancelAction.none : CancelAction.credit;
+  if (_creditable.contains(documentType)) {
+    return vatExempt ? CancelAction.none : CancelAction.credit;
+  }
   if (_voidable.contains(documentType)) return CancelAction.voidDocument;
   return CancelAction.none;
 }
@@ -43,8 +55,8 @@ class CancelFacts {
     BigInt? creditedMinor,
     BigInt? paidMinor,
     this.voidedAt,
-  })  : creditedMinor = creditedMinor ?? BigInt.zero,
-        paidMinor = paidMinor ?? BigInt.zero;
+  }) : creditedMinor = creditedMinor ?? BigInt.zero,
+       paidMinor = paidMinor ?? BigInt.zero;
 
   final String documentType;
   final String status;
@@ -71,7 +83,9 @@ bool showCancelItem(
   required bool vatExempt,
   bool voidAvailable = true,
 }) {
-  if (!canCancel || !_issued.contains(doc.status) || doc.voidedAt != null) return false;
+  if (!canCancel || !_issued.contains(doc.status) || doc.voidedAt != null) {
+    return false;
+  }
   switch (cancelActionFor(doc.documentType, vatExempt: vatExempt)) {
     case CancelAction.credit:
       return doc.creditableMinor > BigInt.zero;
@@ -128,7 +142,9 @@ List<Map<String, Object>> creditLines({
   required BigInt amountMinor,
   required String partialDescription,
 }) {
-  if (amountMinor <= BigInt.zero) throw ArgumentError.value(amountMinor, 'amountMinor');
+  if (amountMinor <= BigInt.zero) {
+    throw ArgumentError.value(amountMinor, 'amountMinor');
+  }
   if (amountMinor == totalMinor && alreadyCreditedMinor == BigInt.zero) {
     return [
       for (final l in source)
@@ -139,13 +155,14 @@ List<Map<String, Object>> creditLines({
           'discountMinor': l.discountMinor.toString(),
           'taxRateBasisPoints': l.taxRateBasisPoints,
           'itemId': ?l.itemId,
-        }
+        },
     ];
   }
   // VAT-rate groups, in first-seen order.
   final groups = <int, BigInt>{};
   for (final l in source) {
-    groups[l.taxRateBasisPoints] = (groups[l.taxRateBasisPoints] ?? BigInt.zero) + l.totalMinor;
+    groups[l.taxRateBasisPoints] =
+        (groups[l.taxRateBasisPoints] ?? BigInt.zero) + l.totalMinor;
   }
   final sum = groups.values.fold(BigInt.zero, (a, b) => a + b);
   if (groups.isEmpty || sum <= BigInt.zero) {
@@ -157,8 +174,11 @@ List<Map<String, Object>> creditLines({
   final parts = <int, BigInt>{
     for (final e in groups.entries) e.key: amountMinor * e.value ~/ base,
   };
-  final remainder = amountMinor - parts.values.fold(BigInt.zero, (a, b) => a + b);
-  final largest = groups.entries.reduce((a, b) => b.value > a.value ? b : a).key;
+  final remainder =
+      amountMinor - parts.values.fold(BigInt.zero, (a, b) => a + b);
+  final largest = groups.entries
+      .reduce((a, b) => b.value > a.value ? b : a)
+      .key;
   parts[largest] = parts[largest]! + remainder;
 
   return [
@@ -170,7 +190,7 @@ List<Map<String, Object>> creditLines({
           'unitPriceMinor': netOfVat(e.value, e.key).toString(),
           'discountMinor': '0',
           'taxRateBasisPoints': e.key,
-        }
+        },
   ];
 }
 
@@ -183,5 +203,6 @@ BigInt netOfVat(BigInt grossMinor, int rateBasisPoints) {
 
 /// VAT on [netMinor] the way the server rounds a line (half up).
 BigInt vatOn(BigInt netMinor, int rateBasisPoints) =>
-    (netMinor * BigInt.from(rateBasisPoints) * BigInt.two + BigInt.from(10000)) ~/
+    (netMinor * BigInt.from(rateBasisPoints) * BigInt.two +
+        BigInt.from(10000)) ~/
     BigInt.from(20000);

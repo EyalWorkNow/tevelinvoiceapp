@@ -33,11 +33,11 @@ abstract final class ComposeHe {
 
   /// The AppBar echoes the home intent, never the document type (F1).
   static String titleFor(String intent) => switch (intent) {
-        intentPaid => titlePaid,
-        intentRequest => titleRequest,
-        intentQuote => titleQuote,
-        _ => titleNew,
-      };
+    intentPaid => titlePaid,
+    intentRequest => titleRequest,
+    intentQuote => titleQuote,
+    _ => titleNew,
+  };
   static const chooseCustomer = 'בחר לקוח';
   static const editCustomer = 'החלף לקוח';
   static const moreDetails = 'פרטים נוספים';
@@ -55,16 +55,31 @@ abstract final class ComposeHe {
   static const notAvailable = 'סוג המסמך הזה לא זמין לעסק';
   static const fixAndResend = 'תקן ושלח שוב';
 
+  // Leaving / coming back (U0, U5).
+  static const saveDraftTitle = 'לשמור טיוטה?';
+  static const saveDraftBody = 'אפשר להמשיך אותה בפעם הבאה.';
+  static const saveDraft = 'שמור טיוטה';
+  static const discardDraft = 'מחק';
+  static const resumeDraftTitle = 'יש טיוטה שלא הסתיימה';
+  static String resumeDraftBody(String? customer, String amount) =>
+      customer == null || customer.isEmpty
+      ? '\u2066$amount\u2069'
+      : '$customer · \u2066$amount\u2069';
+  static const resumeDraft = 'המשך טיוטה';
+  static const startNew = 'התחל חדש';
+
   // Dialogs.
   static String bigAmountTitle(BigInt total) =>
       'להפיק מסמך על ${formatMoney(total, trimZeroAgorot: true)}?';
   static const bigAmountBody = 'סכום גבוה במיוחד. בדוק שהסכום נכון לפני ההפקה.';
-  static String vatDealerQuestion(String customer) => '$customer הוא עוסק מורשה?';
+  static String vatDealerQuestion(String customer) =>
+      '$customer הוא עוסק מורשה?';
   static const vatDealerYes = 'כן';
   static const vatDealerNo = 'לא, לקוח פרטי';
   static const vatNumber = 'מספר עוסק מורשה';
   static const signingTitle = 'סיסמת החתימה';
-  static const signingBody = 'פעם אחת בלבד: הסיסמה נשמרת במכשיר ונפתחת ב-Face ID.';
+  static const signingBody =
+      'פעם אחת בלבד: הסיסמה נשמרת במכשיר ונפתחת ב-Face ID.';
   static const signingSaveFaceId = 'שמור עם Face ID';
   static const signingReason = 'חתימה על המסמך';
   static const signingWrong = 'סיסמת החתימה שגויה';
@@ -77,6 +92,12 @@ abstract final class ComposeHe {
   static const waitingAllocation = 'ממתין למספר הקצאה מרשות המסים';
   static const waitingSignature = 'ממתין לחתימה';
   static const quoteSent = 'ההצעה נשלחה ✓';
+  static const quoteNotSent = 'ההצעה נשמרה ולא נשלחה. אפשר לשלוח אותה מההצעה.';
+  static const issuedShareFailed =
+      'המסמך הופק. השיתוף נכשל – אפשר לשתף מהמסמך.';
+  static const issuedWhatsAppOpened = 'המסמך הופק. WhatsApp נפתח לשיתוף.';
+  static String issuedDeliveryFailed(String reason) =>
+      'המסמך הופק. המשלוח לא הושלם: $reason';
 
   // S1.
   static const s1Title = 'מה ליצור?';
@@ -95,6 +116,7 @@ abstract final class ComposeHe {
   static const linePrice = 'מחיר';
   static const removeLine = 'הסר שורה';
   static const discount = 'הנחה כוללת';
+  static const discountTooBig = 'ההנחה גדולה מסכום השורה הראשית';
   static const vat = 'מע״מ';
   static const vatRegular = 'רגיל';
   static const vatNone = 'ללא';
@@ -125,21 +147,24 @@ const Map<DocKind, String> kindLabels = {
 };
 
 String actionLabel(ComposerAction a) => switch (a) {
-      ComposerAction.submit => ComposeHe.submit,
-      ComposerAction.sendQuoteWhatsApp => ComposeHe.sendQuoteWhatsApp,
-      ComposerAction.sendQuote => ComposeHe.sendQuote,
-      ComposerAction.issueAndWhatsApp => ComposeHe.issueAndWhatsApp,
-      ComposerAction.issue => ComposeHe.issue,
-    };
+  ComposerAction.submit => ComposeHe.submit,
+  ComposerAction.sendQuoteWhatsApp => ComposeHe.sendQuoteWhatsApp,
+  ComposerAction.sendQuote => ComposeHe.sendQuote,
+  ComposerAction.issueAndWhatsApp => ComposeHe.issueAndWhatsApp,
+  ComposerAction.issue => ComposeHe.issue,
+};
 
 /// "מסמך מ-₪5,000 כולל מע״מ דורש אישור" (§4.5 rule 2).
 String approvalNote(BigInt thresholdMinor) =>
     'מסמך מ-${formatMoney(thresholdMinor, trimZeroAgorot: true)} כולל מע״מ דורש אישור';
 
-/// "₪1,000 + מע״מ ₪180 = ₪1,180" (VatBreakdownLine).
+/// "₪1,000 + ₪180 מע״מ = ₪1,180" (VatBreakdownLine), laid out LTR like a sum.
+/// The Hebrew word sits in its own RTL isolate: bare, it pulled the amounts
+/// after it into one RTL run ("₪12.71 + ₪15 = ₪2.29 מע״מ"). Wrap the result
+/// in an LTR isolate when it is shown.
 String vatBreakdown(BigInt net, BigInt vat, BigInt total) =>
-    '${formatMoney(net, trimZeroAgorot: true)} + מע״מ ${formatMoney(vat, trimZeroAgorot: true)}'
-    ' = ${formatMoney(total, trimZeroAgorot: true)}';
+    '${formatMoney(net, trimZeroAgorot: true)} + ${formatMoney(vat, trimZeroAgorot: true)}'
+    ' \u2067מע״מ\u2069 = ${formatMoney(total, trimZeroAgorot: true)}';
 
 String vatModeLabel(bool inclusive) => inclusive ? 'כולל מע״מ' : 'לפני מע״מ';
 
@@ -180,6 +205,8 @@ String quoteWhatsAppText({
   for (final (d, amount) in lines) {
     b.writeln('• $d – ${formatMoney(amount, trimZeroAgorot: true)}');
   }
-  b.write('סה״כ ${formatMoney(totalMinor, trimZeroAgorot: true)}, בתוקף עד $validUntil.');
+  b.write(
+    'סה״כ ${formatMoney(totalMinor, trimZeroAgorot: true)}, בתוקף עד $validUntil.',
+  );
   return b.toString();
 }

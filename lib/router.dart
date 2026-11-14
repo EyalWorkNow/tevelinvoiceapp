@@ -14,6 +14,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'ui/widgets/notch_notice.dart';
 import 'app_shell.dart';
 import 'ui/app_page_route.dart';
 import 'screens/activity/activity_screen.dart';
@@ -32,6 +33,7 @@ import 'state/business_context.dart';
 import 'state/caps.dart';
 import 'state/session.dart';
 import 'util/labels/common_he.dart';
+import 'util/labels/inbox_he.dart';
 
 /// Root navigator (MaterialApp.navigatorKey) for resets without a context.
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -83,6 +85,7 @@ const Map<String, String> sheetRegistry = {
 /// /business/:section slugs (B sub-pages, §6.B / §13). Squad E may ask INT to
 /// append; unknown slugs open the business list.
 enum BusinessSection {
+  notifications,
   integrations,
   team,
   profile,
@@ -92,6 +95,9 @@ enum BusinessSection {
   account,
   desktop,
   numbering,
+
+  /// "עוד הגדרות": the rarely used rows of B (≤ 10 rows, §6.B).
+  more,
 }
 
 /// Capability a business sub-page needs (§4.4). `account` and `desktop` are for everyone.
@@ -102,13 +108,14 @@ Cap? sectionCap(BusinessSection s) => switch (s) {
   BusinessSection.branding => Cap.settingsDesign,
   BusinessSection.approvals => Cap.settingsBusiness,
   BusinessSection.shaam => null,
-  BusinessSection.account => null,
-  BusinessSection.desktop => null,
+  BusinessSection.account || BusinessSection.notifications => null,
+  BusinessSection.desktop || BusinessSection.more => null,
   BusinessSection.numbering => Cap.settingsNumbering,
 };
 
 /// Query keys that carry an entity id into an API path.
 const Set<String> idQueryKeys = {
+  'businessId',
   'id',
   'customerId',
   'fromDocId',
@@ -183,7 +190,7 @@ class AppRoute {
   /// Capability the route needs; null = any signed-in member.
   Cap? get requiredCap => switch (pattern) {
     '/compose' => Cap.docDraft,
-    '/activity' || '/doc/:id' || '/quote/:id' => Cap.docView,
+    '/activity' || '/doc/:id' || '/quote/:id' || '/people' => Cap.docView,
     '/reports' || '/reports/:kind' => Cap.reportView,
     '/expenses/overview' => Cap.expenseApprove,
     '/business/:section' =>
@@ -253,20 +260,50 @@ Widget? screenFor(AppRoute route) {
 }
 
 /// Opens [locationString] (a §5 path or a tevel:// link). Tab routes switch
-/// the tab of the running shell; /gate and /setup reset the stack. Returns
-/// false when the location is unknown or not allowed for the current caps.
+/// the tab of the running shell; /gate (signed out only) and /setup reset the
+/// stack. Returns false when the location is unknown or not allowed for the
+/// current caps; a refusal of a signed-in user says so (1.11).
+///
+/// Without a [context] (deep link, notification, debug server) the open
+/// dialogs, sheets and the Composer are closed first, so the new screen is
+/// the one the user sees (1.11). A `businessId` other than the active one
+/// switches business only after the user confirms (1.12).
 Future<bool> go(String locationString, {BuildContext? context}) async {
   final route = AppRoute.parse(locationString);
   if (route == null) return false;
   if (route.pattern == '/gate') {
+    // 1.12: a link never drops a live session onto the sign-in screen.
+    if (session.status == SessionStatus.signedIn) return false;
     resetToLogin();
     return true;
   }
+  if (session.status != SessionStatus.signedIn) return false;
   if (route.pattern == '/setup') {
     resetToSetup();
     return true;
   }
-  if (!route.allowedFor(businessContext.caps)) return false;
+  var switchedBusiness = false;
+  final targetBusiness = route.query['businessId'];
+  if (targetBusiness != null &&
+      targetBusiness != session.business?.businessId) {
+    final matches = session.account?.businesses.where(
+      (business) => business.businessId == targetBusiness,
+    );
+    if (matches == null || matches.isEmpty) {
+      _refused(InboxHe.routeUnavailable);
+      return false;
+    }
+    if (!await confirmBusinessSwitch(matches.first.legalName)) return false;
+    if (session.status != SessionStatus.signedIn) return false;
+    await session.selectBusiness(matches.first);
+    resetToHome();
+    await WidgetsBinding.instance.endOfFrame;
+    switchedBusiness = true;
+  }
+  if (!route.allowedFor(businessContext.caps)) {
+    _refused(InboxHe.routeForbidden);
+    return false;
+  }
   switch (route.pattern) {
     case '/home':
       _toTab(AppTab.home);
@@ -280,10 +317,12 @@ Future<bool> go(String locationString, {BuildContext? context}) async {
       return true;
   }
   final screen = screenFor(route)!;
-  final nav = context != null
+  final local = context != null && !switchedBusiness;
+  final nav = context != null && context.mounted && !switchedBusiness
       ? Navigator.of(context)
       : navigatorKey.currentState;
   if (nav == null) return false;
+  if (!local) dismissTransientRoutes(nav);
   unawaited(
     nav.push(
       _page(screen, locationString, fullscreen: route.pattern == '/compose'),
@@ -291,6 +330,50 @@ Future<bool> go(String locationString, {BuildContext? context}) async {
   );
   return true;
 }
+
+/// Pops dialogs, sheets and Composers above the screen a link lands on.
+void dismissTransientRoutes(NavigatorState nav) => nav.popUntil(
+  (r) =>
+      r.isFirst ||
+      (r is! PopupRoute &&
+          !(r.settings.name?.startsWith('/compose') ?? false) &&
+          !(r.settings.name?.startsWith('tevel://compose') ?? false)),
+);
+
+/// "Switch to business X?" before a link changes the active business.
+/// Tests may replace it.
+Future<bool> Function(String businessName) confirmBusinessSwitch =
+    _askBusinessSwitch;
+
+Future<bool> _askBusinessSwitch(String businessName) async {
+  final ctx = navigatorKey.currentContext;
+  if (ctx == null) return false;
+  return await showDialog<bool>(
+        context: ctx,
+        builder: (dialogContext) => AlertDialog(
+          key: const Key('switch-business-confirm'),
+          title: const Text(InboxHe.switchBusinessTitle),
+          content: Text(InboxHe.switchBusinessBody(businessName)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text(InboxHe.cancel),
+            ),
+            FilledButton(
+              key: const Key('switch-business-yes'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text(InboxHe.switchBusinessConfirm),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+}
+
+void _refused(String text) => messengerKey.currentState?.showNotchNotice(
+  SnackBar(content: Text(text)),
+  motion: NoticeMotion.error,
+);
 
 PageRoute<T> _page<T>(Widget screen, String name, {bool fullscreen = false}) =>
     AppPageRoute<T>(
@@ -574,7 +657,7 @@ class AppRouter with WidgetsBindingObserver {
     if (forbidden) resetToHome();
     // After the reset, so the toast lands on the visible Scaffold.
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => messengerKey.currentState?.showSnackBar(
+      (_) => messengerKey.currentState?.showNotchNotice(
         const SnackBar(
           content: Text(CommonHe.permissionsUpdated),
           behavior: SnackBarBehavior.fixed,

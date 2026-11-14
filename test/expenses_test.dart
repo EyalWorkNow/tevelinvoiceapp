@@ -28,30 +28,55 @@ void main() {
       expect(identical(out, jpeg), isTrue);
     });
 
-    test('PNG becomes JPEG (server rejects HEIC; we always send JPEG)', () async {
-      final out = await prepareExpenseJpeg(_noise(64, 48));
-      expect(_isJpeg(out), isTrue);
-      final decoded = img.decodeJpg(out)!;
-      expect((decoded.width, decoded.height), (64, 48));
-    });
+    test(
+      'PNG becomes JPEG (server rejects HEIC; we always send JPEG)',
+      () async {
+        final out = await prepareExpenseJpeg(_noise(64, 48));
+        expect(_isJpeg(out), isTrue);
+        final decoded = img.decodeJpg(out)!;
+        expect((decoded.width, decoded.height), (64, 48));
+      },
+    );
 
     test('too big: resized and recompressed under the byte budget', () async {
-      final out = await prepareExpenseJpeg(_noise(900, 600), maxBytes: 300 * 1024, maxSide: 800);
+      final out = await prepareExpenseJpeg(
+        _noise(900, 600),
+        maxBytes: 300 * 1024,
+        maxSide: 800,
+      );
       expect(_isJpeg(out), isTrue);
       expect(out.length, lessThanOrEqualTo(300 * 1024));
       final decoded = img.decodeJpg(out)!;
-      expect(max(decoded.width, decoded.height), 600); // 800 did not fit even at q55
+      expect(
+        max(decoded.width, decoded.height),
+        600,
+      ); // 800 did not fit even at q55
     });
 
     test('undecodable bytes (e.g. HEIC) → ExpenseFileUnsupported', () async {
-      final heicLike = Uint8List.fromList([0, 0, 0, 24, ...ascii.encode('ftypheic'), 1, 2, 3, 4]);
-      expect(() => prepareExpenseJpeg(heicLike), throwsA(isA<ExpenseFileUnsupported>()));
+      final heicLike = Uint8List.fromList([
+        0,
+        0,
+        0,
+        24,
+        ...ascii.encode('ftypheic'),
+        1,
+        2,
+        3,
+        4,
+      ]);
+      expect(
+        () => prepareExpenseJpeg(heicLike),
+        throwsA(isA<ExpenseFileUnsupported>()),
+      );
     });
   });
 
   test('sha256Hex matches the standard vector', () {
-    expect(sha256Hex(utf8.encode('abc')),
-        'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+    expect(
+      sha256Hex(utf8.encode('abc')),
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    );
   });
 
   group('uploadExpense', () {
@@ -69,8 +94,11 @@ void main() {
       });
     }
 
-    http.Response json(int status, Object body) => http.Response(jsonEncode(body), status,
-        headers: {'content-type': 'application/json; charset=utf-8'});
+    http.Response json(int status, Object body) => http.Response(
+      jsonEncode(body),
+      status,
+      headers: {'content-type': 'application/json; charset=utf-8'},
+    );
 
     setUp(() {
       sent = [];
@@ -87,8 +115,8 @@ void main() {
         'kind': 'api',
         'method': 'PUT',
         'url': '/expenses/uploads/u1/bytes',
-        'headers': {'Content-Type': 'image/jpeg'}
-      }
+        'headers': {'Content-Type': 'image/jpeg'},
+      },
     });
 
     test('initiate → PUT bytes → complete 202 → poll CLEAN', () async {
@@ -101,14 +129,25 @@ void main() {
             json(202, {'uploadId': 'u1', 'status': 'SCAN_PENDING'}),
         'GET /expenses/uploads/u1': (_) => ++polls < 2
             ? json(200, {'uploadId': 'u1', 'status': 'SCAN_PENDING'})
-            : json(200, {'uploadId': 'u1', 'status': 'CLEAN', 'expenseId': 'e1'}),
+            : json(200, {
+                'uploadId': 'u1',
+                'status': 'CLEAN',
+                'expenseId': 'e1',
+              }),
       });
-      final r = await uploadExpense(jpeg,
-          filename: 'r.jpg', onStage: stages.add, pollEvery: Duration.zero);
+      final r = await uploadExpense(
+        jpeg,
+        filename: 'r.jpg',
+        onStage: stages.add,
+        pollEvery: Duration.zero,
+      );
       expect(r.expenseId, 'e1');
       expect(r.duplicate, isFalse);
       expect(r.stillScanning, isFalse);
-      expect(stages, [ExpenseUploadStage.uploading, ExpenseUploadStage.scanning]);
+      expect(stages, [
+        ExpenseUploadStage.uploading,
+        ExpenseUploadStage.scanning,
+      ]);
 
       final init = jsonDecode(sent.first.body) as Map<String, dynamic>;
       expect(init, {
@@ -124,62 +163,85 @@ void main() {
       expect(put.headers['X-Business-Id'], 'biz-1');
     });
 
-    test('complete 201 with duplicate → done at once, duplicate flagged', () async {
-      serve({
-        'POST /expenses/uploads/initiate': (_) => initiateApi,
-        'PUT /expenses/uploads/u1/bytes': (_) => http.Response('', 204),
-        'POST /expenses/uploads/u1/complete': (_) => json(201, {
-              'expenseId': 'e2',
-              'status': 'NEEDS_REVIEW',
-              'duplicateOfExpenseId': 'e1',
-              'uploadId': 'u1'
-            }),
-      });
-      final r = await uploadExpense(jpeg, filename: 'r.jpg');
-      expect(r.expenseId, 'e2');
-      expect(r.duplicate, isTrue);
-      expect(sent.length, 3);
-    });
+    test(
+      'complete 201 with duplicate → done at once, duplicate flagged',
+      () async {
+        serve({
+          'POST /expenses/uploads/initiate': (_) => initiateApi,
+          'PUT /expenses/uploads/u1/bytes': (_) => http.Response('', 204),
+          'POST /expenses/uploads/u1/complete': (_) => json(201, {
+            'expenseId': 'e2',
+            'status': 'NEEDS_REVIEW',
+            'duplicateOfExpenseId': 'e1',
+            'uploadId': 'u1',
+          }),
+        });
+        final r = await uploadExpense(jpeg, filename: 'r.jpg');
+        expect(r.expenseId, 'e2');
+        expect(r.duplicate, isTrue);
+        expect(sent.length, 3);
+      },
+    );
 
-    test('malware: 422 SCANNER_INFECTED on complete, and REJECTED_MALWARE on poll', () async {
-      serve({
-        'POST /expenses/uploads/initiate': (_) => initiateApi,
-        'PUT /expenses/uploads/u1/bytes': (_) => http.Response('', 204),
-        'POST /expenses/uploads/u1/complete': (_) =>
-            json(422, {'error': 'SCANNER_INFECTED', 'message': 'x'}),
-      });
-      await expectLater(
+    test(
+      'malware: 422 SCANNER_INFECTED on complete, and REJECTED_MALWARE on poll',
+      () async {
+        serve({
+          'POST /expenses/uploads/initiate': (_) => initiateApi,
+          'PUT /expenses/uploads/u1/bytes': (_) => http.Response('', 204),
+          'POST /expenses/uploads/u1/complete': (_) =>
+              json(422, {'error': 'SCANNER_INFECTED', 'message': 'x'}),
+        });
+        await expectLater(
           uploadExpense(jpeg, filename: 'r.jpg'),
-          throwsA(isA<ApiException>()
-              .having((e) => e.code, 'code', 'SCANNER_INFECTED')
-              .having((e) => e.messageHe, 'he', contains('נחסם'))));
+          throwsA(
+            isA<ApiException>()
+                .having((e) => e.code, 'code', 'SCANNER_INFECTED')
+                .having((e) => e.messageHe, 'he', contains('נחסם')),
+          ),
+        );
 
-      serve({
-        'POST /expenses/uploads/initiate': (_) => initiateApi,
-        'PUT /expenses/uploads/u1/bytes': (_) => http.Response('', 204),
-        'POST /expenses/uploads/u1/complete': (_) =>
-            json(202, {'uploadId': 'u1', 'status': 'SCAN_PENDING'}),
-        'GET /expenses/uploads/u1': (_) =>
-            json(200, {'uploadId': 'u1', 'status': 'REJECTED_MALWARE'}),
-      });
-      await expectLater(uploadExpense(jpeg, filename: 'r.jpg', pollEvery: Duration.zero),
-          throwsA(isA<ApiException>().having((e) => e.code, 'code', 'SCANNER_INFECTED')));
-    });
+        serve({
+          'POST /expenses/uploads/initiate': (_) => initiateApi,
+          'PUT /expenses/uploads/u1/bytes': (_) => http.Response('', 204),
+          'POST /expenses/uploads/u1/complete': (_) =>
+              json(202, {'uploadId': 'u1', 'status': 'SCAN_PENDING'}),
+          'GET /expenses/uploads/u1': (_) =>
+              json(200, {'uploadId': 'u1', 'status': 'REJECTED_MALWARE'}),
+        });
+        await expectLater(
+          uploadExpense(jpeg, filename: 'r.jpg', pollEvery: Duration.zero),
+          throwsA(
+            isA<ApiException>().having(
+              (e) => e.code,
+              'code',
+              'SCANNER_INFECTED',
+            ),
+          ),
+        );
+      },
+    );
 
-    test('scan still pending after the poll window → stillScanning (not an error)', () async {
-      serve({
-        'POST /expenses/uploads/initiate': (_) => initiateApi,
-        'PUT /expenses/uploads/u1/bytes': (_) => http.Response('', 204),
-        'POST /expenses/uploads/u1/complete': (_) =>
-            json(202, {'uploadId': 'u1', 'status': 'SCAN_PENDING'}),
-        'GET /expenses/uploads/u1': (_) => json(200, {'uploadId': 'u1', 'status': 'SCAN_PENDING'}),
-      });
-      final r = await uploadExpense(jpeg,
+    test(
+      'scan still pending after the poll window → stillScanning (not an error)',
+      () async {
+        serve({
+          'POST /expenses/uploads/initiate': (_) => initiateApi,
+          'PUT /expenses/uploads/u1/bytes': (_) => http.Response('', 204),
+          'POST /expenses/uploads/u1/complete': (_) =>
+              json(202, {'uploadId': 'u1', 'status': 'SCAN_PENDING'}),
+          'GET /expenses/uploads/u1': (_) =>
+              json(200, {'uploadId': 'u1', 'status': 'SCAN_PENDING'}),
+        });
+        final r = await uploadExpense(
+          jpeg,
           filename: 'r.jpg',
           pollEvery: const Duration(milliseconds: 5),
-          pollTimeout: const Duration(milliseconds: 30));
-      expect(r.stillScanning, isTrue);
-    });
+          pollTimeout: const Duration(milliseconds: 30),
+        );
+        expect(r.stillScanning, isTrue);
+      },
+    );
 
     test('PDF: sent as-is with application/pdf', () async {
       final pdf = Uint8List.fromList([...ascii.encode('%PDF-1.7'), 1, 2, 3]);
@@ -187,15 +249,26 @@ void main() {
       expect(isPdf(jpeg), isFalse);
       serve({
         'POST /expenses/uploads/initiate': (_) => json(201, {
-              'uploadId': 'u1',
-              'status': 'SCAN_PENDING',
-              'upload': {'kind': 'api', 'method': 'PUT', 'url': '/expenses/uploads/u1/bytes'}
-            }),
+          'uploadId': 'u1',
+          'status': 'SCAN_PENDING',
+          'upload': {
+            'kind': 'api',
+            'method': 'PUT',
+            'url': '/expenses/uploads/u1/bytes',
+          },
+        }),
         'PUT /expenses/uploads/u1/bytes': (_) => http.Response('', 204),
-        'POST /expenses/uploads/u1/complete': (_) =>
-            json(201, {'expenseId': 'e4', 'status': 'NEEDS_REVIEW', 'uploadId': 'u1'}),
+        'POST /expenses/uploads/u1/complete': (_) => json(201, {
+          'expenseId': 'e4',
+          'status': 'NEEDS_REVIEW',
+          'uploadId': 'u1',
+        }),
       });
-      final r = await uploadExpense(pdf, filename: 'r.pdf', contentType: 'application/pdf');
+      final r = await uploadExpense(
+        pdf,
+        filename: 'r.pdf',
+        contentType: 'application/pdf',
+      );
       expect(r.expenseId, 'e4');
       final init = jsonDecode(sent.first.body) as Map<String, dynamic>;
       expect(init['contentType'], 'application/pdf');
@@ -204,49 +277,62 @@ void main() {
       expect(sent[1].headers['Content-Type'], 'application/pdf');
     });
 
-    test('cancelled (screen closed) → polling stops, no more requests', () async {
-      var polls = 0;
-      var closed = false;
-      serve({
-        'POST /expenses/uploads/initiate': (_) => initiateApi,
-        'PUT /expenses/uploads/u1/bytes': (_) => http.Response('', 204),
-        'POST /expenses/uploads/u1/complete': (_) =>
-            json(202, {'uploadId': 'u1', 'status': 'SCAN_PENDING'}),
-        'GET /expenses/uploads/u1': (_) {
-          polls++;
-          closed = true;
-          return json(200, {'uploadId': 'u1', 'status': 'SCAN_PENDING'});
-        },
-      });
-      final r = await uploadExpense(jpeg,
-          filename: 'r.jpg', cancelled: () => closed, pollEvery: Duration.zero);
-      expect(r.stillScanning, isTrue);
-      expect(polls, 1);
-    });
+    test(
+      'cancelled (screen closed) → polling stops, no more requests',
+      () async {
+        var polls = 0;
+        var closed = false;
+        serve({
+          'POST /expenses/uploads/initiate': (_) => initiateApi,
+          'PUT /expenses/uploads/u1/bytes': (_) => http.Response('', 204),
+          'POST /expenses/uploads/u1/complete': (_) =>
+              json(202, {'uploadId': 'u1', 'status': 'SCAN_PENDING'}),
+          'GET /expenses/uploads/u1': (_) {
+            polls++;
+            closed = true;
+            return json(200, {'uploadId': 'u1', 'status': 'SCAN_PENDING'});
+          },
+        });
+        final r = await uploadExpense(
+          jpeg,
+          filename: 'r.jpg',
+          cancelled: () => closed,
+          pollEvery: Duration.zero,
+        );
+        expect(r.stillScanning, isTrue);
+        expect(polls, 1);
+      },
+    );
 
-    test('signed upload target: plain PUT to storage, no app credentials', () async {
-      serve({
-        'POST /expenses/uploads/initiate': (_) => json(201, {
-              'uploadId': 'u1',
-              'status': 'SCAN_PENDING',
-              'upload': {
-                'kind': 'signed',
-                'method': 'PUT',
-                'url': 'https://storage.example/q/u1?sig=1',
-                'headers': {'Content-Type': 'image/jpeg', 'x-upsert': 'false'}
-              }
-            }),
-        'PUT /q/u1': (_) => http.Response('', 200),
-        'POST /expenses/uploads/u1/complete': (_) =>
-            json(201, {'expenseId': 'e3', 'status': 'NEEDS_REVIEW', 'uploadId': 'u1'}),
-      });
-      final r = await uploadExpense(jpeg, filename: 'r.jpg');
-      expect(r.expenseId, 'e3');
-      final put = sent[1];
-      expect(put.url.host, 'storage.example');
-      expect(put.headers['x-upsert'], 'false');
-      expect(put.headers.containsKey('Authorization'), isFalse);
-      expect(put.headers.containsKey('X-Business-Id'), isFalse);
-    });
+    test(
+      'signed upload target: plain PUT to storage, no app credentials',
+      () async {
+        serve({
+          'POST /expenses/uploads/initiate': (_) => json(201, {
+            'uploadId': 'u1',
+            'status': 'SCAN_PENDING',
+            'upload': {
+              'kind': 'signed',
+              'method': 'PUT',
+              'url': 'https://storage.example/q/u1?sig=1',
+              'headers': {'Content-Type': 'image/jpeg', 'x-upsert': 'false'},
+            },
+          }),
+          'PUT /q/u1': (_) => http.Response('', 200),
+          'POST /expenses/uploads/u1/complete': (_) => json(201, {
+            'expenseId': 'e3',
+            'status': 'NEEDS_REVIEW',
+            'uploadId': 'u1',
+          }),
+        });
+        final r = await uploadExpense(jpeg, filename: 'r.jpg');
+        expect(r.expenseId, 'e3');
+        final put = sent[1];
+        expect(put.url.host, 'storage.example');
+        expect(put.headers['x-upsert'], 'false');
+        expect(put.headers.containsKey('Authorization'), isFalse);
+        expect(put.headers.containsKey('X-Business-Id'), isFalse);
+      },
+    );
   });
 }
