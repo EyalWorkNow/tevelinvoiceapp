@@ -49,23 +49,16 @@ void main() {
   );
 
   test(
-    'configured recovery never resets an unrelated legacy password',
+    'configured recovery asks Supabase for a code, never the legacy reset',
     () async {
       final previous = api.httpClient;
       addTearDown(() => api.httpClient = previous);
-      api.httpClient = MockClient((_) async {
-        fail('must not contact legacy password recovery');
+      api.httpClient = MockClient((request) async {
+        expect(request.url.host, settings.origin.host);
+        expect(request.url.path, '/auth/v1/recover');
+        return http.Response('{}', 200);
       });
-      await expectLater(
-        requestPasswordReset('owner@example.test'),
-        throwsA(
-          isA<ApiException>().having(
-            (e) => e.code,
-            'code',
-            'SUPABASE_RECOVERY_SUPPORT_REQUIRED',
-          ),
-        ),
-      );
+      await requestPasswordReset('owner@example.test');
     },
     skip: !settings.enabled,
   );
