@@ -63,23 +63,59 @@ class ShaamState {
   final bool canConfigure;
 }
 
-/// `/me.rules` (exempt-dealer ceiling, BE-02).
+/// `/me.rules` (exempt-dealer ceiling, BE-02; Stage A · A6 adds the gauge).
 class BusinessRules {
   const BusinessRules({
     this.exemptCeilingMinor,
     this.exemptCeilingYear,
     this.yearTurnoverMinor,
+    this.yearReceiptsMinor,
+    this.openingBalanceMinor,
+    this.taxYear,
+    this.ceilingPercent,
+    this.ceilingLevel,
+    this.forecastDate,
+    this.forecastWithinYear = false,
   });
 
-  factory BusinessRules.fromJson(Map<String, dynamic> json) => BusinessRules(
-    exemptCeilingMinor: jBigOrNull(json['exemptCeilingMinor']),
-    exemptCeilingYear: jIntOrNull(json['exemptCeilingYear']),
-    yearTurnoverMinor: jBigOrNull(json['yearTurnoverMinor']),
-  );
+  factory BusinessRules.fromJson(Map<String, dynamic> json) {
+    final gauge = jMap(json['exemptCeiling']);
+    return BusinessRules(
+      exemptCeilingMinor: jBigOrNull(json['exemptCeilingMinor']),
+      exemptCeilingYear: jIntOrNull(json['exemptCeilingYear']),
+      yearTurnoverMinor: jBigOrNull(json['yearTurnoverMinor']),
+      yearReceiptsMinor: jBigOrNull(json['yearReceiptsMinor']),
+      openingBalanceMinor: jBigOrNull(json['openingBalanceMinor']),
+      taxYear: jIntOrNull(json['taxYear']),
+      ceilingPercent: jIntOrNull(gauge['percent']),
+      ceilingLevel: jStr(gauge['level']),
+      forecastDate: jStr(gauge['forecastDate']),
+      forecastWithinYear: jBool(gauge['forecastWithinYear']),
+    );
+  }
 
   final BigInt? exemptCeilingMinor;
+
+  /// Year of the ceiling row in force (may be < [taxYear] until published).
   final int? exemptCeilingYear;
+
+  /// Opening balance (עוסק פטור) + receipts issued this calendar year.
   final BigInt? yearTurnoverMinor;
+  final BigInt? yearReceiptsMinor;
+
+  /// "מחזור מתחילת השנה לפני תבל"; null = not entered.
+  final BigInt? openingBalanceMinor;
+  final int? taxYear;
+
+  /// Server gauge (null on a server without A6).
+  final int? ceilingPercent;
+
+  /// OK | WARN | CRITICAL | OVER
+  final String? ceilingLevel;
+
+  /// YYYY-MM-DD at the last-90-days pace; null = no pace / already over.
+  final String? forecastDate;
+  final bool forecastWithinYear;
 }
 
 /// GET /me. V1 fields (canFinalize, canConfigure, canApproveExpenses) stay;
