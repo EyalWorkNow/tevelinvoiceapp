@@ -280,7 +280,7 @@ class _CardcomMerchantScreenState extends State<CardcomMerchantScreen> {
                               decoration: const InputDecoration(
                                 labelText: 'שם ממשק API',
                                 helperText:
-                                    'מוצפן בשרת. הערך השמור אינו מוצג בחזרה.',
+                                    'נשמר מוצפן. הערך השמור אינו מוצג בחזרה.',
                               ),
                             ),
                             const SizedBox(height: 8),

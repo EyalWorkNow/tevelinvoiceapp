@@ -65,20 +65,21 @@ void main() {
     },
   );
 
-  testWidgets('already a member (MEMBER_EXISTS) → "אתה כבר חבר ב-…" + "פתח"', (
-    tester,
-  ) async {
-    backend.error('POST', '/auth/invite/:token/accept', 409, 'MEMBER_EXISTS');
-    await pumpInvite(tester);
-    await tester.enterText(
-      find.byKey(const Key('invite-password')),
-      'Mobile12345678',
-    );
-    await tester.tap(find.byKey(const Key('invite-join')));
-    await settle(tester);
-    expect(find.text('אתה כבר חבר ב-סטודיו תבל'), findsOneWidget);
-    expect(find.text('פתח'), findsOneWidget);
-  });
+  testWidgets(
+    'already a member (MEMBER_EXISTS) → "אתה כבר חבר ב-…" + "למסך הכניסה"',
+    (tester) async {
+      backend.error('POST', '/auth/invite/:token/accept', 409, 'MEMBER_EXISTS');
+      await pumpInvite(tester);
+      await tester.enterText(
+        find.byKey(const Key('invite-password')),
+        'Mobile12345678',
+      );
+      await tester.tap(find.byKey(const Key('invite-join')));
+      await settle(tester);
+      expect(find.text('אתה כבר חבר ב-סטודיו תבל'), findsOneWidget);
+      expect(find.text('למסך הכניסה'), findsOneWidget);
+    },
+  );
 
   testWidgets('expired / revoked → "ההזמנה כבר לא בתוקף. בקש מ-… לשלוח שוב"', (
     tester,
@@ -88,7 +89,9 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await pumpInvite(tester);
       expect(
-        find.text('ההזמנה כבר לא בתוקף. בקש מ-המזמין לשלוח שוב'),
+        find.text(
+          'ההזמנה כבר לא בתוקף. בקשו ממי ששלח לכם אותה לשלוח הזמנה חדשה',
+        ),
         findsOneWidget,
         reason: code,
       );

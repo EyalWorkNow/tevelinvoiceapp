@@ -407,6 +407,14 @@ void main() {
         await settle(tester);
         expect(find.text('אישור כתובת האימייל'), findsOneWidget);
         expect(sent.any((r) => r.url.path.endsWith('/accept')), isFalse);
+        // The address is one LTR line of its own, never wrapped (bidi split,
+        // QA 2026-11-16 signed-out/16).
+        final email = tester.widget<Text>(
+          find.byKey(const Key('invite-email')),
+        );
+        expect(email.data, contains(invited));
+        expect(email.textDirection, TextDirection.ltr);
+        expect(email.maxLines, 1);
 
         await tester.enterText(find.byKey(const Key('invite-code')), '111111');
         await tester.tap(find.byKey(const Key('invite-verify')));
@@ -532,9 +540,13 @@ void main() {
         );
         await settle(tester);
         expect(
-          find.text('ההזמנה כבר לא בתוקף. בקש מ-המזמין לשלוח שוב'),
+          find.text(
+            'ההזמנה כבר לא בתוקף. בקשו ממי ששלח לכם אותה לשלוח הזמנה חדשה',
+          ),
           findsOneWidget,
         );
+        // Not "פתח": a dead invitation has nothing to open.
+        expect(find.text('למסך הכניסה'), findsOneWidget);
       }
     });
   });

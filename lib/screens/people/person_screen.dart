@@ -163,17 +163,22 @@ class _PersonScreenState extends State<PersonScreen> {
   bool get _statementCap =>
       _caps.can(Cap.customerManage) || _caps.can(Cap.reportView);
 
-  /// "שלח כרטסת" (J11): one tap. E-mail when the customer has one and the
-  /// member may send to customers; otherwise the PDF goes to the share sheet.
+  /// "שלח כרטסת" (J11). E-mail when the customer has one and the member may
+  /// send to customers (asked first: it reaches the customer at once, QA
+  /// 2026-11-16 owner/114); otherwise the PDF goes to the share sheet.
   Future<void> _sendStatement() async {
     if (_busy) return;
     HapticFeedback.selectionClick();
     final email = (_email ?? '').trim();
+    final byEmail =
+        email.isNotEmpty &&
+        _caps.can(Cap.docSend) &&
+        _caps.can(Cap.customerManage);
+    if (byEmail && !await _confirmStatement(email)) return;
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
-      if (email.isNotEmpty &&
-          _caps.can(Cap.docSend) &&
-          _caps.can(Cap.customerManage)) {
+      if (byEmail) {
         await sendStatement(widget.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showNotchNotice(
@@ -189,6 +194,28 @@ class _PersonScreenState extends State<PersonScreen> {
       if (mounted) showErrorSnack(context, e);
     }
     if (mounted) setState(() => _busy = false);
+  }
+
+  Future<bool> _confirmStatement(String email) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(PeopleHe.statementConfirmTitle),
+        content: Text(PeopleHe.statementConfirmBody(_name, ltrIsolate(email))),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(CommonHe.cancel),
+          ),
+          TextButton(
+            key: const Key('statement-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(CommonHe.send),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
   }
 
   Future<void> _archive() async {

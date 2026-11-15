@@ -163,13 +163,24 @@ void main() {
         find.byKey(const Key('person-statement')),
         'שלח כרטסת',
       );
+      // E-mailing the customer asks first (QA 2026-11-16 owner/114).
+      await pumpUntil(
+        tester,
+        find.byKey(const Key('statement-confirm')),
+        what: 'statement confirm',
+      );
+      await taps.tap(
+        tester,
+        find.byKey(const Key('statement-confirm')),
+        'שלח',
+      );
       await pumpUntil(
         tester,
         find.text(PeopleHe.statementSent(debtorEmail)),
         what: 'sent toast',
       );
-      // J11 = 3 taps again: לקוחות is a tab (PM 2026-11-12).
-      expect(taps.count, lessThanOrEqualTo(3), reason: '$taps');
+      // J11 = 3 taps + the confirm: לקוחות is a tab (PM 2026-11-12).
+      expect(taps.count, lessThanOrEqualTo(4), reason: '$taps');
       expect(
         sharedPdfs,
         isEmpty,

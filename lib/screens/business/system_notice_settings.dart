@@ -80,7 +80,7 @@ class _SystemNoticeSettingsState extends State<SystemNoticeSettings> {
             const SizedBox(height: Space.xs),
             Text(SystemNoticesHe.testLocalHint, style: AppText.secondary),
             if (systemNotices.enabled && systemNotices.deliveryConfigured)
-              const Text('המכשיר רשום והשרת מוגדר לשליחת התראות'),
+              const Text(SystemNoticesHe.deliveryReady),
             const SizedBox(height: Space.l),
             const Text(SystemNoticesHe.outside, style: AppText.body),
             const SizedBox(height: Space.s),

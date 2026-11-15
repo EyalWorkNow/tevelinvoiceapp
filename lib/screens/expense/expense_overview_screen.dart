@@ -1210,7 +1210,7 @@ ExpenseOverview _demoExpenseOverview(String selectedMonth) {
     ],
     'expenses': selectedRows,
     'recognitionNote':
-        'נתוני הדגמה חזותיים בלבד. בחשבון אמיתי החישובים והסיווגים מתקבלים מהשרת.',
+        'נתוני הדגמה בלבד. בחשבון אמיתי מוצגים ההוצאות והסיווגים של העסק שלך.',
   });
 }
 

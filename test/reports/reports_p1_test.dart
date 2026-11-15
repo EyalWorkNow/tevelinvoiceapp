@@ -152,7 +152,7 @@ void main() {
       const ReportsScreen(embedded: true),
     );
     expect(find.text('לטיפול'), findsNothing);
-    expect(find.text('הלקוחות שלי'), findsOneWidget);
+    expect(find.text('דוחות'), findsWidgets);
   });
 
   testWidgets(

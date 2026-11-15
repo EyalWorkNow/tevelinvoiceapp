@@ -35,6 +35,7 @@ class ExpenseReviewCard extends StatefulWidget {
     required this.onUndoDuplicate,
     this.duplicateOf,
     this.reading = false,
+    this.notice,
     this.editApproved = false,
     this.loadSource = fetchExpenseSource,
   });
@@ -58,6 +59,9 @@ class ExpenseReviewCard extends StatefulWidget {
 
   /// OCR is running for this card ("קורא את הקבלה…").
   final bool reading;
+
+  /// A lasting note above the fields (e.g. "automatic reading is off").
+  final String? notice;
   final Future<Uint8List> Function(String id) loadSource;
 
   @override
@@ -333,6 +337,22 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
                     child: Text(ExpenseHe.errorCard, style: AppText.body),
                   ),
                 if (duplicate) _duplicateBanner(context),
+                if (showForm && widget.notice != null) ...[
+                  AppCard(
+                    key: const Key('expense-card-notice'),
+                    color: context.palette.tint(context.palette.warn),
+                    child: Row(
+                      children: [
+                        Icon(Iconsax.info_circle, color: context.palette.warn),
+                        const SizedBox(width: Space.s),
+                        Expanded(
+                          child: Text(widget.notice!, style: AppText.body),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: Space.l),
+                ],
                 if (showForm) ..._fields(context),
               ],
             ),

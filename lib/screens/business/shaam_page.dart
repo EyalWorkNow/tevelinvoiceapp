@@ -64,6 +64,7 @@ class _ShaamPageState extends State<ShaamPage> {
   static String _status(ShaamState s) => switch (s.status) {
     'CONNECTED' => BusinessHe.shaamConnected,
     'EXPIRED' || 'REAUTH_REQUIRED' || 'REVOKED' => BusinessHe.shaamExpired,
+    'DISABLED' when businessContext.isVatExempt => BusinessHe.shaamNotNeeded,
     'DISABLED' => BusinessHe.shaamOff,
     _ => BusinessHe.shaamNotConnected,
   };

@@ -154,8 +154,7 @@ Future<bool> _subscriptionGate(BuildContext? context) async {
           navigatorKey.currentState?.push(
             MaterialPageRoute<void>(
               builder: (gateContext) => RequiredSubscriptionScreen(
-                onSubscribed: () =>
-                    _closeSubscriptionGate(gateContext),
+                onSubscribed: () => _closeSubscriptionGate(gateContext),
                 onExit: () => _closeSubscriptionGate(gateContext),
               ),
               settings: const RouteSettings(name: '/gate/subscription'),
