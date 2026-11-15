@@ -25,7 +25,9 @@ import 'package:integration_test/integration_test.dart';
 import 'package:invoice/app_shell.dart' show currentTab, AppTab;
 import 'package:invoice/router.dart' show navigatorKey;
 import 'package:invoice/screens/people/person_screen.dart';
+import 'package:invoice/screens/auth/login_screen.dart';
 import 'package:invoice/state/business_context.dart';
+import 'package:invoice/state/caps.dart';
 import 'package:invoice/state/session.dart';
 
 import 'package:invoice/screens/document/sheets/s6_share.dart'
@@ -342,7 +344,10 @@ Future<String?> saveCustomerForm() async {
 }
 
 Future<void> sweepAddCustomerFromPeople(Random rnd) async {
-  if (!businessContext.caps.showPeopleTab) return;
+  if (!businessContext.caps.showPeopleTab ||
+      !businessContext.caps.can(Cap.docDraft)) {
+    return;
+  }
   final name = 'סוויפ ${DateTime.now().millisecondsSinceEpoch % 100000}';
   await step('people: open + לקוח, back without typing', () async {
     await selectTab(AppTab.people);
@@ -1114,11 +1119,51 @@ Future<void> sweepHomeChurn() async {
 
 // ---- the test ---------------------------------------------------------------------------
 
+/// Signs the visible account out from Settings and [email] in through the
+/// sign-in screen (MFA from the mail folder), like a second member on the
+/// same phone.
+Future<void> switchAccountThroughUi(String email) async {
+  await toRoot();
+  await selectTab(AppTab.profile);
+  await tapIf(find.text('הגדרות'), waitMs: 2000, what: 'הגדרות');
+  await pumpMs(400);
+  if (!await tapIf(find.byKey(const Key('account-signout')), what: 'signout')) {
+    return;
+  }
+  await pumpMs(600);
+  final confirm = find.byKey(const Key('confirm-danger')).hitTestable();
+  if (confirm.evaluate().isNotEmpty) {
+    await t.tap(confirm.first);
+    await pumpMs(600);
+  }
+  if (!await waitFor(find.byType(LoginScreen), ms: 20000)) {
+    note('no sign-in screen after sign-out: ${describeScreen()}');
+    return;
+  }
+  await pumpMs(800);
+  try {
+    await signInThroughUi(
+      t,
+      email,
+      devPassword,
+      until: find.byKey(const Key('tab-home')).hitTestable(),
+      pickBusinessId: devBusinessId,
+    );
+  } on TestFailure {
+    record(
+      'account switch',
+      'sign-in of $email did not reach home: ${describeScreen()}',
+      null,
+    );
+  }
+}
+
 Future<void> runGuarded(
   WidgetTester tester,
   String email,
-  Future<void> Function() body,
-) async {
+  Future<void> Function() body, {
+  bool switchViaUi = false,
+}) async {
   t = tester;
   final originalOnError = FlutterError.onError;
   final originalPlatformOnError = PlatformDispatcher.instance.onError;
@@ -1141,11 +1186,43 @@ Future<void> runGuarded(
     record('PlatformDispatcher', e, st);
     return true;
   };
+  var lastStatus = session.status;
+  void watchSession() {
+    if (session.status == lastStatus) return;
+    lastStatus = session.status;
+    if (session.status == SessionStatus.signedOut &&
+        !currentStep.endsWith(': launch') &&
+        !currentStep.endsWith('through the UI')) {
+      note(
+        'signed out (expired=${session.expired}) at\n'
+        '${StackTrace.current.toString().split('\n').take(18).join('\n')}',
+      );
+    }
+  }
+
+  session.addListener(watchSession);
   final done = Completer<void>();
   runZonedGuarded(() async {
     try {
       currentStep = '$email: launch';
-      await launchSignedInAs(tester, email);
+      if (switchViaUi) {
+        currentStep = '$email: sign-out + sign-in through the UI';
+        await switchAccountThroughUi(email);
+      } else {
+        await launchSignedInAs(tester, email);
+      }
+      // The previous account's tree is still up for a frame: wait for this
+      // account's session, not just any shell.
+      final end = DateTime.now().add(const Duration(seconds: 30));
+      while (DateTime.now().isBefore(end) &&
+          !(session.status == SessionStatus.signedIn &&
+              session.account?.email.toLowerCase() == email.toLowerCase())) {
+        await t.pump(const Duration(milliseconds: 100));
+      }
+      note(
+        'launch: status ${session.status} account ${session.account?.email} '
+        'business ${session.business?.businessId} offline ${session.offline}',
+      );
       if (!await waitFor(find.byKey(const Key('tab-home')), ms: 30000)) {
         final top = topRoute?.settings.name;
         final texts = find
@@ -1167,6 +1244,7 @@ Future<void> runGuarded(
     }
   }, (e, st) => record('uncaught async', e, st));
   await done.future;
+  session.removeListener(watchSession);
   // Let late async errors land in this run.
   await pumpMs(1500);
   FlutterError.onError = originalOnError;
@@ -1177,8 +1255,12 @@ Future<void> runGuarded(
 /// app for WhatsApp or the share sheet stops the frames the test pumps).
 final List<String> externalOpens = [];
 
-/// --dart-define=SWEEP_ROLES=owner-only | others-only (default: all three).
-const String onlyRoles = String.fromEnvironment('SWEEP_ROLES');
+/// --dart-define=SWEEP_ROLES=owner,employee,viewer (default: all three).
+const String onlyRoles = String.fromEnvironment(
+  'SWEEP_ROLES',
+  defaultValue: 'owner,employee,viewer',
+);
+bool sweeps(String role) => onlyRoles.split(',').contains(role);
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -1195,7 +1277,7 @@ void main() {
     'crash sweep: owner, employee, viewer',
     (tester) async {
       final rnd = Random();
-      if (onlyRoles != 'others-only') {
+      if (sweeps('owner')) {
         await runGuarded(tester, ownerEmail, () async {
           await sweepTabs();
           await sweepAddCustomerFromPeople(rnd);
@@ -1213,20 +1295,24 @@ void main() {
       }
 
       for (final who in [
-        if (onlyRoles != 'owner-only') ...[
-          'mobile-employee@tevel.test',
-          'mobile-viewer@tevel.test',
-        ],
+        if (sweeps('employee')) 'mobile-employee@tevel.test',
+        if (sweeps('viewer')) 'mobile-viewer@tevel.test',
       ]) {
-        await runGuarded(tester, who, () async {
-          await sweepTabs(rounds: 2);
-          await sweepAddCustomerFromPeople(rnd);
-          await sweepCompose(rnd);
-          await sweepDocument();
-          await sweepBusiness();
-          await sweepProfile();
-          await sweepLifecycle();
-        });
+        await runGuarded(
+          switchViaUi:
+              sweeps('owner') || who.contains('viewer') && sweeps('employee'),
+          tester,
+          who,
+          () async {
+            await sweepTabs(rounds: 2);
+            await sweepAddCustomerFromPeople(rnd);
+            await sweepCompose(rnd);
+            await sweepDocument();
+            await sweepBusiness();
+            await sweepProfile();
+            await sweepLifecycle();
+          },
+        );
       }
       await session.signOutLocally();
       await tester.pump(const Duration(milliseconds: 500));
