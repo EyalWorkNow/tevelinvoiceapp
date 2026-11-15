@@ -240,11 +240,15 @@ class ApiClient {
   Future<Map<String, dynamic>> _decode(http.Response response) async {
     final bytes = response.bodyBytes;
     if (bytes.isEmpty) return <String, dynamic>{};
-    final Object? json;
+    Object? json;
     try {
       json = bytes.length >= backgroundDecodeBytes
           ? await backgroundDecoder(bytes)
           : _decodeJsonBytes(bytes);
+      // A map that crossed an isolate boundary may come back as a plain Map.
+      if (json is Map && json is! Map<String, dynamic>) {
+        json = Map<String, dynamic>.from(json);
+      }
     } on FormatException {
       throw ApiException(
         response.statusCode,

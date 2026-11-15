@@ -319,6 +319,9 @@ class _PaymentSheetState extends State<PaymentSheet> {
         const ChipOption('_more', PaymentHe.more),
     ];
     return Padding(
+      // One element per payment: removing payment 2 must not hand its fields
+      // (and their state) to payment 3.
+      key: ObjectKey(d),
       padding: const EdgeInsets.only(bottom: Space.l),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -335,7 +338,16 @@ class _PaymentSheetState extends State<PaymentSheet> {
                 if (i > 0)
                   TextButton(
                     onPressed: _busy == null
-                        ? () => setState(() => _drafts.removeAt(i).dispose())
+                        ? () {
+                            final removed = _drafts[i];
+                            setState(() => _drafts.removeAt(i));
+                            // Its fields leave the tree in the next frame and
+                            // detach from the controllers then; disposing now
+                            // was "used after being disposed" (QA 2026-11-15).
+                            WidgetsBinding.instance.addPostFrameCallback(
+                              (_) => removed.dispose(),
+                            );
+                          }
                         : null,
                     child: const Text(PaymentHe.remove),
                   ),
