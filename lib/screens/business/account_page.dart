@@ -4,6 +4,7 @@
 // last; the sole owner first sees what closes, §13.15).
 
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 
@@ -16,8 +17,10 @@ import '../../state/cache.dart';
 import '../../state/caps.dart';
 import '../../state/session.dart';
 import '../../ui/ds.dart';
+import '../../ui/widgets/notch_notice.dart';
 import '../../util/allowed_urls.dart';
 import '../../util/biometric.dart';
+import '../../util/error_log.dart';
 import '../../util/labels/labels.dart';
 import 'business_template.dart';
 import 'sheets/s13_editor.dart';
@@ -53,6 +56,25 @@ class _AccountPageState extends State<AccountPage> {
         _faceId = enabled;
       });
     }
+  }
+
+  /// "שלח יומן תקלות": the local error log through the share sheet.
+  Future<void> _sendErrorLog() async {
+    try {
+      final shared = await shareErrorLog(
+        header:
+            'Tevel $appVersion · ${Platform.operatingSystem} '
+            '${Platform.operatingSystemVersion}',
+      );
+      if (!shared && mounted) {
+        ScaffoldMessenger.of(context).showNotchNotice(
+          const SnackBar(content: Text(BusinessHe.errorLogEmpty)),
+        );
+      }
+    } on Object catch (e) {
+      if (mounted) showErrorSnack(context, e);
+    }
+    if (mounted) setState(() {});
   }
 
   Future<void> _signOut() async {
@@ -198,6 +220,15 @@ class _AccountPageState extends State<AccountPage> {
           label: BusinessHe.version,
           value: ltrIsolate(appVersion),
           icon: Iconsax.info_circle,
+        ),
+        BusinessRow(
+          key: const Key('account-error-log'),
+          label: BusinessHe.sendErrorLog,
+          value: ErrorLog.instance.entries.isEmpty
+              ? null
+              : BusinessHe.errorLogCount(ErrorLog.instance.entries.length),
+          icon: Iconsax.warning_2,
+          onTap: _sendErrorLog,
         ),
         const RowGroupGap(),
         BusinessRow(

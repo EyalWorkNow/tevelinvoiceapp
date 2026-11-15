@@ -385,6 +385,7 @@ void main() {
     (tester) async {
       await pumpAs(tester, backend, Preset.owner, const AccountPage());
       await tester.ensureVisible(find.byKey(const Key('account-delete')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('account-delete')));
       await settle(tester);
       expect(find.byType(SoleOwnerWarning), findsOneWidget);
@@ -399,6 +400,7 @@ void main() {
   testWidgets('non-owner goes straight to the delete screen', (tester) async {
     await pumpAs(tester, backend, Preset.partner, const AccountPage());
     await tester.ensureVisible(find.byKey(const Key('account-delete')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('account-delete')));
     await settle(tester);
     expect(find.byType(SoleOwnerWarning), findsNothing);
