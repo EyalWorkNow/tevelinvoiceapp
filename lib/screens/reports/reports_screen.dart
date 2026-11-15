@@ -76,8 +76,9 @@ List<String> reportKinds(Caps caps, {required bool exempt}) =>
         'pnl',
         'advances',
         'receivables',
+        'continuity', // A8: the server's numbering-gap check
       ]
-    : ['income', if (!exempt) 'vat', 'receivables'];
+    : ['income', if (!exempt) 'vat', 'receivables', 'continuity'];
 
 class PeriodChips extends StatelessWidget {
   const PeriodChips({

@@ -84,6 +84,11 @@ abstract final class InboxHe {
       (customer == null || customer.isEmpty)
       ? 'התקבל תשלום בקישור'
       : '$customer שילם בקישור';
+  // A8: a payment that no receipt covers (shown to who records payments and
+  // to the accountant).
+  static String paymentWithoutReceipt(int n) =>
+      n == 1 ? 'תשלום אחד נרשם בלי קבלה' : '$n תשלומים נרשמו בלי קבלה';
+  static const actShowPayments = 'הצג';
   static const reportReady = 'דוח מוכן לשליחה';
   static const continuityGap = 'יש פער ברצף המסמכים';
 
@@ -118,6 +123,15 @@ abstract final class InboxHe {
   static String remindersConfirm(int n) =>
       n == 1 ? 'שלח תזכורת אחת' : 'שלח $n תזכורות';
   static const remindersCancel = 'ביטול';
+  // A3: one batch is capped; the header counts every overdue invoice.
+  static String remindersCount(int total) =>
+      total == 1 ? 'חשבונית אחת באיחור' : '$total חשבוניות באיחור';
+  static String remindersCapped(int shown, int total) =>
+      'מוצגות $shown הוותיקות מתוך $total. אפשר לשלוח עד $shown בכל פעם.';
+
+  // A3: the list a card opens (exactly the documents the card counts).
+  static String inboxListCount(int n) => n == 1 ? 'מסמך אחד' : '$n מסמכים';
+  static const inboxListEmpty = 'אין כאן מסמכים כרגע';
 
   // Draft rows (AT-92).
   static const draftActions = 'פעולות לטיוטה';

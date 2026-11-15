@@ -24,6 +24,8 @@ import 'doc_rows.dart' show docSubtitle;
 import '../document/dialogs.dart' show askSigningPassphrase;
 import '../document/sheets/s6_share.dart' show sendPaymentReminder;
 import '../../api/actions_api.dart' show fetchCustomerById;
+import '../../api/reports_api.dart' show paymentsReportKind;
+import 'inbox_list.dart';
 
 String inboxTitle(InboxItem c) => switch (c.kind) {
   InboxKind.approvalNeeded => InboxHe.approvalNeeded(c.count),
@@ -35,6 +37,7 @@ String inboxTitle(InboxItem c) => switch (c.kind) {
     c.count == 1
         ? InboxHe.taxInvoiceDue(c.customerName, _shortDate(c.dueDate))
         : InboxHe.taxInvoiceDueMany(c.count),
+  InboxKind.paymentWithoutReceipt => InboxHe.paymentWithoutReceipt(c.count),
   InboxKind.allocationProblem =>
     c.count == 1
         ? InboxHe.allocationProblem(
@@ -64,7 +67,10 @@ String inboxTitle(InboxItem c) => switch (c.kind) {
 String inboxActionLabel(InboxItem c) => switch (c.kind) {
   InboxKind.approvalNeeded => InboxHe.actOpen,
   InboxKind.myRejected => InboxHe.actFix,
-  InboxKind.taxInvoiceDue => InboxHe.actIssue,
+  // A8: the accountant opens the document; only an issuer issues.
+  InboxKind.taxInvoiceDue =>
+    businessContext.can(Cap.docIssue) ? InboxHe.actIssue : InboxHe.actOpen,
+  InboxKind.paymentWithoutReceipt => InboxHe.actShowPayments,
   InboxKind.allocationProblem => InboxHe.actRetry,
   InboxKind.signingLocked => InboxHe.actSign,
   InboxKind.unfinished => InboxHe.actContinue,
@@ -82,6 +88,7 @@ IconData inboxIcon(InboxKind k) => switch (k) {
   InboxKind.approvalNeeded => Iconsax.user_tick,
   InboxKind.myRejected => Iconsax.rotate_left,
   InboxKind.taxInvoiceDue => Iconsax.receipt_item,
+  InboxKind.paymentWithoutReceipt => Iconsax.money_recive,
   InboxKind.allocationProblem => Iconsax.bank,
   InboxKind.signingLocked => Iconsax.edit_2,
   InboxKind.unfinished => Iconsax.note_text,
@@ -98,6 +105,7 @@ IconData inboxIcon(InboxKind k) => switch (k) {
 InboxTone inboxTone(InboxKind k) => switch (k) {
   InboxKind.myRejected ||
   InboxKind.taxInvoiceDue ||
+  InboxKind.paymentWithoutReceipt ||
   InboxKind.allocationProblem ||
   InboxKind.overdue ||
   InboxKind.continuityGap => InboxTone.danger,
@@ -188,9 +196,16 @@ Future<void> runInboxAction(
           intent: 'REQUEST',
         ); // local journal (B resumes)
       }
-      return openActivity(context, chip: 'drafts');
+      // A3: exactly the documents the card counts (same server predicate).
+      return openInboxList(context, c.kind);
     case InboxKind.taxInvoiceDue:
+      if (!businessContext.can(Cap.docIssue)) {
+        if (c.count == 1 && first != null) return openDocument(context, first);
+        return openInboxList(context, c.kind);
+      }
       return openCompose(context, intent: 'TYPE:305', fromDocId: first);
+    case InboxKind.paymentWithoutReceipt:
+      return openReport(context, paymentsReportKind);
     case InboxKind.signingLocked:
       return _signAll(context, c, onChanged);
     case InboxKind.paymentReceived:
@@ -303,9 +318,9 @@ Future<void> runReminders(
   BuildContext context, {
   required VoidCallback onChanged,
 }) async {
-  final List<DocumentSummary> overdue;
+  final ActivityPage page;
   try {
-    overdue = await fetchOverdueDocuments();
+    page = await fetchOverdue();
   } on ApiException catch (e) {
     if (context.mounted) {
       _toast(context, e.messageHe, motion: NoticeMotion.error);
@@ -313,6 +328,8 @@ Future<void> runReminders(
     return;
   }
   if (!context.mounted) return;
+  // A3: the oldest [reminderBatchMax] at most; the header counts them all.
+  final overdue = page.documents.take(reminderBatchMax).toList();
   if (overdue.isEmpty) {
     _toast(context, InboxHe.remindersNone);
     onChanged();
@@ -322,6 +339,7 @@ Future<void> runReminders(
     context,
     overdue,
     reminded: ReminderLog.all(),
+    total: page.total,
   );
   if (chosen == null || chosen.isEmpty || !context.mounted) return;
   _toast(context, InboxHe.remindersSending, motion: NoticeMotion.reminder);
@@ -364,8 +382,11 @@ Future<Set<String>?> showReminderPreview(
   List<DocumentSummary> overdue, {
   Future<Map<String, DateTime>>? reminded,
   DateTime? now,
+  int? total,
 }) {
-  final chosen = {for (final d in overdue) d.id};
+  final all = total == null || total < overdue.length ? overdue.length : total;
+  final rows = overdue.take(reminderBatchMax).toList();
+  final chosen = {for (final d in rows) d.id};
   final last = <String, DateTime>{};
   var asked = false;
   return showDialog<Set<String>>(
@@ -392,9 +413,20 @@ Future<Set<String>?> showReminderPreview(
             child: ListView(
               shrinkWrap: true,
               children: [
+                Text(
+                  InboxHe.remindersCount(all),
+                  key: const Key('reminders-count'),
+                  style: AppText.headline,
+                ),
+                if (all > rows.length)
+                  Text(
+                    InboxHe.remindersCapped(rows.length, all),
+                    key: const Key('reminders-capped'),
+                    style: AppText.secondary,
+                  ),
                 Text(InboxHe.remindersPreviewBody, style: AppText.secondary),
                 const SizedBox(height: Space.s),
-                for (final d in overdue)
+                for (final d in rows)
                   CheckboxListTile(
                     key: Key('reminder-${d.id}'),
                     contentPadding: EdgeInsets.zero,

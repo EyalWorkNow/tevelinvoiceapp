@@ -156,6 +156,9 @@ Future<bool> sendReportByEmail(
 /// Report kind served by GET /payments (not BE-18).
 const String paymentsReportKind = 'payments';
 
+/// The receipt cell of a payment that no receipt covers.
+const String noReceiptLabel = 'ללא קבלה';
+
 /// Max rows read for one period (server limit).
 const int _ledgerLimit = 500;
 
@@ -186,7 +189,10 @@ Future<ReportData> fetchPaymentsLedger(
       'date': _ddmm('${p['paymentDate'] ?? ''}'),
       'customer': p['customerName'] ?? '',
       'method': methodLabel == null ? method : methodLabel(method),
-      'receipt': p['receiptDocumentNumber'] ?? '',
+      // A8: a payment no receipt covers says so (the inbox card opens here).
+      'receipt':
+          p['receiptDocumentNumber'] ??
+          (p['voidedAt'] == null ? noReceiptLabel : ''),
       'amount': '$amount',
     });
   }

@@ -141,6 +141,9 @@ class ReportData {
     this.kpis = const [],
     this.columns = const [],
     this.rows = const [],
+    this.warnings = const [],
+    this.draft = false,
+    this.notes = const [],
   });
 
   factory ReportData.fromJson(Map<String, dynamic> json) => ReportData(
@@ -153,11 +156,23 @@ class ReportData {
         ReportColumn.fromJson(c as Map<String, dynamic>),
     ],
     rows: [for (final r in (json['rows'] as List? ?? const [])) jMap(r)],
+    warnings: jStrings(json['warnings']),
+    draft: jBool(json['draft']),
+    notes: jStrings(json['notes']),
   );
 
   final List<ReportKpi> kpis;
   final List<ReportColumn> columns;
   final List<Map<String, dynamic>> rows;
+
+  /// A4: problems to read before trusting the figures (warning rows).
+  final List<String> warnings;
+
+  /// A4: the figures are a draft for the accountant (the VAT report).
+  final bool draft;
+
+  /// The server's explanation lines.
+  final List<String> notes;
 
   /// Money KPI [key], else the first money KPI.
   BigInt? money(String key) {

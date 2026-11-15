@@ -71,6 +71,7 @@ enum InboxKind {
   approvalNeeded('APPROVAL_NEEDED'),
   myRejected('MY_REJECTED'),
   taxInvoiceDue('TAX_INVOICE_DUE'),
+  paymentWithoutReceipt('PAYMENT_WITHOUT_RECEIPT'),
   allocationProblem('ALLOCATION_PROBLEM'),
   signingLocked('SIGNING_LOCKED'),
   unfinished('UNFINISHED'),
@@ -124,6 +125,7 @@ class InboxItem {
     this.amountMinor,
     this.documentIds = const [],
     this.expenseIds = const [],
+    this.paymentIds = const [],
     this.customerName,
     this.documentNumber,
     this.documentType,
@@ -144,6 +146,7 @@ class InboxItem {
       amountMinor: jBigOrNull(json['amountMinor']),
       documentIds: jStrings(json['documentIds']),
       expenseIds: jStrings(json['expenseIds']),
+      paymentIds: jStrings(json['paymentIds']),
       customerName: pick('customerName'),
       documentNumber: pick('documentNumber'),
       documentType: pick('documentType'),
@@ -166,6 +169,9 @@ class InboxItem {
   /// EXPENSE_REVIEW (BE-05): the expenses behind the card, newest first.
   final List<String> expenseIds;
 
+  /// PAYMENT_WITHOUT_RECEIPT (A8): payments no receipt covers, oldest first.
+  final List<String> paymentIds;
+
   /// Single-document cards: who / which (title words).
   final String? customerName;
   final String? documentNumber;
@@ -187,6 +193,7 @@ class InboxItem {
     if (amountMinor != null) 'amountMinor': amountMinor.toString(),
     'documentIds': documentIds,
     if (expenseIds.isNotEmpty) 'expenseIds': expenseIds,
+    if (paymentIds.isNotEmpty) 'paymentIds': paymentIds,
     'customerName': ?customerName,
     'documentNumber': ?documentNumber,
     'documentType': ?documentType,
