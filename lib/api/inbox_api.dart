@@ -564,7 +564,11 @@ bool cardAllowed(InboxItem c, Caps caps) => switch (c.kind) {
   InboxKind.myRejected ||
   InboxKind.unfinished ||
   InboxKind.quoteAccepted => caps.can(Cap.docDraft),
-  InboxKind.taxInvoiceDue || InboxKind.signingLocked => caps.can(Cap.docIssue),
+  // A8: the compliance alert reaches the accountant (reads reports) as well.
+  InboxKind.taxInvoiceDue => caps.can(Cap.docIssue) || caps.can(Cap.reportView),
+  InboxKind.paymentWithoutReceipt =>
+    caps.can(Cap.paymentRecord) || caps.can(Cap.reportView),
+  InboxKind.signingLocked => caps.can(Cap.docIssue),
   InboxKind.allocationProblem => caps.can(Cap.allocationRequest),
   InboxKind.overdue => caps.can(Cap.docSend) && caps.can(Cap.moneyView),
   InboxKind.expenseReview => caps.can(Cap.expenseApprove),
@@ -688,19 +692,24 @@ class ReminderResult {
   final List<ReminderTarget> whatsapp;
 }
 
+/// A3: at most this many reminders in one run (the oldest first); the
+/// preview says how many more are waiting.
+const int reminderBatchMax = 50;
+
 /// §9.3 P0: every overdue invoice whose customer has an e-mail gets
 /// POST /documents/:id/send {recipient, paymentUrl?} → /deliveries/:id/process.
 /// No e-mail, or CONSENT_REQUIRED → the WhatsApp list. A network error stops.
 /// [only] limits the run to the invoices the user confirmed (H "באיחור" preview).
+/// Never more than [reminderBatchMax] in one run.
 Future<ReminderResult> sendReminders({
   DateTime? now,
   String? paymentUrl,
   Set<String>? only,
 }) async {
   final overdue = [
-    for (final d in await fetchOverdueDocuments(now: now))
+    for (final d in (await fetchOverdue(now: now)).documents)
       if (only == null || only.contains(d.id)) d,
-  ];
+  ].take(reminderBatchMax).toList();
   if (overdue.isEmpty) return const ReminderResult(0, []);
   final customers = <String, Customer>{
     for (final c
@@ -742,16 +751,45 @@ Future<ReminderResult> sendReminders({
 }
 
 /// Open invoices past due (what [sendReminders] would remind).
-Future<List<DocumentSummary>> fetchOverdueDocuments({DateTime? now}) async {
+Future<List<DocumentSummary>> fetchOverdueDocuments({DateTime? now}) async =>
+    (await fetchOverdue(now: now)).documents;
+
+/// A3: the overdue invoices by the SERVER's definition (GET /documents?
+/// overdue=1 — the same rule as the home card and the aging report), oldest
+/// due date first. [ActivityPage.total] = every overdue invoice, also past the
+/// 500 rows read. A row's `overdue` flag wins; the local rule only covers a
+/// server that does not send it.
+Future<ActivityPage> fetchOverdue({DateTime? now}) async {
   final today = now ?? DateTime.now();
-  final unpaid = await fetchDocumentRows(unpaid: true, limit: 500);
-  return [
-    for (final d in unpaid.documents)
+  final page = await fetchDocumentRows(overdue: true, limit: 500);
+  final rows = [
+    for (final d in page.documents)
       if ((d.openMinor ?? BigInt.zero) > BigInt.zero &&
-          isOverdue(dueDate: d.dueDate, issueDate: d.issueDate, today: today))
+          (d.overdue ??
+              isOverdue(
+                dueDate: d.dueDate,
+                issueDate: d.issueDate,
+                today: today,
+              )))
         d,
   ];
+  String due(DocumentSummary d) =>
+      effectiveDueDate(dueDate: d.dueDate, issueDate: d.issueDate) ?? '';
+  rows.sort((a, b) => due(a).compareTo(due(b)));
+  return ActivityPage(
+    page.total < rows.length ? rows.length : page.total,
+    rows,
+    serverSearch: page.serverSearch,
+  );
 }
+
+/// A3: the documents behind a home card — GET /documents?inbox=KIND applies
+/// the card's own server predicate, so [ActivityPage.total] = the card count.
+Future<ActivityPage> fetchInboxList(
+  InboxKind kind, {
+  int offset = 0,
+  int limit = searchPageSize,
+}) => fetchDocumentRows(inbox: kind.wire, offset: offset, limit: limit);
 
 /// POST /documents/:id/share-link; ARTIFACT_REQUIRED → POST /artifact once.
 Future<String> shareLinkFor(String documentId) async {
@@ -791,12 +829,16 @@ Future<ActivityPage> fetchDocumentRows({
   int? offset,
   BigInt? total,
   String? customerId,
+  bool overdue = false,
+  String? inbox,
 }) async {
   final json = await _api.get(
     '/documents',
     query: {
       if (limit != null) 'limit': '$limit',
       if (unpaid) 'unpaid': '1',
+      if (overdue) 'overdue': '1',
+      'inbox': ?inbox,
       'status': ?status,
       if (q != null && q.isNotEmpty) 'q': q,
       if (offset != null) 'offset': '$offset',
