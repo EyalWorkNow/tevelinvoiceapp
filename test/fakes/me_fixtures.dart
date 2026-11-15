@@ -2,6 +2,7 @@
 // SPEC-v2 §4.3/§4.4 × the 5 business types (INT). AT-52 goldens iterate these.
 
 import 'package:invoice/api/client.dart';
+import 'package:invoice/api/expenses_api.dart' show resetExpenseOcrAvailability;
 import 'package:invoice/api/models/models.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/state/session.dart';
@@ -214,6 +215,7 @@ Future<MobileAccount> signInAs(
 /// Back to a signed-out app-wide session (call in setUp).
 void resetSession() {
   ApiClient.instance.clearCredentials();
+  resetExpenseOcrAvailability();
   session
     ..status = SessionStatus.signedOut
     ..account = null

@@ -9,6 +9,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 
@@ -231,6 +232,17 @@ Future<List<ExpenseCategory>> fetchExpenseCategories() async {
   }
 }
 
+/// The server answered "no OCR provider" (503 EXTRACTION_UNAVAILABLE) once
+/// in this app session. The server exposes no availability flag (/me, the
+/// expense overview and the upload responses carry none), so the first such
+/// answer is remembered: no more consent dialogs or extraction calls until
+/// the app restarts. Manual entry on the review card is unaffected.
+bool get expenseOcrUnavailable => _ocrUnavailable;
+bool _ocrUnavailable = false;
+
+@visibleForTesting
+void resetExpenseOcrAvailability() => _ocrUnavailable = false;
+
 /// POST /expenses/:id/extract (OCR). False when the server has no provider
 /// (503 EXTRACTION_UNAVAILABLE) or the expense is not reviewable: the card
 /// then goes straight to manual entry.
@@ -240,6 +252,7 @@ Future<bool> runExpenseExtraction(String id) async {
     return true;
   } on ApiException catch (e) {
     if (e.isNetwork) rethrow;
+    if (e.code == 'EXTRACTION_UNAVAILABLE') _ocrUnavailable = true;
     return false;
   }
 }
