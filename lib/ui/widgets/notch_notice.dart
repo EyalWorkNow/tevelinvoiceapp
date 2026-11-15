@@ -164,14 +164,16 @@ class NotchNoticeHostState extends State<NotchNoticeHost>
             text: TextSpan(
               text: content.data,
               children: [if (content.textSpan != null) content.textSpan!],
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 1.4,
                 fontWeight: FontWeight.w600,
+                fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
               ),
             ),
             textDirection: Directionality.of(context),
             textScaler: MediaQuery.textScalerOf(context),
+            maxLines: _noticeMaxLines,
           )
         : null;
     text?.layout(maxWidth: width - 148);
@@ -286,6 +288,9 @@ Color _accent(NoticeMotion motion) => switch (motion) {
   NoticeMotion.error => DesignTokens.coral,
 };
 
+/// Lines a notice wraps to before it is elided (the box grows to fit them).
+const int _noticeMaxLines = 5;
+
 class _NoticeBody extends StatelessWidget {
   const _NoticeBody({
     required this.notice,
@@ -336,7 +341,10 @@ class _NoticeBody extends StatelessWidget {
                           context,
                         ).textTheme.bodyMedium?.fontFamily,
                       ),
+                      // Ellipsis without maxLines cuts to ONE line (QA
+                      // 2026-11-16 owner/052, 193): wrap, cap, then elide.
                       overflow: TextOverflow.ellipsis,
+                      maxLines: _noticeMaxLines,
                       child: notice.bar.content,
                     ),
                     if (action != null)
