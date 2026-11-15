@@ -194,12 +194,6 @@ class _MoreDetailsSheetState extends State<MoreDetailsSheet> {
               trailing: Text(formatDateHe(s.validUntil)),
               onTap: () => _pickDate(s.validUntil, (d) => s.validUntil = d),
             ),
-          const SizedBox(height: Space.xl),
-          PrimaryButton(
-            label: CommonHe.done,
-            offline: businessContext.offline,
-            onPressed: () => Navigator.pop(context),
-          ),
         ],
       ),
     );
@@ -280,10 +274,14 @@ class _MoreDetailsSheetState extends State<MoreDetailsSheet> {
       key: Key('s3-line-$i'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // The description has the full width (it was a third of the row and
+        // showed "עת עבודה נוספת" for "שעת עבודה נוספת", owner/042).
+        Padding(
+          padding: const EdgeInsets.only(top: Space.s),
+          child: _description(i, l),
+        ),
         Row(
           children: [
-            Expanded(flex: 3, child: _description(i, l)),
-            const SizedBox(width: Space.s),
             Expanded(
               child: _text(
                 Key('s3-line-$i-quantity-${l.itemId}'),
@@ -403,6 +401,8 @@ class _MoreDetailsSheetState extends State<MoreDetailsSheet> {
 }
 
 /// Opens S3 over the Composer. Changes apply to [state] live.
+/// "סיום" sits under the scrolling content, above the home indicator: at the
+/// end of the scroll it was cut at the bottom of the screen (owner/042).
 Future<void> showMoreDetailsSheet(
   BuildContext context, {
   required ComposeState state,
@@ -410,4 +410,29 @@ Future<void> showMoreDetailsSheet(
 }) => showAppSheet<void>(
   context,
   builder: (_) => MoreDetailsSheet(state: state, kinds: kinds),
+  frame: (context, scroll) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Flexible(child: scroll),
+      SafeArea(
+        top: false,
+        minimum: const EdgeInsets.only(bottom: Space.m),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Space.page,
+            Space.s,
+            Space.page,
+            0,
+          ),
+          child: PrimaryButton(
+            key: const Key('s3-done'),
+            label: CommonHe.done,
+            offline: businessContext.offline,
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+      ),
+    ],
+  ),
 );

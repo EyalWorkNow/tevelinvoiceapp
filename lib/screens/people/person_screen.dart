@@ -32,6 +32,7 @@ import '../../util/labels/people_he.dart';
 import '../../util/labels/status_he.dart';
 import '../../util/phone.dart';
 import '../../util/crm_visit.dart';
+import '../../util/intent_resolver.dart' show invoiceIntentFor;
 import '../../util/labels/customer_crm_he.dart';
 import '../../util/status_map.dart';
 import '../document/sheets/s6_share.dart' show pdfSharer;
@@ -264,8 +265,14 @@ class _PersonScreenState extends State<PersonScreen> {
       key: const Key('person-primary'),
       label: owes ? CommonHe.requestPayment : PeopleHe.newDocFor(_name),
       offline: offline,
-      onPressed: () =>
-          openCompose(context, intent: 'REQUEST', customerId: widget.id),
+      // A5: "חשבונית חדשה ל-X" follows the "+ חשבונית" default (פטור → קבלה).
+      onPressed: () => openCompose(
+        context,
+        intent: owes
+            ? 'REQUEST'
+            : invoiceIntentFor(businessContext.businessType),
+        customerId: widget.id,
+      ),
     );
   }
 
