@@ -20,15 +20,27 @@ AllocationHint composeAllocationHint(
   final type = s.config.serverType;
   if (type == null || !s.showVat) return AllocationHint.none;
   final totals = s.totals;
+  final day = issueDate ?? todayIso();
+  final status = s.customer?.vatDealerStatus;
   return allocationHint(
     required: allocationRequired(
       documentType: type,
-      customerVatDealerStatus: s.customer?.vatDealerStatus,
+      customerVatDealerStatus: status,
       amountBeforeVatMinor: totals.subtotalMinor,
       vatMinor: totals.taxMinor,
-      issueDate: issueDate ?? todayIso(),
+      issueDate: day,
     ),
     shaamStatus: shaamStatus,
+    // Only for a real customer (not a supplier, not before one is chosen).
+    ifDealer:
+        s.customer != null &&
+        allocationIfDealer(
+          documentType: type,
+          customerVatDealerStatus: status,
+          amountBeforeVatMinor: totals.subtotalMinor,
+          vatMinor: totals.taxMinor,
+          issueDate: day,
+        ),
   );
 }
 
@@ -37,10 +49,14 @@ class AllocationHintLine extends StatelessWidget {
     super.key,
     required this.state,
     required this.onConnect,
+    this.onMarkDealer,
   });
 
   final ComposeState state;
   final VoidCallback onConnect;
+
+  /// "סמן כעוסק מורשה" (null hides the button).
+  final VoidCallback? onMarkDealer;
 
   @override
   Widget build(BuildContext context) {
@@ -65,6 +81,34 @@ class AllocationHintLine extends StatelessWidget {
                 style: AppText.secondary.copyWith(color: p.muted),
               ),
             ),
+          ],
+        ),
+      ),
+      AllocationHint.ifDealer => Padding(
+        padding: const EdgeInsets.only(top: Space.s),
+        child: Column(
+          key: const Key('compose-allocation-if-dealer'),
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Iconsax.info_circle, size: 16, color: p.muted),
+                const SizedBox(width: Space.xs),
+                Flexible(
+                  child: Text(
+                    AllocationHe.ifDealer,
+                    textAlign: TextAlign.center,
+                    style: AppText.secondary.copyWith(color: p.muted),
+                  ),
+                ),
+              ],
+            ),
+            if (onMarkDealer != null)
+              TextButton(
+                key: const Key('compose-allocation-mark-dealer'),
+                onPressed: onMarkDealer,
+                child: const Text(AllocationHe.markDealer),
+              ),
           ],
         ),
       ),

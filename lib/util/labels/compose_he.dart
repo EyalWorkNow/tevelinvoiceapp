@@ -25,6 +25,26 @@ abstract final class ComposeHe {
   static const newInvoice = 'חשבונית חדשה';
   static const recordIncome = 'רישום הכנסה';
 
+  /// עוסק פטור / עמותה: the two choices in plain words (A5).
+  static const receiptChoice = 'קבלה';
+  static const requestChoice = 'בקשת תשלום';
+
+  /// Shown under the headline when it is the document total and not the
+  /// amount being typed (A1).
+  static String mainLineCaption(String typed) =>
+      'שורה ראשית \u2066$typed\u2069';
+  static String typedNetCaption(String typed) =>
+      'הקלדת \u2066$typed\u2069 לפני מע״מ';
+  static String extraLinesCaption(int lines, {required bool discount}) {
+    final parts = [
+      if (lines == 1) 'שורה נוספת' else if (lines > 1) '$lines שורות נוספות',
+      if (discount) 'הנחה',
+    ];
+    return parts.isEmpty ? '' : 'כולל ${parts.join(' ו')}';
+  }
+
+  static const showKeypad = 'הצג מקלדת';
+
   // Screen.
   static const titleNew = 'מסמך חדש';
   static const titlePaid = 'קיבלתי תשלום';
@@ -70,7 +90,7 @@ abstract final class ComposeHe {
 
   // Dialogs.
   static String bigAmountTitle(BigInt total) =>
-      'להפיק מסמך על ${formatMoney(total, trimZeroAgorot: true)}?';
+      'להפיק מסמך על ${formatMoney(total)}?';
   static const bigAmountBody = 'סכום גבוה במיוחד. בדוק שהסכום נכון לפני ההפקה.';
   static String vatDealerQuestion(String customer) =>
       '$customer הוא עוסק מורשה?';
@@ -162,9 +182,10 @@ String approvalNote(BigInt thresholdMinor) =>
 /// The Hebrew word sits in its own RTL isolate: bare, it pulled the amounts
 /// after it into one RTL run ("₪12.71 + ₪15 = ₪2.29 מע״מ"). Wrap the result
 /// in an LTR isolate when it is shown.
+/// Always with agorot (‎₪350.90), like every amount in the Composer (A1).
 String vatBreakdown(BigInt net, BigInt vat, BigInt total) =>
-    '${formatMoney(net, trimZeroAgorot: true)} + ${formatMoney(vat, trimZeroAgorot: true)}'
-    ' \u2067מע״מ\u2069 = ${formatMoney(total, trimZeroAgorot: true)}';
+    '${formatMoney(net)} + ${formatMoney(vat)}'
+    ' \u2067מע״מ\u2069 = ${formatMoney(total)}';
 
 String vatModeLabel(bool inclusive) => inclusive ? 'כולל מע״מ' : 'לפני מע״מ';
 

@@ -30,6 +30,25 @@ void main() {
     },
   );
 
+  test(
+    'A5: "+ חשבונית" – פטור/עמותה get a receipt (PAID), 300 only without payment rights; מורשה keeps 305',
+    () {
+      for (final t in ['OSEK_PATUR', 'NONPROFIT']) {
+        expect(invoiceIntentFor(t), intentPaid, reason: t);
+        expect(resolveIntent(invoiceIntentFor(t), t), DocKind.receipt);
+        expect(
+          resolveIntent(invoiceIntentFor(t), t, canRecordPayment: false),
+          DocKind.transactionInvoice,
+          reason: 'a role without payment.record still gets 300',
+        );
+      }
+      for (final t in ['OSEK_MURSHE', 'COMPANY']) {
+        expect(invoiceIntentFor(t), 'TYPE:305', reason: t);
+        expect(resolveIntent(invoiceIntentFor(t), t), DocKind.taxInvoice);
+      }
+    },
+  );
+
   test('QUOTE and TYPE:<code>', () {
     expect(resolveIntent('QUOTE', 'OSEK_PATUR'), DocKind.quote);
     expect(

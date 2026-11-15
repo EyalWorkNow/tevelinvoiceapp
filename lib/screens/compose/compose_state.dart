@@ -190,6 +190,15 @@ class ComposeState extends ChangeNotifier {
 
   BigInt get totalMinor => totals.totalMinor;
 
+  /// A1: the big number is the document total. It is the typed amount itself
+  /// only while they are equal (one line, no discount, amounts incl. VAT or
+  /// no VAT); otherwise the total, with a caption on what was typed.
+  bool get headlineIsTyped => totalMinor == amountMinor;
+
+  /// Extra lines (S3) that count in the total.
+  int get extraLineCount => usedExtraLines.where((l) => l.isValid).length;
+  bool get hasDiscount => discountInput > BigInt.zero;
+
   /// The total discount comes off the main line: more than that line would
   /// make it negative (and the extra lines would silently pay for it).
   bool get discountValid =>

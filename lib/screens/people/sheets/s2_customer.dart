@@ -6,8 +6,11 @@
 // Page 2 (form): "+ לקוח חדש" opens an empty form. Contact import is optional
 // through an explicit action (permission prompt, then the native picker).
 // Name · phone · e-mail · tax id (check digit) · one
-//   consent switch → "שמור". customerType is derived from the tax id;
-//   vatDealerStatus is never asked here (§4.9).
+//   consent switch → "שמור". customerType is derived from the tax id.
+//   With a tax id (a business customer) one more question: "הלקוח עוסק
+//   מורשה / חברה?" כן / לא / לא יודע → vatDealerStatus AUTHORIZED_DEALER /
+//   EXEMPT_DEALER / UNKNOWN (server customers.vat_dealer_status). Without it
+//   the Composer's allocation hint could never show (QA 2026-11-16).
 // The same form edits an existing customer from P2 ("פרטים ועריכה") and
 // creates a supplier (supplier mode: no consent, POST /suppliers).
 
@@ -49,6 +52,26 @@ String? customerFieldOfValidation(String? message) {
   if (m.startsWith('name')) return 'name';
   return null;
 }
+
+/// S2 chip values of "הלקוח עוסק מורשה / חברה?".
+const String dealerYes = 'AUTHORIZED_DEALER';
+const String dealerNo = 'NO';
+const String dealerUnknown = 'UNKNOWN';
+
+/// The chip for a stored vatDealerStatus.
+String dealerChipFor(String? status) => switch (status) {
+  null || '' || 'UNKNOWN' => dealerUnknown,
+  'AUTHORIZED_DEALER' => dealerYes,
+  _ => dealerNo,
+};
+
+/// The vatDealerStatus to store for [chip]. "לא" keeps a known non-dealer
+/// status ([old]: PRIVATE, NONPROFIT…) and otherwise means עוסק פטור.
+String vatDealerStatusFor(String chip, {String? old}) => switch (chip) {
+  dealerYes => 'AUTHORIZED_DEALER',
+  dealerNo => dealerChipFor(old) == dealerNo ? old! : 'EXEMPT_DEALER',
+  _ => 'UNKNOWN',
+};
 
 /// A contact from the system picker.
 class PickedContact {
@@ -218,6 +241,13 @@ class _CustomerSheetState extends State<CustomerSheet> {
   String? _terms;
   bool _consent = false;
 
+  /// "הלקוח עוסק מורשה / חברה?" ([dealerYes] / [dealerNo] / [dealerUnknown]).
+  late String _dealer = dealerChipFor(widget.edit?.vatDealerStatus);
+
+  /// After a save the validators failed: fields re-check as they are edited,
+  /// so a fixed phone / ח.פ. loses its red line at once (owner/032).
+  bool _triedSave = false;
+
   late bool _form =
       widget.startOnNew || widget.edit != null || widget.editSupplier != null;
   List<_Entry>? _entries;
@@ -305,6 +335,7 @@ class _CustomerSheetState extends State<CustomerSheet> {
       c.text.trim(),
     _terms,
     _consent,
+    _dealer,
   ].join('\u0000');
 
   bool get _formDirty => _form && _formSignature != _formOpened;
@@ -673,6 +704,7 @@ class _CustomerSheetState extends State<CustomerSheet> {
   Future<void> _save() async {
     if (_busy || !_formKey.currentState!.validate()) {
       HapticFeedback.heavyImpact();
+      if (!_triedSave) setState(() => _triedSave = true);
       return;
     }
     FocusScope.of(context).unfocus();
@@ -680,6 +712,8 @@ class _CustomerSheetState extends State<CustomerSheet> {
     final phone = normalizePhoneInput(_phone.text);
     final email = _clean(_email);
     final taxId = _clean(_taxId);
+    // Asked only for a business customer (with a tax id).
+    final askDealer = !_sup && taxId != null;
     setState(() {
       _busy = true;
       _serverErrors = const {};
@@ -714,7 +748,13 @@ class _CustomerSheetState extends State<CustomerSheet> {
         final old = widget.edit!;
         final type = customerTypeFor(taxId);
         final d = widget.detail;
+        final dealer = askDealer
+            ? vatDealerStatusFor(_dealer, old: old.vatDealerStatus)
+            : old.vatDealerStatus;
+        final dealerChanged =
+            askDealer && dealerChipFor(old.vatDealerStatus) != _dealer;
         await updateCustomer(old.id, {
+          if (dealerChanged) 'vatDealerStatus': dealer,
           if (name != old.name) 'name': name,
           if (phone != old.phone) 'phone': phone,
           if (email != old.email) 'email': email,
@@ -743,7 +783,7 @@ class _CustomerSheetState extends State<CustomerSheet> {
           taxId: taxId,
           customerType: type,
           archivedAt: old.archivedAt,
-          vatDealerStatus: old.vatDealerStatus,
+          vatDealerStatus: dealerChanged ? dealer : old.vatDealerStatus,
           balanceMinor: old.balanceMinor,
           lastDocumentAt: old.lastDocumentAt,
           isWalkIn: old.isWalkIn,
@@ -755,6 +795,10 @@ class _CustomerSheetState extends State<CustomerSheet> {
           phone: phone,
           email: email,
           taxId: taxId,
+          // Not asked / "לא יודע" → the server default (UNKNOWN).
+          vatDealerStatus: askDealer && _dealer != dealerUnknown
+              ? vatDealerStatusFor(_dealer)
+              : null,
         );
         await rememberRecentCustomer(created.id);
         var result = created;
@@ -768,6 +812,7 @@ class _CustomerSheetState extends State<CustomerSheet> {
               email: created.email,
               taxId: created.taxId,
               customerType: created.customerType,
+              vatDealerStatus: created.vatDealerStatus,
               consentGranted: true,
             );
           } on Object {
@@ -828,6 +873,9 @@ class _CustomerSheetState extends State<CustomerSheet> {
     final be09 = widget.detail?.fromBe09 ?? false;
     return Form(
       key: _formKey,
+      autovalidateMode: _triedSave
+          ? AutovalidateMode.onUserInteraction
+          : AutovalidateMode.disabled,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -909,6 +957,30 @@ class _CustomerSheetState extends State<CustomerSheet> {
                 ? null
                 : PeopleHe.taxIdInvalid,
           ),
+          if (!_sup && _taxId.text.trim().isNotEmpty) ...[
+            const SizedBox(height: Space.m),
+            Text(
+              PeopleHe.vatDealerQuestion,
+              style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: Space.xs),
+            Text(
+              PeopleHe.vatDealerHint,
+              style: AppText.secondary.copyWith(color: p.muted),
+            ),
+            const SizedBox(height: Space.s),
+            ChipRow<String>(
+              key: const Key('s2-vat-dealer'),
+              padding: EdgeInsets.zero,
+              options: const [
+                ChipOption(dealerYes, PeopleHe.vatDealerYes),
+                ChipOption(dealerNo, PeopleHe.vatDealerNo),
+                ChipOption(dealerUnknown, PeopleHe.vatDealerUnknown),
+              ],
+              selected: _dealer,
+              onSelected: _busy ? (_) {} : (v) => setState(() => _dealer = v),
+            ),
+          ],
           if (be09) ...[
             const SizedBox(height: Space.m),
             TextFormField(

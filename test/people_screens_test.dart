@@ -746,6 +746,96 @@ void main() {
     );
 
     testWidgets(
+      'עוסק מורשה question: only with a tax id; "כן" → AUTHORIZED_DEALER on POST',
+      (tester) async {
+        installPeopleFakes(backend);
+        Customer? created;
+        await pump(tester, const Scaffold(body: Text('root')));
+        unawaited(
+          showCustomerSheet(
+            navigatorKey.currentContext!,
+            startOnNew: true,
+          ).then((c) => created = c),
+        );
+        await flush(tester);
+        await tester.enterText(find.byKey(const Key('s2-name')), 'מוסך');
+        await tester.pump();
+        expect(find.text(PeopleHe.vatDealerQuestion), findsNothing);
+        await tester.enterText(find.byKey(const Key('s2-taxid')), '514713288');
+        await tester.pump();
+        expect(find.text(PeopleHe.vatDealerQuestion), findsOneWidget);
+        await tester.ensureVisible(find.text(PeopleHe.vatDealerYes));
+        await tester.tap(find.text(PeopleHe.vatDealerYes));
+        await tester.pump();
+        await tap(tester, find.byKey(const Key('s2-save')));
+        expect(
+          backend.last('POST', '/customers')!.body['vatDealerStatus'],
+          'AUTHORIZED_DEALER',
+        );
+        expect(created?.vatDealerStatus, 'AUTHORIZED_DEALER');
+      },
+    );
+
+    testWidgets(
+      'עוסק מורשה question: "לא" → EXEMPT_DEALER; "לא יודע" (default) sends nothing',
+      (tester) async {
+        installPeopleFakes(backend);
+        await pump(tester, const Scaffold(body: Text('root')));
+        unawaited(
+          showCustomerSheet(navigatorKey.currentContext!, startOnNew: true),
+        );
+        await flush(tester);
+        await tester.enterText(find.byKey(const Key('s2-name')), 'סטודיו');
+        await tester.enterText(find.byKey(const Key('s2-taxid')), '514713288');
+        await tester.pump();
+        await tap(tester, find.byKey(const Key('s2-save')));
+        expect(
+          backend
+              .last('POST', '/customers')!
+              .body
+              .containsKey('vatDealerStatus'),
+          isFalse,
+        );
+      },
+    );
+
+    test('vatDealerStatusFor: כן / לא / לא יודע and a known "לא" kept', () {
+      expect(vatDealerStatusFor(dealerYes), 'AUTHORIZED_DEALER');
+      expect(vatDealerStatusFor(dealerNo), 'EXEMPT_DEALER');
+      expect(vatDealerStatusFor(dealerNo, old: 'NONPROFIT'), 'NONPROFIT');
+      expect(vatDealerStatusFor(dealerUnknown), 'UNKNOWN');
+      expect(dealerChipFor(null), dealerUnknown);
+      expect(dealerChipFor('PRIVATE'), dealerNo);
+      expect(dealerChipFor('AUTHORIZED_DEALER'), dealerYes);
+    });
+
+    testWidgets(
+      'owner/032: a fixed phone / tax id loses its red error at once, before save',
+      (tester) async {
+        installPeopleFakes(backend);
+        await pump(tester, const Scaffold(body: Text('root')));
+        unawaited(
+          showCustomerSheet(navigatorKey.currentContext!, startOnNew: true),
+        );
+        await flush(tester);
+        await tester.enterText(find.byKey(const Key('s2-name')), 'דנה');
+        await tester.enterText(find.byKey(const Key('s2-phone')), '05012');
+        await tester.enterText(find.byKey(const Key('s2-taxid')), '123456789');
+        await tap(tester, find.byKey(const Key('s2-save')));
+        expect(find.text(PeopleHe.phoneInvalid), findsOneWidget);
+        expect(find.text(PeopleHe.taxIdInvalid), findsOneWidget);
+        await tester.enterText(find.byKey(const Key('s2-phone')), '0501234567');
+        await tester.pump();
+        expect(find.text(PeopleHe.phoneInvalid), findsNothing);
+        expect(find.text(PeopleHe.taxIdInvalid), findsOneWidget);
+        await tester.enterText(find.byKey(const Key('s2-taxid')), '514713288');
+        await tester.pump();
+        expect(find.text(PeopleHe.taxIdInvalid), findsNothing);
+        expect(backend.calls('POST', '/customers'), isEmpty);
+      },
+    );
+
+    testWidgets(
       'QA 3.1: 409 CUSTOMER_DUPLICATE → server text + "פתח לקוח קיים" opens P2; '
       'without customerId only the text',
       (tester) async {

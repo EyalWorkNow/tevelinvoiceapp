@@ -70,10 +70,7 @@ Future<bool> askResumeDraft(
       key: const Key('resume-draft-dialog'),
       title: const Text(ComposeHe.resumeDraftTitle),
       content: Text(
-        ComposeHe.resumeDraftBody(
-          customerName,
-          formatMoney(amountMinor, trimZeroAgorot: true),
-        ),
+        ComposeHe.resumeDraftBody(customerName, formatMoney(amountMinor)),
       ),
       actions: [
         TextButton(

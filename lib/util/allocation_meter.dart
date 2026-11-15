@@ -103,6 +103,27 @@ bool allocationRequired({
   return amountBeforeVatMinor > BigInt.from(rule.thresholdMinor);
 }
 
+/// The customer's VAT-dealer status is not known (UNKNOWN / never set) and
+/// the document WOULD need a number if the customer is an עוסק מורשה: the
+/// Composer says so gently and offers "סמן כעוסק מורשה" (QA 2026-11-16).
+bool allocationIfDealer({
+  required String documentType,
+  required String? customerVatDealerStatus,
+  required BigInt amountBeforeVatMinor,
+  required BigInt vatMinor,
+  required String issueDate,
+}) {
+  final status = customerVatDealerStatus;
+  if (status != null && status.isNotEmpty && status != 'UNKNOWN') return false;
+  return allocationRequired(
+    documentType: documentType,
+    customerVatDealerStatus: 'AUTHORIZED_DEALER',
+    amountBeforeVatMinor: amountBeforeVatMinor,
+    vatMinor: vatMinor,
+    issueDate: issueDate,
+  );
+}
+
 /// What the Composer shows under the amount.
 enum AllocationHint {
   /// Below the threshold / not applicable: nothing.
@@ -113,15 +134,23 @@ enum AllocationHint {
 
   /// "נדרש חיבור לרשות המסים" + link to the ShaamPage.
   needsConnection,
+
+  /// Status unknown, above the threshold: "אם הלקוח עוסק מורשה…" +
+  /// "סמן כעוסק מורשה".
+  ifDealer,
 }
 
 /// [shaamStatus] is `/me.shaam.status` (CONNECTED | EXPIRED | … | DISABLED);
 /// null = the server did not say (older server) → no connection warning.
+/// [ifDealer] = [allocationIfDealer] (only consulted when not [required]).
 AllocationHint allocationHint({
   required bool required,
   required String? shaamStatus,
+  bool ifDealer = false,
 }) {
-  if (!required) return AllocationHint.none;
+  if (!required) {
+    return ifDealer ? AllocationHint.ifDealer : AllocationHint.none;
+  }
   if (shaamStatus == null || shaamStatus == 'CONNECTED') {
     return AllocationHint.willAllocate;
   }
@@ -212,6 +241,8 @@ abstract final class AllocationHe {
   static const willAllocate = 'המסמך יקבל מספר הקצאה מרשות המסים';
   static const needsConnection = 'נדרש חיבור לרשות המסים';
   static const connect = 'לחיבור';
+  static const ifDealer = 'אם הלקוח עוסק מורשה, החשבונית תצטרך מספר הקצאה';
+  static const markDealer = 'סמן כעוסק מורשה';
   static const title = 'מספר הקצאה';
   static String number(String n) => 'מספר הקצאה: \u2066$n\u2069';
   static const waiting = 'ממתין למספר הקצאה';
