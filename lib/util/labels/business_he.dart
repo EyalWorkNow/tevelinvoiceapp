@@ -178,6 +178,11 @@ abstract final class BusinessHe {
   static const twoFactorApp = 'אפליקציית אימות וקודי שחזור';
   static const signOut = 'צא מהמכשיר';
   static const signOutAll = 'צא מכל המכשירים';
+  static const signOutConfirm = 'לצאת מהמכשיר?';
+  static const signOutBody =
+      'כדי לחזור תצטרך להיכנס שוב עם האימייל והסיסמה. המסמכים נשמרים בחשבון.';
+  static const signOutPendingBody =
+      'יש במכשיר פעולה שעוד לא נשלחה, והיא תימחק. כדי לחזור תצטרך להיכנס שוב.';
   static const sendErrorLog = 'שלח יומן תקלות';
   static const errorLogEmpty = 'אין תקלות ביומן';
   static String errorLogCount(int n) => n == 1 ? 'תקלה אחת' : '$n תקלות';
@@ -329,6 +334,7 @@ abstract final class PresetHe {
 /// R · דוחות (§6.R, §11).
 abstract final class ReportsHe {
   static const title = 'דוחות';
+
   /// Accountant home (R as the home tab): the reports of the open business.
   static const myClients = 'דוחות';
   static const periodCurrent = 'התקופה הנוכחית';

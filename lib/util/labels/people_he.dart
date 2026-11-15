@@ -49,6 +49,9 @@ abstract final class PeopleHe {
   static const statementPeriod = 'מתחילת השנה עד היום';
   static String statementFileName(String name) => 'כרטסת $name.pdf';
   static String statementSent(String email) => 'הכרטסת נשלחה ל-$email';
+  static const statementConfirmTitle = 'לשלוח את הכרטסת ללקוח?';
+  static String statementConfirmBody(String name, String email) =>
+      'כל המסמכים והתשלומים של $name מתחילת השנה יישלחו עכשיו במייל אל $email.';
   static const supplierArchiveConfirm = 'לארכב את הספק?';
   static const supplierArchived = 'הספק הועבר לארכיון';
 

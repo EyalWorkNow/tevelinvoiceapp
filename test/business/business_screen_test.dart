@@ -18,6 +18,7 @@ import 'package:invoice/state/business_context.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/ds.dart';
+import 'package:invoice/util/labels/labels.dart';
 
 import '../fakes/fake_api.dart';
 import 'e_harness.dart';
@@ -418,6 +419,25 @@ void main() {
     await tester.tap(find.byKey(const Key('confirm-danger')));
     await settle(tester);
     expect(backend.calls('POST', '/mobile/logout-all'), hasLength(1));
+    expect(session.status, SessionStatus.signedOut);
+  });
+
+  testWidgets('B·חשבון: "צא מהמכשיר" asks first; cancel keeps the session', (
+    tester,
+  ) async {
+    await pumpAs(tester, backend, Preset.owner, const AccountPage());
+    await tester.ensureVisible(find.byKey(const Key('account-signout')));
+    await tester.tap(find.byKey(const Key('account-signout')));
+    await settle(tester);
+    expect(find.text(BusinessHe.signOutConfirm), findsOneWidget);
+    expect(find.text(BusinessHe.signOutBody), findsOneWidget);
+    await tester.tap(find.text(CommonHe.cancel));
+    await settle(tester);
+    expect(session.status, SessionStatus.signedIn);
+    await tester.tap(find.byKey(const Key('account-signout')));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('confirm-danger')));
+    await settle(tester);
     expect(session.status, SessionStatus.signedOut);
   });
 

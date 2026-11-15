@@ -480,7 +480,7 @@ void main() {
     });
 
     testWidgets(
-      'J11 (AT-28, BE-17): לקוחות → לקוח → "שלח כרטסת" = 3 taps; e-mailed for this year',
+      'J11 (AT-28, BE-17): לקוחות → לקוח → "שלח כרטסת" → אישור = 4 taps; e-mailed for this year',
       (tester) async {
         installPeopleFakes(
           backend,
@@ -509,7 +509,11 @@ void main() {
           reason: 'statement is a row, not a 2nd primary',
         );
         await tap(tester, find.byKey(const Key('person-statement')));
-        expect(taps, lessThanOrEqualTo(3));
+        // E-mailing the customer asks first (QA 2026-11-16 owner/114).
+        expect(backend.calls('POST', '/customers/:id/statement/send'), isEmpty);
+        expect(find.text(PeopleHe.statementConfirmTitle), findsOneWidget);
+        await tap(tester, find.byKey(const Key('statement-confirm')));
+        expect(taps, lessThanOrEqualTo(4));
         final body = backend
             .last('POST', '/customers/:id/statement/send')!
             .body;
