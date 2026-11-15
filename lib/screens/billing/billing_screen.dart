@@ -82,6 +82,12 @@ class PlansSheet extends StatefulWidget {
 class _PlansSheetState extends State<PlansSheet> with WidgetsBindingObserver {
   BillingCatalog? _catalog;
   SubscriptionStatus? _subscription;
+  /// App Store products by id. Their `price` is StoreKit's localized
+  /// priceString for the device's App Store storefront: ₪ on an Israeli
+  /// account, $ on the simulator's default US sandbox storefront (QA
+  /// 2026-11-16 owner/006, 168). Always show it as is (App Review 3.1.1);
+  /// the ₪ fallback below is the server plan price, used only before the
+  /// products load or off iOS.
   final Map<String, ProductDetails> _products = {};
   bool _cancelling = false;
   final _pages = PageController(initialPage: 1, viewportFraction: .84);
