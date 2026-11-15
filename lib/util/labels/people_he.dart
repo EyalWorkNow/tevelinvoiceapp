@@ -87,6 +87,14 @@ abstract final class PeopleHe {
   static const phoneInvalid = 'מספר הטלפון לא נראה תקין';
   static const emailInvalid = 'כתובת האימייל לא תקינה';
   static const taxIdInvalid = 'המספר לא תקין — בדוק את הספרות';
+
+  // S2 · עוסק מורשה (business customers only; feeds the allocation hint).
+  static const vatDealerQuestion = 'הלקוח עוסק מורשה / חברה?';
+  static const vatDealerHint =
+      'חשבונית גדולה ללקוח עוסק מורשה צריכה מספר הקצאה מרשות המסים';
+  static const vatDealerYes = 'כן';
+  static const vatDealerNo = 'לא';
+  static const vatDealerUnknown = 'לא יודע';
   static String alreadyExists(String name) => 'כבר קיים: $name';
   static const useExisting = 'השתמש בו';
   static const openExisting = 'פתח לקוח קיים';
