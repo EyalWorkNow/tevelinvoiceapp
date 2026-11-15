@@ -221,7 +221,13 @@ void main() {
         (q) => q.url.path.endsWith('/finalize'),
       );
       expect(finalize.headers['Idempotency-Key'], isNotEmpty);
-      expect(jsonDecode(finalize.body), {'scopeKey': 'default'});
+      // SA2: a paid issue sends its payment along, in case the document waits.
+      expect(jsonDecode(finalize.body), {
+        'scopeKey': 'default',
+        'pendingPayments': [
+          {'method': 'CASH', 'currency': 'ILS', 'paymentDate': todayIso()},
+        ],
+      });
       final pay = server.requests.firstWhere((q) => q.url.path == '/payments');
       expect(jsonDecode(pay.body)['amountMinor'], '118000');
       expect(jsonDecode(pay.body)['method'], 'CASH');

@@ -322,9 +322,9 @@ void main() {
       await type(tester, '7080');
       expect(primaryLabel(tester), ComposeHe.issue, reason: 'no phone → "הפק"');
       await tap(tester, primary());
-      expect(backend.last('POST', '/documents/:id/finalize')!.body, {
-        'scopeKey': 'default',
-      });
+      final finalize = backend.last('POST', '/documents/:id/finalize')!.body;
+      expect(finalize['scopeKey'], 'default');
+      expect(finalize.containsKey('requestAllocation'), isFalse);
       expect(
         routes,
         containsAll(['/doc/d1', 'S6 d1']),
