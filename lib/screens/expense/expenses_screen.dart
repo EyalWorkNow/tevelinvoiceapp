@@ -35,12 +35,19 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 abstract final class ExpenseOcrHe {
   static const consentTitle = 'קריאה אוטומטית של הקבלה';
   static const consentBody =
-      'כדי למלא את פרטי ההוצאה בשבילך, התמונה של הקבלה תישלח לעיבוד בשירות '
-      'בינה מלאכותית חיצוני (Anthropic Claude). אפשר לוותר ולהזין את הפרטים ידנית.';
+      'כדי למלא את פרטי ההוצאה בשבילך, התמונה של הקבלה תישלח לשירות קריאת קבלות '
+      'חיצוני. אפשר לוותר ולהזין את הפרטים ידנית.';
+
+  /// Privacy disclosure: the processor is named here, one tap away.
+  static const consentDetails = 'פרטים';
+  static const consentDetailsBody =
+      'השירות מופעל על ידי חברת Anthropic (מודל Claude), שמעבדת את התמונה בשם '
+      'תבל ועשויה לעבד אותה מחוץ לישראל. נשלחת רק תמונת הקבלה, והפרטים שנקראו '
+      'מוצגים לך לבדיקה לפני השמירה.';
   static const consentAllow = 'אישור';
   static const consentManual = 'הזנה ידנית';
 
-  /// Shown once per app session, when the server first says OCR is off.
+  /// Shown inline on the review card while the server says OCR is off.
   static const unavailable =
       'הקריאה האוטומטית של קבלות אינה פעילה כרגע. ממלאים את הפרטים ידנית ושומרים.';
 }
@@ -306,7 +313,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text(ExpenseOcrHe.consentTitle),
-        content: const Text(ExpenseOcrHe.consentBody),
+        content: const _OcrConsentBody(),
         actions: [
           TextButton(
             key: const Key('expense-ocr-manual'),
@@ -344,13 +351,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       final ran = await runExpenseExtraction(
         id,
       ).timeout(ExpensesScreen.readTimeout);
-      if (!ran && expenseOcrUnavailable && mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentNotchNotice()
-          ..showNotchNotice(
-            const SnackBar(content: Text(ExpenseOcrHe.unavailable)),
-          );
-      }
+      // OCR off: the card itself says so (inline, not a passing toast).
+      if (!ran && expenseOcrUnavailable && mounted) setState(() {});
       // What OCR read must reach the card: a failed re-read is retried
       // (AT-19: the card stayed empty after a successful read).
       for (var i = 0; ran && mounted && i < 3; i++) {
@@ -608,6 +610,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       categories: _categories,
       approver: _approver,
       reading: _reading == current.id,
+      notice: expenseOcrUnavailable && current.totalMinor == null
+          ? ExpenseOcrHe.unavailable
+          : null,
       duplicateOf: current.duplicateOfExpenseId == null
           ? null
           : _row(current.duplicateOfExpenseId!),
@@ -799,5 +804,45 @@ class _RejectDialogState extends State<_RejectDialog> {
         child: const Text(ExpenseHe.reject),
       ),
     ],
+  );
+}
+
+/// OCR consent text, with the processor's name behind "פרטים".
+class _OcrConsentBody extends StatefulWidget {
+  const _OcrConsentBody();
+
+  @override
+  State<_OcrConsentBody> createState() => _OcrConsentBodyState();
+}
+
+class _OcrConsentBodyState extends State<_OcrConsentBody> {
+  bool _details = false;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(ExpenseOcrHe.consentBody),
+        if (_details) ...[
+          const SizedBox(height: Space.s),
+          Text(
+            ExpenseOcrHe.consentDetailsBody,
+            key: const Key('expense-ocr-details-body'),
+            style: AppText.secondary.copyWith(color: context.palette.muted),
+          ),
+        ] else
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton(
+              key: const Key('expense-ocr-details'),
+              style: TextButton.styleFrom(padding: EdgeInsets.zero),
+              onPressed: () => setState(() => _details = true),
+              child: const Text(ExpenseOcrHe.consentDetails),
+            ),
+          ),
+      ],
+    ),
   );
 }

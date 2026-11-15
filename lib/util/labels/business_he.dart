@@ -154,7 +154,11 @@ abstract final class BusinessHe {
   static const shaamConnected = 'מחובר לרשות המסים';
   static const shaamNotConnected = 'לא מחובר לרשות המסים';
   static const shaamExpired = 'החיבור לרשות המסים פג';
-  static const shaamOff = 'החיבור לרשות המסים לא פעיל בשרת';
+  static const shaamOff =
+      'החיבור לרשות המסים עדיין לא הופעל. חשבוניות שדורשות מספר הקצאה ימתינו עד ההפעלה';
+
+  /// עוסק פטור / עמותה: no allocation numbers, so nothing waits (persona 01).
+  static const shaamNotNeeded = 'לעוסק פטור לא נדרש מספר הקצאה מרשות המסים';
   static String shaamValidUntil(String date) => 'בתוקף עד $date';
   static String shaamVerified(String date) => 'נבדק לאחרונה $date';
   static const shaamManual = 'הזנה ידנית של מספר הקצאה פעילה';
@@ -270,7 +274,8 @@ abstract final class TeamHe {
       'לעדכן את רו״ח $name להרשאות רו״ח מייצג? יידרש אימות דו-שלבי';
   static const upgrade = 'עדכן';
   static const upgraded = 'ההרשאות עודכנו';
-  static const upgradeUnsupported = 'השרת עדיין לא תומך ברו״ח מייצג';
+  static const upgradeUnsupported =
+      'עדיין אי אפשר לעדכן להרשאות רו״ח מייצג. נסו שוב בהמשך';
   static const you = '(את/ה)';
   static String pending(int days) => days <= 0
       ? 'ממתין · פג היום'
