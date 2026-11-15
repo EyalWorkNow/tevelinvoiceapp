@@ -3,8 +3,8 @@ abstract final class CustomerCrmHe {
   static String completedFollowupsCount(int count) => 'מעקבים שהושלמו ($count)';
   static String allNotesCount(int count) => 'כל הפתקים ($count)';
   // Action labels shared by the application screens.
-  static const useServerVersion = 'שימוש בגרסת השרת';
-  static const useDeviceVersion = 'שימוש בגרסת המכשיר';
+  static const useServerVersion = 'להשאיר את מה שנשמר בחשבון';
+  static const useDeviceVersion = 'להשאיר את השינויים מהטלפון';
   static const chooseVersion = 'בחירת גרסה';
   static const markOpenAction = 'סמן כפתוח';
   static const markDoneAction = 'סמן כהושלם';
