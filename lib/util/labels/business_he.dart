@@ -446,8 +446,11 @@ abstract final class AuthHe {
   static const passwordPolicy = 'לפחות 12 תווים';
   static String alreadyMember(String business) => 'אתה כבר חבר ב-$business';
   static String expiredAskAgain(String inviter) =>
-      'ההזמנה כבר לא בתוקף. בקש מ-$inviter לשלוח שוב';
-  static const inviterFallback = 'המזמין';
+      'ההזמנה כבר לא בתוקף. בקשו מ$inviter לשלוח הזמנה חדשה';
+  /// The server does not name the inviter of a dead invitation.
+  static const expiredAskAgainUnknown =
+      'ההזמנה כבר לא בתוקף. בקשו ממי ששלח לכם אותה לשלוח הזמנה חדשה';
+  static const toSignIn = 'למסך הכניסה';
   static const forgotPassword = 'שכחתי סיסמה';
   static const signInHelp = 'עזרה בכניסה';
   static const signInHelpBody = 'לאיפוס הסיסמה בחשבון זה פנו לתמיכה.';
@@ -467,8 +470,10 @@ abstract final class AuthHe {
       'ההזמנה נשלחה ל-$invited, התחברת כ-$signedIn. התחברו עם הכתובת שאליה נשלחה ההזמנה.';
   static const appleHiddenEmail = 'חשבון Apple שמסתיר את כתובת האימייל';
   static const confirmEmailTitle = 'אישור כתובת האימייל';
-  static String confirmEmailSent(String email) =>
-      'שלחנו קוד אימות ל-$email. הזינו אותו כדי לסיים ליצור את החשבון.';
+  /// The address itself is its own LTR line under this text (bidi: an
+  /// e-mail wrapped inside a Hebrew sentence splits, QA signed-out/16).
+  static const confirmEmailSent =
+      'שלחנו קוד אימות לכתובת הזו. הזינו אותו כדי לסיים ליצור את החשבון:';
   static const confirmEmailHint =
       'לא הגיע? בדקו בתיקיית הספאם, או שלחו קוד חדש.';
   static const codeSentAgain = 'נשלח קוד חדש';
