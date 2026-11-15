@@ -15,6 +15,7 @@ import '../../../api/reports_api.dart' show reportsAvailable;
 import '../../../api/models/models.dart';
 import '../../../api/settings_api.dart';
 import '../../../api/team_api.dart';
+import '../../../api/turnover_opening_api.dart';
 import '../../../state/business_context.dart';
 import '../../../state/caps.dart';
 import '../../../state/session.dart';
@@ -88,6 +89,11 @@ Future<EditorConfig> profileEditor() async {
     }
   }
 
+  // A6: "מחזור מתחילת השנה לפני תבל" (עוסק פטור only; hidden on an older server).
+  final taxYear = businessContext.me?.rules.taxYear ?? DateTime.now().year;
+  final openingF = exempt0
+      ? optional(() => fetchTurnoverOpening(taxYear))
+      : Future.value(null);
   final extras = await Future.wait<Object?>([
     optional(fetchCcOwnerEmail),
     optional(fetchAccountantAutomation),
@@ -104,6 +110,7 @@ Future<EditorConfig> profileEditor() async {
     automation: automation,
     advances: advances,
     typeChange: typeChange,
+    opening: await openingF,
   );
 }
 
@@ -112,6 +119,7 @@ EditorConfig _profileConfig({
   AccountantAutomation? automation,
   bool advances = false,
   bool typeChange = false,
+  ({int taxYear, BigInt? amountMinor})? opening,
 }) {
   final profile = session.profile;
   final raw = profile?.raw ?? const <String, dynamic>{};
@@ -277,6 +285,14 @@ EditorConfig _profileConfig({
         initial: s(accountant['email']),
         validator: _emailError,
       ),
+      if (opening != null && exempt)
+        EditorField(
+          key: 'openingTurnover',
+          label: CeilingHe.openingField(opening.taxYear),
+          kind: FieldKind.money,
+          initial: opening.amountMinor ?? BigInt.zero,
+          hint: CeilingHe.openingHint,
+        ),
       if (automation != null) ...[
         EditorField(
           key: 'autoEvery',
@@ -382,6 +398,13 @@ EditorConfig _profileConfig({
             ? null
             : advanceBasisPoints(t);
       }
+      if (opening != null && exempt) {
+        final next = v.money('openingTurnover');
+        if (next != (opening.amountMinor ?? BigInt.zero)) {
+          await saveTurnoverOpening(opening.taxYear, next);
+        }
+      }
+      // Also reloads /me, so the Home ceiling gauge shows the new opening balance.
       await saveBusinessProfile(changes);
       if (cc != null && v.flag('ccOwner') != cc) {
         await saveCcOwnerEmail(v.flag('ccOwner'));
@@ -401,6 +424,13 @@ EditorConfig _profileConfig({
 }
 
 // ---- BE-43 מעבר מפטור למורשה (⋯ in 13.1) ---------------------------------------
+
+/// The same type-change sheet as ⋯ in 13.1 (A6: the ceiling gauge's next step).
+Future<bool> openTypeChangeSheet(BuildContext context) => showEditorSheet(
+  context,
+  instance: 'typeChange',
+  config: typeChangeEditor(),
+);
 
 String _iso(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
