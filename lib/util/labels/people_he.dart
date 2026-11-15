@@ -134,6 +134,17 @@ abstract final class ExpenseHe {
   static const savingClassification = 'שומרים סיווג';
   static const savingInProgress = 'שומרים…';
 
+  // Expenses overview (Stage A · A3): the same figures as the expenses report and Home.
+  static const monthTotalAll = 'סך ההוצאות החודש';
+  static const monthApproved = 'הוצאות מאושרות החודש';
+  static String approvedSub(int n) =>
+      '${n == 1 ? 'הוצאה מאושרת אחת' : '$n הוצאות מאושרות'} • כולל מע״מ, כמו בדוח ההוצאות';
+  static String reviewLine(int n, String amount) =>
+      '${n == 1 ? 'עוד הוצאה אחת ממתינה' : 'עוד $n הוצאות ממתינות'} לבדיקה ($amount) ועוד לא נספרות';
+  static const supplierVat = 'מע״מ בחשבוניות הספקים';
+  static const byClassification = 'לפי סיווג ההוצאות';
+  static const vatByClassification = 'מע״מ לפי הסיווג';
+
   static const title = 'הוצאות';
   static String progress(int i, int n) => '$i מתוך $n';
   static const approve = 'אשר';

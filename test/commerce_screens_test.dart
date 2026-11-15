@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/commerce_api.dart';
 import 'package:invoice/screens/billing/billing_screen.dart';
 import 'package:invoice/screens/expense/expense_overview_screen.dart';
+import 'package:invoice/ui/money_text.dart';
+import 'package:invoice/ui/widgets/amount_display.dart';
 import 'package:invoice/screens/business/cardcom_merchant_screen.dart';
 import 'package:invoice/util/allowed_urls.dart';
 import 'business/e_harness.dart';
@@ -114,6 +116,71 @@ void main() {
         containsPair('expensePercent', 0),
       );
       expect(find.text('מסדרים את ההוצאה'), findsNothing);
+    },
+  );
+  testWidgets(
+    'Stage A · A3: expense overview shows the same approved / review figures as the report',
+    (tester) async {
+      phone(tester);
+      backend.on('GET', '/expenses/overview', (request) {
+        return FakeResponse(200, {
+          'month': request.query['month'] ?? '2026-11',
+          'currency': 'ILS',
+          'totalMinor': '20060',
+          'recognizedMinor': '12725',
+          'recoverableVatMinor': '2250',
+          'unclassifiedMinor': '0',
+          'count': 3,
+          'reviewCount': 2,
+          'reviewTotalMinor': '390400',
+          'approvedCount': 1,
+          'approvedTotalMinor': '11800',
+          'approvedVatMinor': '1800',
+          'categories': const [],
+          'trend': const [],
+          'expenses': [
+            {
+              'id': 'e1',
+              'supplierName': 'ספק',
+              'expenseDate': '2026-11-02',
+              'status': 'APPROVED',
+              'totalMinor': '11800',
+              'vatMinor': '1800',
+              'categoryName': 'תוכנה ושירותים',
+              'categoryId': 'software',
+              'classification': 'BUSINESS',
+              'expensePercent': 100,
+              'vatPercent': 100,
+              'note': null,
+              'recognizedMinor': '10000',
+              'recoverableVatMinor': '1800',
+            },
+          ],
+          'recognitionNote': '',
+        });
+      });
+      await tester.pumpWidget(
+        eApp(const ExpenseOverviewScreen(), brightness: Brightness.dark),
+      );
+      await settle(tester);
+      expect(find.text('הוצאות מאושרות החודש'), findsOneWidget);
+      expect(find.text('סך ההוצאות החודש'), findsNothing);
+      final total = tester.widget<AmountText>(
+        find.byKey(const Key('expense-month-total')),
+      );
+      expect(total.amountMinor, BigInt.from(11800));
+      expect(
+        find.text('הוצאה מאושרת אחת • כולל מע״מ, כמו בדוח ההוצאות'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'עוד 2 הוצאות ממתינות לבדיקה (${moneyInline(BigInt.from(390400))}) ועוד לא נספרות',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('מע״מ בחשבוניות הספקים'), findsOneWidget);
+      expect(find.text('מע״מ לפי הסיווג'), findsNothing);
     },
   );
   testWidgets(
