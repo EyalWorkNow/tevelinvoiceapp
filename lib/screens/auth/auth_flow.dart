@@ -26,6 +26,10 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 bool _routingSignedIn = false;
 String? _subscriptionGateBusiness;
 
+/// Businesses whose subscription gate the user already closed in this app
+/// launch: the gate is not shown again until the next launch.
+final Set<String> _subscriptionGateDismissed = {};
+
 /// After a provider answered (login / Apple / Google / invitation): MFA if
 /// needed, trade the cookie session for a device token, then route. Returns
 /// false when the user backed out of the MFA step. Throws [ApiException].
@@ -134,10 +138,32 @@ Future<bool> _subscriptionGate(BuildContext? context) async {
     final subscription = await fetchSubscription();
     if (!subscription.active && (context?.mounted ?? true)) {
       final businessId = session.business?.businessId;
+      if (businessId != null &&
+          _subscriptionGateDismissed.contains(businessId)) {
+        return false;
+      }
       if (businessId != null && _subscriptionGateBusiness == businessId) {
         return true;
       }
       _subscriptionGateBusiness = businessId;
+      if (context == null) {
+        // Background check after a cache start: the user may already be on
+        // another screen. Push the gate on top instead of wiping the stack
+        // (wiping it mid-action looked like a crash on TestFlight build 8).
+        unawaited(
+          navigatorKey.currentState?.push(
+            MaterialPageRoute<void>(
+              builder: (gateContext) => RequiredSubscriptionScreen(
+                onSubscribed: () =>
+                    _closeSubscriptionGate(gateContext, businessId),
+                onExit: () => _closeSubscriptionGate(gateContext, businessId),
+              ),
+              settings: const RouteSettings(name: '/gate/subscription'),
+            ),
+          ),
+        );
+        return true;
+      }
       _resetTo(
         RequiredSubscriptionScreen(
           onSubscribed: _leaveSubscriptionGate,
@@ -160,8 +186,18 @@ Future<bool> _subscriptionGate(BuildContext? context) async {
 }
 
 void _leaveSubscriptionGate() {
+  final businessId = _subscriptionGateBusiness;
+  if (businessId != null) _subscriptionGateDismissed.add(businessId);
   _subscriptionGateBusiness = null;
   resetToHome();
+}
+
+/// Closes a gate that was pushed on top of the user's screens.
+void _closeSubscriptionGate(BuildContext gateContext, String? businessId) {
+  if (businessId != null) _subscriptionGateDismissed.add(businessId);
+  _subscriptionGateBusiness = null;
+  // pop, not maybePop: the gate's PopScope (canPop false) would call onExit again.
+  if (gateContext.mounted) Navigator.of(gateContext).pop();
 }
 
 void _resetTo(Widget screen, String name) =>

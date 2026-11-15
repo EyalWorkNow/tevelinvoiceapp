@@ -11,6 +11,7 @@ import 'package:invoice/screens/auth/mfa_sheet.dart';
 import 'package:invoice/screens/auth/onboarding_screen.dart';
 import 'package:invoice/screens/billing/billing_screen.dart';
 import 'package:invoice/app_shell.dart';
+import 'package:invoice/router.dart' show navigatorKey;
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/ds.dart';
@@ -285,6 +286,20 @@ void main() {
       );
       await settle(tester);
       expect(find.byType(RequiredSubscriptionScreen), findsOneWidget);
+      // TestFlight build 8: the background gate wiped every open screen. It is
+      // now pushed on top, so closing it returns to where the user was.
+      final close = find.descendant(
+        of: find.byType(RequiredSubscriptionScreen),
+        matching: find.byIcon(Icons.close_rounded),
+      ).first;
+      await tester.tap(close);
+      await settle(tester);
+      expect(find.byType(RequiredSubscriptionScreen), findsNothing);
+      expect(find.byType(AppShell), findsOneWidget);
+      // Closed once → not shown again in this launch.
+      await tester.runAsync(() => routeSignedIn(navigatorKey.currentContext!));
+      await settle(tester);
+      expect(find.byType(RequiredSubscriptionScreen), findsNothing);
     },
   );
 }

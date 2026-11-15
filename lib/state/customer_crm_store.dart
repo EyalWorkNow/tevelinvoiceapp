@@ -1230,3 +1230,18 @@ class _PendingCrmMutation {
     'record': record,
   };
 }
+
+/// Starts [CustomerCrmStore.loadForBusiness] for a widget from initState /
+/// didUpdateWidget. The load notifies listeners synchronously, and other
+/// mounted CRM widgets rebuild on that notification: called mid-build it is
+/// "setState() or markNeedsBuild() called during build" (QA 2026-11-15), so
+/// it runs right after the current frame's build instead.
+void loadCrmAfterBuild(
+  State<StatefulWidget> state,
+  CustomerCrmStore store,
+  String Function() businessId,
+) {
+  scheduleMicrotask(() {
+    if (state.mounted) unawaited(store.loadForBusiness(businessId()));
+  });
+}

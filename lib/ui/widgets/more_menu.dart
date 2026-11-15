@@ -79,7 +79,10 @@ class MoreMenu extends StatelessWidget {
         ),
       ),
     );
-    chosen?.onSelected();
+    // The screen may have been closed under the sheet (a link, a session
+    // reset): its callbacks use that screen's context.
+    if (chosen == null || !context.mounted) return;
+    chosen.onSelected();
   }
 }
 

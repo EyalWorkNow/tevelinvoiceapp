@@ -217,13 +217,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (caps.can(Cap.customerManage) && businessId != null)
         CustomerCrmReminderPreview(
           businessId: businessId,
-          onOpenAgenda: () => unawaited(
-            openCustomerCrmAgenda(
-              context,
-              businessId: businessId,
-              onOpenCustomer: (id) => unawaited(openPerson(context, id)),
-            ),
-          ),
+          onOpenAgenda: () =>
+              unawaited(openCustomerCrmAgenda(context, businessId: businessId)),
           onOpenCustomer: (id) => unawaited(openPerson(context, id)),
         ),
       if (inboxVisible(caps) && data.cards.isNotEmpty) ..._todo(context, data),

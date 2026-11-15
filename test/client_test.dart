@@ -185,6 +185,26 @@ void main() {
     expect(api.sessionCookie, isNull);
   });
 
+  test(
+    'QA 2026-11-15: a late 401 for an older token does not end the new session',
+    () async {
+      final events = <ApiEvent>[];
+      final sub = api.events.listen(events.add);
+      api.deviceToken = 'inv_old';
+      api.httpClient = MockClient((request) async {
+        // Another member signs in while this request is in flight.
+        api.deviceToken = 'inv_new';
+        return http.Response(jsonEncode({'error': 'UNAUTHENTICATED'}), 401);
+      });
+      await expectLater(api.get('/dashboard'), throwsA(isA<ApiException>()));
+      respond(401, {'error': 'UNAUTHENTICATED'});
+      await expectLater(api.get('/dashboard'), throwsA(isA<ApiException>()));
+      await Future<void>.delayed(Duration.zero);
+      expect(events, [ApiEvent.sessionExpired], reason: 'only the current one');
+      await sub.cancel();
+    },
+  );
+
   test('errors map to Hebrew ApiException and fire events', () async {
     final events = <ApiEvent>[];
     final sub = api.events.listen(events.add);

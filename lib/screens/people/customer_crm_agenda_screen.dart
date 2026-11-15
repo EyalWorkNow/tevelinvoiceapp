@@ -12,21 +12,24 @@ import '../../ui/app_page_route.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/common_he.dart';
 import '../business/business_template.dart';
+import '../../router.dart' show openPerson;
 import 'customer_crm_editors.dart';
 import 'customer_crm_finance_card.dart';
 import 'customer_crm_sync_status.dart';
 
+/// The board opens customer cards from its own route: a context of the screen
+/// below is covered by the board, and router.dart ignores pushes from a
+/// covered page (a tap on a job / reminder did nothing, QA 2026-11-15).
 Future<void> openCustomerCrmAgenda(
   BuildContext context, {
   required String businessId,
-  required ValueChanged<String> onOpenCustomer,
 }) async {
   await Navigator.of(context).push<void>(
     AppPageRoute<void>(
       settings: const RouteSettings(name: '/crm/agenda'),
-      builder: (_) => CustomerCrmAgendaScreen(
+      builder: (agendaContext) => CustomerCrmAgendaScreen(
         businessId: businessId,
-        onOpenCustomer: onOpenCustomer,
+        onOpenCustomer: (id) => unawaited(openPerson(agendaContext, id)),
       ),
     ),
   );
@@ -76,14 +79,14 @@ class _CustomerCrmAgendaScreenState extends State<CustomerCrmAgendaScreen> {
   @override
   void initState() {
     super.initState();
-    unawaited(_store.loadForBusiness(widget.businessId));
+    loadCrmAfterBuild(this, _store, () => widget.businessId);
   }
 
   @override
   void didUpdateWidget(covariant CustomerCrmAgendaScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.businessId != widget.businessId) {
-      unawaited(_store.loadForBusiness(widget.businessId));
+      loadCrmAfterBuild(this, _store, () => widget.businessId);
     }
   }
 
@@ -558,14 +561,14 @@ class _CustomerCrmReminderPreviewState
   @override
   void initState() {
     super.initState();
-    unawaited(_store.loadForBusiness(widget.businessId));
+    loadCrmAfterBuild(this, _store, () => widget.businessId);
   }
 
   @override
   void didUpdateWidget(covariant CustomerCrmReminderPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.businessId != widget.businessId) {
-      unawaited(_store.loadForBusiness(widget.businessId));
+      loadCrmAfterBuild(this, _store, () => widget.businessId);
     }
   }
 

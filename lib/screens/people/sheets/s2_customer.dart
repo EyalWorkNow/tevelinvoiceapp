@@ -80,12 +80,15 @@ Future<PickedContact?> _nativePick() async {
 /// Returns the chosen / created customer, or null when dismissed.
 /// [startOnNew]: open on page 2 (S1 "לקוח", P "+ לקוח"). [edit]: edit that
 /// customer (P2 "פרטים ועריכה"; [detail] adds the BE-09 fields).
+/// [openExistingCard]: on "פתח לקוח קיים" (409) open that customer's card
+/// after S2 closes; false (Composer) only returns it as the choice.
 Future<Customer?> showCustomerSheet(
   BuildContext context, {
   bool startOnNew = false,
   bool recentPayments = false,
   Customer? edit,
   CustomerDetail? detail,
+  bool openExistingCard = true,
 }) async {
   final r = await _showCounterpartyPage(
     context,
@@ -96,7 +99,19 @@ Future<Customer?> showCustomerSheet(
       detail: detail,
     ),
   );
+  if (r is OpenExistingCustomer) {
+    if (openExistingCard && context.mounted) {
+      unawaited(openPerson(context, r.customer.id));
+    }
+    return r.customer;
+  }
   return r is Customer ? r : null;
+}
+
+/// S2's answer when the user chose "פתח לקוח קיים" on a 409 duplicate.
+class OpenExistingCustomer {
+  const OpenExistingCustomer(this.customer);
+  final Customer customer;
 }
 
 /// S2 in supplier mode (E review "ספק", P "+ ספק"; [edit]: P2 supplier
@@ -319,13 +334,18 @@ class _CustomerSheetState extends State<CustomerSheet> {
         }
         return;
       }
-      _recentIds = await readRecentCustomerIds();
-      if (widget.recentPayments) {
-        _recentPaymentIds = await readRecentPaymentCustomerIds();
-      }
+      final recentIds = await readRecentCustomerIds();
+      final recentPaymentIds = widget.recentPayments
+          ? await readRecentPaymentCustomerIds()
+          : const <String>[];
+      if (!mounted) return;
+      _recentIds = recentIds;
+      _recentPaymentIds = recentPaymentIds;
       final cached = await readCachedCustomerList();
       if (cached != null && mounted) _setCustomers(cached.customers);
       final list = await fetchCustomerList();
+      // Closed while loading: the controllers below are disposed.
+      if (!mounted) return;
       _be09 = list.be09;
       _capped = list.capped;
       _search.removeListener(_searchServer); // _load runs again on retry
@@ -371,7 +391,12 @@ class _CustomerSheetState extends State<CustomerSheet> {
 
   // ---- page 1 ---------------------------------------------------------------
 
+  /// One pick per page: a double tap must not pop the page under S2 too.
+  bool _picked = false;
+
   Future<void> _pick(_Entry e) async {
+    if (_picked) return;
+    _picked = true;
     HapticFeedback.selectionClick();
     if (!_sup) await rememberRecentCustomer(e.id);
     if (mounted) Navigator.of(context).pop(e.value);
@@ -1084,16 +1109,36 @@ class _CustomerSheetState extends State<CustomerSheet> {
           if (existing != null)
             TextButton(
               key: const Key('s2-open-existing'),
-              onPressed: () {
-                final nav = Navigator.of(context);
-                nav.pop();
-                unawaited(openPerson(nav.context, existing));
-              },
+              onPressed: () => _openExisting(existing),
               child: const Text(PeopleHe.openExisting),
             ),
         ],
       ),
     );
+  }
+
+  /// "פתח לקוח קיים" (409): S2 closes with the existing customer, so the
+  /// caller decides — the Composer takes it as the chosen customer, P / B /
+  /// P2 open its card ([showCustomerSheet] openExistingCard). Opening the card
+  /// from here left a blank Composer stuck under it (QA 2026-11-15).
+  Future<void> _openExisting(String id) async {
+    if (_busy) return;
+    Customer? found;
+    for (final c in _customers) {
+      if (c.id == id) found = c;
+    }
+    if (found == null) {
+      setState(() => _busy = true);
+      try {
+        found = (await fetchCustomerDetail(id)).customer;
+      } on Object catch (e) {
+        if (!mounted) return;
+        setState(() => _busy = false);
+        showErrorSnack(context, e);
+        return;
+      }
+    }
+    if (mounted) Navigator.of(context).pop(OpenExistingCustomer(found));
   }
 
   Widget _ltr(

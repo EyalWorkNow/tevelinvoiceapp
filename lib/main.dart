@@ -15,9 +15,19 @@ import 'state/session.dart';
 import 'state/system_notices.dart';
 import 'ui/money_text.dart' show AmountPrivacy;
 import 'ui/theme.dart';
+import 'ui/widgets/safe_error_card.dart';
+import 'util/error_log.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  // QA 2026-11-15: keep the last errors on the device (Settings → "שלח יומן
+  // תקלות"); TestFlight reports no native crash for a Flutter exception.
+  ErrorLog.instance.currentRoute = () {
+    final stack = AppRouter.instance.observer.stack;
+    return stack.isEmpty ? null : stack.last;
+  };
+  ErrorLog.instance.install();
+  if (kReleaseMode) ErrorWidget.builder = safeErrorWidget;
   AppRouter.instance.install();
   loadHideAmounts();
   if (kDebugMode) {

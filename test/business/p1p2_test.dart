@@ -584,6 +584,7 @@ void main() {
           const BusinessScreen(section: 'account'),
         );
         await tester.ensureVisible(find.byKey(const Key('account-delete')));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('account-delete')));
         await settle(tester);
         expect(find.byType(SoleOwnerWarning), findsOneWidget);

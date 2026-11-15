@@ -377,11 +377,7 @@ class _BusinessListState extends State<_BusinessList> {
           orb: const Icon(Iconsax.calendar, color: Color(0xFF385D6E), size: 27),
           color: const Color(0xFFD6EDF5),
           onTap: () => unawaited(
-            openCustomerCrmAgenda(
-              context,
-              businessId: currentBusinessId,
-              onOpenCustomer: (id) => unawaited(openPerson(context, id)),
-            ),
+            openCustomerCrmAgenda(context, businessId: currentBusinessId),
           ),
         ),
       if (caps.can(Cap.docDraft)) ...[

@@ -174,6 +174,9 @@ abstract final class BusinessHe {
   static const twoFactorApp = 'אפליקציית אימות וקודי שחזור';
   static const signOut = 'צא מהמכשיר';
   static const signOutAll = 'צא מכל המכשירים';
+  static const sendErrorLog = 'שלח יומן תקלות';
+  static const errorLogEmpty = 'אין תקלות ביומן';
+  static String errorLogCount(int n) => n == 1 ? 'תקלה אחת' : '$n תקלות';
   static const signOutAllConfirm = 'לצאת מכל המכשירים?';
   static const signOutAllBody =
       'כל הטלפונים והדפדפנים יתנתקו, כולל הטלפון הזה.';

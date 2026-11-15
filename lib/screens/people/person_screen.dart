@@ -477,11 +477,7 @@ class _PersonScreenState extends State<PersonScreen> {
                     )
                   : null,
               onOpenAgenda: () => unawaited(
-                openCustomerCrmAgenda(
-                  context,
-                  businessId: businessId,
-                  onOpenCustomer: (id) => unawaited(openPerson(context, id)),
-                ),
+                openCustomerCrmAgenda(context, businessId: businessId),
               ),
             ),
           ),

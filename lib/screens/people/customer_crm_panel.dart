@@ -60,14 +60,14 @@ class _CustomerCrmPanelState extends State<CustomerCrmPanel> {
   @override
   void initState() {
     super.initState();
-    unawaited(_store.loadForBusiness(widget.businessId));
+    loadCrmAfterBuild(this, _store, () => widget.businessId);
   }
 
   @override
   void didUpdateWidget(covariant CustomerCrmPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.businessId != widget.businessId) {
-      unawaited(_store.loadForBusiness(widget.businessId));
+      loadCrmAfterBuild(this, _store, () => widget.businessId);
     }
   }
 

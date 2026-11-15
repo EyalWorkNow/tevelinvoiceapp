@@ -798,6 +798,49 @@ void main() {
     );
 
     testWidgets(
+      'QA 2026-11-15: from the Composer, "פתח לקוח קיים" returns the existing '
+      'customer as the choice and opens no card (no blank Composer under P2)',
+      (tester) async {
+        installPeopleFakes(
+          backend,
+          customers: [customerJson('c9', 'מוסך הצפון')],
+        );
+        backend.on(
+          'POST',
+          '/customers',
+          (_) => FakeResponse(409, {
+            'error': 'CUSTOMER_DUPLICATE',
+            'message': 'לקוח עם אותו מספר ח.פ. / ת.ז. כבר קיים',
+            'customerId': 'c9',
+          }),
+        );
+        await pump(tester, const Scaffold(body: Text('root')));
+        Customer? chosen;
+        var done = false;
+        unawaited(
+          showCustomerSheet(
+            navigatorKey.currentContext!,
+            openExistingCard: false,
+          ).then((c) {
+            chosen = c;
+            done = true;
+          }),
+        );
+        await flush(tester);
+        await tap(tester, find.byKey(const Key('s2-new')));
+        await tester.enterText(find.byKey(const Key('s2-name')), 'מוסך');
+        await tester.enterText(find.byKey(const Key('s2-taxid')), '514713288');
+        await tap(tester, find.byKey(const Key('s2-save')));
+        await tap(tester, find.byKey(const Key('s2-open-existing')));
+        await flush(tester);
+        expect(done, isTrue);
+        expect(chosen?.id, 'c9');
+        expect(find.byType(PersonScreen), findsNothing);
+        expect(find.text('root'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
       'QA 3.1: 422 VALIDATION in Hebrew lands on its field; editing it clears',
       (tester) async {
         installPeopleFakes(backend);

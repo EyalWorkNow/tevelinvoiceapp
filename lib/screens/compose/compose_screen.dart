@@ -33,11 +33,11 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 /// S2 (squad D). Tests replace it to simulate one tap on a recent customer.
 Future<Customer?> Function(BuildContext context) pickCustomer = (c) =>
-    showCustomerSheet(c);
+    showCustomerSheet(c, openExistingCard: false);
 
 /// S2 with recent recipients for the “received payment” flow.
 Future<Customer?> Function(BuildContext context) pickPaymentCustomer = (c) =>
-    showCustomerSheet(c, recentPayments: true);
+    showCustomerSheet(c, recentPayments: true, openExistingCard: false);
 
 /// S2 in supplier mode for a 500 purchase order (shown in the same chip).
 Future<Customer?> Function(BuildContext context) pickSupplier = (c) async =>
@@ -107,7 +107,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
         fromQuoteId: widget.fromQuoteId,
         draftId: widget.draftId,
       );
-      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      if (!mounted) return;
       if (load == null) return setState(() => _unavailable = true);
       load.state.addListener(_changed);
       setState(() {
@@ -117,14 +117,14 @@ class _ComposeScreenState extends State<ComposeScreen> {
       _wasReady = load.state.ready;
       if (load.leftoverForm != null) {
         await _waitForEntrance();
-        if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+        if (!await _untilCurrent()) return;
         await _askLeftover(load);
         if (!mounted) return;
         setState(() => _pickingInitialCustomer = load.state.customer == null);
       }
       if (load.state.customer == null) {
         await _waitForEntrance();
-        if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+        if (!await _untilCurrent()) return;
 
         final chosen = await _chooseCustomer();
         if (!mounted) return;
@@ -140,6 +140,18 @@ class _ComposeScreenState extends State<ComposeScreen> {
     } on Object catch (e) {
       if (mounted) setState(() => _error = e);
     }
+  }
+
+  /// True once this Composer is the top route again (a dialog or screen
+  /// opened over it while it loaded closes first); false when it was popped.
+  /// Returning early instead left an endless skeleton (QA 2026-11-15).
+  Future<bool> _untilCurrent() async {
+    final route = ModalRoute.of(context);
+    while (mounted && route != null && route.isActive) {
+      if (route.isCurrent) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    }
+    return false;
   }
 
   Future<void> _waitForEntrance() async {
