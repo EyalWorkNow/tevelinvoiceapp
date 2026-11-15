@@ -15,6 +15,12 @@ import '../../api/actions_api.dart';
 import '../../api/client.dart';
 import '../../api/documents_api.dart'
     show documentsVersion, issuedStatuses, notifyDocumentsChanged;
+import '../../api/issue_api.dart'
+    show
+        PendingPayment,
+        cancelPendingPayment,
+        pendingPaymentsOf,
+        updatePendingPayment;
 import '../../api/models/models.dart';
 import '../../api/signing_api.dart';
 import '../../router.dart';
@@ -38,6 +44,7 @@ import 'pdf_viewer_screen.dart';
 import 'sheets/s5_payment.dart';
 import 'sheets/s6_share.dart';
 import 'sheets/s8_cancel.dart';
+import 'waiting_allocation_card.dart';
 
 class DocumentScreen extends StatefulWidget {
   const DocumentScreen({
@@ -75,6 +82,9 @@ Future<int> Function() documentVatRate = fetchVatRate;
 class _DocumentScreenState extends State<DocumentScreen> {
   DocumentDetail? _doc;
   DocumentExtras _extras = DocumentExtras.empty;
+
+  /// SA2: money that waits with the document for its allocation number.
+  List<PendingPayment> _pending = const [];
   Quote? _quote;
   Customer? _customer;
   DocumentSummary? _row;
@@ -202,6 +212,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
         setState(() {
           _doc = doc;
           _extras = extras;
+          _pending = pendingPaymentsOf(json);
           _customer = results[0] as Customer?;
           _row = results[1] as DocumentSummary?;
           _alloc = results[2] as AllocationState?;
@@ -219,6 +230,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
           setState(() {
             _doc = DocumentDetail.fromJson(cached);
             _extras = DocumentExtras.fromJson(cached);
+            _pending = pendingPaymentsOf(cached);
             _fromCache = true;
             _stale = false;
           });
@@ -255,6 +267,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
       setState(() {
         _doc = DocumentDetail.fromJson(cached);
         _extras = DocumentExtras.fromJson(cached);
+        _pending = pendingPaymentsOf(cached);
         _stale = true;
       });
     } on Object {
@@ -898,6 +911,10 @@ class _DocumentScreenState extends State<DocumentScreen> {
                     else if (_alloc?.detailHe != null &&
                         doc?.status == 'WAITING_FOR_ALLOCATION')
                       DocBanner(text: _alloc!.detailHe!, danger: true),
+                    if (doc?.status == 'WAITING_FOR_ALLOCATION') ...[
+                      _waitingCard(doc!, next, offline),
+                      const SizedBox(height: Space.m),
+                    ],
                     if (quote != null) _quotePreview(quote) else _preview(doc!),
                     if (doc != null) ...[
                       const SizedBox(height: Space.s),
@@ -1013,6 +1030,40 @@ class _DocumentScreenState extends State<DocumentScreen> {
       );
     }
     return null;
+  }
+
+  /// SA2: WAITING_FOR_ALLOCATION in plain words, with what the user can do
+  /// and the money that waits with the document.
+  Widget _waitingCard(DocumentDetail doc, NextAction next, bool offline) {
+    final idle = _busy == null && !_stale && !offline;
+    final canPay = idle && businessContext.can(Cap.paymentRecord);
+    VoidCallback? offer(DocAction a) =>
+        idle && next.menu.contains(a) ? () => _do(a) : null;
+    return WaitingAllocationCard(
+      pending: _pending,
+      amountHidden: doc.amountHidden,
+      onManual: offer(DocAction.manualAllocation),
+      onCancelRequest: offer(DocAction.cancelAllocation),
+      onEditPayment: canPay ? _editPending : null,
+      onCancelPayment: canPay ? _cancelPending : null,
+    );
+  }
+
+  Future<void> _editPending(PendingPayment pay) async {
+    final amount = await askPendingAmount(context, pay.amountMinor);
+    if (amount == null || amount == pay.amountMinor) return;
+    await _guard(PendingPaymentHe.edit, () async {
+      await updatePendingPayment(_doc!.id, pay.id, amountMinor: amount);
+      return PendingPaymentHe.updated;
+    });
+  }
+
+  Future<void> _cancelPending(PendingPayment pay) async {
+    if (!await confirmCancelPendingPayment(context)) return;
+    await _guard(PendingPaymentHe.cancelPayment, () async {
+      await cancelPendingPayment(_doc!.id, pay.id);
+      return PendingPaymentHe.cancelled;
+    });
   }
 
   /// Opened by the Composer right after issue (QA 1.2): one success state

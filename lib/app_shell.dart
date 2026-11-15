@@ -8,6 +8,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'api/commerce_api.dart';
+import 'api/issue_api.dart' show uploadLocalPendingPayment;
 import 'screens/billing/billing_screen.dart';
 import 'state/caps.dart';
 import 'package:flutter/services.dart';
@@ -129,13 +130,21 @@ class _AppShellState extends State<AppShell> {
     AppShell._mountedCount++;
     currentTab.addListener(_animateTab);
     businessContext.addListener(_checkBilling);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkBilling());
+    businessContext.addListener(_uploadPendingPayment);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkBilling();
+      _uploadPendingPayment();
+    });
   }
+
+  /// SA2: a payment an older version kept on this phone goes to the server.
+  void _uploadPendingPayment() => unawaited(uploadLocalPendingPayment());
 
   @override
   void dispose() {
     currentTab.removeListener(_animateTab);
     businessContext.removeListener(_checkBilling);
+    businessContext.removeListener(_uploadPendingPayment);
     _pages.dispose();
     AppShell._mountedCount--;
     super.dispose();

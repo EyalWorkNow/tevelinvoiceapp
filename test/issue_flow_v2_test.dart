@@ -69,9 +69,9 @@ void main() {
         backend.calls('POST', '/documents/:id/allocation/evaluate'),
         hasLength(1),
       );
-      expect(backend.last('POST', '/documents/:id/finalize')!.body, {
-        'scopeKey': 'default',
-      });
+      final finalize = backend.last('POST', '/documents/:id/finalize')!.body;
+      expect(finalize['scopeKey'], 'default');
+      expect(finalize.containsKey('requestAllocation'), isFalse);
       expect(
         backend.last('POST', '/documents/:id/payments')!.body['amountMinor'],
         fake.docs['d1']!['total_minor'],

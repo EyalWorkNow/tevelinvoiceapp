@@ -316,7 +316,10 @@ String _toast(IssueOutcome outcome, bool sent, ComposeState s) =>
       IssueOutcome.issued =>
         sent ? ComposeHe.issuedSentTo(s.customer!.name) : ComposeHe.issued,
       IssueOutcome.submittedForApproval => ComposeHe.submitted,
-      IssueOutcome.waitingForAllocation => ComposeHe.waitingAllocation,
+      IssueOutcome.waitingForAllocation =>
+        s.config.paid
+            ? PendingPaymentHe.issuedWaitingWithPayment
+            : ComposeHe.waitingAllocation,
       IssueOutcome.signingLocked => ComposeHe.waitingSignature,
     };
 
