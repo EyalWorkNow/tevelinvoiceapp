@@ -33,6 +33,19 @@ const Map<String, String> docTypeLabels = {
 
 String docTypeLabel(String type) => docTypeLabels[type] ?? type;
 
+/// Documents the customer has nothing to pay on (already paid, or a credit):
+/// their share text says "לצפייה", never "לצפייה ולתשלום" (Stage A).
+const Set<String> nothingToPayDocTypes = {
+  'RECEIPT',
+  'TAX_INVOICE_RECEIPT',
+  'DONATION_RECEIPT',
+  'CREDIT_DOCUMENT',
+};
+
+/// "לצפייה ולתשלום" for a document the customer pays; "לצפייה" otherwise.
+String shareViewLabel(String documentType) =>
+    nothingToPayDocTypes.contains(documentType) ? 'לצפייה' : 'לצפייה ולתשלום';
+
 /// Document types where VAT is forbidden (web VAT_FORBIDDEN_TYPES).
 const Set<String> vatForbiddenTypes = {
   'DELIVERY_NOTE',

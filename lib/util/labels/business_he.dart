@@ -447,6 +447,7 @@ abstract final class AuthHe {
   static String alreadyMember(String business) => 'אתה כבר חבר ב-$business';
   static String expiredAskAgain(String inviter) =>
       'ההזמנה כבר לא בתוקף. בקשו מ$inviter לשלוח הזמנה חדשה';
+
   /// The server does not name the inviter of a dead invitation.
   static const expiredAskAgainUnknown =
       'ההזמנה כבר לא בתוקף. בקשו ממי ששלח לכם אותה לשלוח הזמנה חדשה';
@@ -470,6 +471,7 @@ abstract final class AuthHe {
       'ההזמנה נשלחה ל-$invited, התחברת כ-$signedIn. התחברו עם הכתובת שאליה נשלחה ההזמנה.';
   static const appleHiddenEmail = 'חשבון Apple שמסתיר את כתובת האימייל';
   static const confirmEmailTitle = 'אישור כתובת האימייל';
+
   /// The address itself is its own LTR line under this text (bidi: an
   /// e-mail wrapped inside a Hebrew sentence splits, QA signed-out/16).
   static const confirmEmailSent =

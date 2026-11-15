@@ -138,7 +138,8 @@ const Map<String, String> _mobileMessages = {
   'QUOTE_CHANGED': 'הצעת המחיר עודכנה בינתיים. פתחו אותה שוב ובדקו לפני ההמשך.',
   'PUSH_MFA_REQUIRED':
       'התראות למכשיר זמינות רק אחרי אימות דו-שלבי. התנתקו והתחברו שוב עם קוד אימות.',
-  'API_CONFIG_INVALID': 'הגרסה הזו של האפליקציה לא מצליחה להתחבר. עדכנו אותה מה-App Store, ואם זה חוזר פנו לתמיכה.',
+  'API_CONFIG_INVALID':
+      'הגרסה הזו של האפליקציה לא מצליחה להתחבר. עדכנו אותה מה-App Store, ואם זה חוזר פנו לתמיכה.',
   // Client-side (no HTTP response).
   'NETWORK': 'אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב.',
   'TIMEOUT': 'לא התקבלה תשובה בזמן. בדקו את החיבור לאינטרנט ונסו שוב.',
@@ -157,7 +158,8 @@ const Map<String, String> _mobileMessages = {
   'INVALID_ID': 'הקישור אינו תקין',
   // New mobile contract (CONTRACT A–I).
   'APPLE_TOKEN_INVALID': 'אימות Apple נכשל — נסו שוב',
-  'APPLE_SIGNIN_DISABLED': 'התחברות עם Apple עדיין לא זמינה. אפשר להתחבר עם מייל וסיסמה.',
+  'APPLE_SIGNIN_DISABLED':
+      'התחברות עם Apple עדיין לא זמינה. אפשר להתחבר עם מייל וסיסמה.',
   'APPLE_IDENTITY_MISMATCH': 'החשבון מקושר לזהות Apple אחרת — פנו למנהל העסק',
   'CUSTOMER_NOT_FOUND': 'הלקוח לא נמצא',
   'EXEMPT_BUSINESS_VAT_FORBIDDEN':
@@ -249,7 +251,8 @@ const Map<String, String> _webMessages = {
   'PASSKEY_INVALID': 'האימות במכשיר לא הצליח — נסה שוב',
   'MFA_LAST_METHOD': 'זו שיטת האימות היחידה — הוסף שיטה אחרת לפני ההסרה',
   'MFA_EMAIL_THROTTLED': 'נשלח קוד לפני רגע — המתינו מעט לפני שליחה חוזרת',
-  'MFA_EMAIL_UNAVAILABLE': 'שליחת קוד אימות במייל לא זמינה כרגע. השתמשו באפליקציית האימות, או פנו לתמיכה.',
+  'MFA_EMAIL_UNAVAILABLE':
+      'שליחת קוד אימות במייל לא זמינה כרגע. השתמשו באפליקציית האימות, או פנו לתמיכה.',
   'VALIDATION': 'קלט לא תקין — בדקו את השדות ונסו שוב',
   'INVALID_JSON': 'הבקשה לא תקינה',
   'BUSINESS_REQUIRED': 'יש לבחור עסק לפני הפעולה',
@@ -266,7 +269,8 @@ const Map<String, String> _webMessages = {
   'GOOGLE_TOKEN_INVALID': 'אימות Google נכשל — נסה שוב',
   'NO_LINKED_ACCOUNT':
       'אין חשבון פעיל המשויך לכתובת Google זו. פנה למנהל המערכת.',
-  'GOOGLE_SIGNIN_DISABLED': 'התחברות עם Google עדיין לא זמינה. אפשר להתחבר עם מייל וסיסמה.',
+  'GOOGLE_SIGNIN_DISABLED':
+      'התחברות עם Google עדיין לא זמינה. אפשר להתחבר עם מייל וסיסמה.',
   'NOT_FOUND': 'הפריט המבוקש לא נמצא (ייתכן שנמחק או שאין לכם גישה אליו)',
   'DOCUMENT_NOT_FOUND': 'המסמך לא נמצא',
   'EXPENSE_NOT_FOUND': 'ההוצאה לא נמצאה',
@@ -300,7 +304,8 @@ const Map<String, String> _webMessages = {
   'ALLOCATION_NOT_ELIGIBLE': 'מספר הקצאה אינו חל על מסמך זה',
   'ALLOCATION_NOT_REQUIRED':
       'מספר הקצאה אינו נדרש למסמך זה (ניתן לבקש וולונטרית)',
-  'SHAAM_DISABLED': 'החיבור לרשות המסים עדיין לא הופעל. חשבוניות שדורשות מספר הקצאה ימתינו עד ההפעלה.',
+  'SHAAM_DISABLED':
+      'החיבור לרשות המסים עדיין לא הופעל. חשבוניות שדורשות מספר הקצאה ימתינו עד ההפעלה.',
   'SHAAM_KILL_SWITCH': 'בקשות אוטומטיות לרשות המסים מושבתות זמנית — מצב ידני',
   'SHAAM_TEMPORARILY_UNAVAILABLE':
       'רשות המסים אינה זמינה כרגע — נסה שוב בעוד רגע',
@@ -345,7 +350,8 @@ const Map<String, String> _webMessages = {
   'DB_UNAVAILABLE': 'השירות לא זמין כרגע. נסו שוב בעוד רגע.',
   'CONSTRAINT_VIOLATION':
       'הנתונים אינם עומדים בכללי המערכת — בדקו את השדות ונסו שוב',
-  'SESSION_AUTH_DISABLED': 'ההתחברות לא זמינה כרגע. נסו שוב מאוחר יותר, ואם זה חוזר פנו לתמיכה.',
+  'SESSION_AUTH_DISABLED':
+      'ההתחברות לא זמינה כרגע. נסו שוב מאוחר יותר, ואם זה חוזר פנו לתמיכה.',
   'GOOGLE_CERTS_UNAVAILABLE': 'אימות Google אינו זמין כרגע — נסה שוב בעוד רגע',
   'TAX_AUTHORITY_DISABLED': 'חיבור לרשות המסים טרם הופעל (ממתין לאישור והרשמה)',
   'SIGNING_DISABLED': 'חתימה דיגיטלית טרם הופעלה (ממתינה לאישור מקצועי)',
@@ -361,7 +367,8 @@ const Map<String, String> _webMessages = {
       'תעודת החתימה אינה מאושרת על ידי גורם מוסמך',
   'SIGNING_UNAVAILABLE': 'שירות החתימה אינו זמין כרגע — נסו שוב בעוד רגע',
   'SIGNATURE_FAILED': 'החתימה נכשלה — נסו שוב או פנו לתמיכה',
-  'PADES_BRIDGE_UNAVAILABLE': 'החתימה הדיגיטלית על המסמך לא זמינה כרגע. נסו שוב בעוד כמה דקות.',
+  'PADES_BRIDGE_UNAVAILABLE':
+      'החתימה הדיגיטלית על המסמך לא זמינה כרגע. נסו שוב בעוד כמה דקות.',
   'PADES_VALUEERROR': 'החתימה נדחתה על ידי רכיב החתימה — בדקו את התעודה',
   'QUOTE_ALREADY_CONVERTED': 'הצעת המחיר כבר הומרה לחשבונית',
   'CREDIT_LIMIT_EXCEEDED': 'המסמך כבר זוכה — אין יתרה לזיכוי',

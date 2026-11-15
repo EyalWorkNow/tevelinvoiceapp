@@ -4,6 +4,7 @@
 import '../composer_config.dart';
 import '../intent_resolver.dart';
 import '../money.dart';
+import 'document_he.dart';
 
 abstract final class ComposeHe {
   // Primary button (§6.C step 4).
@@ -190,17 +191,18 @@ String vatBreakdown(BigInt net, BigInt vat, BigInt total) =>
 String vatModeLabel(bool inclusive) => inclusive ? 'כולל מע״מ' : 'לפני מע״מ';
 
 /// §13.5 fixed WhatsApp text (not editable in the app).
+/// Amounts always with agorot (‎₪350.00); a receipt says "לצפייה" only.
 String issueWhatsAppText({
   required String customerName,
-  required String typeLabel,
+  required String documentType,
   required String? number,
   required BigInt totalMinor,
   required String link,
   required String businessName,
 }) =>
-    'שלום $customerName, מצורפת $typeLabel'
-    '${number == null ? '' : ' מס\' $number'} על סך ${formatMoney(totalMinor, trimZeroAgorot: true)}. '
-    'לצפייה ולתשלום: $link. תודה, $businessName';
+    'שלום $customerName, מצורפת ${docTypeLabel(documentType)}'
+    '${number == null ? '' : ' מס\' $number'} על סך ${formatMoney(totalMinor)}. '
+    '${shareViewLabel(documentType)}: $link. תודה, $businessName';
 
 /// P1 quote text (BE-06 link to the quote page + PDF), §13.5 wording.
 String quoteLinkWhatsAppText({
@@ -210,7 +212,7 @@ String quoteLinkWhatsAppText({
   required String link,
   required String businessName,
 }) =>
-    'שלום $customerName, מצורפת הצעת מחיר על סך ${formatMoney(totalMinor, trimZeroAgorot: true)}, '
+    'שלום $customerName, מצורפת הצעת מחיר על סך ${formatMoney(totalMinor)}, '
     'בתוקף עד $validUntil. לצפייה: $link. תודה, $businessName';
 
 /// P0 quote text: the lines from the Composer's memory (§8.2.4); still used
@@ -224,10 +226,8 @@ String quoteWhatsAppText({
 }) {
   final b = StringBuffer('שלום $customerName, הצעת מחיר מ-$businessName:\n');
   for (final (d, amount) in lines) {
-    b.writeln('• $d – ${formatMoney(amount, trimZeroAgorot: true)}');
+    b.writeln('• $d – ${formatMoney(amount)}');
   }
-  b.write(
-    'סה״כ ${formatMoney(totalMinor, trimZeroAgorot: true)}, בתוקף עד $validUntil.',
-  );
+  b.write('סה״כ ${formatMoney(totalMinor)}, בתוקף עד $validUntil.');
   return b.toString();
 }
