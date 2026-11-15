@@ -169,38 +169,49 @@ class _AppShellState extends State<AppShell> {
           );
         },
       ),
-      body: MediaQuery(
-        data: media.copyWith(
-          padding: media.padding.copyWith(bottom: bottomContentInset),
-        ),
-        child: PageView(
-          key: const Key('app-shell-pages'),
-          controller: _pages,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            _KeepAliveTab(
-              child: caps.homeIsReports
-                  ? const ReportsScreen(embedded: true)
-                  : HomeScreen(
-                      onOpenProfile: () => currentTab.value = AppTab.profile,
-                    ),
+      // The body's own MediaQuery: the Scaffold has already taken the
+      // keyboard out of it. Copying the shell's (with viewInsets) made every
+      // tab's Scaffold subtract the keyboard a second time — P overflowed
+      // whenever a keyboard was up (QA 2026-11-15).
+      body: Builder(
+        builder: (context) {
+          final body = MediaQuery.of(context);
+          return MediaQuery(
+            data: body.copyWith(
+              padding: body.padding.copyWith(bottom: bottomContentInset),
             ),
-            _KeepAliveTab(
-              child: PeopleScreen(
-                chip: peopleChip.value,
-                // A root tab of its own; without it P is not reachable.
-                onBack: caps.showPeopleTab
-                    ? null
-                    : () => currentTab.value = _previousTab,
-              ),
-            ),
-            const _KeepAliveTab(child: BusinessScreen()),
-            const _KeepAliveTab(child: ProfileSettingsScreen()),
-          ],
-        ),
+            child: _pagesView(caps),
+          );
+        },
       ),
     );
   }
+
+  Widget _pagesView(Caps caps) => PageView(
+    key: const Key('app-shell-pages'),
+    controller: _pages,
+    physics: const NeverScrollableScrollPhysics(),
+    children: [
+      _KeepAliveTab(
+        child: caps.homeIsReports
+            ? const ReportsScreen(embedded: true)
+            : HomeScreen(
+                onOpenProfile: () => currentTab.value = AppTab.profile,
+              ),
+      ),
+      _KeepAliveTab(
+        child: PeopleScreen(
+          chip: peopleChip.value,
+          // A root tab of its own; without it P is not reachable.
+          onBack: caps.showPeopleTab
+              ? null
+              : () => currentTab.value = _previousTab,
+        ),
+      ),
+      const _KeepAliveTab(child: BusinessScreen()),
+      const _KeepAliveTab(child: ProfileSettingsScreen()),
+    ],
+  );
 }
 
 class _KeepAliveTab extends StatefulWidget {

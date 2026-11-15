@@ -73,6 +73,25 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets(
+    'QA 2026-11-15: a keyboard is taken out once — P does not overflow when '
+    'the keyboard is up',
+    (tester) async {
+      await pumpShell(tester, Preset.owner);
+      currentTab.value = AppTab.people;
+      await tester.pumpAndSettle();
+      expect(find.byType(PeopleScreen), findsOneWidget);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 1008);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final tabBody = MediaQuery.of(
+        tester.element(find.byType(PeopleScreen)),
+      );
+      expect(tabBody.viewInsets.bottom, 0);
+    },
+  );
+
   testWidgets('large reserved glass navigation; create action on every tab', (
     tester,
   ) async {
