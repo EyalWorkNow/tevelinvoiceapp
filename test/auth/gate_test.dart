@@ -302,4 +302,69 @@ void main() {
       expect(find.byType(RequiredSubscriptionScreen), findsNothing);
     },
   );
+
+  group('TestFlight build 10 · no subscription on the server', () {
+    final noPlan = {'active': false, 'needsPlan': true, 'subscription': null};
+
+    Future<void> routeFrom(WidgetTester tester) async {
+      await tester.pumpWidget(
+        eApp(
+          Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => routeSignedIn(context),
+                child: const Text('go'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('go'));
+      await settle(tester);
+    }
+
+    testWidgets(
+      '"אולי אחר כך" → Home, and Home does not prompt with the plans sheet too',
+      (tester) async {
+        phone(tester);
+        await tester.runAsync(() => signInAs(backend, Preset.owner));
+        backend.json('GET', '/billing/subscription', noPlan);
+        await routeFrom(tester);
+        expect(find.byType(RequiredSubscriptionScreen), findsOneWidget);
+        // Plain words, never a setup instruction for developers.
+        expect(find.textContaining('App Store Connect'), findsNothing);
+        final later = find.byKey(const Key('required-plan-later'));
+        await tester.ensureVisible(later);
+        await tester.tap(later);
+        await settle(tester);
+        expect(find.byType(RequiredSubscriptionScreen), findsNothing);
+        expect(find.byType(AppShell), findsOneWidget);
+        expect(find.byType(PlansSheet), findsNothing);
+        // The ＋ (new document) stays available: closing never blocks issuing.
+        expect(find.byKey(const Key('tab-create')), findsOneWidget);
+      },
+    );
+
+    testWidgets('cache start: the gate is the only prompt (no sheet under it)', (
+      tester,
+    ) async {
+      phone(tester);
+      await tester.runAsync(() => signInAs(backend, Preset.owner));
+      backend.json('GET', '/billing/subscription', noPlan);
+      session.restoredFromCache = true;
+      await routeFrom(tester);
+      expect(find.byType(RequiredSubscriptionScreen), findsOneWidget);
+      final close = find
+          .descendant(
+            of: find.byType(RequiredSubscriptionScreen),
+            matching: find.byIcon(Icons.close_rounded),
+          )
+          .first;
+      await tester.tap(close);
+      await settle(tester);
+      expect(find.byType(RequiredSubscriptionScreen), findsNothing);
+      expect(find.byType(PlansSheet), findsNothing);
+      expect(find.byType(AppShell), findsOneWidget);
+    });
+  });
 }

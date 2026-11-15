@@ -165,4 +165,18 @@ void main() {
       );
     },
   );
+
+  test('production 2026-11-15: blockers speak to the user, not the developer', () {
+    final allocation = errorMessageHe('ALLOCATION_RULE_NOT_CONFIGURED');
+    expect(allocation, isNot(contains('כללי הקצאת')));
+    expect(allocation, contains('טיוטות נשמרות'));
+    for (final code in [
+      'APPLE_ENVIRONMENT_NOT_ALLOWED',
+      'APPLE_VERIFICATION_NOT_CONFIGURED',
+    ]) {
+      expect(errorMessageHe(code), appStorePurchaseUnavailableHe, reason: code);
+    }
+    expect(appStorePurchaseUnavailableHe, isNot(contains('Connect')));
+    expect(appStorePurchaseUnavailableHe, contains('להמשיך להשתמש באפליקציה'));
+  });
 }

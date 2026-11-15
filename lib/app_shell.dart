@@ -77,9 +77,13 @@ class _AppShellState extends State<AppShell> {
         final status = await fetchSubscription();
         if (!mounted || id != businessContext.business?.businessId) return;
         _billingBusiness = id;
-        if (status.needsPlan) {
+        // The launch gate already prompted (or is prompting) this business.
+        if (status.needsPlan && !PlanPrompts.handled(id)) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+            if (mounted &&
+                ModalRoute.of(context)?.isCurrent == true &&
+                !PlanPrompts.handled(id)) {
+              PlanPrompts.markShown(id);
               unawaited(showBillingPlans(context));
             }
           });

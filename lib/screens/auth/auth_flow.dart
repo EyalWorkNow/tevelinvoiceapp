@@ -26,10 +26,6 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 bool _routingSignedIn = false;
 String? _subscriptionGateBusiness;
 
-/// Businesses whose subscription gate the user already closed in this app
-/// launch: the gate is not shown again until the next launch.
-final Set<String> _subscriptionGateDismissed = {};
-
 /// After a provider answered (login / Apple / Google / invitation): MFA if
 /// needed, trade the cookie session for a device token, then route. Returns
 /// false when the user backed out of the MFA step. Throws [ApiException].
@@ -134,18 +130,22 @@ Future<void> routeSignedIn(BuildContext context) async {
 /// True when the business has no active subscription and the required
 /// subscription screen was shown. [context] null = background check.
 Future<bool> _subscriptionGate(BuildContext? context) async {
+  final checkedBusiness = session.business?.businessId;
+  // Home's plans sheet waits for this check instead of prompting too.
+  if (checkedBusiness != null) PlanPrompts.checking(checkedBusiness, true);
   try {
     final subscription = await fetchSubscription();
     if (!subscription.active && (context?.mounted ?? true)) {
       final businessId = session.business?.businessId;
-      if (businessId != null &&
-          _subscriptionGateDismissed.contains(businessId)) {
-        return false;
-      }
       if (businessId != null && _subscriptionGateBusiness == businessId) {
         return true;
       }
+      // Shown once per business per launch (gate or Home's plans sheet).
+      if (businessId != null && PlanPrompts.shown(businessId)) {
+        return false;
+      }
       _subscriptionGateBusiness = businessId;
+      if (businessId != null) PlanPrompts.markShown(businessId);
       if (context == null) {
         // Background check after a cache start: the user may already be on
         // another screen. Push the gate on top instead of wiping the stack
@@ -155,8 +155,8 @@ Future<bool> _subscriptionGate(BuildContext? context) async {
             MaterialPageRoute<void>(
               builder: (gateContext) => RequiredSubscriptionScreen(
                 onSubscribed: () =>
-                    _closeSubscriptionGate(gateContext, businessId),
-                onExit: () => _closeSubscriptionGate(gateContext, businessId),
+                    _closeSubscriptionGate(gateContext),
+                onExit: () => _closeSubscriptionGate(gateContext),
               ),
               settings: const RouteSettings(name: '/gate/subscription'),
             ),
@@ -181,20 +181,19 @@ Future<bool> _subscriptionGate(BuildContext? context) async {
     }
   } on Object catch (e) {
     if (context != null && context.mounted) showErrorSnack(context, e);
+  } finally {
+    if (checkedBusiness != null) PlanPrompts.checking(checkedBusiness, false);
   }
   return false;
 }
 
 void _leaveSubscriptionGate() {
-  final businessId = _subscriptionGateBusiness;
-  if (businessId != null) _subscriptionGateDismissed.add(businessId);
   _subscriptionGateBusiness = null;
   resetToHome();
 }
 
 /// Closes a gate that was pushed on top of the user's screens.
-void _closeSubscriptionGate(BuildContext gateContext, String? businessId) {
-  if (businessId != null) _subscriptionGateDismissed.add(businessId);
+void _closeSubscriptionGate(BuildContext gateContext) {
   _subscriptionGateBusiness = null;
   // pop, not maybePop: the gate's PopScope (canPop false) would call onExit again.
   if (gateContext.mounted) Navigator.of(gateContext).pop();

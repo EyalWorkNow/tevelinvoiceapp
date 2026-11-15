@@ -3,6 +3,7 @@
 
 import 'package:invoice/api/client.dart';
 import 'package:invoice/api/expenses_api.dart' show resetExpenseOcrAvailability;
+import 'package:invoice/screens/billing/billing_screen.dart' show PlanPrompts;
 import 'package:invoice/api/models/models.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/state/session.dart';
@@ -216,6 +217,7 @@ Future<MobileAccount> signInAs(
 void resetSession() {
   ApiClient.instance.clearCredentials();
   resetExpenseOcrAvailability();
+  PlanPrompts.reset();
   session
     ..status = SessionStatus.signedOut
     ..account = null

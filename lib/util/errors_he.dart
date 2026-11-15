@@ -5,6 +5,11 @@
 
 /// Hebrew message for a server error [code] (+ the raw server `message`,
 /// used only for VALIDATION). [status] drives the fallback for unknown codes.
+/// App Store purchase not open yet: user words, never "App Store Connect",
+/// and it says the app keeps working (BILLING_ENFORCE is off).
+const appStorePurchaseUnavailableHe =
+    'רכישת מסלול דרך App Store עדיין לא נפתחה. אפשר להמשיך להשתמש באפליקציה ולבחור מסלול בהמשך.';
+
 String errorMessageHe(String code, {String? serverMessage, int status = 0}) {
   if (code == 'VALIDATION') return validationMessageHe(serverMessage);
   final known = _mobileMessages[code] ?? _webMessages[code];
@@ -106,6 +111,9 @@ const Map<String, String> _mobileMessages = {
   'PLAN_INVALID': 'יש לבחור מסלול תקין.',
   'APPLE_TRANSACTION_ALREADY_LINKED':
       'הרכישה הזו כבר משויכת לעסק אחר. פנו לתמיכה לשיוך מחדש.',
+  // Server not yet set up for App Store purchases (TestFlight = Sandbox).
+  'APPLE_ENVIRONMENT_NOT_ALLOWED': appStorePurchaseUnavailableHe,
+  'APPLE_VERIFICATION_NOT_CONFIGURED': appStorePurchaseUnavailableHe,
   'APPLE_ACCOUNT_MISMATCH':
       'הרכישה שייכת לחשבון Apple אחר. היכנסו עם החשבון שביצע את הרכישה.',
   'IDEMPOTENCY_KEY_INVALID': 'הבקשה לא תקינה — נסו שוב',
@@ -298,7 +306,10 @@ const Map<String, String> _webMessages = {
   'ALLOCATION_NUMBER_HELD':
       'מספר ההקצאה כבר רשום על מסמך אחר של העסק — בדוק את המספר שהוזן',
   'ALLOCATION_ALREADY_RESOLVED': 'בקשת ההקצאה כבר הוכרעה',
-  'ALLOCATION_RULE_NOT_CONFIGURED': 'כללי הקצאת מספרים אינם מוגדרים',
+  // Production 2026-11-15: no allocation rules yet → every issue stops here.
+  // Say what happened and that drafts wait; not a developer sentence.
+  'ALLOCATION_RULE_NOT_CONFIGURED':
+      'הפקת מסמכים עדיין לא הופעלה לעסק, ולכן המסמך לא הופק. טיוטות נשמרות, ואפשר להפיק אותן כשההפעלה תושלם.',
   'EXPENSE_NOT_EDITABLE':
       'הוצאה זו אינה ניתנת לעריכה במצבה הנוכחי (כפולה / מאושרת / נדחתה)',
   'EXPENSE_NOT_REVIEWABLE': 'זיהוי אוטומטי אפשרי רק להוצאה בבדיקה',
