@@ -277,7 +277,7 @@ void main() {
       const AppShell(),
       businesses: 2,
     );
-    expect(find.text('הלקוחות שלי'), findsOneWidget);
+    expect(find.text('דוחות'), findsWidgets);
     expect(find.byKey(const Key('reports-switch')), findsOneWidget);
     expect(
       find.byType(MoneyCard),

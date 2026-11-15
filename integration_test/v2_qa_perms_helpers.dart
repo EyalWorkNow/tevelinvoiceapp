@@ -471,6 +471,7 @@ const List<PresetSpec> presets = [
     moneyCard: false,
     intents: false,
     businessRows: {
+      'reports',
       'expenses',
       'shaam',
       'numbering',
@@ -506,7 +507,14 @@ const List<PresetSpec> presets = [
     homeIsReports: true,
     moneyCard: false,
     intents: false,
-    businessRows: {'expenses', 'shaam', 'account', 'desktop', 'notifications'},
+    businessRows: {
+      'reports',
+      'expenses',
+      'shaam',
+      'account',
+      'desktop',
+      'notifications',
+    },
     cancelCredit: true,
     approve: true,
     recordPayment: true,

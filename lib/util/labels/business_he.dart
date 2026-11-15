@@ -329,7 +329,8 @@ abstract final class PresetHe {
 /// R · דוחות (§6.R, §11).
 abstract final class ReportsHe {
   static const title = 'דוחות';
-  static const myClients = 'הלקוחות שלי';
+  /// Accountant home (R as the home tab): the reports of the open business.
+  static const myClients = 'דוחות';
   static const periodCurrent = 'התקופה הנוכחית';
   static const periodPrevious = 'התקופה הקודמת';
   static const periodYear = 'השנה';

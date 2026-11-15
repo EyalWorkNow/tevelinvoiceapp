@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import '../../ui/widgets/notch_notice.dart';
 import '../../api/settings_api.dart'
     show fetchRemindersEnabled, saveRemindersEnabled;
+import '../../app_shell.dart' show AppTab;
 import '../../router.dart';
 import '../people/customer_crm_agenda_screen.dart';
 import '../../state/business_context.dart';
@@ -84,28 +85,39 @@ const BusinessRowSpec moreSettingsRow = BusinessRowSpec(
 /// navigation tests. When two or more [moreSettingsKeys] rows exist they are
 /// replaced by one [moreSettingsRow] (their page: [moreSettingsRows]).
 /// [reminders]: BE-19 switch state; null = the server has no reminders (row hidden).
+/// [exempt]: עוסק פטור / עמותה; alone, "צוות והרשאות" moves to "עוד הגדרות"
+/// (persona 01: a one-person business has no team; the accountant invite
+/// stays one row away).
 List<BusinessRowSpec> businessRows(
   Caps caps, {
   required int memberCount,
   bool? reminders,
+  bool exempt = false,
 }) {
   final all = allBusinessRows(
     caps,
     memberCount: memberCount,
     reminders: reminders,
   );
+  final keys = _moreKeys(memberCount: memberCount, exempt: exempt);
   final more = moreSettingsRows(
     caps,
     memberCount: memberCount,
     reminders: reminders,
+    exempt: exempt,
   );
   if (more.isEmpty) return all;
   return [
     for (final r in all)
-      if (!moreSettingsKeys.contains(r.key)) r,
+      if (!keys.contains(r.key)) r,
     moreSettingsRow,
   ];
 }
+
+Set<String> _moreKeys({required int memberCount, required bool exempt}) => {
+  ...moreSettingsKeys,
+  if (exempt && memberCount <= 1) 'team',
+};
 
 /// The rows of the "עוד הגדרות" page; empty when fewer than two exist (a
 /// single one stays in B itself).
@@ -113,14 +125,16 @@ List<BusinessRowSpec> moreSettingsRows(
   Caps caps, {
   required int memberCount,
   bool? reminders,
+  bool exempt = false,
 }) {
+  final keys = _moreKeys(memberCount: memberCount, exempt: exempt);
   final more = [
     for (final r in allBusinessRows(
       caps,
       memberCount: memberCount,
       reminders: reminders,
     ))
-      if (moreSettingsKeys.contains(r.key)) r,
+      if (keys.contains(r.key)) r,
   ];
   return more.length < 2 ? const [] : more;
 }
@@ -131,7 +145,9 @@ List<BusinessRowSpec> allBusinessRows(
   required int memberCount,
   bool? reminders,
 }) => [
-  if (caps.can(Cap.reportView) && !caps.homeIsReports)
+  // Accountants: R is their home tab; the row takes them there (QA
+  // 2026-11-16 accountant/09: "no דוחות in ניהול" read as "no reports").
+  if (caps.can(Cap.reportView))
     const BusinessRowSpec('reports', BusinessHe.reports, Iconsax.chart_2),
   if (caps.can(Cap.expenseCapture) || caps.can(Cap.expenseApprove))
     const BusinessRowSpec(
@@ -287,6 +303,7 @@ class _BusinessListState extends State<_BusinessList> {
         caps,
         memberCount: businessContext.me?.memberCount ?? 1,
         reminders: _reminders,
+        exempt: businessContext.isVatExempt,
       );
       final many = businessContext.hasManyBusinesses;
       return BusinessPage(
@@ -408,19 +425,22 @@ class _BusinessListState extends State<_BusinessList> {
         section46: section46,
         supplierPicker: true,
       ))
-        _ManagementAction(
-          id: 'type-${configFor(kind).code}',
-          label: _docKindLabel(kind),
-          icon: Iconsax.document_text,
-          orb: Icon(
-            Iconsax.document_text,
-            color: const Color(0xFF614A68),
-            size: 28,
+        // עוסק פטור / עמותה: orders are a business-to-business flow, kept
+        // out of the quick actions (persona 01); still open by link.
+        if (!(businessContext.isVatExempt && _ordersOnly.contains(kind)))
+          _ManagementAction(
+            id: 'type-${configFor(kind).code}',
+            label: _docKindLabel(kind),
+            icon: Iconsax.document_text,
+            orb: Icon(
+              Iconsax.document_text,
+              color: const Color(0xFF614A68),
+              size: 28,
+            ),
+            color: const Color(0xFFE8D9EF),
+            onTap: () =>
+                unawaited(openCompose(context, intent: typeIntent(kind))),
           ),
-          color: const Color(0xFFE8D9EF),
-          onTap: () =>
-              unawaited(openCompose(context, intent: typeIntent(kind))),
-        ),
     ];
 
     return _ManagementQuickActions(
@@ -464,6 +484,8 @@ class _BusinessListState extends State<_BusinessList> {
     selected.onTap();
   }
 }
+
+const Set<DocKind> _ordersOnly = {DocKind.purchaseOrder, DocKind.salesOrder};
 
 String _docKindLabel(DocKind kind) => switch (kind) {
   DocKind.taxInvoiceReceipt => 'חשבונית מס-קבלה',
@@ -605,7 +627,12 @@ void openBusinessRow(BuildContext context, String key) {
     case 'subscription':
       showBillingPlans(context);
     case 'reports':
-      openReports(context);
+      if (businessContext.caps.homeIsReports) {
+        Navigator.of(context).popUntil((r) => r.isFirst);
+        selectTab(AppTab.home);
+      } else {
+        openReports(context);
+      }
     case 'expenses':
       if (businessContext.can(Cap.expenseApprove) &&
           businessContext.can(Cap.moneyView)) {
@@ -649,6 +676,7 @@ class _MoreSettingsPage extends StatelessWidget {
         for (final r in moreSettingsRows(
           businessContext.caps,
           memberCount: businessContext.me?.memberCount ?? 1,
+          exempt: businessContext.isVatExempt,
         ))
           BusinessRow(
             key: Key('brow-${r.key}'),

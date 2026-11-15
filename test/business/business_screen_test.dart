@@ -116,7 +116,9 @@ void main() {
     test(
       'accountant (P0): reports live on the home tab; viewer: account only',
       () async {
+        // R is the accountant's home tab; the row goes there (QA 2026-11-16).
         expect(await rowsFor(Preset.accountantRep), [
+          'reports',
           'expenses',
           'shaam',
           'account',
@@ -131,6 +133,45 @@ void main() {
         expect(await moreFor(Preset.viewer), isEmpty);
       },
     );
+  });
+
+  test('exempt and alone: "צוות והרשאות" moves to עוד הגדרות, not gone', () async {
+    final b = FakeBackend()..install();
+    await signInAs(b, Preset.owner, businessType: 'OSEK_PATUR');
+    final caps = businessContext.caps;
+    List<String> keys(Iterable<BusinessRowSpec> rows) => [
+      for (final r in rows) r.key,
+    ];
+    expect(
+      keys(businessRows(caps, memberCount: 1, exempt: true)),
+      isNot(contains('team')),
+    );
+    expect(
+      keys(moreSettingsRows(caps, memberCount: 1, exempt: true)),
+      contains('team'),
+    );
+    // With a second member the team is real: the row stays in B.
+    expect(
+      keys(businessRows(caps, memberCount: 2, exempt: true)),
+      contains('team'),
+    );
+    expect(keys(businessRows(caps, memberCount: 1)), contains('team'));
+  });
+
+  testWidgets('exempt business: no order quick actions (הזמנה / הזמנת רכש)', (
+    tester,
+  ) async {
+    await pumpAs(
+      tester,
+      backend,
+      Preset.owner,
+      const BusinessScreen(),
+      businessType: 'OSEK_PATUR',
+    );
+    expect(find.byKey(const Key('management-action-quote')), findsOneWidget);
+    expect(find.text('הזמנת רכש'), findsNothing);
+    expect(find.text('הזמנה'), findsNothing);
+    expect(find.byKey(const Key('management-action-more')), findsNothing);
   });
 
   testWidgets(
