@@ -21,8 +21,8 @@ abstract final class CeilingHe {
     return '$day ב${InboxHe.months[month - 1]}';
   }
 
-  static String forecast(String dayMonth) => 'בקצב הזה תגיעי לתקרה ב-$dayMonth';
-  static const forecastNotThisYear = 'בקצב הזה לא תגיעי לתקרה השנה';
+  static String forecast(String dayMonth) => 'בקצב הזה התקרה תושג ב-$dayMonth';
+  static const forecastNotThisYear = 'בקצב הזה התקרה לא תושג השנה';
   static const unknown = 'המחזור השנה עוד לא ידוע';
   static String unknownWithCeiling(String ceiling) =>
       'התקרה: $ceiling · המחזור השנה עוד לא ידוע';

@@ -70,7 +70,7 @@ void main() {
     expect(line(tester), contains('95,400'));
     expect(line(tester), contains('122,833'));
     expect(line(tester), endsWith('· 77%'));
-    expect(find.text('בקצב הזה תגיעי לתקרה ב-14 באוגוסט'), findsOneWidget);
+    expect(find.text('בקצב הזה התקרה תושג ב-14 באוגוסט'), findsOneWidget);
     expect(find.byKey(const Key('ceiling-alert')), findsNothing);
     expect(find.byKey(const Key('ceiling-next-step')), findsNothing);
     expect(find.byKey(const Key('ceiling-switch')), findsNothing);
