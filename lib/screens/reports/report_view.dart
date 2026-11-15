@@ -22,6 +22,13 @@ import '../document/payments_ledger.dart' show PaymentsLedger;
 import 'reports_screen.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
+/// A4: the VAT report is labelled a draft for the accountant.
+const String reportDraftTitle = 'טיוטה לבדיקת רו״ח';
+const String reportDraftBody =
+    'הסכומים מחושבים לפי כללים בסיסיים: רכב – ⅔ מהמע״מ, ציוד בנפרד, '
+    'וחשבונית ספק מעל סף ההקצאה בלי מספר הקצאה לא מנוכה. '
+    'הדיווח למע״מ נעשה אחרי בדיקת רואה החשבון.';
+
 class ReportView extends StatefulWidget {
   const ReportView({super.key, required this.kind, required this.period});
 
@@ -195,6 +202,10 @@ class _ReportViewState extends State<ReportView> {
         if (data == null)
           const SizedBox(height: 320, child: SkeletonList(rows: 4))
         else ...[
+          if (data.draft) _draftBanner(context),
+          for (final w in data.warnings) _warningRow(context, w),
+          if (data.draft || data.warnings.isNotEmpty)
+            const SizedBox(height: Space.m),
           _kpiGrid(context, data.kpis.take(4).toList()),
           const SizedBox(height: Space.section),
           // תקבולים: squad C's ledger body (tap → D, ⋯ "בטל תשלום", paging).
@@ -219,6 +230,44 @@ class _ReportViewState extends State<ReportView> {
             ),
         ],
       ],
+    );
+  }
+
+  /// A4: the VAT figures are a draft — the accountant decides.
+  Widget _draftBanner(BuildContext context) => AppCard(
+    key: const Key('report-draft'),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(reportDraftTitle, style: AppText.headline),
+        const SizedBox(height: Space.xs),
+        Text(
+          reportDraftBody,
+          style: AppText.secondary.copyWith(color: context.palette.muted),
+        ),
+      ],
+    ),
+  );
+
+  /// A4: a problem the reader must see first (e.g. no allocation number).
+  Widget _warningRow(BuildContext context, String text) {
+    final p = context.palette;
+    return Container(
+      key: const Key('report-warning'),
+      margin: const EdgeInsets.only(top: Space.s),
+      padding: const EdgeInsets.all(Space.m),
+      decoration: BoxDecoration(
+        color: p.tint(p.danger),
+        borderRadius: BorderRadius.circular(Radii.button),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Iconsax.warning_2, size: 18, color: p.danger),
+          const SizedBox(width: Space.s),
+          Expanded(child: Text(text, style: AppText.secondary)),
+        ],
+      ),
     );
   }
 
