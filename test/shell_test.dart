@@ -85,14 +85,12 @@ void main() {
       addTearDown(tester.view.resetViewInsets);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      final tabBody = MediaQuery.of(
-        tester.element(find.byType(PeopleScreen)),
-      );
+      final tabBody = MediaQuery.of(tester.element(find.byType(PeopleScreen)));
       expect(tabBody.viewInsets.bottom, 0);
     },
   );
 
-  testWidgets('large reserved glass navigation; create action on every tab', (
+  testWidgets('large reserved glass navigation; create action on Home only', (
     tester,
   ) async {
     await pumpShell(tester, Preset.owner);
@@ -128,12 +126,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(currentTab.value, AppTab.business);
     expect(find.byType(BusinessScreen), findsOneWidget);
-    expect(find.byKey(const Key('tab-create')), findsOneWidget); // 1.5
+    // Owner, TestFlight build 9: ＋ slides out off Home, the bar grows.
+    expect(find.byKey(const Key('tab-create')), findsNothing);
     await tester.tap(find.byKey(const Key('tab-profile')));
     await tester.pumpAndSettle();
     expect(currentTab.value, AppTab.profile);
     expect(find.byType(ProfileSettingsScreen), findsOneWidget);
-    expect(find.byKey(const Key('tab-create')), findsOneWidget);
+    expect(find.byKey(const Key('tab-create')), findsNothing);
     await tester.tap(find.byKey(const Key('tab-home')));
     await tester.pumpAndSettle();
     expect(currentTab.value, AppTab.home);
@@ -195,7 +194,7 @@ void main() {
         isNull,
         reason: 'a root tab has no back button',
       );
-      expect(find.byKey(const Key('tab-create')), findsOneWidget);
+      expect(find.byKey(const Key('tab-create')), findsNothing); // Home only
 
       // Deep link /people → the tab.
       currentTab.value = AppTab.home;

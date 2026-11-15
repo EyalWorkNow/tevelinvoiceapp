@@ -39,6 +39,10 @@ abstract final class ExpenseOcrHe {
       'בינה מלאכותית חיצוני (Anthropic Claude). אפשר לוותר ולהזין את הפרטים ידנית.';
   static const consentAllow = 'אישור';
   static const consentManual = 'הזנה ידנית';
+
+  /// Shown once per app session, when the server first says OCR is off.
+  static const unavailable =
+      'הקריאה האוטומטית של קבלות אינה פעילה כרגע. ממלאים את הפרטים ידנית ושומרים.';
 }
 
 /// Device memory: OCR consent (user data) and the expenses already sent to
@@ -330,14 +334,23 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   }
 
   Future<void> _extract(String id) async {
+    // OCR is off on the server (learned this session): no consent, no call.
+    if (expenseOcrUnavailable) return;
     if ((await _ocrTried()).contains(id) || !await _ocrConsent()) return;
-    if (!mounted) return;
+    if (!mounted || expenseOcrUnavailable) return;
     unawaited(_rememberOcrTried(id));
     setState(() => _reading = id);
     try {
       final ran = await runExpenseExtraction(
         id,
       ).timeout(ExpensesScreen.readTimeout);
+      if (!ran && expenseOcrUnavailable && mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentNotchNotice()
+          ..showNotchNotice(
+            const SnackBar(content: Text(ExpenseOcrHe.unavailable)),
+          );
+      }
       // What OCR read must reach the card: a failed re-read is retried
       // (AT-19: the card stayed empty after a successful read).
       for (var i = 0; ran && mounted && i < 3; i++) {

@@ -10,12 +10,37 @@ import '../../state/business_context.dart';
 import '../../ui/app_page_route.dart';
 import '../../ui/ds.dart';
 import '../../util/allowed_urls.dart';
+import '../../util/errors_he.dart' show appStorePurchaseUnavailableHe;
 
 const _planColors = [
   DesignTokens.green,
   DesignTokens.lavender,
   DesignTokens.yellow,
 ];
+
+/// Unasked plan prompts in this app launch: the required gate on launch and
+/// the owner's plans sheet on Home. Together they show a business at most
+/// once per launch, never both. Closing either never blocks issuing (the
+/// server decides that; BILLING_ENFORCE is off). Explicit "מסלול" taps are
+/// not prompts and always open.
+abstract final class PlanPrompts {
+  static final Set<String> _shown = {};
+  static final Set<String> _checking = {};
+
+  /// The gate is checking [businessId], or a prompt already showed for it.
+  static bool handled(String businessId) =>
+      _shown.contains(businessId) || _checking.contains(businessId);
+  static bool shown(String businessId) => _shown.contains(businessId);
+  static void markShown(String businessId) => _shown.add(businessId);
+  static void checking(String businessId, bool on) =>
+      on ? _checking.add(businessId) : _checking.remove(businessId);
+
+  @visibleForTesting
+  static void reset() {
+    _shown.clear();
+    _checking.clear();
+  }
+}
 
 Future<void> showBillingPlans(BuildContext context) async {
   final navigator = Navigator.of(context);
@@ -790,9 +815,7 @@ class _BillingCheckoutScreenState extends State<BillingCheckoutScreen>
       if (_isIOS) {
         final product = _product;
         if (!_storeAvailable || product == null) {
-          throw const FormatException(
-            'מסלול התשלום אינו זמין כרגע. יש להשלים את הגדרת המינוי ב־App Store Connect.',
-          );
+          throw const FormatException(appStorePurchaseUnavailableHe);
         }
         final appAccountToken = await fetchAppleAccountToken();
         final submitted = await InAppPurchase.instance.buyNonConsumable(
@@ -1125,7 +1148,7 @@ class _BillingCheckoutScreenState extends State<BillingCheckoutScreen>
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               child: Text(
                                 _isIOS
-                                    ? 'רכישה דרך App Store אינה זמינה כרגע. יש להשלים ולהפעיל את מוצרי המינוי ב־App Store Connect.'
+                                    ? appStorePurchaseUnavailableHe
                                     : 'התשלום ייפתח לאחר השלמת חיבור הסליקה לעסק.',
                                 style: AppText.body.copyWith(color: p.warn),
                                 textAlign: TextAlign.center,

@@ -327,6 +327,31 @@ void main() {
   );
 
   testWidgets(
+    'OCR off on the server: the first 503 is remembered; no more consent or '
+    'extract calls this session, the card stays on manual entry',
+    (tester) async {
+      final s = installPeopleFakes(
+        backend,
+        expenses: [expenseJson('e1', filename: 'x.pdf')],
+      );
+      await pump(tester, const ExpensesScreen());
+      expect(backend.calls('POST', '/expenses/:id/extract'), hasLength(1));
+      expect(find.text(ExpenseOcrHe.unavailable), findsOneWidget);
+      expect(find.byKey(const Key('expense-amount')), findsOneWidget);
+
+      // A new receipt, and the stored consent is gone: still nothing asked.
+      await tester.runAsync(AppCache.clearAll);
+      s.expenses
+        ..clear()
+        ..add(expenseJson('e2', filename: 'y.pdf'));
+      await pump(tester, const ExpensesScreen(key: ValueKey('second')));
+      expect(find.text(ExpenseOcrHe.consentTitle), findsNothing);
+      expect(backend.calls('POST', '/expenses/:id/extract'), hasLength(1));
+      expect(find.byKey(const Key('expense-amount')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'AT-19: opens on the just-captured expense among older pending ones; OCR result shows '
     'even when the first re-read of the inbox fails',
     (tester) async {
