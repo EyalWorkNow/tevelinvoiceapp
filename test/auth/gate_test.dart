@@ -40,10 +40,8 @@ void main() {
       expect(find.text('יש לי סיסמה'), findsOneWidget);
       expect(find.text('שכחתי סיסמה'), findsOneWidget);
       expect(find.byType(PrimaryButton), findsOneWidget);
-      expect(
-        find.textContaining('Apple'),
-        findsNothing,
-      ); // server /accept has no Apple
+      // AUTH-INVITE-RESET: /accept takes an Apple identity token too.
+      expect(find.text('המשך עם Apple'), findsOneWidget);
     },
   );
 
@@ -288,10 +286,12 @@ void main() {
       expect(find.byType(RequiredSubscriptionScreen), findsOneWidget);
       // TestFlight build 8: the background gate wiped every open screen. It is
       // now pushed on top, so closing it returns to where the user was.
-      final close = find.descendant(
-        of: find.byType(RequiredSubscriptionScreen),
-        matching: find.byIcon(Icons.close_rounded),
-      ).first;
+      final close = find
+          .descendant(
+            of: find.byType(RequiredSubscriptionScreen),
+            matching: find.byIcon(Icons.close_rounded),
+          )
+          .first;
       await tester.tap(close);
       await settle(tester);
       expect(find.byType(RequiredSubscriptionScreen), findsNothing);
@@ -345,26 +345,27 @@ void main() {
       },
     );
 
-    testWidgets('cache start: the gate is the only prompt (no sheet under it)', (
-      tester,
-    ) async {
-      phone(tester);
-      await tester.runAsync(() => signInAs(backend, Preset.owner));
-      backend.json('GET', '/billing/subscription', noPlan);
-      session.restoredFromCache = true;
-      await routeFrom(tester);
-      expect(find.byType(RequiredSubscriptionScreen), findsOneWidget);
-      final close = find
-          .descendant(
-            of: find.byType(RequiredSubscriptionScreen),
-            matching: find.byIcon(Icons.close_rounded),
-          )
-          .first;
-      await tester.tap(close);
-      await settle(tester);
-      expect(find.byType(RequiredSubscriptionScreen), findsNothing);
-      expect(find.byType(PlansSheet), findsNothing);
-      expect(find.byType(AppShell), findsOneWidget);
-    });
+    testWidgets(
+      'cache start: the gate is the only prompt (no sheet under it)',
+      (tester) async {
+        phone(tester);
+        await tester.runAsync(() => signInAs(backend, Preset.owner));
+        backend.json('GET', '/billing/subscription', noPlan);
+        session.restoredFromCache = true;
+        await routeFrom(tester);
+        expect(find.byType(RequiredSubscriptionScreen), findsOneWidget);
+        final close = find
+            .descendant(
+              of: find.byType(RequiredSubscriptionScreen),
+              matching: find.byIcon(Icons.close_rounded),
+            )
+            .first;
+        await tester.tap(close);
+        await settle(tester);
+        expect(find.byType(RequiredSubscriptionScreen), findsNothing);
+        expect(find.byType(PlansSheet), findsNothing);
+        expect(find.byType(AppShell), findsOneWidget);
+      },
+    );
   });
 }
