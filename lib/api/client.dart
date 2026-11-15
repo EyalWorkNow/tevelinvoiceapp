@@ -300,6 +300,9 @@ class ApiClient {
     final headers = request.headers..addAll(extraHeaders);
     headers['Accept'] = extraHeaders['Accept'] ?? 'application/json';
     final token = deviceToken;
+    // What this request was signed with: a late 401 for an older credential
+    // (signed out, another member signed in since) must not end the new one.
+    final credential = token ?? sessionCookie;
     if (token != null) {
       headers['Authorization'] = 'Bearer $token';
     } else {
@@ -338,7 +341,7 @@ class ApiClient {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return response;
     }
-    throw _error(response, path);
+    throw _error(response, path, credential);
   }
 
   /// Set-Cookie on login / MFA / rotation overwrites the stored session;
@@ -353,7 +356,11 @@ class ApiClient {
     sessionCookie = value.isEmpty ? null : value;
   }
 
-  ApiException _error(http.Response response, String path) {
+  ApiException _error(
+    http.Response response,
+    String path, [
+    String? credential,
+  ]) {
     final status = response.statusCode;
     var code = 'ERROR';
     String? message;
@@ -375,7 +382,9 @@ class ApiClient {
       }
     }
     // 401 on /auth/* is a login answer (wrong password, bad code), not expiry.
-    if (status == 401 && !path.startsWith('/auth/')) {
+    if (status == 401 &&
+        !path.startsWith('/auth/') &&
+        credential == (deviceToken ?? sessionCookie)) {
       _events.add(ApiEvent.sessionExpired);
     }
     if (status == 403 && code == 'MFA_REQUIRED') {
