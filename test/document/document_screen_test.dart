@@ -1131,6 +1131,43 @@ void main() {
       },
     );
 
+    group('S6 · Cardcom payment link only with a connected terminal', () {
+      Future<void> openMore(WidgetTester tester) async {
+        await pumpDoc(tester, Preset.owner);
+        unawaited(
+          showShareSheet(navigatorKey.currentContext!, documentId: 'doc-1'),
+        );
+        await settle(tester);
+        await tap(tester, find.byKey(const Key('s6-more')));
+      }
+
+      testWidgets('not connected → the row is hidden', (tester) async {
+        backend.json('GET', '/integrations/status', {
+          'businessCardcom': {'configured': false},
+        });
+        await openMore(tester);
+        expect(find.byKey(const Key('s6-email')), findsOneWidget);
+        expect(find.byKey(const Key('s6-cardcom')), findsNothing);
+        expect(backend.calls('POST', '/documents/:id/payment-link'), isEmpty);
+      });
+
+      testWidgets('status unreadable (403) → hidden, fail closed', (
+        tester,
+      ) async {
+        backend.error('GET', '/integrations/status', 403, 'FORBIDDEN');
+        await openMore(tester);
+        expect(find.byKey(const Key('s6-cardcom')), findsNothing);
+      });
+
+      testWidgets('connected → the row is offered', (tester) async {
+        backend.json('GET', '/integrations/status', {
+          'businessCardcom': {'configured': true},
+        });
+        await openMore(tester);
+        expect(find.byKey(const Key('s6-cardcom')), findsOneWidget);
+      });
+    });
+
     testWidgets(
       '0.6: quote → invoice uses the VAT rate of GET /tax-rates (not a fixed 1800)',
       (tester) async {

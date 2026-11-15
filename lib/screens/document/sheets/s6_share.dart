@@ -219,6 +219,10 @@ class _ShareSheetState extends State<ShareSheet> {
   String? _qrLink;
   bool _linkMade = false;
   bool _moreOpen = false;
+
+  /// The business's own Cardcom terminal is connected. Until the server says
+  /// so, "קישור תשלום בקארדקום" is not offered (it would only error).
+  bool _merchantConnected = false;
   final _email = TextEditingController();
   final _phone = TextEditingController();
 
@@ -234,6 +238,13 @@ class _ShareSheetState extends State<ShareSheet> {
     _phone.text = _customer?.phone ?? '';
     _email.text = _customer?.email ?? '';
     _load();
+    _loadMerchant();
+  }
+
+  Future<void> _loadMerchant() async {
+    if (!businessContext.can(Cap.paymentRecord)) return;
+    final connected = await fetchBusinessMerchantConnected();
+    if (mounted && connected) setState(() => _merchantConnected = true);
   }
 
   Future<void> _load() async {
@@ -491,7 +502,8 @@ class _ShareSheetState extends State<ShareSheet> {
                 () => setState(() => _emailOpen = !_emailOpen),
               ),
               if (_emailOpen) _emailForm(),
-              if (businessContext.can(Cap.paymentRecord) &&
+              if (_merchantConnected &&
+                  businessContext.can(Cap.paymentRecord) &&
                   doc.balanceMinor > BigInt.zero)
                 _row(
                   Iconsax.card,

@@ -201,6 +201,19 @@ Future<DispatchResult> dispatchDocument(
   }),
 );
 
+/// Whether the business has its own Cardcom terminal connected
+/// (`GET /integrations/status` → `businessCardcom.configured`). Any failure
+/// (403 without business:configure, offline, an older server) answers false:
+/// a customer payment-link entry stays hidden rather than erroring on tap.
+Future<bool> fetchBusinessMerchantConnected() async {
+  try {
+    final j = await ApiClient.instance.get('/integrations/status');
+    return (j['businessCardcom'] as Map?)?['configured'] == true;
+  } on Exception {
+    return false;
+  }
+}
+
 Future<Map<String, dynamic>> fetchBusinessCardcom() =>
     ApiClient.instance.get('/settings/cardcom');
 Future<void> saveBusinessCardcom(String terminal, String apiName) =>
