@@ -1,7 +1,8 @@
 // The app shell owns root destinations and the floating glass navigation:
 // [בית][לקוחות][ניהול][פרופיל] (§5; לקוחות only with Caps.showPeopleTab).
-// Invoice creation (＋) sits beside the navigation on every tab when the caps
-// allow creating documents (Caps.showCreateTab, 1.5).
+// Invoice creation (＋) sits beside the navigation on Home when the caps allow
+// creating documents (Caps.showCreateTab, 1.5); on the other tabs it slides
+// out and the capsule grows into its space (owner, TestFlight build 9).
 
 import 'dart:async';
 import 'dart:ui' as ui;
@@ -154,7 +155,7 @@ class _AppShellState extends State<AppShell> {
       bottomNavigationBar: ShellBottomNavigation(
         current: tab,
         showPeople: caps.showPeopleTab,
-        showCreate: caps.showCreateTab,
+        showCreate: tab == AppTab.home && caps.showCreateTab,
         onTab: (next) {
           HapticFeedback.selectionClick();
           currentTab.value = next;
@@ -256,8 +257,38 @@ class ShellBottomNavigation extends StatefulWidget {
   State<ShellBottomNavigation> createState() => _ShellBottomNavigationState();
 }
 
-class _ShellBottomNavigationState extends State<ShellBottomNavigation> {
+class _ShellBottomNavigationState extends State<ShellBottomNavigation>
+    with SingleTickerProviderStateMixin {
   bool _pressed = false;
+
+  /// 1 = ＋ beside a compact capsule (Home); 0 = ＋ gone, capsule full width.
+  /// Hiding (1 → 0) runs ＋ out first, then the capsule grows; showing runs
+  /// the same intervals backwards: the capsule shrinks, then ＋ slides in.
+  late final AnimationController _fab = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 320),
+    value: widget.showCreate ? 1 : 0,
+  );
+  static const _barPhase = Interval(0, .5, curve: Curves.easeInOutCubic);
+  static const _fabPhase = Interval(.45, 1, curve: Curves.easeInOutCubic);
+
+  @override
+  void didUpdateWidget(ShellBottomNavigation old) {
+    super.didUpdateWidget(old);
+    if (old.showCreate == widget.showCreate) return;
+    final target = widget.showCreate ? 1.0 : 0.0;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _fab.value = target;
+    } else {
+      unawaited(_fab.animateTo(target));
+    }
+  }
+
+  @override
+  void dispose() {
+    _fab.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -277,8 +308,12 @@ class _ShellBottomNavigationState extends State<ShellBottomNavigation> {
                 _navigationScaleReduction)
             .clamp(.7, _navigationMaxScale)
             .toDouble();
-    final navWidth = capsuleWidth * scale;
     final actionSize = _navigationActionSize * scale;
+    final gap = _navigationGap * scale;
+    final direction = Directionality.of(context);
+    // ＋ is the Row's first child: it sits at the start edge, so "aside" is
+    // towards the start (right in RTL, left in LTR).
+    final aside = direction == TextDirection.rtl ? 1.0 : -1.0;
     const barHeight = _shellBottomNavigationHeight;
 
     return SizedBox(
@@ -290,141 +325,170 @@ class _ShellBottomNavigationState extends State<ShellBottomNavigation> {
           alignment: Alignment.center,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              textDirection: TextDirection.rtl,
-              children: [
-                ClipRect(
-                  child: AnimatedContainer(
-                    duration: motionDuration,
-                    curve: Curves.easeInOutCubic,
-                    width: widget.showCreate ? actionSize : 0,
-                    height: actionSize,
-                    child: ClipRect(
-                      child: OverflowBox(
-                        alignment: Alignment.centerRight,
-                        minWidth: actionSize,
-                        maxWidth: actionSize,
-                        minHeight: actionSize,
-                        maxHeight: actionSize,
-                        child: AnimatedSlide(
-                          duration: motionDuration,
-                          curve: Curves.easeInOutCubic,
-                          offset: widget.showCreate
-                              ? Offset.zero
-                              : const Offset(1.15, 0),
-                          child: AnimatedOpacity(
-                            duration: motionDuration,
-                            curve: Curves.easeOutCubic,
-                            opacity: widget.showCreate ? 1 : 0,
-                            child: IgnorePointer(
-                              ignoring: !widget.showCreate,
-                              child: ExcludeSemantics(
-                                excluding: !widget.showCreate,
-                                child: _createButton(actionSize, scale),
+            // AT-29: the compact width still animates when לקוחות comes or
+            // goes; the ＋/capsule hand-off rides on top of it.
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(end: capsuleWidth * scale),
+              duration: motionDuration,
+              curve: Curves.easeInOutCubic,
+              builder: (context, navWidth, _) => AnimatedBuilder(
+                animation: _fab,
+                builder: (context, _) {
+                  final bar = _barPhase.transform(_fab.value);
+                  final fab = _fabPhase.transform(_fab.value);
+                  final hidden = !widget.showCreate || fab == 0;
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    textDirection: direction,
+                    children: [
+                      SizedBox(
+                        key: const Key('shell-create-slot'),
+                        width: actionSize * bar,
+                        height: actionSize,
+                        child: OverflowBox(
+                          alignment: AlignmentDirectional.centerStart,
+                          minWidth: actionSize,
+                          maxWidth: actionSize,
+                          minHeight: actionSize,
+                          maxHeight: actionSize,
+                          child: FractionalTranslation(
+                            key: const Key('shell-create-motion'),
+                            translation: Offset(aside * 1.15 * (1 - fab), 0),
+                            child: Opacity(
+                              opacity: fab,
+                              child: Transform.scale(
+                                scale: .82 + .18 * fab,
+                                child: IgnorePointer(
+                                  ignoring: hidden,
+                                  child: ExcludeSemantics(
+                                    excluding: hidden,
+                                    child: fab == 0
+                                        ? SizedBox.square(dimension: actionSize)
+                                        : _createButton(actionSize, scale),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
-                AnimatedContainer(
-                  duration: motionDuration,
-                  curve: Curves.easeInOutCubic,
-                  width: widget.showCreate ? _navigationGap * scale : 0,
-                ),
-                AnimatedContainer(
-                  duration: motionDuration,
-                  curve: Curves.easeInOutCubic,
-                  width: navWidth,
-                  height: _navigationCapsuleHeight * scale,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(34.5 * scale),
-                    child: BackdropFilter(
-                      filter: ui.ImageFilter.blur(
-                        sigmaX: 2 * scale,
-                        sigmaY: 2 * scale,
-                      ),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: const Color.fromRGBO(39, 27, 40, .68),
-                          borderRadius: BorderRadius.circular(34.5 * scale),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: .22),
-                            width: scale,
-                          ),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.fromLTRB(
-                            4.423 * scale,
-                            2.654 * scale,
-                            4.423 * scale,
-                            3.538 * scale,
-                          ),
-                          // AT-29: when the לקוחות tab comes or goes (caps
-                          // change on a business switch) the capsule animates
-                          // its width while the Row already has the new item
-                          // count; the tabs keep their size and the capsule
-                          // clips them for those 360ms instead of overflowing.
-                          child: OverflowBox(
-                            minWidth: 0,
-                            maxWidth: double.infinity,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              textDirection: TextDirection.rtl,
-                              children: [
-                                _item(
-                                  context,
-                                  AppTab.home,
-                                  'בית',
-                                  'home',
-                                  selected,
-                                  motionDuration,
-                                  scale,
-                                ),
-                                if (widget.showPeople) ...[
-                                  SizedBox(width: _navigationItemGap * scale),
-                                  _item(
-                                    context,
-                                    AppTab.people,
-                                    'לקוחות',
-                                    'existing-customer',
-                                    selected,
-                                    motionDuration,
-                                    scale,
-                                  ),
-                                ],
-                                SizedBox(width: _navigationItemGap * scale),
-                                _item(
-                                  context,
-                                  AppTab.business,
-                                  'ניהול',
-                                  'manage',
-                                  selected,
-                                  motionDuration,
-                                  scale,
-                                ),
-                                SizedBox(width: _navigationItemGap * scale),
-                                _item(
-                                  context,
-                                  AppTab.profile,
-                                  'פרופיל',
-                                  'profile',
-                                  selected,
-                                  motionDuration,
-                                  scale,
-                                ),
-                              ],
-                            ),
-                          ),
+                      SizedBox(width: gap * bar),
+                      SizedBox(
+                        key: const Key('shell-capsule'),
+                        width: navWidth + (actionSize + gap) * (1 - bar),
+                        height: _navigationCapsuleHeight * scale,
+                        child: _capsule(
+                          context,
+                          selected,
+                          motionDuration,
+                          scale,
+                          direction,
                         ),
                       ),
-                    ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _capsule(
+    BuildContext context,
+    AppTab selected,
+    Duration motionDuration,
+    double scale,
+    TextDirection direction,
+  ) {
+    final count = widget.showPeople ? 4 : 3;
+    final natural =
+        (count * _navigationItemSize + (count - 1) * _navigationItemGap) *
+        scale;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(34.5 * scale),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 2 * scale, sigmaY: 2 * scale),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color.fromRGBO(39, 27, 40, .68),
+            borderRadius: BorderRadius.circular(34.5 * scale),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: .22),
+              width: scale,
+            ),
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              4.423 * scale,
+              2.654 * scale,
+              4.423 * scale,
+              3.538 * scale,
+            ),
+            // AT-29: when the לקוחות tab comes or goes (caps change on a
+            // business switch) the capsule animates its width while the Row
+            // already has the new item count; the tabs keep their size and
+            // the capsule clips them instead of overflowing. When the capsule
+            // is wider than the tabs (＋ gone) they spread out evenly.
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth > natural
+                    ? constraints.maxWidth
+                    : natural;
+                return OverflowBox(
+                  minWidth: width,
+                  maxWidth: width,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    textDirection: direction,
+                    children: [
+                      _item(
+                        context,
+                        AppTab.home,
+                        'בית',
+                        'home',
+                        selected,
+                        motionDuration,
+                        scale,
+                      ),
+                      if (widget.showPeople) ...[
+                        SizedBox(width: _navigationItemGap * scale),
+                        _item(
+                          context,
+                          AppTab.people,
+                          'לקוחות',
+                          'existing-customer',
+                          selected,
+                          motionDuration,
+                          scale,
+                        ),
+                      ],
+                      SizedBox(width: _navigationItemGap * scale),
+                      _item(
+                        context,
+                        AppTab.business,
+                        'ניהול',
+                        'manage',
+                        selected,
+                        motionDuration,
+                        scale,
+                      ),
+                      SizedBox(width: _navigationItemGap * scale),
+                      _item(
+                        context,
+                        AppTab.profile,
+                        'פרופיל',
+                        'profile',
+                        selected,
+                        motionDuration,
+                        scale,
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                );
+              },
             ),
           ),
         ),
