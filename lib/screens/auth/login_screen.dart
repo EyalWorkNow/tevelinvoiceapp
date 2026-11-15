@@ -4,7 +4,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../api/auth_api.dart';
 import '../../api/client.dart';
-import '../../api/environment.dart';
+import '../../api/supabase_auth.dart';
 import '../../api/settings_api.dart' show rememberAppleSignIn;
 import '../../ui/theme.dart';
 import '../../ui/widgets/big_button.dart';
@@ -12,10 +12,52 @@ import '../../ui/widgets/error_view.dart';
 import '../../ui/widgets/sheet.dart';
 import '../../util/allowed_urls.dart';
 import 'auth_flow.dart';
+import 'password_recovery.dart';
 import '../../util/labels/labels.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 enum _Busy { none, apple, password }
+
+/// A native Apple sign-in: the identity token for the server, plus the name
+/// Apple sends only on the very first authorisation ('' otherwise).
+typedef AppleCredential = ({String identityToken, String fullName});
+
+/// Apple sign-in did not complete; [messageHe] says why.
+class AppleSignInFailure implements Exception {
+  const AppleSignInFailure(this.messageHe);
+
+  final String messageHe;
+}
+
+/// The system Apple sheet. Null when the user cancelled it.
+Future<AppleCredential?> requestAppleCredential() async {
+  final AuthorizationCredentialAppleID cred;
+  try {
+    cred = await SignInWithApple.getAppleIDCredential(
+      scopes: [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+    );
+  } on SignInWithAppleAuthorizationException catch (e) {
+    if (e.code == AuthorizationErrorCode.canceled) return null;
+    throw const AppleSignInFailure('הכניסה עם Apple לא הושלמה — נסו שוב');
+  } on SignInWithAppleException {
+    throw const AppleSignInFailure('הכניסה עם Apple לא זמינה במכשיר הזה');
+  }
+  final token = cred.identityToken;
+  if (token == null) {
+    throw const AppleSignInFailure('הכניסה עם Apple לא הושלמה — נסו שוב');
+  }
+  final name = [
+    cred.givenName,
+    cred.familyName,
+  ].whereType<String>().where((s) => s.trim().isNotEmpty).join(' ');
+  return (identityToken: token, fullName: name);
+}
+
+/// Login and invitation screens ask through this (tests replace it).
+Future<AppleCredential?> Function() appleCredential = requestAppleCredential;
 
 /// S1 · Sign-in: Apple, email+password, forgot password.
 ///
@@ -77,32 +119,18 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<SignInResult?> _apple() async {
-    final AuthorizationCredentialAppleID cred;
+    final AppleCredential? cred;
     try {
-      cred = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-      );
-    } on SignInWithAppleAuthorizationException catch (e) {
-      if (e.code == AuthorizationErrorCode.canceled) return null;
-      _localError('הכניסה עם Apple לא הושלמה — נסו שוב');
-      return null;
-    } on SignInWithAppleException {
-      _localError('הכניסה עם Apple לא זמינה במכשיר הזה');
+      cred = await appleCredential();
+    } on AppleSignInFailure catch (e) {
+      _localError(e.messageHe);
       return null;
     }
-    final token = cred.identityToken;
-    if (token == null) {
-      _localError('הכניסה עם Apple לא הושלמה — נסו שוב');
-      return null;
-    }
-    final name = [
-      cred.givenName,
-      cred.familyName,
-    ].whereType<String>().where((s) => s.trim().isNotEmpty).join(' ');
-    final result = await signInWithApple(token, fullName: name);
+    if (cred == null) return null;
+    final result = await signInWithApple(
+      cred.identityToken,
+      fullName: cred.fullName,
+    );
     await rememberAppleSignIn(); // account deletion must then revoke the Apple grant
     return result;
   }
@@ -119,6 +147,14 @@ class _LoginScreenState extends State<LoginScreen> {
       return null;
     }
     return signInWithPassword(email, _password.text);
+  }
+
+  /// Recovery with Supabase ends signed in: finish like any other sign-in.
+  Future<void> _forgot() async {
+    final result = await showForgotPasswordSheet(context, _email.text);
+    if (result != null && mounted) {
+      await _run(_Busy.password, () async => result);
+    }
   }
 
   void _appleTap() {
@@ -267,9 +303,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Align(
                     alignment: AlignmentDirectional.centerStart,
                     child: TextButton(
-                      onPressed: idle
-                          ? () => showForgotPasswordSheet(context, _email.text)
-                          : null,
+                      onPressed: idle ? _forgot : null,
                       child: const Text(AuthHe.forgotPassword),
                     ),
                   ),
@@ -428,27 +462,21 @@ class _LegalLinks extends StatelessWidget {
   }
 }
 
-/// "שכחתי סיסמה": always the same answer (no account enumeration); the reset
-/// link opens the web app.
-Future<void> showForgotPasswordSheet(BuildContext context, String prefill) =>
-    showAppSheet<void>(
-      context,
-      builder: (_) => SupabaseAuthSettings.configured.enabled
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SheetTitle(
-                  AuthHe.signInHelp,
-                  subtitle: AuthHe.signInHelpBody,
-                ),
-                BigButton(
-                  label: AuthHe.contactSupport,
-                  onPressed: () => openSafari(Uri.parse(supportUrl)),
-                ),
-              ],
-            )
-          : _ForgotPassword(prefill: prefill),
-    );
+/// "שכחתי סיסמה": always the same answer (no account enumeration). With
+/// Supabase Auth: a code by e-mail, then a new password in the app
+/// (password_recovery.dart); returns the sign-in result for the caller to
+/// finish ([signIn] false: only the password changes). Without Supabase: the
+/// Tevel reset link, which opens the web app.
+Future<SignInResult?> showForgotPasswordSheet(
+  BuildContext context,
+  String prefill, {
+  bool signIn = true,
+}) => showAppSheet<SignInResult>(
+  context,
+  builder: (_) => supabaseAuth.enabled
+      ? PasswordRecoveryFlow(prefill: prefill, signIn: signIn)
+      : _ForgotPassword(prefill: prefill),
+);
 
 class _ForgotPassword extends StatefulWidget {
   const _ForgotPassword({required this.prefill});

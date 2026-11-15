@@ -5,8 +5,6 @@
 import 'client.dart';
 import 'models/models.dart';
 import 'supabase_auth.dart';
-import 'environment.dart';
-import '../util/errors_he.dart';
 
 final _api = ApiClient.instance;
 
@@ -36,13 +34,10 @@ void _freshCookiePhase() => _api.clearCredentials();
 
 Future<SignInResult> signInWithPassword(String email, String password) async {
   _freshCookiePhase();
-  if (SupabaseAuthSettings.configured.enabled) {
-    final token = await supabasePasswordToken(
-      email,
-      password,
-      client: _api.httpClient,
+  if (supabaseAuth.enabled) {
+    return signInWithSupabase(
+      await supabaseAuth.passwordToken(email, password),
     );
-    return signInWithSupabase(token);
   }
   final json = await _api.post('/auth/login', {
     'email': email.trim(),
@@ -79,17 +74,28 @@ Future<SignInResult> signInWithGoogle(String idToken) async {
   return SignInResult.fromJson(json);
 }
 
-/// Always "ok" (no account enumeration). The reset link opens the web app.
+/// Always "ok" (no account enumeration). Without Supabase the reset link
+/// opens the web app; with Supabase a 6-digit recovery code is e-mailed and
+/// the app continues with [verifyRecoveryCode] → [setNewPassword].
 Future<void> requestPasswordReset(String email) async {
-  if (SupabaseAuthSettings.configured.enabled) {
-    throw ApiException(
-      409,
-      'SUPABASE_RECOVERY_SUPPORT_REQUIRED',
-      errorMessageHe('SUPABASE_RECOVERY_SUPPORT_REQUIRED'),
-    );
+  if (supabaseAuth.enabled) {
+    await supabaseAuth.sendRecoveryCode(email);
+    return;
   }
   await _api.post('/auth/password/forgot', {'email': email.trim()});
 }
+
+/// Supabase recovery: the e-mailed code → a short-lived recovery session
+/// (its access token stays in memory, never stored or logged).
+Future<String> verifyRecoveryCode(String email, String code) =>
+    supabaseAuth.verifyCode(email, code, recovery: true);
+
+/// Supabase recovery: sets the new password with the recovery session. The
+/// caller then signs in with [signInWithSupabase] using the same token.
+Future<void> setRecoveredPassword(
+  String recoveryAccessToken,
+  String password,
+) => supabaseAuth.updatePassword(recoveryAccessToken, password);
 
 /// GET /auth/mfa/methods (readable while half-authenticated).
 class MfaMethods {
@@ -163,25 +169,31 @@ Future<void> verifyMfaCode(String code) async {
 
 // ---- invitations (§6.A, public preview + accept on the cookie phase) -------
 
-/// GET /auth/invite/:token. 410 INVITATION_EXPIRED / INVITATION_REVOKED /
-/// INVITATION_INVALID when it can no longer be used.
-Future<InvitationPreview> fetchInvitation(String token) async {
-  _freshCookiePhase();
-  return InvitationPreview.fromJson(await _api.get('/auth/invite/$token'));
-}
+/// GET /auth/invite/:token (public). 410 INVITATION_EXPIRED /
+/// INVITATION_REVOKED / INVITATION_INVALID when it can no longer be used.
+/// Leaves a signed-in session alone: only accepting starts a new sign-in.
+Future<InvitationPreview> fetchInvitation(String token) async =>
+    InvitationPreview.fromJson(await _api.get('/auth/invite/$token'));
 
-/// POST /auth/invite/:token/accept {password, displayName?} → a cookie session
-/// (not MFA-satisfied yet). The caller continues with finishSignIn.
-/// Errors: INVALID_CREDENTIALS (existing account, wrong password),
-/// PASSWORD_POLICY (new account), MEMBER_EXISTS, INVITATION_*.
+/// POST /auth/invite/:token/accept → a cookie session (not MFA-satisfied
+/// yet); the caller continues with finishSignIn. One proof of the invited
+/// e-mail: a Supabase access token (+ [password]: the new account's password,
+/// or an existing account's current Tevel password), an Apple identity token,
+/// or only [password] (the Tevel password; builds without Supabase).
+/// Errors: INVALID_CREDENTIALS, PASSWORD_POLICY, MEMBER_EXISTS, INVITATION_*,
+/// INVITATION_EMAIL_MISMATCH (+ `signedInEmail`), SUPABASE_EMAIL_NOT_CONFIRMED.
 Future<void> acceptInvitation(
   String token, {
-  required String password,
+  String? password,
   String? displayName,
+  String? supabaseAccessToken,
+  String? appleIdentityToken,
 }) async {
   _freshCookiePhase();
   await _api.post('/auth/invite/$token/accept', {
-    'password': password,
+    'password': ?password,
+    'supabaseAccessToken': ?supabaseAccessToken,
+    'appleIdentityToken': ?appleIdentityToken,
     if (displayName != null && displayName.trim().isNotEmpty)
       'displayName': displayName.trim(),
   });

@@ -1,29 +1,51 @@
 // A · הזמנה (invitation states table, SPEC-v2 §6.A). Owner: squad E.
-// Reached by the universal link /m/invite/:token after BE-00 §5 (not a §5
-// route; until then the invite link opens the web page).
+// Reached from the invitation e-mail: the universal link
+// https://<host>/m/invite/:token, or tevel://invite/:token from its landing
+// page ("פתח באפליקציה"), see router.dart (AUTH-INVITE-RESET 2026-11-15).
 //
-// valid, signed out  → "הוזמנת ל-{עסק} כ{preset}" → password ("יש לי סיסמה")
-//                      or a new password ("צור סיסמה") → "הצטרף"
-// INVALID_CREDENTIALS → message under the field + "שכחתי סיסמה"
+// valid, no account   → "הוזמנת ל-{עסק} כ{preset}" → name + new password →
+//                       Supabase sign-up with the INVITED e-mail → (if
+//                       "Confirm email" is on: the 6-digit code from the
+//                       e-mail) → the server accepts and links the identity
+// valid, has account  → its password (Supabase app password, or the Tevel
+//                       password) → accept · or "המשך עם Apple"
+// INVITATION_EMAIL_MISMATCH → "ההזמנה נשלחה ל-x, התחברת כ-y"
 // MEMBER_EXISTS       → "אתה כבר חבר ב-{עסק}" → "פתח" (sign in)
 // expired / revoked   → "ההזמנה כבר לא בתוקף. בקש מ-{מזמין} לשלוח שוב"
 // preset needs MFA    → finishSignIn runs the MFA step before anything else.
-// Apple/Google join: the server accepts only a Firebase Google token on
-// /accept (no Apple) and the app has no Firebase — not offered.
+// Without Supabase (older builds): the Tevel password only, as before.
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import '../../api/auth_api.dart';
 import '../../api/client.dart';
 import '../../api/models/models.dart';
+import '../../api/settings_api.dart' show rememberAppleSignIn;
+import '../../api/supabase_auth.dart';
 import '../../router.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/labels.dart';
 import 'auth_flow.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
-import 'login_screen.dart' show showForgotPasswordSheet, TevelLogo;
+import 'login_screen.dart'
+    show
+        AppleSignInFailure,
+        TevelLogo,
+        appleCredential,
+        showForgotPasswordSheet;
+import 'password_recovery.dart' show passwordPolicyErrorHe;
+
+enum _Busy { none, password, apple, code }
+
+/// Invitation codes that end the invitation (shown as the "ask again" state).
+const Set<String> _deadInvitation = {
+  'INVITATION_INVALID',
+  'INVITATION_EXPIRED',
+  'INVITATION_REVOKED',
+};
 
 class InviteScreen extends StatefulWidget {
   const InviteScreen({super.key, required this.token});
@@ -37,11 +59,20 @@ class InviteScreen extends StatefulWidget {
 class _InviteScreenState extends State<InviteScreen> {
   final _password = TextEditingController();
   final _name = TextEditingController();
+  final _code = TextEditingController();
   InvitationPreview? _invite;
   Object? _loadError;
   String? _fieldError;
+  String? _codeNotice;
   bool _memberExists = false;
-  bool _joining = false;
+  _Busy _busy = _Busy.none;
+
+  /// Waiting for the sign-up confirmation code. The chosen password stays in
+  /// memory until the account is created (it also becomes the web password).
+  bool _awaitingCode = false;
+  String? _pendingPassword;
+
+  bool get _supabase => supabaseAuth.enabled;
 
   @override
   void initState() {
@@ -53,6 +84,8 @@ class _InviteScreenState extends State<InviteScreen> {
   void dispose() {
     _password.dispose();
     _name.dispose();
+    _code.dispose();
+    _pendingPassword = null;
     super.dispose();
   }
 
@@ -66,55 +99,181 @@ class _InviteScreenState extends State<InviteScreen> {
     }
   }
 
-  Future<void> _join() async {
-    final invite = _invite!;
-    if (!invite.accountExists && _password.text.length < 12) {
-      setState(() => _fieldError = AuthHe.passwordPolicy);
-      return;
-    }
-    if (_password.text.isEmpty) {
-      setState(() => _fieldError = 'נא להזין סיסמה');
-      return;
-    }
+  /// One attempt; [step] returns false when it stopped to wait for the code.
+  Future<void> _attempt(_Busy which, Future<bool> Function() step) async {
+    if (_busy != _Busy.none) return;
     FocusScope.of(context).unfocus();
     setState(() {
-      _joining = true;
+      _busy = which;
       _fieldError = null;
+      _codeNotice = null;
     });
     try {
-      await acceptInvitation(
-        widget.token,
-        password: _password.text,
-        displayName: invite.accountExists ? null : _name.text,
-      );
-      if (!mounted) return;
+      if (!await step() || !mounted) return;
+      _pendingPassword = null;
       await finishSignIn(
         context,
         const SignInResult(mfaRequired: false, businesses: []),
       );
     } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        if (e.code == 'MEMBER_EXISTS') {
-          _memberExists = true;
-        } else if (e.code.startsWith('INVITATION_')) {
-          _loadError = e;
-        } else {
-          _fieldError = e.messageHe;
-        }
-      });
+      HapticFeedback.heavyImpact();
+      if (mounted) _showError(e);
+    } on AppleSignInFailure catch (e) {
+      if (mounted) setState(() => _fieldError = e.messageHe);
     } finally {
-      if (mounted) setState(() => _joining = false);
+      if (mounted) setState(() => _busy = _Busy.none);
     }
+  }
+
+  void _showError(ApiException e) {
+    final invite = _invite!;
+    setState(() {
+      if (e.code == 'MEMBER_EXISTS') {
+        _memberExists = true;
+      } else if (_deadInvitation.contains(e.code)) {
+        _loadError = e;
+      } else if (e.code == 'INVITATION_EMAIL_MISMATCH') {
+        final signedIn = e.details['signedInEmail'];
+        _fieldError = AuthHe.emailMismatch(
+          ltrIsolate(invite.email),
+          signedIn is String && signedIn.isNotEmpty
+              ? ltrIsolate(signedIn)
+              : AuthHe.appleHiddenEmail,
+        );
+      } else {
+        _fieldError = e.messageHe;
+      }
+    });
+  }
+
+  Future<void> _accept({
+    String? password,
+    String? supabaseAccessToken,
+    String? appleIdentityToken,
+    String? displayName,
+  }) {
+    final invite = _invite!;
+    final name = displayName ?? (invite.accountExists ? null : _name.text);
+    return acceptInvitation(
+      widget.token,
+      password: password,
+      supabaseAccessToken: supabaseAccessToken,
+      appleIdentityToken: appleIdentityToken,
+      displayName: name,
+    );
+  }
+
+  Future<void> _join() async {
+    final invite = _invite!;
+    final password = _password.text;
+    final local = invite.accountExists
+        ? (password.isEmpty ? AuthHe.passwordRequired : null)
+        : passwordPolicyErrorHe(password);
+    if (local != null) {
+      setState(() => _fieldError = local);
+      return;
+    }
+    await _attempt(_Busy.password, () async {
+      if (!_supabase) {
+        await _accept(password: password);
+        return true;
+      }
+      return invite.accountExists
+          ? _joinExisting(invite, password)
+          : _joinNew(invite, password);
+    });
+  }
+
+  /// New account: the Supabase account of the invited e-mail (created now,
+  /// or left over from an earlier attempt with the same password).
+  Future<bool> _joinNew(InvitationPreview invite, String password) async {
+    String? token;
+    try {
+      token = await supabaseAuth.passwordToken(invite.email, password);
+    } on ApiException catch (e) {
+      if (e.code == 'SUPABASE_EMAIL_NOT_CONFIRMED') {
+        await supabaseAuth.resendSignUpCode(invite.email);
+        _askForCode(password);
+        return false;
+      }
+      if (e.code != 'INVALID_CREDENTIALS') rethrow;
+      final signUp = await supabaseAuth.signUp(invite.email, password);
+      if (signUp.needsEmailCode) {
+        _askForCode(password);
+        return false;
+      }
+      token = signUp.accessToken;
+    }
+    await _accept(supabaseAccessToken: token, password: password);
+    return true;
+  }
+
+  /// Existing account: its app (Supabase) password when it has one; else the
+  /// password is its Tevel password, which the server checks.
+  Future<bool> _joinExisting(InvitationPreview invite, String password) async {
+    String? token;
+    try {
+      token = await supabaseAuth.passwordToken(invite.email, password);
+    } on ApiException catch (e) {
+      if (e.code != 'INVALID_CREDENTIALS' &&
+          e.code != 'SUPABASE_EMAIL_NOT_CONFIRMED') {
+        rethrow;
+      }
+    }
+    await _accept(supabaseAccessToken: token, password: password);
+    return true;
+  }
+
+  void _askForCode(String password) {
+    _pendingPassword = password;
+    _code.clear();
+    if (mounted) setState(() => _awaitingCode = true);
+  }
+
+  Future<void> _verifyCode() async {
+    final code = _code.text.replaceAll(RegExp(r'\s'), '');
+    if (!RegExp(r'^\d{6,10}$').hasMatch(code)) {
+      setState(() => _fieldError = AuthHe.recoveryCodeFormat);
+      return;
+    }
+    await _attempt(_Busy.code, () async {
+      final token = await supabaseAuth.verifyCode(
+        _invite!.email,
+        code,
+        recovery: false,
+      );
+      await _accept(supabaseAccessToken: token, password: _pendingPassword);
+      return true;
+    });
+  }
+
+  Future<void> _resendCode() => _attempt(_Busy.code, () async {
+    await supabaseAuth.resendSignUpCode(_invite!.email);
+    if (mounted) setState(() => _codeNotice = AuthHe.codeSentAgain);
+    return false;
+  });
+
+  Future<void> _apple() => _attempt(_Busy.apple, () async {
+    final cred = await appleCredential();
+    if (cred == null) return false;
+    await _accept(
+      appleIdentityToken: cred.identityToken,
+      displayName: cred.fullName.isNotEmpty ? cred.fullName : null,
+    );
+    await rememberAppleSignIn(); // account deletion must revoke the grant
+    return true;
+  });
+
+  Future<void> _forgot() async {
+    await showForgotPasswordSheet(context, _invite!.email, signIn: false);
   }
 
   @override
   Widget build(BuildContext context) {
     final invite = _invite;
-    final p = context.palette;
     if (_loadError != null) {
       final e = _loadError;
-      final dead = e is ApiException && e.code.startsWith('INVITATION_');
+      final dead = e is ApiException && _deadInvitation.contains(e.code);
       return Scaffold(
         appBar: AppBar(),
         body: dead
@@ -145,42 +304,62 @@ class _InviteScreenState extends State<InviteScreen> {
         ),
       );
     }
-    final presetLabel = PresetHe.label(invite.preset);
+    if (_awaitingCode) return _codeStep(invite);
+    return _form(invite);
+  }
+
+  Widget _header(InvitationPreview invite) {
+    final p = context.palette;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Center(child: TevelLogo(size: 64)),
+        const SizedBox(height: Space.xl),
+        Semantics(
+          header: true,
+          child: Text(
+            AuthHe.invitedTo(
+              invite.businessName,
+              PresetHe.label(invite.preset),
+            ),
+            style: AppText.title,
+            textAlign: TextAlign.center,
+          ),
+        ),
+        if (invite.inviterName.isNotEmpty)
+          Text(
+            AuthHe.invitedBy(invite.inviterName),
+            style: AppText.body.copyWith(color: p.muted),
+            textAlign: TextAlign.center,
+          ),
+        const SizedBox(height: Space.s),
+        Text(
+          PresetHe.hint(invite.preset),
+          style: AppText.secondary.copyWith(color: p.muted),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: Space.xl),
+        Text(
+          ltrIsolate(invite.email),
+          style: AppText.headline,
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  Widget _form(InvitationPreview invite) {
+    final p = context.palette;
+    final idle = _busy == _Busy.none;
     return Scaffold(
+      key: const ValueKey('invite-form'),
       appBar: AppBar(),
       body: SafeArea(
         bottom: false,
         child: ListView(
           padding: const EdgeInsets.all(Space.xl),
           children: [
-            const Center(child: TevelLogo(size: 64)),
-            const SizedBox(height: Space.xl),
-            Semantics(
-              header: true,
-              child: Text(
-                AuthHe.invitedTo(invite.businessName, presetLabel),
-                style: AppText.title,
-                textAlign: TextAlign.center,
-              ),
-            ),
-            if (invite.inviterName.isNotEmpty)
-              Text(
-                AuthHe.invitedBy(invite.inviterName),
-                style: AppText.body.copyWith(color: p.muted),
-                textAlign: TextAlign.center,
-              ),
-            const SizedBox(height: Space.s),
-            Text(
-              PresetHe.hint(invite.preset),
-              style: AppText.secondary.copyWith(color: p.muted),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: Space.xl),
-            Text(
-              ltrIsolate(invite.email),
-              style: AppText.headline,
-              textAlign: TextAlign.center,
-            ),
+            _header(invite),
             const SizedBox(height: Space.l),
             Text(
               invite.accountExists
@@ -188,9 +367,19 @@ class _InviteScreenState extends State<InviteScreen> {
                   : AuthHe.createPassword,
               style: AppText.headline,
             ),
+            if (_supabase) ...[
+              const SizedBox(height: Space.xs),
+              Text(
+                invite.accountExists
+                    ? AuthHe.inviteExistingHint
+                    : AuthHe.inviteNewAccountHint,
+                style: AppText.secondary.copyWith(color: p.muted),
+              ),
+            ],
             const SizedBox(height: Space.s),
             if (!invite.accountExists) ...[
               TextField(
+                key: const Key('invite-name'),
                 controller: _name,
                 textInputAction: TextInputAction.next,
                 autofillHints: const [AutofillHints.name],
@@ -215,29 +404,142 @@ class _InviteScreenState extends State<InviteScreen> {
               onSubmitted: (_) => _join(),
               decoration: InputDecoration(
                 labelText: AuthHe.password,
-                helperText: invite.accountExists ? null : AuthHe.passwordPolicy,
+                helperText: invite.accountExists
+                    ? null
+                    : AuthHe.passwordPolicyLong,
+                helperMaxLines: 2,
                 errorText: _fieldError,
-                errorMaxLines: 3,
+                errorMaxLines: 4,
               ),
             ),
             if (invite.accountExists)
               Align(
                 alignment: AlignmentDirectional.centerStart,
                 child: TextButton(
-                  onPressed: () =>
-                      showForgotPasswordSheet(context, invite.email),
+                  onPressed: idle ? _forgot : null,
                   child: const Text(AuthHe.forgotPassword),
                 ),
               ),
+            const SizedBox(height: Space.l),
+            Row(
+              children: [
+                const Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Space.m),
+                  child: Text(
+                    AuthHe.orDivider,
+                    style: AppText.secondary.copyWith(color: p.muted),
+                  ),
+                ),
+                const Expanded(child: Divider()),
+              ],
+            ),
+            const SizedBox(height: Space.l),
+            OutlinedButton.icon(
+              key: const Key('invite-apple'),
+              onPressed: idle ? _apple : null,
+              icon: _busy == _Busy.apple
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.apple),
+              label: const Text(AuthHe.continueWithApple),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(Hit.bigButton),
+              ),
+            ),
           ],
         ),
       ),
       bottomNavigationBar: BottomActionArea(
         child: PrimaryButton(
           key: const Key('invite-join'),
-          label: AuthHe.join,
-          loadingText: _joining ? AuthHe.join : null,
+          label: invite.accountExists
+              ? AuthHe.signInJoin
+              : AuthHe.createAccountJoin,
+          loadingText: _busy == _Busy.password
+              ? (invite.accountExists
+                    ? AuthHe.signInJoin
+                    : AuthHe.createAccountJoin)
+              : null,
           onPressed: _join,
+        ),
+      ),
+    );
+  }
+
+  Widget _codeStep(InvitationPreview invite) {
+    final p = context.palette;
+    return Scaffold(
+      key: const ValueKey('invite-code-step'),
+      appBar: AppBar(
+        leading: BackButton(
+          onPressed: () => setState(() {
+            _awaitingCode = false;
+            _pendingPassword = null;
+            _fieldError = null;
+          }),
+        ),
+      ),
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.all(Space.xl),
+          children: [
+            Icon(Iconsax.sms_tracking, size: 56, color: p.accent),
+            const SizedBox(height: Space.l),
+            Semantics(
+              header: true,
+              child: Text(
+                AuthHe.confirmEmailTitle,
+                style: AppText.title,
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: Space.s),
+            Text(
+              AuthHe.confirmEmailSent(ltrIsolate(invite.email)),
+              style: AppText.body.copyWith(color: p.muted),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: Space.xl),
+            TextField(
+              key: const Key('invite-code'),
+              controller: _code,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              autofillHints: const [AutofillHints.oneTimeCode],
+              textDirection: TextDirection.ltr,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(10),
+              ],
+              onSubmitted: (_) => _verifyCode(),
+              decoration: InputDecoration(
+                labelText: AuthHe.recoveryCodeLabel,
+                helperText: _codeNotice ?? AuthHe.confirmEmailHint,
+                helperMaxLines: 2,
+                errorText: _fieldError,
+                errorMaxLines: 4,
+              ),
+            ),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton(
+                onPressed: _busy == _Busy.none ? _resendCode : null,
+                child: const Text(AuthHe.mfaResend),
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: BottomActionArea(
+        child: PrimaryButton(
+          key: const Key('invite-verify'),
+          label: AuthHe.verifyCode,
+          loadingText: _busy == _Busy.code ? AuthHe.verifyCode : null,
+          onPressed: _verifyCode,
         ),
       ),
     );

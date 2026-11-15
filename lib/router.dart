@@ -18,6 +18,7 @@ import 'ui/widgets/notch_notice.dart';
 import 'app_shell.dart';
 import 'ui/app_page_route.dart';
 import 'screens/activity/activity_screen.dart';
+import 'screens/auth/invite_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/onboarding_screen.dart';
 import 'screens/business/business_screen.dart';
@@ -430,6 +431,7 @@ bool get _shellMounted => AppShell.mounted;
 void resetToHome({AppTab tab = AppTab.home}) {
   currentTab.value = tab;
   _resetTo(const AppShell(), '/home');
+  _openPendingInvite();
   final pending = _pendingDeepLink;
   _pendingDeepLink = null;
   if (pending != null) {
@@ -438,8 +440,10 @@ void resetToHome({AppTab tab = AppTab.home}) {
 }
 
 /// A (sign-in). [expired] shows "פג תוקף ההתחברות".
-void resetToLogin({bool expired = false}) =>
-    _resetTo(LoginScreen(sessionExpired: expired), '/gate');
+void resetToLogin({bool expired = false}) {
+  _resetTo(LoginScreen(sessionExpired: expired), '/gate');
+  _openPendingInvite();
+}
 
 /// A (business setup) as the whole stack.
 void resetToSetup() => _resetTo(const OnboardingScreen(), '/setup');
@@ -597,6 +601,48 @@ Future<void> openSetup(BuildContext context) =>
 
 String? _pendingDeepLink;
 
+/// An invitation link waiting for the first sign-in screen or home.
+String? _pendingInvite;
+
+final RegExp _inviteToken = RegExp(r'^[A-Za-z0-9_-]{20,128}$');
+
+/// The invitation token of tevel://invite/:token or
+/// `https://<host>/m/invite/:token` (the universal link; iOS may deliver only
+/// its path). Null for anything else.
+String? inviteTokenOf(String link) {
+  final uri = Uri.tryParse(link.trim());
+  if (uri == null) return null;
+  final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+  String? token;
+  if (uri.scheme == deepLinkScheme) {
+    if (uri.host == 'invite' && segments.length == 1) token = segments.first;
+  } else if ((uri.scheme == 'https' || !uri.hasScheme) &&
+      segments.length == 3 &&
+      segments[0] == 'm' &&
+      segments[1] == 'invite') {
+    token = segments[2];
+  }
+  return token != null && _inviteToken.hasMatch(token) ? token : null;
+}
+
+/// Opens the invitation screen on top of whatever is shown; before the
+/// splash has routed, keeps it for [resetToLogin] / [resetToHome].
+void openInvite(String token) {
+  final nav = navigatorKey.currentState;
+  if (nav == null || session.status == SessionStatus.unknown) {
+    _pendingInvite = token;
+    return;
+  }
+  unawaited(nav.push(_page<void>(InviteScreen(token: token), '/invite')));
+}
+
+void _openPendingInvite() {
+  final token = _pendingInvite;
+  if (token == null) return;
+  _pendingInvite = null;
+  WidgetsBinding.instance.addPostFrameCallback((_) => openInvite(token));
+}
+
 /// Receives tevel:// links (Flutter iOS deep linking sends the full URL) and
 /// enforces the route guard after a capability refresh (§4.6).
 class AppRouter with WidgetsBindingObserver {
@@ -615,7 +661,10 @@ class AppRouter with WidgetsBindingObserver {
     );
     // Cold start through a link: the engine's initial route.
     final initial = WidgetsBinding.instance.platformDispatcher.defaultRouteName;
-    if (initial != '/' && AppRoute.parse(initial) != null) {
+    final invite = inviteTokenOf(initial);
+    if (invite != null) {
+      _pendingInvite = invite;
+    } else if (initial != '/' && AppRoute.parse(initial) != null) {
       _pendingDeepLink = initial;
     }
   }
@@ -625,6 +674,11 @@ class AppRouter with WidgetsBindingObserver {
     RouteInformation routeInformation,
   ) async {
     final link = routeInformation.uri.toString();
+    final invite = inviteTokenOf(link);
+    if (invite != null) {
+      openInvite(invite);
+      return true;
+    }
     if (AppRoute.parse(link) == null) return false;
     await openDeepLink(link);
     return true;

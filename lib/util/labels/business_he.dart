@@ -440,6 +440,48 @@ abstract final class AuthHe {
   static const signInHelp = 'עזרה בכניסה';
   static const signInHelpBody = 'לאיפוס הסיסמה בחשבון זה פנו לתמיכה.';
   static const contactSupport = 'פנה לתמיכה';
+
+  // Invitation in the app (AUTH-INVITE-RESET 2026-11-15).
+  static const createAccountJoin = 'יצירת חשבון והצטרפות';
+  static const passwordRequired = 'נא להזין סיסמה';
+  static const signInJoin = 'כניסה והצטרפות';
+  static const inviteNewAccountHint =
+      'בוחרים סיסמה לאפליקציה. אותה סיסמה תשמש גם לכניסה לתבל במחשב.';
+  static const inviteExistingHint =
+      'לכתובת הזו כבר יש חשבון תבל. הזינו את הסיסמה שלכם, או המשיכו עם Apple.';
+  static const continueWithApple = 'המשך עם Apple';
+  static const orDivider = 'או';
+  static String emailMismatch(String invited, String signedIn) =>
+      'ההזמנה נשלחה ל-$invited, התחברת כ-$signedIn. התחברו עם הכתובת שאליה נשלחה ההזמנה.';
+  static const appleHiddenEmail = 'חשבון Apple שמסתיר את כתובת האימייל';
+  static const confirmEmailTitle = 'אישור כתובת האימייל';
+  static String confirmEmailSent(String email) =>
+      'שלחנו קוד אימות ל-$email. הזינו אותו כדי לסיים ליצור את החשבון.';
+  static const confirmEmailHint =
+      'לא הגיע? בדקו בתיקיית הספאם, או שלחו קוד חדש.';
+  static const codeSentAgain = 'נשלח קוד חדש';
+
+  // "שכחתי סיסמה" with a code (AUTH-INVITE-RESET 2026-11-15).
+  static const passwordResetTitle = 'איפוס סיסמה';
+  static const recoveryEmailHint = 'נשלח קוד בן 6 ספרות לכתובת האימייל שלכם';
+  static const email = 'אימייל';
+  static const emailInvalid = 'נא להזין כתובת מייל תקינה';
+  static const sendCode = 'שליחת קוד';
+  static const recoveryCodeTitle = 'הזנת הקוד';
+  static String recoveryCodeSent(String email) =>
+      'אם הכתובת $email רשומה, נשלח אליה קוד. הקוד תקף לזמן קצר.';
+  static const recoveryCodeLabel = 'קוד מהמייל';
+  static const recoveryCodeFormat = 'הקוד הוא 6 ספרות (לפעמים יותר) מהמייל';
+  static const recoveryCodeResent = 'אם הכתובת רשומה, נשלח קוד חדש';
+  static const verifyCode = 'אימות הקוד';
+  static const newPasswordTitle = 'סיסמה חדשה';
+  static const passwordPolicyLong =
+      'לפחות 12 תווים ולפחות 4 תווים שונים. לא סיסמה נפוצה.';
+  static const savePassword = 'שמירת הסיסמה';
+  static const recoveryDoneTitle = 'הסיסמה עודכנה';
+  static const recoveryDoneInvite =
+      'עכשיו הזינו את הסיסמה החדשה כדי להצטרף לעסק.';
+  static const recoveryDoneSignIn = 'אפשר להיכנס עם הסיסמה החדשה.';
 }
 
 /// L · מסמכים (activity list) filters (QA 2026-11-12 · 2.5).
