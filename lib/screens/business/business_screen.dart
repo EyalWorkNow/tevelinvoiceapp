@@ -38,6 +38,9 @@ import '../audit/audit_log_screen.dart' show canViewAuditLog, openAuditLog;
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../people/sheets/s2_customer.dart' show showCustomerSheet;
 import '../retainers/retainers_month_screen.dart';
+import '../people/sheets/payment_terms_sheet.dart';
+import '../../api/customer_timeline_api.dart' show fetchBusinessPaymentTerms;
+import '../../util/labels/timeline_he.dart';
 
 class BusinessScreen extends StatelessWidget {
   const BusinessScreen({super.key, this.section});
@@ -70,6 +73,8 @@ class BusinessScreen extends StatelessWidget {
 
 /// Rarely used rows grouped under "עוד הגדרות" (SPEC §6.B: B ≤ 10 rows).
 const Set<String> moreSettingsKeys = {
+  // 0110: the business-default payment terms.
+  'paymentTerms',
   'integrations',
   'subscription',
   'notifications',
@@ -177,6 +182,12 @@ List<BusinessRowSpec> allBusinessRows(
       'reminders',
       BusinessHe.reminders,
       Iconsax.notification_bing,
+    ),
+  if (caps.can(Cap.settingsBusiness))
+    const BusinessRowSpec(
+      'paymentTerms',
+      TimelineHe.businessTermsTitle,
+      Iconsax.calendar_2,
     ),
   if (caps.can(Cap.settingsBusiness) || caps.can(Cap.reportView))
     const BusinessRowSpec('shaam', BusinessHe.shaam, Iconsax.verify),
@@ -682,6 +693,24 @@ void openBusinessRow(BuildContext context, String key) {
       showEditorSheet(context, instance: '13.9');
     case 'audit':
       unawaited(openAuditLog(context));
+    case 'paymentTerms':
+      unawaited(_openBusinessTerms(context));
+  }
+}
+
+/// 0110: the default terms for customers without their own.
+Future<void> _openBusinessTerms(BuildContext context) async {
+  try {
+    final current = await fetchBusinessPaymentTerms();
+    if (!context.mounted) return;
+    final saved = await showPaymentTermsSheet(context, initial: current);
+    if (saved != null && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showNotchNotice(const SnackBar(content: Text(TimelineHe.termsSaved)));
+    }
+  } on Object catch (e) {
+    if (context.mounted) showErrorSnack(context, e);
   }
 }
 
