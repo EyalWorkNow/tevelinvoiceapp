@@ -868,7 +868,10 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       expect(find.text('הלקוח צפה'), findsOneWidget);
-      expect(find.text('נרשם תשלום'), findsOneWidget);
+      expect(
+        find.text('נרשם תשלום על ידי owner@example.test'),
+        findsOneWidget,
+      ); // C5
       await tester.scrollUntilVisible(
         find.byKey(const Key('doc-link-rcp-1')),
         200,

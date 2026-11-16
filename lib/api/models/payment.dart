@@ -243,6 +243,7 @@ class TimelineEvent {
   const TimelineEvent({
     required this.at,
     required this.event,
+    this.byName,
     this.byEmail,
     this.detail = const {},
   });
@@ -250,6 +251,7 @@ class TimelineEvent {
   factory TimelineEvent.fromJson(Map<String, dynamic> j) => TimelineEvent(
     at: jStr(j['at']) ?? '',
     event: jStr(j['event']) ?? '',
+    byName: jStr(j['byName']),
     byEmail: jStr(j['byEmail']),
     detail: jMap(j['detail']),
   );
@@ -258,7 +260,16 @@ class TimelineEvent {
 
   /// Raw audit type, e.g. document.finalized, document.shared, document.sent.
   final String event;
+
+  /// The actor's display name (users.display_name), for every viewer.
+  final String? byName;
+
+  /// Only for viewers who manage the team.
   final String? byEmail;
+
+  /// C5: who did it, as the history shows it (name, else e-mail).
+  String? get actor =>
+      (byName?.trim().isNotEmpty ?? false) ? byName!.trim() : byEmail;
   final Map<String, dynamic> detail;
 }
 
