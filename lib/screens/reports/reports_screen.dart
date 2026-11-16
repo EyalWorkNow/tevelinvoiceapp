@@ -29,6 +29,7 @@ import '../business/sheets/s14_switch.dart';
 import '../home/inbox_cards.dart' show inboxCardFor;
 import '../../util/allocation_meter.dart' show AllocationHe;
 import 'allocation_scan_view.dart';
+import 'daily_summary_view.dart';
 import 'report_view.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
@@ -51,6 +52,8 @@ class ReportsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => kind == allocationScanKind
       ? const AllocationScanView()
+      : kind == dailySummaryKind
+      ? const DailySummaryView()
       : kind != null
       ? ReportView(kind: kind!, period: ReportPeriod.parse(period))
       : _Reports(period: ReportPeriod.parse(period), embedded: embedded);
@@ -332,6 +335,8 @@ class _ReportsState extends State<_Reports> {
             ),
         ],
         for (final k in [
+          // C2: the till's day first (the salon's first question each evening).
+          if (owner && caps.can(Cap.docView)) dailySummaryKind,
           if (_cards) ...reportKinds(caps, exempt: exempt),
           if (caps.can(Cap.docView))
             paymentsReportKind, // §3.3: R → "תקבולים" (BE-11)
@@ -355,6 +360,7 @@ class _ReportsState extends State<_Reports> {
                     ),
                     child: Icon(
                       switch (k) {
+                        dailySummaryKind => Iconsax.calendar_tick,
                         'vat' => Iconsax.percentage_circle,
                         'debts' || 'receivables' => Iconsax.wallet_2,
                         paymentsReportKind => Iconsax.money_recive,
@@ -377,6 +383,8 @@ class _ReportsState extends State<_Reports> {
                         Text(
                           k == allocationScanKind
                               ? AllocationHe.scanTitle
+                              : k == dailySummaryKind
+                              ? DailySummaryHe.title
                               : ReportsHe.kinds[k] ?? k,
                           style: AppText.headline,
                         ),
@@ -515,6 +523,7 @@ class _ReportsState extends State<_Reports> {
     'customers' => 'פירוט הכנסות לפי לקוח',
     'continuity' => 'רצף המסמכים והמספור בעסק',
     paymentsReportKind => 'תשלומים שנרשמו ושיוכם למסמכים',
+    dailySummaryKind => DailySummaryHe.cardHint,
     allocationScanKind => AllocationHe.scanHint,
     _ => 'פירוט הנתונים לתקופה שנבחרה',
   };

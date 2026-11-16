@@ -137,8 +137,16 @@ void main() {
       await pumpAs(tester, backend, Preset.owner, const ReportsScreen());
       expect(find.byKey(const Key('report-card-income')), findsOneWidget);
       expect(find.byKey(const Key('report-card-vat')), findsOneWidget);
+      // C2: "סיכום יום" is the first card; the rest scroll.
+      expect(find.byKey(const Key('report-card-daily')), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('report-card-receivables')),
+        200,
+      );
       expect(find.byKey(const Key('report-card-receivables')), findsOneWidget);
       expect(find.byKey(const Key('report-card-pnl')), findsNothing);
+      await tester.ensureVisible(find.byKey(const Key('report-card-vat')));
+      await settle(tester);
       expect(find.text('סיכום מע״מ לפי מסמכי העסק'), findsOneWidget);
       expect(find.text('יתרות פתוחות ופירוט לפי לקוח'), findsOneWidget);
       await tester.tap(find.byKey(const Key('report-card-vat')));
