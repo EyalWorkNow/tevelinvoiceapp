@@ -26,9 +26,9 @@ abstract final class PendingPaymentHe {
   static const edit = 'ערוך';
   static const cancelPayment = 'בטל תשלום';
 
-  /// "תשלום ממתין: ₪1,180 ביט, יירשם כשיתקבל מספר ההקצאה"
+  /// "תשלום ממתין: ₪1,180.00 ביט, יירשם כשיתקבל מספר ההקצאה"
   static String pendingLine(BigInt amountMinor, String method) =>
-      'תשלום ממתין: ${formatMoney(amountMinor, trimZeroAgorot: true)} '
+      'תשלום ממתין: ${formatMoney(amountMinor)} '
       '${paymentMethodLabel(method)}, יירשם כשיתקבל מספר ההקצאה';
 
   static const editTitle = 'עריכת התשלום הממתין';
