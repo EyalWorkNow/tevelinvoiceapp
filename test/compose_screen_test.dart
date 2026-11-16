@@ -1071,6 +1071,9 @@ void main() {
         await open(tester, intent: 'PAID');
         await type(tester, '350');
         expect(find.byType(Keypad), findsOneWidget);
+        // C2: bit / PayBox chips wrap the row; the cheque chip is on line 2.
+        await tester.ensureVisible(find.text(paymentMethodLabels['CHECK']!));
+        await tester.pumpAndSettle();
         await tester.tap(find.text(paymentMethodLabels['CHECK']!));
         await tester.pumpAndSettle();
         expect(find.byType(Keypad), findsNothing);
