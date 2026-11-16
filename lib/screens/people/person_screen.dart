@@ -26,6 +26,7 @@ import '../../state/business_context.dart';
 import '../../state/session.dart';
 import '../../state/caps.dart';
 import '../../ui/ds.dart';
+import '../debts/reminder_hold_tile.dart';
 import '../../util/allowed_urls.dart';
 import '../../util/labels/common_he.dart';
 import '../../util/labels/document_he.dart';
@@ -595,6 +596,9 @@ class _PersonScreenState extends State<PersonScreen> {
             ),
             onTap: _busy ? null : _sendStatement,
           ),
+        // 0111: "אל תשלח תזכורות ללקוח הזה" (owner / partner).
+        if (!widget.isSupplier && !_archived)
+          ReminderHoldTile(customerId: widget.id),
         if (!widget.isSupplier && _caps.can(Cap.docView)) ...[
           const SizedBox(height: Space.l),
           Padding(

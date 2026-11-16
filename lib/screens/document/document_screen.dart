@@ -28,6 +28,7 @@ import '../../state/business_context.dart';
 import '../../state/cache.dart';
 import '../../state/caps.dart';
 import '../../ui/ds.dart';
+import '../debts/reminder_hold_tile.dart';
 import '../../util/allocation_meter.dart';
 import '../../util/allowed_urls.dart';
 import '../../util/errors_he.dart';
@@ -995,6 +996,18 @@ class _DocumentScreenState extends State<DocumentScreen> {
                           ),
                           trailing: const Icon(Iconsax.arrow_left_2),
                           onTap: () => openPerson(context, _customer!.id),
+                        ),
+                      // 0111: pause the automatic reminders of one open invoice.
+                      if (!widget.isQuote &&
+                          !doc.amountHidden &&
+                          (_openMinor ?? BigInt.zero) > BigInt.zero &&
+                          const {
+                            'TAX_INVOICE',
+                            'TRANSACTION_INVOICE',
+                          }.contains(doc.documentType))
+                        ReminderHoldTile(
+                          key: ValueKey('hold-${doc.id}'),
+                          documentId: doc.id,
                         ),
                       if (_timeline) ...[
                         DocTimeline(
