@@ -17,7 +17,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:invoice/app_shell.dart';
-import 'package:invoice/state/session.dart';
 
 import 'crash_sweep_test.dart' show t, pumpMs, waitFor, selectTab;
 import 'persona_screens_test.dart'
@@ -32,6 +31,15 @@ void main() {
     await runCaptured(tester, () async {
       role = 'navbar';
       plansGuardOn = true;
+      // One sign-in per run (a second app.main() in the same run stays on
+      // the sign-in screen): --dart-define=NAVBAR_ROLE=employee for the 3rd.
+      if (const String.fromEnvironment('NAVBAR_ROLE') == 'employee') {
+        await launchSignedInAs(t, 'mobile-employee@tevel.test');
+        await waitFor(find.byKey(const Key('tab-home')), ms: 40000);
+        await pumpMs(3000);
+        await guarded('employee home', () async => shot('employee-home'));
+        return;
+      }
       await launchSignedInAs(t, owner);
       await waitFor(find.byKey(const Key('tab-home')), ms: 40000);
       await pumpMs(3000);
@@ -42,15 +50,6 @@ void main() {
         await shot('owner-business-tab');
         await selectTab(AppTab.home);
       });
-      await session.signOut();
-      await pumpMs(1500);
-
-      await launchSignedInAs(t, 'mobile-employee@tevel.test');
-      await waitFor(find.byKey(const Key('tab-home')), ms: 40000);
-      await pumpMs(3000);
-      await guarded('employee home', () async => shot('employee-home'));
-      await session.signOut();
-      await pumpMs(1500);
     });
   }, timeout: const Timeout(Duration(minutes: 15)));
 }
