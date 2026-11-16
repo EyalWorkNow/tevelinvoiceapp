@@ -164,7 +164,7 @@ void main() {
       });
     }
 
-    test('a quote keeps the old nearest price (no server column yet)', () {
+    test('a quote on a server without quoteLineAgreedTotal: nearest price', () {
       final s =
           ComposeState(
               kind: DocKind.quote,
@@ -175,6 +175,22 @@ void main() {
             ..amountText = '2';
       expect(s.requestLines.single.containsKey('agreedTotalMinor'), isFalse);
       expect(s.quoteLines.single.agreedTotalMinor, isNull);
+    });
+
+    test('quoteLineAgreedTotal (server 0107): a quote keeps ₪2.00 too', () {
+      final s =
+          ComposeState(
+              kind: DocKind.quote,
+              businessType: 'OSEK_MURSHE',
+              vatBasisPoints: 1800,
+            )
+            ..agreedTotals = true
+            ..quoteAgreedTotals = true
+            ..amountText = '2';
+      expect(s.totalMinor, b(200));
+      expect(s.requestLines.single['agreedTotalMinor'], '200');
+      expect(s.quoteLines.single.agreedTotalMinor, b(200));
+      expect(s.quoteLines.single.toJson()['agreedTotalMinor'], '200');
     });
 
     test('extra line ₪2.00 incl. VAT keeps ₪2.00', () {

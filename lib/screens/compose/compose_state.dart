@@ -252,8 +252,11 @@ class ComposeState extends ChangeNotifier {
 
   /// The server keeps a typed VAT-included total exactly (`agreedTotalMinor`,
   /// GET /me `lineAgreedTotal`). Off: the nearest net price (₪2 → ₪1.99).
-  /// Not for quotes yet: quote_lines has no column for it (server PR #39).
+  /// Quotes only with [quoteAgreedTotals] (GET /me `quoteLineAgreedTotal`).
   bool agreedTotals = false;
+
+  /// The server stores agreed totals on quote lines (0107).
+  bool quoteAgreedTotals = false;
 
   /// Lines exactly as sent to POST /documents (net unit prices; with
   /// amounts incl. VAT, `agreedTotalMinor` = the typed gross — owner Q1).
@@ -274,7 +277,8 @@ class ComposeState extends ChangeNotifier {
               grossUnitMinor: typedPrice,
               grossDiscountMinor: typedDiscount,
               basisPoints: rate,
-              agreed: agreedTotals && kind != DocKind.quote,
+              agreed:
+                  agreedTotals && (kind != DocKind.quote || quoteAgreedTotals),
             )
           : null;
       final unit = g?.unitPriceMinor ?? typedPrice;
