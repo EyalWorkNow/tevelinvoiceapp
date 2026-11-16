@@ -16,7 +16,7 @@ class CustomerCrmSyncStatus extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: const Text('המידע עודכן במכשיר אחר'),
         content: Text(
-          'יש ${store.pendingCount} שינויים שמורים במכשיר וממתינים לסנכרון.\n\nגרסת השרת תשאיר את נתוני השרת ותוותר על השינויים האלה. גרסת המכשיר תחליף בשרת את תיקי הלקוחות ששינית כאן. נשמר גם עותק מקומי לשחזור.',
+          'יש ${store.pendingCount} שינויים שמורים בטלפון הזה, ובינתיים תיקי הלקוחות עודכנו גם ממכשיר אחר.\n\n"להשאיר את מה שנשמר בחשבון" מוותר על השינויים מהטלפון. "להשאיר את השינויים מהטלפון" מחליף בהם את מה שנשמר בחשבון. בכל מקרה נשמר עותק בטלפון לשחזור.',
         ),
         actions: [
           TextButton(
@@ -48,7 +48,7 @@ class CustomerCrmSyncStatus extends StatelessWidget {
     final rejected = store.rejectedCount > 0 && !store.syncing;
     final problem = store.syncError != null || rejected;
     final text = store.syncing
-        ? 'מסנכרן עם השרת…'
+        ? 'שומרים את השינויים…'
         : rejected
         ? crmRejectedNoticeHe(store.rejectedCount)
         : store.hasConflict
@@ -57,7 +57,7 @@ class CustomerCrmSyncStatus extends StatelessWidget {
         ? 'אין כרגע סנכרון. ${store.pendingCount} שינויים שמורים במכשיר.'
         : store.pendingCount > 0
         ? '${store.pendingCount} שינויים ממתינים לסנכרון'
-        : 'נשמר בשרת';
+        : 'כל השינויים נשמרו';
     return Row(
       children: [
         if (store.syncing)

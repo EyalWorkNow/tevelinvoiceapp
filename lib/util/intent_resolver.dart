@@ -19,12 +19,15 @@ const String intentQuote = 'QUOTE';
 String typeIntent(DocKind kind) =>
     kind == DocKind.quote ? intentQuote : 'TYPE:${configFor(kind).code}';
 
-/// Opens the default invoice for this business without asking for a type first.
-String invoiceIntentFor(String businessType) => typeIntent(
-  isVatExemptBusiness(businessType)
-      ? DocKind.transactionInvoice
-      : DocKind.taxInvoice,
-);
+/// The main "+ חשבונית" entry, without asking for a type first.
+/// עוסק פטור / עמותה: the money is usually already in hand, so the default is
+/// a receipt (400) through [intentPaid]; a 300 ("בקשת תשלום") only when the
+/// user picks it, or when the role cannot record a payment (resolveIntent
+/// keeps that rule). A VAT business keeps the tax invoice (305).
+String invoiceIntentFor(String businessType) =>
+    isVatExemptBusiness(businessType)
+    ? intentPaid
+    : typeIntent(DocKind.taxInvoice);
 
 /// The kind the Composer opens with; null when the intent cannot be served
 /// for this business (unknown, 330, 405 without §46, a VAT type for an exempt

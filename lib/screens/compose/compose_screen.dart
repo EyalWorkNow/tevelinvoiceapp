@@ -7,9 +7,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 
 import '../../ui/widgets/notch_notice.dart';
-import '../../api/customers_api.dart' show rememberRecentPaymentCustomer;
+import '../../api/customers_api.dart'
+    show rememberRecentPaymentCustomer, updateCustomer;
+import '../../api/issue_api.dart' show IssueStage;
 import '../../api/models/models.dart';
 import '../../state/business_context.dart';
 import '../../state/caps.dart';
@@ -82,6 +85,13 @@ class _ComposeScreenState extends State<ComposeScreen> {
   bool _wasReady = false;
   Timer? _armTimer;
 
+  /// The fixed keypad steps aside while the user works below the amount
+  /// (scrolls the card, picks צ'ק): owner/037, owner/040. A tap on the
+  /// amount, or "הצג מקלדת", brings it back.
+  bool _keypadAway = false;
+  String? _lastMethod;
+  bool _markingDealer = false;
+
   @override
   void initState() {
     super.initState();
@@ -110,6 +120,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
       if (!mounted) return;
       if (load == null) return setState(() => _unavailable = true);
       load.state.addListener(_changed);
+      _lastMethod = load.state.method;
       setState(() {
         _load = load;
         _pickingInitialCustomer = load.state.customer == null;
@@ -190,6 +201,11 @@ class _ComposeScreenState extends State<ComposeScreen> {
 
   void _changed() {
     if (!mounted) return;
+    final method = _load?.state.method;
+    if (method == 'CHECK' && _lastMethod != null && _lastMethod != 'CHECK') {
+      _keypadAway = true; // four cheque fields need the room
+    }
+    _lastMethod = method;
     final ready = _load?.state.ready ?? false;
     if (ready && !_wasReady) {
       _armed = false;
@@ -238,6 +254,25 @@ class _ComposeScreenState extends State<ComposeScreen> {
     return c;
   }
 
+  /// "סמן כעוסק מורשה" under the amount: the customer's status is saved on
+  /// the server, so the allocation line (and the issue flow) know it.
+  Future<void> _markDealer() async {
+    final s = _load!.state;
+    final c = s.customer;
+    if (c == null || _markingDealer) return;
+    setState(() => _markingDealer = true);
+    try {
+      await updateCustomer(c.id, {'vatDealerStatus': 'AUTHORIZED_DEALER'});
+      if (!mounted) return;
+      s.customer = c.copyWith(vatDealerStatus: 'AUTHORIZED_DEALER');
+      s.changed();
+    } on Object catch (e) {
+      if (mounted) showErrorSnack(context, e);
+    } finally {
+      if (mounted) setState(() => _markingDealer = false);
+    }
+  }
+
   Future<void> _press(ComposerAction action, bool needsApproval) async {
     final load = _load!;
     final run = load.run(action: action, needsApproval: needsApproval);
@@ -249,7 +284,17 @@ class _ComposeScreenState extends State<ComposeScreen> {
         setState(() => _step = step);
       },
     );
-    if (mounted && run.pending?.stage.name == 'done') {
+    final stage = run.pending?.stage;
+    // The document exists on the server once it was submitted for approval
+    // or parked waiting for its allocation number: leaving C then must not
+    // keep a local draft of it ("המשך טיוטה" would offer to issue it again).
+    if (mounted &&
+        stage != null &&
+        stage.index >= IssueStage.submitted.index &&
+        stage != IssueStage.done) {
+      _issuedOrLeft = true;
+    }
+    if (mounted && stage == IssueStage.done) {
       _issuedOrLeft = true;
       if (load.state.kind == DocKind.receipt ||
           load.state.kind == DocKind.taxInvoiceReceipt) {
@@ -327,34 +372,56 @@ class _ComposeScreenState extends State<ComposeScreen> {
     final paid = load.switchKinds.contains(DocKind.taxInvoiceReceipt)
         ? DocKind.taxInvoiceReceipt
         : DocKind.receipt;
-    final choices = <Widget>[
-      if (load.switchKinds.contains(invoice))
-        SizedBox(
+    Widget choice(
+      DocKind kind,
+      String label,
+      IconData icon,
+      Color color,
+      String key,
+    ) {
+      final selected = s.kind == kind;
+      return Semantics(
+        selected: selected,
+        child: Container(
+          key: Key(key),
           width: 110,
-          child: ActionOrb(
-            label: ComposeHe.newInvoice,
-            icon: const Icon(
-              Iconsax.document_text,
-              color: Color(0xFF302139),
-              size: 28,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: selected ? context.palette.ink : Colors.transparent,
+              width: 2,
             ),
-            color: DesignTokens.lavender,
-            onPressed: () => s.setKind(invoice),
+          ),
+          child: ActionOrb(
+            label: label,
+            icon: Icon(icon, color: const Color(0xFF302139), size: 28),
+            color: color,
+            onPressed: () => s.setKind(kind),
           ),
         ),
+      );
+    }
+
+    // עוסק פטור / עמותה: the plain words "בקשת תשלום" / "קבלה" (A5).
+    final exempt = invoice == DocKind.transactionInvoice;
+    final choices = <Widget>[
+      if (load.switchKinds.contains(invoice))
+        choice(
+          invoice,
+          exempt ? ComposeHe.requestChoice : ComposeHe.newInvoice,
+          Iconsax.document_text,
+          DesignTokens.lavender,
+          'compose-kind-request',
+        ),
       if (load.switchKinds.contains(paid))
-        SizedBox(
-          width: 110,
-          child: ActionOrb(
-            label: ComposeHe.recordIncome,
-            icon: const Icon(
-              Iconsax.money_recive,
-              color: Color(0xFF302139),
-              size: 28,
-            ),
-            color: DesignTokens.yellow,
-            onPressed: () => s.setKind(paid),
-          ),
+        choice(
+          paid,
+          paid == DocKind.receipt
+              ? ComposeHe.receiptChoice
+              : ComposeHe.recordIncome,
+          Iconsax.money_recive,
+          DesignTokens.yellow,
+          'compose-kind-paid',
         ),
     ];
     return Wrap(
@@ -412,67 +479,102 @@ class _ComposeScreenState extends State<ComposeScreen> {
           ),
         ),
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: Space.page),
-            child: Column(
-              children: [
-                const SizedBox(height: 12),
-                AmountField(state: s),
-                // R7: "יקבל מספר הקצאה" / "נדרש חיבור" above the threshold only.
-                if (s.totalMinor > BigInt.zero)
-                  AllocationHintLine(
+          child: NotificationListener<UserScrollNotification>(
+            onNotification: (n) {
+              // Scrolling on to the card below: the keypad steps aside.
+              if (n.direction == ScrollDirection.reverse &&
+                  !_keypadAway &&
+                  s.amountMinor > BigInt.zero) {
+                setState(() => _keypadAway = true);
+              }
+              return false;
+            },
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: Space.page),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  AmountField(
                     state: s,
-                    onConnect: () =>
-                        openBusinessSection(context, BusinessSection.shaam),
+                    onTap: _keypadAway
+                        ? () => setState(() => _keypadAway = false)
+                        : null,
                   ),
-                if (s.totalMinor == BigInt.zero) ...[
-                  const SizedBox(height: 24),
-                  _kindActions(load),
-                  const SizedBox(height: 24),
-                ],
-                if (s.totalMinor > BigInt.zero)
-                  Padding(
-                    padding: const EdgeInsets.only(top: Space.l),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 352),
-                        child: SummarySection(
-                          state: s,
-                          onMoreDetails: () => showMoreDetailsSheet(
-                            context,
+                  // R7: "יקבל מספר הקצאה" / "נדרש חיבור" above the threshold
+                  // only; "אם הלקוח עוסק מורשה…" when the status is unknown.
+                  if (s.totalMinor > BigInt.zero)
+                    AllocationHintLine(
+                      state: s,
+                      onConnect: () =>
+                          openBusinessSection(context, BusinessSection.shaam),
+                      onMarkDealer: _markingDealer || bc.offline
+                          ? null
+                          : _markDealer,
+                    ),
+                  if (s.totalMinor == BigInt.zero) ...[
+                    const SizedBox(height: 24),
+                    _kindActions(load),
+                    const SizedBox(height: 24),
+                  ],
+                  if (s.totalMinor > BigInt.zero)
+                    Padding(
+                      padding: const EdgeInsets.only(top: Space.l),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 352),
+                          child: SummarySection(
                             state: s,
-                            kinds: load.switchKinds,
+                            onMoreDetails: () => showMoreDetailsSheet(
+                              context,
+                              state: s,
+                              kinds: load.switchKinds,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                if (!s.discountValid)
-                  Padding(
-                    padding: const EdgeInsets.only(top: Space.s),
-                    child: Text(
-                      ComposeHe.discountTooBig,
-                      key: const Key('compose-discount-error'),
-                      textAlign: TextAlign.center,
-                      style: AppText.secondary.copyWith(
-                        color: context.palette.danger,
+                  if (!s.discountValid)
+                    Padding(
+                      padding: const EdgeInsets.only(top: Space.s),
+                      child: Text(
+                        ComposeHe.discountTooBig,
+                        key: const Key('compose-discount-error'),
+                        textAlign: TextAlign.center,
+                        style: AppText.secondary.copyWith(
+                          color: context.palette.danger,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-        // AT-70: keys are a fixed 64pt; past 150% the 28pt digits would not fit.
-        MediaQuery.withClampedTextScaling(
-          maxScaleFactor: 1.5,
-          child: Keypad(
-            onKey: (k) {
-              s.amountText = keypadApply(s.amountText, k);
-              s.changed();
-            },
+        // The system keyboard (cheque fields, description) covers the same
+        // place: never both.
+        if (_keypadAway || MediaQuery.viewInsetsOf(context).bottom > 0)
+          (MediaQuery.viewInsetsOf(context).bottom > 0)
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.only(top: Space.xs),
+                  child: TextButton.icon(
+                    key: const Key('compose-show-keypad'),
+                    onPressed: () => setState(() => _keypadAway = false),
+                    icon: const Icon(Iconsax.keyboard, size: 18),
+                    label: const Text(ComposeHe.showKeypad),
+                  ),
+                )
+        else
+          // AT-70: keys are a fixed 64pt; past 150% the 28pt digits would not fit.
+          MediaQuery.withClampedTextScaling(
+            maxScaleFactor: 1.5,
+            child: Keypad(
+              onKey: (k) {
+                s.amountText = keypadApply(s.amountText, k);
+                s.changed();
+              },
+            ),
           ),
-        ),
         // U1: the area is always there (empty until ready), so the keypad
         // never jumps up under the finger when the button appears.
         BottomActionArea(

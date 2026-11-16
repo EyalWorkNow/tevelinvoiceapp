@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/ui/widgets/notch_notice.dart';
@@ -161,4 +162,23 @@ void main() {
     messenger.currentState!.clearNotchNotices();
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+    'a long message is shown whole, not cut to one line (QA owner/052)',
+    (tester) async {
+      await mount(tester);
+      const long = 'מסמך שהופק לא נערך. לתיקון מפיקים זיכוי.';
+      notchNoticeKey.currentState!.show(
+        const SnackBar(content: Text(long)),
+        motion: NoticeMotion.error,
+      );
+      await tester.pumpAndSettle();
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(long));
+      expect(paragraph.didExceedMaxLines, isFalse);
+      final box = tester.getRect(find.byKey(const Key('notch-notice')));
+      final text = tester.getRect(find.text(long));
+      expect(text.bottom, lessThanOrEqualTo(box.bottom));
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

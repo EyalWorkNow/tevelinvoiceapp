@@ -158,7 +158,6 @@ void main() {
         await tester.enterText(find.byKey(const Key('s3-line-0-price')), '50');
         await tester.pump();
         expect(s.requestLines, hasLength(2));
-        expect(find.byType(PrimaryButton), findsOneWidget);
       },
     );
 
@@ -383,5 +382,55 @@ void main() {
       expect(find.byKey(const Key('s3-valid-until')), findsOneWidget);
       expect(find.byKey(const Key('s3-type')), findsNothing);
     });
+
+    testWidgets(
+      'owner/042: "סיום" stays on screen with many lines; the description has the full width',
+      (tester) async {
+        await tester.runAsync(() => signInAs(backend, Preset.owner));
+        tester.view.physicalSize = const Size(1125, 2001); // iPhone SE-ish
+        tester.view.devicePixelRatio = 3;
+        addTearDown(tester.view.reset);
+        final s = st(DocKind.taxInvoice, 'OSEK_MURSHE');
+        for (var i = 0; i < 4; i++) {
+          s.extraLines.add(ComposeLine(description: 'שעת עבודה נוספת'));
+        }
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: const Locale('he', 'IL'),
+            supportedLocales: const [Locale('he', 'IL')],
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            theme: buildTheme(Brightness.light),
+            home: Builder(
+              builder: (c) => Scaffold(
+                body: TextButton(
+                  onPressed: () => showMoreDetailsSheet(
+                    c,
+                    state: s,
+                    kinds: const [
+                      DocKind.taxInvoice,
+                      DocKind.taxInvoiceReceipt,
+                    ],
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+        final done = find.byKey(const Key('s3-done'));
+        expect(done.hitTestable(), findsOneWidget);
+        final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+        expect(tester.getRect(done).bottom, lessThanOrEqualTo(screen.height));
+        final field = tester.getSize(
+          find.byKey(const Key('s3-line-0-description')),
+        );
+        expect(field.width, greaterThan(screen.width * 0.7));
+        await tester.tap(done);
+        await tester.pumpAndSettle();
+        expect(done, findsNothing);
+      },
+    );
   });
 }

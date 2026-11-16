@@ -128,6 +128,13 @@ class ExpenseOverview {
       vat = jBigOrNull(j['recoverableVatMinor']) ?? BigInt.zero,
       unclassified = jBigOrNull(j['unclassifiedMinor']) ?? BigInt.zero,
       count = (j['count'] as num?)?.toInt() ?? 0,
+      // Stage A (A3): the same definitions as Home "לבדיקה" and the expenses / VAT
+      // reports. Null on a server without them (the screen then falls back).
+      reviewCount = (j['reviewCount'] as num?)?.toInt(),
+      reviewTotal = jBigOrNull(j['reviewTotalMinor']),
+      approvedCount = (j['approvedCount'] as num?)?.toInt(),
+      approvedTotal = jBigOrNull(j['approvedTotalMinor']),
+      approvedVat = jBigOrNull(j['approvedVatMinor']),
       categories = [
         for (final c in j['categories'] as List? ?? [])
           Map<String, dynamic>.from(c as Map),
@@ -144,7 +151,13 @@ class ExpenseOverview {
   final String month, note;
   final BigInt total, recognized, vat, unclassified;
   final int count;
+  final int? reviewCount, approvedCount;
+  final BigInt? reviewTotal, approvedTotal, approvedVat;
   final List<Map<String, dynamic>> categories, trend, expenses;
+
+  /// True when the server sends the shared A3 figures.
+  bool get hasSharedTotals =>
+      approvedTotal != null && approvedCount != null && approvedVat != null;
 }
 
 Future<ExpenseOverview> fetchExpenseOverview(String month) async =>

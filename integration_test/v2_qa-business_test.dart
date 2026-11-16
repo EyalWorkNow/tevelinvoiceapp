@@ -699,7 +699,13 @@ void main() {
         await openBusinessTab(tester);
         final rows = businessRowKeys();
         expect(rows, isNot(contains('team')));
-        expect(rows, isNot(contains('reports')), reason: 'R is the home tab');
+        // SA5 (QA 2026-11-16 accountant/09): a "דוחות" row now leads to R,
+        // which stays the accountant's home tab.
+        expect(
+          rows.contains('reports'),
+          businessContext.caps.can(Cap.reportView),
+          reason: 'דוחות row (→ home tab R) follows report view',
+        );
         expect(rows, isNot(contains('branding')));
         if (who == cpaRepEmail) {
           expect(
@@ -1009,7 +1015,10 @@ void main() {
         isNot(contains('approvals')),
         reason: '§13.6 only with another member',
       );
-      expect(rows, containsAll(['reports', 'team', 'profile']));
+      // SA5 (persona 01): a one-person פטור keeps "צוות והרשאות" under
+      // "עוד הגדרות", not among the main rows.
+      expect(rows, containsAll(['reports', 'profile']));
+      expect(rows, isNot(contains('team')), reason: 'solo פטור: under עוד הגדרות');
       expectScreenRules('B solo');
 
       await tester.tap(find.byKey(const Key('brow-reports')));
@@ -1130,6 +1139,8 @@ void main() {
         rethrow;
       }
       expect(businessContext.caps.preset, Preset.employee);
+      // ＋ slides in after the capsule shrinks (320 ms, ShellBottomNavigation).
+      await waitFor(tester, find.byKey(const Key('tab-create')), seconds: 10);
       expect(find.byKey(const Key('tab-create')), findsOneWidget);
       // H re-renders after the caps change; give its reload a moment before judging.
       for (

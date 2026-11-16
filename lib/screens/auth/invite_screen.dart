@@ -10,8 +10,9 @@
 // valid, has account  → its password (Supabase app password, or the Tevel
 //                       password) → accept · or "המשך עם Apple"
 // INVITATION_EMAIL_MISMATCH → "ההזמנה נשלחה ל-x, התחברת כ-y"
-// MEMBER_EXISTS       → "אתה כבר חבר ב-{עסק}" → "פתח" (sign in)
-// expired / revoked   → "ההזמנה כבר לא בתוקף. בקש מ-{מזמין} לשלוח שוב"
+// MEMBER_EXISTS       → "אתה כבר חבר ב-{עסק}" → "למסך הכניסה"
+// expired / revoked   → "ההזמנה כבר לא בתוקף. בקשו מ{מזמין} לשלוח הזמנה חדשה"
+//                       (no name from the server → "ממי ששלח לכם אותה")
 // preset needs MFA    → finishSignIn runs the MFA step before anything else.
 // Without Supabase (older builds): the Tevel password only, as before.
 
@@ -279,12 +280,10 @@ class _InviteScreenState extends State<InviteScreen> {
         body: dead
             ? EmptyState(
                 icon: Iconsax.calendar_remove,
-                title: AuthHe.expiredAskAgain(
-                  (invite?.inviterName ?? '').isEmpty
-                      ? AuthHe.inviterFallback
-                      : invite!.inviterName,
-                ),
-                actionLabel: CommonHe.open,
+                title: (invite?.inviterName ?? '').isEmpty
+                    ? AuthHe.expiredAskAgainUnknown
+                    : AuthHe.expiredAskAgain(invite!.inviterName),
+                actionLabel: AuthHe.toSignIn,
                 onAction: resetToLogin,
               )
             : ErrorView(error: e!, onRetry: _load),
@@ -299,7 +298,7 @@ class _InviteScreenState extends State<InviteScreen> {
         body: EmptyState(
           icon: Iconsax.tick_circle,
           title: AuthHe.alreadyMember(invite.businessName),
-          actionLabel: CommonHe.open,
+          actionLabel: AuthHe.toSignIn,
           onAction: resetToLogin,
         ),
       );
@@ -339,11 +338,7 @@ class _InviteScreenState extends State<InviteScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: Space.xl),
-        Text(
-          ltrIsolate(invite.email),
-          style: AppText.headline,
-          textAlign: TextAlign.center,
-        ),
+        InviteEmailLine(invite.email, style: AppText.headline),
       ],
     );
   }
@@ -499,10 +494,12 @@ class _InviteScreenState extends State<InviteScreen> {
             ),
             const SizedBox(height: Space.s),
             Text(
-              AuthHe.confirmEmailSent(ltrIsolate(invite.email)),
+              AuthHe.confirmEmailSent,
               style: AppText.body.copyWith(color: p.muted),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: Space.xs),
+            InviteEmailLine(invite.email, style: AppText.headline),
             const SizedBox(height: Space.xl),
             TextField(
               key: const Key('invite-code'),
@@ -544,4 +541,27 @@ class _InviteScreenState extends State<InviteScreen> {
       ),
     );
   }
+}
+
+/// An e-mail address on a line of its own: LTR-isolated, never wrapped
+/// (a wrap at "-" or "." reorders the pieces in an RTL paragraph), scaled
+/// down when longer than the screen.
+class InviteEmailLine extends StatelessWidget {
+  const InviteEmailLine(this.email, {super.key, this.style});
+
+  final String email;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) => FittedBox(
+    fit: BoxFit.scaleDown,
+    child: Text(
+      ltrIsolate(email),
+      key: const Key('invite-email'),
+      style: style,
+      maxLines: 1,
+      softWrap: false,
+      textDirection: TextDirection.ltr,
+    ),
+  );
 }

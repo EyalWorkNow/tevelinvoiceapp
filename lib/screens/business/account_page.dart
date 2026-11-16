@@ -77,16 +77,17 @@ class _AccountPageState extends State<AccountPage> {
     if (mounted) setState(() {});
   }
 
+  /// Always asks (QA 2026-11-16 owner/188: one tap signed out).
   Future<void> _signOut() async {
-    if (await AppCache.hasPending() && mounted) {
-      if (!await confirmDanger(
-        context,
-        BusinessHe.signOut,
-        'יש פעולה שלא הושלמה במכשיר. היא תימחק.',
-        BusinessHe.signOut,
-      )) {
-        return;
-      }
+    final pending = await AppCache.hasPending();
+    if (!mounted) return;
+    if (!await confirmDanger(
+      context,
+      BusinessHe.signOutConfirm,
+      pending ? BusinessHe.signOutPendingBody : BusinessHe.signOutBody,
+      BusinessHe.signOut,
+    )) {
+      return;
     }
     await session.signOut();
   }

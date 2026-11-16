@@ -49,6 +49,9 @@ abstract final class PeopleHe {
   static const statementPeriod = 'מתחילת השנה עד היום';
   static String statementFileName(String name) => 'כרטסת $name.pdf';
   static String statementSent(String email) => 'הכרטסת נשלחה ל-$email';
+  static const statementConfirmTitle = 'לשלוח את הכרטסת ללקוח?';
+  static String statementConfirmBody(String name, String email) =>
+      'כל המסמכים והתשלומים של $name מתחילת השנה יישלחו עכשיו במייל אל $email.';
   static const supplierArchiveConfirm = 'לארכב את הספק?';
   static const supplierArchived = 'הספק הועבר לארכיון';
 
@@ -87,6 +90,14 @@ abstract final class PeopleHe {
   static const phoneInvalid = 'מספר הטלפון לא נראה תקין';
   static const emailInvalid = 'כתובת האימייל לא תקינה';
   static const taxIdInvalid = 'המספר לא תקין — בדוק את הספרות';
+
+  // S2 · עוסק מורשה (business customers only; feeds the allocation hint).
+  static const vatDealerQuestion = 'הלקוח עוסק מורשה / חברה?';
+  static const vatDealerHint =
+      'חשבונית גדולה ללקוח עוסק מורשה צריכה מספר הקצאה מרשות המסים';
+  static const vatDealerYes = 'כן';
+  static const vatDealerNo = 'לא';
+  static const vatDealerUnknown = 'לא יודע';
   static String alreadyExists(String name) => 'כבר קיים: $name';
   static const useExisting = 'השתמש בו';
   static const openExisting = 'פתח לקוח קיים';
@@ -122,6 +133,17 @@ abstract final class ExpenseHe {
   static const uploadExpenseAction = 'העלאת הוצאה חדשה';
   static const savingClassification = 'שומרים סיווג';
   static const savingInProgress = 'שומרים…';
+
+  // Expenses overview (Stage A · A3): the same figures as the expenses report and Home.
+  static const monthTotalAll = 'סך ההוצאות החודש';
+  static const monthApproved = 'הוצאות מאושרות החודש';
+  static String approvedSub(int n) =>
+      '${n == 1 ? 'הוצאה מאושרת אחת' : '$n הוצאות מאושרות'} • כולל מע״מ, כמו בדוח ההוצאות';
+  static String reviewLine(int n, String amount) =>
+      '${n == 1 ? 'עוד הוצאה אחת ממתינה' : 'עוד $n הוצאות ממתינות'} לבדיקה ($amount) ועוד לא נספרות';
+  static const supplierVat = 'מע״מ בחשבוניות הספקים';
+  static const byClassification = 'לפי סיווג ההוצאות';
+  static const vatByClassification = 'מע״מ לפי הסיווג';
 
   static const title = 'הוצאות';
   static String progress(int i, int n) => '$i מתוך $n';

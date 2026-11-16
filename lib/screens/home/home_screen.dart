@@ -21,10 +21,12 @@ import '../../state/cache.dart';
 import '../../state/caps.dart';
 import '../../state/session.dart' show session;
 import '../../ui/ds.dart';
+import '../../ui/widgets/ceiling_gauge.dart';
 import '../../ui/widgets/shell_inset.dart';
 import '../../util/labels/common_he.dart';
 import '../../util/labels/inbox_he.dart';
 import '../people/customer_crm_agenda_screen.dart';
+import '../business/sheets/editor_configs.dart' show openTypeChangeSheet;
 import '../business/sheets/s14_switch.dart';
 import 'doc_rows.dart';
 import 'home_controller.dart';
@@ -174,6 +176,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (data != null && (data.openMinor != null)) ...[
                       _moneyCard(context, data),
                       SizedBox(height: context.isDark ? 10 : Space.l),
+                    ],
+                    // A6: עוסק פטור ceiling gauge (exempt only, money viewers).
+                    if (businessContext.businessType == 'OSEK_PATUR' &&
+                        caps.can(Cap.moneyView)) ...[
+                      CeilingGauge(
+                        rules:
+                            businessContext.me?.rules ?? const BusinessRules(),
+                        onSwitchToMurshe: caps.can(Cap.settingsBusiness)
+                            ? () => unawaited(openTypeChangeSheet(context))
+                            : null,
+                      ),
+                      const SizedBox(height: Space.l),
                     ],
                     if (data != null &&
                         !data.hasDocuments &&

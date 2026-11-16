@@ -624,3 +624,8 @@ void resetHomeForTest() => resetToHome();
 
 /// Closes the top route (C has a ✕, so `tester.pageBack()` finds no back button).
 void closeTopForTest() => navigatorKey.currentState!.pop();
+
+/// Back to the shell (H). A document parked in WAITING_FOR_ALLOCATION keeps
+/// D open after issuing (server rule 0094), where a FINALIZED one returned.
+void popToRootForTest() =>
+    navigatorKey.currentState!.popUntil((r) => r.isFirst);

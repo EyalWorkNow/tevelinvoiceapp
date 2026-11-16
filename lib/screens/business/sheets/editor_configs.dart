@@ -15,11 +15,12 @@ import '../../../api/reports_api.dart' show reportsAvailable;
 import '../../../api/models/models.dart';
 import '../../../api/settings_api.dart';
 import '../../../api/team_api.dart';
+import '../../../api/turnover_opening_api.dart';
 import '../../../state/business_context.dart';
 import '../../../state/caps.dart';
 import '../../../state/session.dart';
 import '../../../router.dart' show navigatorKey;
-import '../../../ui/ds.dart' show MoreMenuItem;
+import '../../../ui/ds.dart' show MoreMenuItem, ltrIsolate;
 import '../../../util/labels/labels.dart';
 import '../../reports/reports_screen.dart' show periodFor;
 import 's13_editor.dart';
@@ -30,7 +31,7 @@ typedef EditorLoaderFn = Future<EditorConfig> Function();
 EditorLoaderFn? editorLoaderFor(String instance) => switch (instance) {
   '13.1' => profileEditor,
   '13.2' => brandingEditor,
-  '13.3' => () async => numberingEditor(),
+  '13.3' => numberingEditor,
   '13.6' => approvalsEditor,
   '13.9' => () async => desktopEditor(),
   _ => null,
@@ -88,6 +89,11 @@ Future<EditorConfig> profileEditor() async {
     }
   }
 
+  // A6: "מחזור מתחילת השנה לפני תבל" (עוסק פטור only; hidden on an older server).
+  final taxYear = businessContext.me?.rules.taxYear ?? DateTime.now().year;
+  final openingF = exempt0
+      ? optional(() => fetchTurnoverOpening(taxYear))
+      : Future.value(null);
   final extras = await Future.wait<Object?>([
     optional(fetchCcOwnerEmail),
     optional(fetchAccountantAutomation),
@@ -104,6 +110,7 @@ Future<EditorConfig> profileEditor() async {
     automation: automation,
     advances: advances,
     typeChange: typeChange,
+    opening: await openingF,
   );
 }
 
@@ -112,6 +119,7 @@ EditorConfig _profileConfig({
   AccountantAutomation? automation,
   bool advances = false,
   bool typeChange = false,
+  ({int taxYear, BigInt? amountMinor})? opening,
 }) {
   final profile = session.profile;
   final raw = profile?.raw ?? const <String, dynamic>{};
@@ -277,6 +285,14 @@ EditorConfig _profileConfig({
         initial: s(accountant['email']),
         validator: _emailError,
       ),
+      if (opening != null && exempt)
+        EditorField(
+          key: 'openingTurnover',
+          label: CeilingHe.openingField(opening.taxYear),
+          kind: FieldKind.money,
+          initial: opening.amountMinor ?? BigInt.zero,
+          hint: CeilingHe.openingHint,
+        ),
       if (automation != null) ...[
         EditorField(
           key: 'autoEvery',
@@ -382,6 +398,13 @@ EditorConfig _profileConfig({
             ? null
             : advanceBasisPoints(t);
       }
+      if (opening != null && exempt) {
+        final next = v.money('openingTurnover');
+        if (next != (opening.amountMinor ?? BigInt.zero)) {
+          await saveTurnoverOpening(opening.taxYear, next);
+        }
+      }
+      // Also reloads /me, so the Home ceiling gauge shows the new opening balance.
       await saveBusinessProfile(changes);
       if (cc != null && v.flag('ccOwner') != cc) {
         await saveCcOwnerEmail(v.flag('ccOwner'));
@@ -401,6 +424,13 @@ EditorConfig _profileConfig({
 }
 
 // ---- BE-43 מעבר מפטור למורשה (⋯ in 13.1) ---------------------------------------
+
+/// The same type-change sheet as ⋯ in 13.1 (A6: the ceiling gauge's next step).
+Future<bool> openTypeChangeSheet(BuildContext context) => showEditorSheet(
+  context,
+  instance: 'typeChange',
+  config: typeChangeEditor(),
+);
 
 String _iso(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -476,26 +506,82 @@ Future<EditorConfig> brandingEditor() async {
 
 // ---- 13.3 מספור (accountant rep after BE-04) ----------------------------------
 
-EditorConfig numberingEditor() => EditorConfig(
-  title: BusinessHe.numbering,
-  fields: [
-    EditorField(
-      key: 'next',
-      label: AuthHe.numberingFrom,
-      kind: FieldKind.number,
-      autofocus: true,
-      required: true,
-      hint: AuthHe.numberingHint,
-      validator: (v) {
-        final n = int.tryParse((v as String?) ?? '');
-        return n == null || n < 1 || n > 999999999
-            ? AuthHe.numberInvalid
-            : null;
-      },
-    ),
-  ],
-  onSave: (v) async => setStartingNumber(int.parse(v.str('next'))),
-);
+/// A8: the page shows each series' last and next number; the starting number
+/// can be set only while no document was numbered, and "שמור" that changed
+/// nothing is an error, never "נשמר".
+Future<EditorConfig> numberingEditor() async {
+  List<NumberingSeries> series;
+  try {
+    series = await fetchNumberingSeries();
+  } on ApiException catch (e) {
+    if (e.isNetwork) rethrow;
+    series = const [];
+  }
+  final editable = series.any((s) => s.editable);
+  final single = series.length == 1;
+  return EditorConfig(
+    title: BusinessHe.numbering,
+    fields: [
+      for (final s in series)
+        EditorField(
+          key: 'series-${s.scopeKey}',
+          label: numberingSeriesLine(s, single: single),
+          kind: FieldKind.info,
+        ),
+      if (editable)
+        EditorField(
+          key: 'next',
+          label: AuthHe.numberingFrom,
+          kind: FieldKind.number,
+          autofocus: true,
+          required: true,
+          initial: series.firstWhere((s) => s.editable).nextNumber,
+          hint: AuthHe.numberingHint,
+          validator: (v) {
+            final n = int.tryParse((v as String?) ?? '');
+            return n == null || n < 1 || n > 999999999
+                ? AuthHe.numberInvalid
+                : null;
+          },
+        )
+      else if (series.isNotEmpty)
+        const EditorField(
+          key: 'locked',
+          label: numberingLocked,
+          kind: FieldKind.info,
+        ),
+    ],
+    onSave: editable
+        ? (v) async {
+            final changed = await setStartingNumber(int.parse(v.str('next')));
+            if (changed == 0) {
+              throw ApiException(
+                409,
+                'NUMBERING_NOT_CHANGED',
+                numberingNotSaved,
+              );
+            }
+          }
+        : null,
+  );
+}
+
+/// "המספר האחרון: 1,174 · הבא: 1,175" (+ the gap count when there is one).
+String numberingSeriesLine(NumberingSeries s, {bool single = true}) {
+  final name = single ? 'כל המסמכים' : 'סדרה ${ltrIsolate(s.scopeKey)}';
+  final last = s.lastNumber == null
+      ? 'עוד לא הופק מסמך'
+      : 'המספר האחרון: ${ltrIsolate(s.lastNumber!)}';
+  final gap = s.missingNumbers == 0
+      ? ''
+      : ' · חסרים ${s.missingNumbers} מספרים ברצף (דוח רציפות)';
+  return '$name – $last · המסמך הבא: ${ltrIsolate(s.nextNumber)}$gap';
+}
+
+const String numberingLocked =
+    'כבר הופקו מסמכים, ולכן אי אפשר לשנות את המספור. המספרים ממשיכים ברצף.';
+const String numberingNotSaved =
+    'המספור לא שונה: כבר הופקו מסמכים בסדרה, והמספרים ממשיכים ברצף.';
 
 // ---- 13.6 אישורים -------------------------------------------------------------
 

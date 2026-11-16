@@ -36,7 +36,7 @@ abstract final class ReminderHe {
     final number = documentNumber == null || documentNumber.isEmpty
         ? ''
         : ' מס׳ ${ltrIsolate(documentNumber)}';
-    final amount = ltrIsolate(formatMoney(amountMinor, trimZeroAgorot: true));
+    final amount = ltrIsolate(formatMoney(amountMinor));
     final due = dueDate == null || dueDate.isEmpty
         ? ''
         : ' (לתשלום עד ${ltrIsolate(formatDateHe(dueDate))})';
@@ -65,7 +65,7 @@ abstract final class ReminderHe {
     final number = documentNumber == null || documentNumber.isEmpty
         ? ''
         : ' ${ltrIsolate(documentNumber)}';
-    final amount = ltrIsolate(formatMoney(amountMinor, trimZeroAgorot: true));
+    final amount = ltrIsolate(formatMoney(amountMinor));
     return 'תזכורת מ${fsiIsolate(business)}: ${docTypeLabel(documentType)}'
         '$number על סך $amount ממתינה לתשלום.\n$link';
   }

@@ -13,6 +13,7 @@ import 'package:invoice/api/payments_api.dart';
 import 'package:invoice/api/signing_api.dart';
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
+import 'package:invoice/util/labels/compose_he.dart';
 
 import '../fakes/fake_api.dart';
 
@@ -667,9 +668,59 @@ void main() {
           businessName: 'סטודיו תבל',
           link: 'https://invoice.test/d/t',
         ),
-        "שלום דנה, מצורפת חשבונית מס מס' 1042 על סך ₪1,180. לצפייה ולתשלום: https://invoice.test/d/t. תודה, סטודיו תבל",
+        "שלום דנה, מצורפת חשבונית מס מס' 1042 על סך ₪1,180.00. לצפייה ולתשלום: https://invoice.test/d/t. תודה, סטודיו תבל",
       );
     });
+
+    test(
+      'Stage A: a receipt is already paid — "לצפייה" only, amounts with agorot',
+      () {
+        for (final type in [
+          'RECEIPT',
+          'TAX_INVOICE_RECEIPT',
+          'CREDIT_DOCUMENT',
+        ]) {
+          final text = whatsAppMessage(
+            customerName: 'דנה',
+            documentType: type,
+            documentNumber: '7',
+            totalMinor: BigInt.from(35000),
+            businessName: 'ס',
+            link: 'https://invoice.test/d/t',
+          );
+          expect(text, contains('על סך ₪350.00.'), reason: type);
+          expect(
+            text,
+            contains('לצפייה: https://invoice.test/d/t'),
+            reason: type,
+          );
+          expect(text, isNot(contains('לתשלום')), reason: type);
+        }
+        final issued = issueWhatsAppText(
+          customerName: 'דנה',
+          documentType: 'RECEIPT',
+          number: '12',
+          totalMinor: BigInt.from(3500),
+          link: 'L',
+          businessName: 'ס',
+        );
+        expect(
+          issued,
+          "שלום דנה, מצורפת קבלה מס' 12 על סך ₪35.00. לצפייה: L. תודה, ס",
+        );
+        expect(
+          issueWhatsAppText(
+            customerName: 'דנה',
+            documentType: 'TRANSACTION_INVOICE',
+            number: null,
+            totalMinor: BigInt.from(3590),
+            link: 'L',
+            businessName: 'ס',
+          ),
+          contains('על סך ₪35.90. לצפייה ולתשלום: L.'),
+        );
+      },
+    );
 
     test('BE-11: void payment + list', () async {
       backend

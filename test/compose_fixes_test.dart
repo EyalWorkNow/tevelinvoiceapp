@@ -68,7 +68,8 @@ void main() {
       BigInt.from(1500),
     );
     // Bare, "מע״מ" pulled "₪2.29 = ₪15" into its RTL run: ₪12.71 + ₪15 = ₪2.29 מע״מ.
-    expect(line, '₪12.71 + ₪2.29 \u2067מע״מ\u2069 = ₪15');
+    // A1: always with agorot (₪15.00, not ₪15).
+    expect(line, '₪12.71 + ₪2.29 \u2067מע״מ\u2069 = ₪15.00');
   });
 
   test(

@@ -21,6 +21,7 @@ import 'package:invoice/state/caps.dart';
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/ds.dart';
 import 'package:invoice/util/composer_config.dart' show dueDateForTerms;
+import 'package:invoice/util/intent_resolver.dart' show invoiceIntentFor;
 import 'package:invoice/util/labels/labels.dart';
 
 import 'fakes/fake_api.dart';
@@ -322,9 +323,9 @@ void main() {
       await type(tester, '7080');
       expect(primaryLabel(tester), ComposeHe.issue, reason: 'no phone → "הפק"');
       await tap(tester, primary());
-      expect(backend.last('POST', '/documents/:id/finalize')!.body, {
-        'scopeKey': 'default',
-      });
+      final finalize = backend.last('POST', '/documents/:id/finalize')!.body;
+      expect(finalize['scopeKey'], 'default');
+      expect(finalize.containsKey('requestAllocation'), isFalse);
       expect(
         routes,
         containsAll(['/doc/d1', 'S6 d1']),
@@ -804,6 +805,24 @@ void main() {
     expect(primary(), findsNothing);
   });
 
+  testWidgets(
+    'SA6: a document parked WAITING_FOR_ALLOCATION leaves no local draft behind',
+    (tester) async {
+      fake.finalizeStatus = 'WAITING_FOR_ALLOCATION';
+      await open(tester, intent: 'REQUEST');
+      await type(tester, '7080');
+      await tap(tester, primary());
+      expect(backend.calls('POST', '/documents/:id/finalize'), hasLength(1));
+      expect(find.byType(ComposeScreen), findsNothing, reason: 'D replaced C');
+      final draft = await tester.runAsync(() => loadLocalDraft('REQUEST'));
+      expect(
+        draft,
+        isNull,
+        reason: 'the document exists; "המשך טיוטה" would issue it again',
+      );
+    },
+  );
+
   group('QA 2026-11-12', () {
     testWidgets(
       'U0: ✕ with an amount → "לשמור טיוטה?" → מחק closes, no draft kept',
@@ -911,10 +930,114 @@ void main() {
           findsOneWidget,
         );
         expect(find.byKey(const Key('compose-amount')), findsOneWidget);
-        final amount = tester.widget<AmountDisplay>(
+        final amount = tester.widget<Text>(
           find.byKey(const Key('compose-amount')),
         );
-        expect(amount.keypadText, '77');
+        expect(amount.textSpan!.toPlainText(), '₪77.00');
+      },
+    );
+  });
+
+  group('Stage A (QA 2026-11-16)', () {
+    testWidgets(
+      'A5: פטור "+ חשבונית" → קבלה 400 by default; the choices say "קבלה" / "בקשת תשלום"',
+      (tester) async {
+        await open(
+          tester,
+          intent: invoiceIntentFor('OSEK_PATUR'),
+          businessType: 'OSEK_PATUR',
+        );
+        expect(find.text(ComposeHe.receiptChoice), findsOneWidget);
+        expect(find.text(ComposeHe.requestChoice), findsOneWidget);
+        expect(find.text(ComposeHe.newInvoice), findsNothing);
+        expect(find.text(ComposeHe.recordIncome), findsNothing);
+        expect(
+          tester.getSemantics(find.byKey(const Key('compose-kind-paid'))),
+          isSemantics(isSelected: true),
+        );
+        await type(tester, '350');
+        await tap(tester, primary());
+        expect(backend.calls('POST', '/documents'), isEmpty);
+        expect(backend.calls('POST', '/receipts'), hasLength(1));
+      },
+    );
+
+    testWidgets('A5: "בקשת תשלום" picked explicitly → חשבון עסקה 300', (
+      tester,
+    ) async {
+      await open(
+        tester,
+        intent: invoiceIntentFor('OSEK_PATUR'),
+        businessType: 'OSEK_PATUR',
+      );
+      await tester.tap(find.text(ComposeHe.requestChoice));
+      await tester.pump();
+      await type(tester, '350');
+      await tap(tester, primary());
+      expect(
+        backend.last('POST', '/documents')!.body['documentType'],
+        'TRANSACTION_INVOICE',
+      );
+    });
+
+    testWidgets(
+      'allocation: status unknown above ₪5,000 → gentle line + "סמן כעוסק מורשה" → PATCH, then "יקבל מספר"',
+      (tester) async {
+        await open(tester, intent: 'REQUEST', customer: ron);
+        await type(tester, '6200'); // ₪5,254.24 before VAT
+        expect(
+          find.byKey(const Key('compose-allocation-if-dealer')),
+          findsOneWidget,
+        );
+        expect(
+          find.text('אם הלקוח עוסק מורשה, החשבונית תצטרך מספר הקצאה'),
+          findsOneWidget,
+        );
+        await tap(
+          tester,
+          find.byKey(const Key('compose-allocation-mark-dealer')),
+        );
+        expect(
+          backend.last('PATCH', '/customers/:id')!.body['vatDealerStatus'],
+          'AUTHORIZED_DEALER',
+        );
+        expect(
+          find.byKey(const Key('compose-allocation-if-dealer')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('compose-allocation-hint')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('allocation: private customer (walk-in) → no line at all', (
+      tester,
+    ) async {
+      await open(tester, intent: 'REQUEST', customer: walkIn);
+      await type(tester, '6200');
+      expect(
+        find.byKey(const Key('compose-allocation-if-dealer')),
+        findsNothing,
+      );
+    });
+
+    testWidgets(
+      "owner/040: צ'ק → the keypad steps aside, the cheque fields are reachable; tap the amount → keypad back",
+      (tester) async {
+        await open(tester, intent: 'PAID');
+        await type(tester, '350');
+        expect(find.byType(Keypad), findsOneWidget);
+        await tester.tap(find.text(paymentMethodLabels['CHECK']!));
+        await tester.pumpAndSettle();
+        expect(find.byType(Keypad), findsNothing);
+        expect(find.byKey(const Key('compose-show-keypad')), findsOneWidget);
+        // Scrolled into view by itself, nothing under the keypad.
+        expect(find.byKey(const Key('check-number')).hitTestable(), findsOne);
+        await tester.tap(find.byKey(const Key('compose-show-keypad')));
+        await tester.pumpAndSettle();
+        expect(find.byType(Keypad), findsOneWidget);
       },
     );
   });

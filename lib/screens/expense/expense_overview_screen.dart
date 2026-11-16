@@ -243,24 +243,48 @@ class _ExpenseOverviewScreenState extends State<ExpenseOverviewScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'סך ההוצאות החודש',
+                                    data.hasSharedTotals
+                                        ? ExpenseHe.monthApproved
+                                        : ExpenseHe.monthTotalAll,
                                     style: AppText.body.copyWith(
                                       color: p.muted,
                                     ),
                                   ),
                                   const SizedBox(height: 10),
                                   AmountText(
-                                    data.total,
+                                    key: const Key('expense-month-total'),
+                                    data.approvedTotal ?? data.total,
                                     style: AppText.title.copyWith(fontSize: 42),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    '${data.count} הוצאות • הסכומים כוללים מע״מ',
+                                    data.hasSharedTotals
+                                        ? ExpenseHe.approvedSub(
+                                            data.approvedCount!,
+                                          )
+                                        : '${data.count} הוצאות • הסכומים כוללים מע״מ',
                                     style: AppText.secondary.copyWith(
                                       color: p.muted,
                                       fontSize: 13,
                                     ),
                                   ),
+                                  if ((data.reviewCount ?? 0) > 0 &&
+                                      data.reviewTotal != null) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      ExpenseHe.reviewLine(
+                                        data.reviewCount!,
+                                        AmountPrivacy.of(context)
+                                            ? hiddenAmountText
+                                            : moneyInline(data.reviewTotal!),
+                                      ),
+                                      key: const Key('expense-review-line'),
+                                      style: AppText.secondary.copyWith(
+                                        color: p.warn,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: 20),
                                   Row(
                                     children: [
@@ -302,7 +326,7 @@ class _ExpenseOverviewScreenState extends State<ExpenseOverviewScreen> {
                                 children: [
                                   _stat(
                                     context,
-                                    'לפי סיווג ההוצאות',
+                                    ExpenseHe.byClassification,
                                     data.recognized,
                                     DesignTokens.green,
                                     Icons.check_circle_outline_rounded,
@@ -310,8 +334,10 @@ class _ExpenseOverviewScreenState extends State<ExpenseOverviewScreen> {
                                   ),
                                   _stat(
                                     context,
-                                    'מע״מ לפי הסיווג',
-                                    data.vat,
+                                    data.approvedVat != null
+                                        ? ExpenseHe.supplierVat
+                                        : ExpenseHe.vatByClassification,
+                                    data.approvedVat ?? data.vat,
                                     DesignTokens.yellow,
                                     Icons.percent_rounded,
                                     c.maxWidth,
@@ -1210,7 +1236,7 @@ ExpenseOverview _demoExpenseOverview(String selectedMonth) {
     ],
     'expenses': selectedRows,
     'recognitionNote':
-        'נתוני הדגמה חזותיים בלבד. בחשבון אמיתי החישובים והסיווגים מתקבלים מהשרת.',
+        'נתוני הדגמה בלבד. בחשבון אמיתי מוצגים ההוצאות והסיווגים של העסק שלך.',
   });
 }
 

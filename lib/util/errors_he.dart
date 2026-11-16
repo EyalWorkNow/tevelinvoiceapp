@@ -30,8 +30,8 @@ final RegExp _hebrew = RegExp(r'[\u05D0-\u05EA]');
 
 /// CRM changes the server refused for good (kept in a backup file on the device).
 String crmRejectedNoticeHe(int count) => count == 1
-    ? 'שינוי אחד בתיק הלקוח נדחה על ידי השרת ולא נשמר. עותק נשמר במכשיר.'
-    : '$count שינויים בתיקי לקוחות נדחו על ידי השרת ולא נשמרו. עותק נשמר במכשיר.';
+    ? 'שינוי אחד בתיק הלקוח לא נשמר. עותק שמור במכשיר, ואפשר להזין אותו שוב.'
+    : '$count שינויים בתיקי לקוחות לא נשמרו. עותק שמור במכשיר, ואפשר להזין אותם שוב.';
 
 /// VALIDATION carries a meaningful English server message; the common ones in Hebrew.
 String validationMessageHe(String? raw) {
@@ -138,11 +138,12 @@ const Map<String, String> _mobileMessages = {
   'QUOTE_CHANGED': 'הצעת המחיר עודכנה בינתיים. פתחו אותה שוב ובדקו לפני ההמשך.',
   'PUSH_MFA_REQUIRED':
       'התראות למכשיר זמינות רק אחרי אימות דו-שלבי. התנתקו והתחברו שוב עם קוד אימות.',
-  'API_CONFIG_INVALID': 'כתובת השרת בגרסה הזו אינה תקינה. פנו לתמיכה.',
+  'API_CONFIG_INVALID':
+      'הגרסה הזו של האפליקציה לא מצליחה להתחבר. עדכנו אותה מה-App Store, ואם זה חוזר פנו לתמיכה.',
   // Client-side (no HTTP response).
-  'NETWORK': 'אין חיבור לשרת — בדקו את החיבור לאינטרנט ונסו שוב',
-  'TIMEOUT': 'השרת לא הגיב בזמן — נסו שוב',
-  'BAD_RESPONSE': 'התקבלה תשובה לא תקינה מהשרת — נסו שוב',
+  'NETWORK': 'אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב.',
+  'TIMEOUT': 'לא התקבלה תשובה בזמן. בדקו את החיבור לאינטרנט ונסו שוב.',
+  'BAD_RESPONSE': 'משהו השתבש בדרך. נסו שוב בעוד רגע.',
   'SERVICE_UNAVAILABLE': 'השירות לא זמין זמנית — נסו שוב בעוד רגע',
   // Mobile wording overrides (no "refresh the page" on a phone).
   'UNAUTHENTICATED': 'פג תוקף ההתחברות — התחברו מחדש',
@@ -157,7 +158,8 @@ const Map<String, String> _mobileMessages = {
   'INVALID_ID': 'הקישור אינו תקין',
   // New mobile contract (CONTRACT A–I).
   'APPLE_TOKEN_INVALID': 'אימות Apple נכשל — נסו שוב',
-  'APPLE_SIGNIN_DISABLED': 'התחברות עם Apple אינה מופעלת בשרת',
+  'APPLE_SIGNIN_DISABLED':
+      'התחברות עם Apple עדיין לא זמינה. אפשר להתחבר עם מייל וסיסמה.',
   'APPLE_IDENTITY_MISMATCH': 'החשבון מקושר לזהות Apple אחרת — פנו למנהל העסק',
   'CUSTOMER_NOT_FOUND': 'הלקוח לא נמצא',
   'EXEMPT_BUSINESS_VAT_FORBIDDEN':
@@ -249,12 +251,13 @@ const Map<String, String> _webMessages = {
   'PASSKEY_INVALID': 'האימות במכשיר לא הצליח — נסה שוב',
   'MFA_LAST_METHOD': 'זו שיטת האימות היחידה — הוסף שיטה אחרת לפני ההסרה',
   'MFA_EMAIL_THROTTLED': 'נשלח קוד לפני רגע — המתינו מעט לפני שליחה חוזרת',
-  'MFA_EMAIL_UNAVAILABLE': 'שליחת קודים במייל אינה זמינה בשרת זה',
+  'MFA_EMAIL_UNAVAILABLE':
+      'שליחת קוד אימות במייל לא זמינה כרגע. השתמשו באפליקציית האימות, או פנו לתמיכה.',
   'VALIDATION': 'קלט לא תקין — בדקו את השדות ונסו שוב',
   'INVALID_JSON': 'הבקשה לא תקינה',
   'BUSINESS_REQUIRED': 'יש לבחור עסק לפני הפעולה',
   'INVALID_CREDENTIALS': 'האימייל או הסיסמה שגויים',
-  'INTERNAL': 'תקלה בשרת',
+  'INTERNAL': 'משהו השתבש אצלנו. נסו שוב בעוד רגע, ואם זה חוזר פנו לתמיכה.',
   'UNAUTHENTICATED': 'נדרשת התחברות מחדש',
   'SESSION_INVALID': 'פג תוקף החיבור — התחבר מחדש',
   'CSRF_INVALID': 'פג תוקף הטופס — רעננו את הדף ונסו שוב',
@@ -266,7 +269,8 @@ const Map<String, String> _webMessages = {
   'GOOGLE_TOKEN_INVALID': 'אימות Google נכשל — נסה שוב',
   'NO_LINKED_ACCOUNT':
       'אין חשבון פעיל המשויך לכתובת Google זו. פנה למנהל המערכת.',
-  'GOOGLE_SIGNIN_DISABLED': 'התחברות Google אינה מופעלת בשרת',
+  'GOOGLE_SIGNIN_DISABLED':
+      'התחברות עם Google עדיין לא זמינה. אפשר להתחבר עם מייל וסיסמה.',
   'NOT_FOUND': 'הפריט המבוקש לא נמצא (ייתכן שנמחק או שאין לכם גישה אליו)',
   'DOCUMENT_NOT_FOUND': 'המסמך לא נמצא',
   'EXPENSE_NOT_FOUND': 'ההוצאה לא נמצאה',
@@ -300,7 +304,8 @@ const Map<String, String> _webMessages = {
   'ALLOCATION_NOT_ELIGIBLE': 'מספר הקצאה אינו חל על מסמך זה',
   'ALLOCATION_NOT_REQUIRED':
       'מספר הקצאה אינו נדרש למסמך זה (ניתן לבקש וולונטרית)',
-  'SHAAM_DISABLED': 'השילוב עם רשות המסים אינו מופעל בשרת',
+  'SHAAM_DISABLED':
+      'החיבור לרשות המסים עדיין לא הופעל. חשבוניות שדורשות מספר הקצאה ימתינו עד ההפעלה.',
   'SHAAM_KILL_SWITCH': 'בקשות אוטומטיות לרשות המסים מושבתות זמנית — מצב ידני',
   'SHAAM_TEMPORARILY_UNAVAILABLE':
       'רשות המסים אינה זמינה כרגע — נסה שוב בעוד רגע',
@@ -339,13 +344,14 @@ const Map<String, String> _webMessages = {
   'VAT_RATE_NOT_STATUTORY':
       'שיעור המע״מ בשורה אינו השיעור הסטטוטורי לתאריך המסמך',
   'UNIFORM_FORMAT_IDENTITY_UNSET':
-      'זהות התוכנה לייצוא מבנה אחיד טרם הוגדרה בשרת',
+      'ייצוא במבנה אחיד עדיין לא הופעל לעסק. פנו לתמיכה כדי להפעיל אותו.',
   'EXTRACTION_UNAVAILABLE':
       'שירות הזיהוי האוטומטי אינו זמין כרגע — ניתן להזין את הנתונים ידנית ולשמור',
-  'DB_UNAVAILABLE': 'השרת אינו זמין כרגע — נסה שוב בעוד רגע',
+  'DB_UNAVAILABLE': 'השירות לא זמין כרגע. נסו שוב בעוד רגע.',
   'CONSTRAINT_VIOLATION':
       'הנתונים אינם עומדים בכללי המערכת — בדקו את השדות ונסו שוב',
-  'SESSION_AUTH_DISABLED': 'התחברות אינה מופעלת בשרת — פנה למנהל המערכת',
+  'SESSION_AUTH_DISABLED':
+      'ההתחברות לא זמינה כרגע. נסו שוב מאוחר יותר, ואם זה חוזר פנו לתמיכה.',
   'GOOGLE_CERTS_UNAVAILABLE': 'אימות Google אינו זמין כרגע — נסה שוב בעוד רגע',
   'TAX_AUTHORITY_DISABLED': 'חיבור לרשות המסים טרם הופעל (ממתין לאישור והרשמה)',
   'SIGNING_DISABLED': 'חתימה דיגיטלית טרם הופעלה (ממתינה לאישור מקצועי)',
@@ -361,7 +367,8 @@ const Map<String, String> _webMessages = {
       'תעודת החתימה אינה מאושרת על ידי גורם מוסמך',
   'SIGNING_UNAVAILABLE': 'שירות החתימה אינו זמין כרגע — נסו שוב בעוד רגע',
   'SIGNATURE_FAILED': 'החתימה נכשלה — נסו שוב או פנו לתמיכה',
-  'PADES_BRIDGE_UNAVAILABLE': 'רכיב החתימה (PAdES) אינו זמין בשרת',
+  'PADES_BRIDGE_UNAVAILABLE':
+      'החתימה הדיגיטלית על המסמך לא זמינה כרגע. נסו שוב בעוד כמה דקות.',
   'PADES_VALUEERROR': 'החתימה נדחתה על ידי רכיב החתימה — בדקו את התעודה',
   'QUOTE_ALREADY_CONVERTED': 'הצעת המחיר כבר הומרה לחשבונית',
   'CREDIT_LIMIT_EXCEEDED': 'המסמך כבר זוכה — אין יתרה לזיכוי',
@@ -384,9 +391,9 @@ const Map<String, String> _webMessages = {
   'UPLOAD_EXPIRED': 'חלון ההעלאה פג — נסו להעלות שוב',
   'UPLOAD_NOT_PENDING': 'ההעלאה כבר טופלה — רעננו את הדף',
   'UPLOAD_NOT_FOUND': 'ההעלאה לא נמצאה',
-  'UPLOAD_BYTES_MISSING': 'הקובץ לא הגיע לשרת — נסו להעלות שוב',
+  'UPLOAD_BYTES_MISSING': 'הקובץ לא הועלה עד הסוף. נסו להעלות שוב.',
   'COMPLIANCE_DECISION_NOT_VERIFIED': 'הפעולה דורשת אישור ציות מאומת',
-  'TAX_DATE_FORMAT': 'תאריך לא תקין — יש להזין בפורמט YYYY-MM-DD',
+  'TAX_DATE_FORMAT': 'התאריך לא תקין. בחרו תאריך מהלוח ונסו שוב.',
   'UNIFORM_FORMAT_VALIDATION_FAILED':
       'הייצוא נכשל בבדיקת מבנה אחיד — בדקו את פרטי העסק והמסמכים',
   'EXPORT_RECONCILIATION_FAILED':

@@ -154,7 +154,11 @@ abstract final class BusinessHe {
   static const shaamConnected = 'מחובר לרשות המסים';
   static const shaamNotConnected = 'לא מחובר לרשות המסים';
   static const shaamExpired = 'החיבור לרשות המסים פג';
-  static const shaamOff = 'החיבור לרשות המסים לא פעיל בשרת';
+  static const shaamOff =
+      'החיבור לרשות המסים עדיין לא הופעל. חשבוניות שדורשות מספר הקצאה ימתינו עד ההפעלה';
+
+  /// עוסק פטור / עמותה: no allocation numbers, so nothing waits (persona 01).
+  static const shaamNotNeeded = 'לעוסק פטור לא נדרש מספר הקצאה מרשות המסים';
   static String shaamValidUntil(String date) => 'בתוקף עד $date';
   static String shaamVerified(String date) => 'נבדק לאחרונה $date';
   static const shaamManual = 'הזנה ידנית של מספר הקצאה פעילה';
@@ -174,6 +178,11 @@ abstract final class BusinessHe {
   static const twoFactorApp = 'אפליקציית אימות וקודי שחזור';
   static const signOut = 'צא מהמכשיר';
   static const signOutAll = 'צא מכל המכשירים';
+  static const signOutConfirm = 'לצאת מהמכשיר?';
+  static const signOutBody =
+      'כדי לחזור תצטרך להיכנס שוב עם האימייל והסיסמה. המסמכים נשמרים בחשבון.';
+  static const signOutPendingBody =
+      'יש במכשיר פעולה שעוד לא נשלחה, והיא תימחק. כדי לחזור תצטרך להיכנס שוב.';
   static const sendErrorLog = 'שלח יומן תקלות';
   static const errorLogEmpty = 'אין תקלות ביומן';
   static String errorLogCount(int n) => n == 1 ? 'תקלה אחת' : '$n תקלות';
@@ -270,7 +279,8 @@ abstract final class TeamHe {
       'לעדכן את רו״ח $name להרשאות רו״ח מייצג? יידרש אימות דו-שלבי';
   static const upgrade = 'עדכן';
   static const upgraded = 'ההרשאות עודכנו';
-  static const upgradeUnsupported = 'השרת עדיין לא תומך ברו״ח מייצג';
+  static const upgradeUnsupported =
+      'עדיין אי אפשר לעדכן להרשאות רו״ח מייצג. נסו שוב בהמשך';
   static const you = '(את/ה)';
   static String pending(int days) => days <= 0
       ? 'ממתין · פג היום'
@@ -324,7 +334,9 @@ abstract final class PresetHe {
 /// R · דוחות (§6.R, §11).
 abstract final class ReportsHe {
   static const title = 'דוחות';
-  static const myClients = 'הלקוחות שלי';
+
+  /// Accountant home (R as the home tab): the reports of the open business.
+  static const myClients = 'דוחות';
   static const periodCurrent = 'התקופה הנוכחית';
   static const periodPrevious = 'התקופה הקודמת';
   static const periodYear = 'השנה';
@@ -434,8 +446,12 @@ abstract final class AuthHe {
   static const passwordPolicy = 'לפחות 12 תווים';
   static String alreadyMember(String business) => 'אתה כבר חבר ב-$business';
   static String expiredAskAgain(String inviter) =>
-      'ההזמנה כבר לא בתוקף. בקש מ-$inviter לשלוח שוב';
-  static const inviterFallback = 'המזמין';
+      'ההזמנה כבר לא בתוקף. בקשו מ$inviter לשלוח הזמנה חדשה';
+
+  /// The server does not name the inviter of a dead invitation.
+  static const expiredAskAgainUnknown =
+      'ההזמנה כבר לא בתוקף. בקשו ממי ששלח לכם אותה לשלוח הזמנה חדשה';
+  static const toSignIn = 'למסך הכניסה';
   static const forgotPassword = 'שכחתי סיסמה';
   static const signInHelp = 'עזרה בכניסה';
   static const signInHelpBody = 'לאיפוס הסיסמה בחשבון זה פנו לתמיכה.';
@@ -455,8 +471,11 @@ abstract final class AuthHe {
       'ההזמנה נשלחה ל-$invited, התחברת כ-$signedIn. התחברו עם הכתובת שאליה נשלחה ההזמנה.';
   static const appleHiddenEmail = 'חשבון Apple שמסתיר את כתובת האימייל';
   static const confirmEmailTitle = 'אישור כתובת האימייל';
-  static String confirmEmailSent(String email) =>
-      'שלחנו קוד אימות ל-$email. הזינו אותו כדי לסיים ליצור את החשבון.';
+
+  /// The address itself is its own LTR line under this text (bidi: an
+  /// e-mail wrapped inside a Hebrew sentence splits, QA signed-out/16).
+  static const confirmEmailSent =
+      'שלחנו קוד אימות לכתובת הזו. הזינו אותו כדי לסיים ליצור את החשבון:';
   static const confirmEmailHint =
       'לא הגיע? בדקו בתיקיית הספאם, או שלחו קוד חדש.';
   static const codeSentAgain = 'נשלח קוד חדש';

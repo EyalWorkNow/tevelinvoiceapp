@@ -74,15 +74,60 @@ Future<void> saveApprovalPolicy({
 
 // ---- numbering (§6.A step 3, §13.3) ------------------------------------------
 
-/// Sets the next number of every untouched numbering scope (next_number = 1)
-/// to [nextNumber]. Returns how many scopes changed.
-Future<int> setStartingNumber(int nextNumber) async {
+/// One numbering series (GET /sequences, A8): the last number a document
+/// carries, the next one, whether the start may still be set, and how many
+/// numbers no document carries (the server's continuity check).
+class NumberingSeries {
+  const NumberingSeries({
+    required this.scopeKey,
+    required this.nextNumber,
+    this.lastNumber,
+    this.issuedCount = 0,
+    required this.editable,
+    this.missingNumbers = 0,
+  });
+
+  factory NumberingSeries.fromJson(Map<String, dynamic> json) {
+    final next = '${json['next_number'] ?? json['nextNumber'] ?? ''}';
+    final last = json['last_number'] ?? json['lastNumber'];
+    return NumberingSeries(
+      scopeKey: '${json['numbering_scope_key'] ?? json['scopeKey'] ?? ''}',
+      nextNumber: next,
+      lastNumber: last?.toString(),
+      issuedCount: (json['issued_count'] as num?)?.toInt() ?? 0,
+      // A server without A8 sends no flag: untouched = next number 1.
+      editable: json['editable'] is bool
+          ? json['editable'] as bool
+          : next == '1',
+      missingNumbers: int.tryParse('${json['missing_numbers'] ?? 0}') ?? 0,
+    );
+  }
+
+  final String scopeKey;
+  final String nextNumber;
+  final String? lastNumber;
+  final int issuedCount;
+  final bool editable;
+  final int missingNumbers;
+}
+
+/// GET /sequences.
+Future<List<NumberingSeries>> fetchNumberingSeries() async {
   final json = await _api.get('/sequences');
+  return [
+    for (final s in (json['sequences'] as List? ?? const []))
+      NumberingSeries.fromJson(s as Map<String, dynamic>),
+  ];
+}
+
+/// Sets the next number of every untouched numbering scope (next_number = 1)
+/// to [nextNumber]. Returns how many scopes changed (0 = nothing was saved —
+/// the caller must say so, never "נשמר").
+Future<int> setStartingNumber(int nextNumber) async {
   var n = 0;
-  for (final s in (json['sequences'] as List? ?? const [])) {
-    final row = s as Map<String, dynamic>;
-    if (row['next_number']?.toString() != '1') continue;
-    await _api.put('/sequences/${row['numbering_scope_key']}/start', {
+  for (final s in await fetchNumberingSeries()) {
+    if (!s.editable) continue;
+    await _api.put('/sequences/${Uri.encodeComponent(s.scopeKey)}/start', {
       'nextNumber': nextNumber,
     });
     n++;

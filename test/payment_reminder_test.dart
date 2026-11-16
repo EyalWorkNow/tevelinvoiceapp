@@ -84,14 +84,14 @@ void main() {
       expect(text, contains('סטודיו תבל'));
       expect(text, contains('חשבונית מס'));
       expect(text, contains('1024'));
-      expect(text, contains('₪1,180'));
+      expect(text, contains('₪1,180.00'));
       expect(text, contains('12.11.2026'));
       expect(text, contains('https://invoice.test/d/tok'));
     });
 
     test('numbers, amount and date are LTR-isolated; names first-strong', () {
       expect(text, contains("מס׳ ${lri}1024$pdi"));
-      expect(text, contains('$lri₪1,180$pdi'));
+      expect(text, contains('$lri₪1,180.00$pdi'));
       expect(text, contains('${lri}12.11.2026$pdi'));
       expect(text, contains('${fsi}Dana Ltd$pdi'));
       expect(text, contains('$fsiסטודיו תבל$pdi'));
@@ -123,7 +123,7 @@ void main() {
         link: 'https://x/d/1',
       );
       expect(t, contains('${lri}7$pdi'));
-      expect(t, contains('$lri₪300$pdi'));
+      expect(t, contains('$lri₪300.00$pdi'));
       expect(t, endsWith('\nhttps://x/d/1'));
       expect(t.length, lessThan(120));
     });

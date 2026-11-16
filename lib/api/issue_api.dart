@@ -206,12 +206,17 @@ Future<IssueResult> _runDocument(
     }
     p.scopeKey ??= await resolveScopeKey();
     p.finalizeKey ??= ApiClient.newIdempotencyKey();
+    if (p.payment != null) p.paymentDate ??= todayIso();
     await save();
+    final pay = p.payment;
     final Map<String, dynamic> json;
     try {
       json = await _api.post('/documents/$id/finalize', {
         'scopeKey': p.scopeKey,
         if (p.requestAllocation) 'requestAllocation': true,
+        // SA2: if the document has to wait for its allocation number, the server
+        // keeps the money with it (and records it when the number arrives).
+        if (pay != null) 'pendingPayments': [pay.pendingBody(p.paymentDate!)],
       }, p.finalizeKey);
     } on ApiException catch (e) {
       if (e.code == 'APPROVAL_REQUIRED') return _submitResult(p);
@@ -219,9 +224,16 @@ Future<IssueResult> _runDocument(
       rethrow;
     }
     p.documentNumber = json['documentNumber']?.toString();
-    p.stage = json['status'] == 'WAITING_FOR_ALLOCATION'
-        ? IssueStage.waitingAllocation
-        : IssueStage.finalized;
+    final waiting = json['status'] == 'WAITING_FOR_ALLOCATION';
+    p.stage = waiting ? IssueStage.waitingAllocation : IssueStage.finalized;
+    if (waiting && pay != null) {
+      p.paymentViaServer = true;
+      // The server answered with the stored payment: the phone keeps no copy.
+      if (json['pendingPayments'] is List &&
+          (json['pendingPayments'] as List).isNotEmpty) {
+        p.payment = null;
+      }
+    }
     await save();
     report();
   }
@@ -229,6 +241,15 @@ Future<IssueResult> _runDocument(
   // Waiting for a SHAAM number: ask the ITA once now (AT-60: the number lands on D
   // with no extra step); anything else stays on D (§6.D 4/5) and resume calls again.
   if (p.stage == IssueStage.waitingAllocation) {
+    if (p.payment != null) {
+      p.paymentViaServer = true;
+      try {
+        await _uploadPendingPayment(p); // an older server: the copy stays here
+      } on ApiException catch (e) {
+        // Offline: the short-lived local copy stays; startup uploads it.
+        if (!e.isNetwork) rethrow;
+      }
+    }
     await _requestAllocationOnce(id);
     final doc = await fetchDocument(id);
     if (doc.status == 'WAITING_FOR_ALLOCATION') {
@@ -243,7 +264,11 @@ Future<IssueResult> _runDocument(
 
   // PAID 320: the payment, with the server's total.
   if (p.stage == IssueStage.artifact) {
-    final pay = p.payment;
+    var pay = p.payment;
+    // SA2: it waited with the document → the server records it (never twice).
+    if (pay != null && p.paymentViaServer && await _uploadPendingPayment(p)) {
+      pay = null;
+    }
     if (pay != null) {
       final doc = await fetchDocument(id);
       final amount = doc.totalMinor;
@@ -402,6 +427,131 @@ Future<void> _createPayment(
   );
   p.paymentId = json['paymentId'] as String;
   await savePendingIssue(p);
+}
+
+/// SA2: POST /documents/:id/pending-payments with the key the finalize call
+/// derived (`<finalizeKey>:pending:0`), so the server answers with the same row
+/// whether it got the payment with finalize, earlier from here, or never.
+/// Waiting → stored; already issued → recorded now. True = the server has it
+/// (the local copy is dropped); false = a server without SA2 (keep it here).
+/// Network errors are thrown.
+Future<bool> _uploadPendingPayment(PendingIssue p) async {
+  final pay = p.payment;
+  final id = p.draftId;
+  if (pay == null || id == null) return true;
+  p.finalizeKey ??= ApiClient.newIdempotencyKey();
+  p.paymentDate ??= todayIso();
+  await savePendingIssue(p);
+  try {
+    await _api.post(
+      '/documents/$id/pending-payments',
+      pay.pendingBody(p.paymentDate!),
+      pendingPaymentKey(p.finalizeKey!),
+    );
+  } on ApiException catch (e) {
+    if (e.status == 404 && e.code == 'NOT_FOUND') return false; // no route yet
+    rethrow;
+  }
+  p.payment = null;
+  await savePendingIssue(p);
+  return true;
+}
+
+/// The key the server gives the first payment sent with POST /finalize.
+String pendingPaymentKey(String finalizeKey) => '$finalizeKey:pending:0';
+
+final Set<String> _uploadedFor = {};
+
+/// SA2 migration, once per business per app run (AppShell): a payment an
+/// older version left on this phone for a document that waits for (or already
+/// got) its allocation number is uploaded to the server, then forgotten here.
+/// Offline → tried again on the next run (or the next business switch).
+Future<void> uploadLocalPendingPayment() async {
+  final business = currentBusinessId;
+  if (business == 'none' || !_uploadedFor.add(business)) return;
+  try {
+    final p = await loadPendingIssue();
+    if (p == null ||
+        p.payment == null ||
+        p.draftId == null ||
+        p.receiptOnly ||
+        p.businessId != business) {
+      return;
+    }
+    final waited =
+        p.paymentViaServer || p.stage == IssueStage.waitingAllocation;
+    if (!waited) return;
+    p.paymentViaServer = true;
+    if (await _uploadPendingPayment(p)) notifyDocumentsChanged();
+  } on ApiException catch (e) {
+    if (e.isNetwork) _uploadedFor.remove(business);
+  } on Object {
+    // best effort: the issue journal still holds it
+  }
+}
+
+@visibleForTesting
+void resetPendingPaymentUploads() => _uploadedFor.clear();
+
+// ---------------------------------------------------------------------------
+// Pending payments on the server (SA2): shown and edited on D
+// ---------------------------------------------------------------------------
+
+/// Money received for a document that waits for its allocation number. It is
+/// recorded by the server when the number arrives (not money yet).
+class PendingPayment {
+  const PendingPayment({
+    required this.id,
+    required this.method,
+    required this.amountMinor,
+    this.paymentDate,
+    this.reference,
+  });
+
+  factory PendingPayment.fromJson(Map<String, dynamic> j) => PendingPayment(
+    id: j['id'] as String,
+    method: j['method'] as String? ?? 'OTHER',
+    amountMinor: BigInt.tryParse('${j['amountMinor']}') ?? BigInt.zero,
+    paymentDate: j['paymentDate'] as String?,
+    reference: j['reference'] as String?,
+  );
+
+  final String id;
+  final String method;
+  final BigInt amountMinor;
+  final String? paymentDate;
+  final String? reference;
+}
+
+/// `document.pendingPayments` of GET /documents/:id (only PENDING ones).
+List<PendingPayment> pendingPaymentsOf(Map<String, dynamic> json) {
+  final d = json['document'];
+  final list = d is Map ? d['pendingPayments'] : null;
+  return [
+    for (final e in (list is List ? list : const []))
+      if (e is Map<String, dynamic> && e['id'] is String)
+        PendingPayment.fromJson(e),
+  ];
+}
+
+/// PATCH /documents/:id/pending-payments/:pid (amount and/or method).
+Future<void> updatePendingPayment(
+  String documentId,
+  String pendingId, {
+  BigInt? amountMinor,
+  String? method,
+}) async {
+  await _api.patch('/documents/$documentId/pending-payments/$pendingId', {
+    if (amountMinor != null) 'amountMinor': amountMinor.toString(),
+    'method': ?method,
+  });
+  notifyDocumentsChanged();
+}
+
+/// DELETE /documents/:id/pending-payments/:pid — the money will not be recorded.
+Future<void> cancelPendingPayment(String documentId, String pendingId) async {
+  await _api.delete('/documents/$documentId/pending-payments/$pendingId');
+  notifyDocumentsChanged();
 }
 
 Future<void> _evaluate(PendingIssue p, VatStatusAsker? askVat) async {
@@ -676,6 +826,20 @@ class PaymentInput {
     'checkNumber': checkNumber,
   };
 
+  /// SA2 pending payment (finalize.pendingPayments / POST pending-payments).
+  /// No amount: the server takes what is open on the document (its total).
+  Map<String, dynamic> pendingBody(String paymentDate) => {
+    'method': method,
+    'currency': 'ILS',
+    'paymentDate': paymentDate,
+    if (method == 'CHECK') ...{
+      'bankNumber': bankNumber,
+      'branchNumber': branchNumber,
+      'accountNumber': accountNumber,
+      'reference': checkNumber,
+    },
+  };
+
   /// POST /payments body. Only CHECK writes `reference` (it is part of the
   /// idempotency hash; "העברה / ביט" never writes it, §9.1).
   Map<String, dynamic> requestBody(BigInt amountMinor, String paymentDate) => {
@@ -720,6 +884,7 @@ class PendingIssue {
     this.signingPending = false,
     this.cloneFrom,
     this.cloneTotal,
+    this.paymentViaServer = false,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -751,6 +916,7 @@ class PendingIssue {
     signingPending: j['signingPending'] == true,
     cloneFrom: j['cloneFrom'] as String?,
     cloneTotal: j['cloneTotal'] as String?,
+    paymentViaServer: j['paymentViaServer'] == true,
     createdAt: DateTime.tryParse(j['createdAt'] as String? ?? ''),
   );
 
@@ -803,6 +969,10 @@ class PendingIssue {
   /// clone's total before the PUT), to adopt a lost clone response.
   String? cloneFrom;
   String? cloneTotal;
+
+  /// SA2: the document waited for its allocation number, so [payment] belongs
+  /// to the server (POST pending-payments), never to a local POST /payments.
+  bool paymentViaServer;
   final DateTime createdAt;
 
   String get documentType => body['documentType'] as String;
@@ -846,6 +1016,7 @@ class PendingIssue {
     'signingPending': signingPending,
     'cloneFrom': cloneFrom,
     'cloneTotal': cloneTotal,
+    'paymentViaServer': paymentViaServer,
     'createdAt': createdAt.toIso8601String(),
   };
 }

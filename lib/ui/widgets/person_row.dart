@@ -6,6 +6,46 @@ import '../../util/phone.dart';
 import 'amount_display.dart';
 import 'design_controls.dart';
 
+/// The direction of a name by its first strong letter: 'QA-C 612…' is LTR.
+/// In an RTL row a Latin name laid out RTL got its ellipsis on the left, so
+/// "QA-C 6123456" read "…QA-C 612" – cut at the start (QA 2026-11-16 owner/025).
+TextDirection nameDirection(String name) {
+  for (final r in name.runes) {
+    if ((r >= 0x0590 && r <= 0x08FF) || (r >= 0xFB1D && r <= 0xFDFF)) {
+      return TextDirection.rtl;
+    }
+    if ((r >= 0x41 && r <= 0x5A) ||
+        (r >= 0x61 && r <= 0x7A) ||
+        (r >= 0xC0 && r <= 0x024F)) {
+      return TextDirection.ltr;
+    }
+  }
+  return TextDirection.rtl;
+}
+
+/// A one-line name: its own direction, aligned to the row's start, ellipsis
+/// at its real end.
+class PersonName extends StatelessWidget {
+  const PersonName(this.name, {super.key, this.style, this.maxLines = 1});
+
+  final String name;
+  final TextStyle? style;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    final rowRtl = Directionality.of(context) == TextDirection.rtl;
+    return Text(
+      name,
+      maxLines: maxLines,
+      overflow: TextOverflow.ellipsis,
+      textDirection: nameDirection(name),
+      textAlign: rowRtl ? TextAlign.right : TextAlign.left,
+      style: style ?? AppText.body,
+    );
+  }
+}
+
 /// Customer / supplier row (spec V2 §6.P), ≥64pt: initial avatar · name
 /// (+ [badge] like "ספק" / "בארכיון") · [subtitle] (phone, shown LTR) ·
 /// optional "חייב לך ₪5,990" ([amountLabel] + [amountMinor]).
@@ -42,18 +82,13 @@ class PersonRow extends StatelessWidget {
         children: [
           PersonAvatar(name: name),
           const SizedBox(width: Space.m),
-          Expanded(
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppText.body,
-            ),
-          ),
+          Expanded(child: PersonName(name)),
           if (subtitle != null) ...[
             const SizedBox(width: Space.s),
-            Flexible(
-              flex: 2,
+            // The phone takes only its width (it took 2/3 of the row and cut
+            // every name, owner/025).
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 140),
               child: Text(
                 formatPhoneHe(subtitle!),
                 textDirection: TextDirection.ltr,

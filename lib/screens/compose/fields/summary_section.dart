@@ -35,6 +35,7 @@ class SummarySection extends StatefulWidget {
 
 class _SummarySectionState extends State<SummarySection> {
   late bool _showMoreMethods = moreMethods.contains(widget.state.method);
+  final _checkKey = GlobalKey();
 
   ComposeState get s => widget.state;
 
@@ -107,6 +108,7 @@ class _SummarySectionState extends State<SummarySection> {
                     }
                     s.method = m;
                     s.changed();
+                    if (m == 'CHECK') _revealCheckFields();
                   },
                 ),
                 if (s.method == 'CHECK') _checkFields(),
@@ -152,7 +154,23 @@ class _SummarySectionState extends State<SummarySection> {
     );
   }
 
+  /// owner/040: the four cheque fields opened under the keypad. The
+  /// Composer puts the keypad away; this scrolls them into view.
+  void _revealCheckFields() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final c = _checkKey.currentContext;
+      if (c == null || !c.mounted) return;
+      Scrollable.ensureVisible(
+        c,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
+    });
+  }
+
   Widget _checkFields() => Column(
+    key: _checkKey,
     children: [
       _field(
         const Key('check-bank'),

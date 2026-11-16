@@ -38,6 +38,10 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
   }
 
   bool _connected(String key) => (_status?[key] as Map?)?['configured'] == true;
+
+  /// A test server keeps e-mails as local files: not "connected" for the user.
+  bool get _emailLive =>
+      _connected('email') && (_status?['email'] as Map?)?['mode'] != 'file';
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
@@ -61,7 +65,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 children: [
                   Text(
-                    'כל מה שצריך כדי להפיק, לחתום ולשלוח.\nמצב החיבורים מתעדכן מהשרת.',
+                    'כל מה שצריך כדי להפיק, לחתום ולשלוח.\nמצב החיבורים מתעדכן אוטומטית.',
                     style: AppText.body.copyWith(
                       color: context.palette.muted,
                       height: 1.6,
@@ -105,12 +109,12 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                           ),
                           _card(
                             'חשבוניות במייל',
-                            'שליחה מהשרת',
+                            'נשלחות ישירות מתבל',
                             Icons.mail_outline_rounded,
-                            _connected('email'),
-                            (_status!['email'] as Map?)?['mode'] == 'file'
-                                ? 'סביבת פיתוח: הודעות נשמרות כקבצים מקומיים.'
-                                : 'נדרש חיבור ספק מייל פעיל.',
+                            _emailLive,
+                            _emailLive
+                                ? 'מסמכים נשלחים ללקוחות במייל ישירות מהאפליקציה.'
+                                : 'שליחת מיילים ללקוחות עדיין לא הופעלה. בינתיים אפשר לשתף מסמך בקישור או בוואטסאפ.',
                             null,
                           ),
                           _card(
@@ -147,7 +151,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'מצב משלוח ותשלום מוצג לפי אישור השרת והספק. ניתן לפתוח את אפשרויות השליחה מתוך כל מסמך.',
+                            'מצב משלוח ותשלום מוצג לפי האישור של ספק השירות. ניתן לפתוח את אפשרויות השליחה מתוך כל מסמך.',
                             style: AppText.secondary.copyWith(
                               color: context.palette.muted,
                               height: 1.5,

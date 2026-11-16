@@ -576,6 +576,96 @@ void main() {
     });
   });
 
+  Map<String, dynamic> waitingWithPayment() {
+    final json = docDetailJson(
+      type: 'TAX_INVOICE_RECEIPT',
+      status: 'WAITING_FOR_ALLOCATION',
+    );
+    (json['document'] as Map<String, dynamic>)['pendingPayments'] = [
+      {
+        'id': 'pp-1',
+        'method': 'BANK_TRANSFER',
+        'amountMinor': '118000',
+        'paymentDate': '2026-11-16',
+        'status': 'PENDING',
+      },
+    ];
+    return json;
+  }
+
+  testWidgets(
+    'SA2: waiting document explains itself and shows the money that waits',
+    (tester) async {
+      backend
+        ..json('GET', '/documents/:id', waitingWithPayment())
+        ..json('GET', '/documents/:id/allocation', {'state': 'REQUESTED'})
+        ..json('DELETE', '/documents/:id/pending-payments/:pid', {
+          'pendingPayment': {'id': 'pp-1', 'status': 'CANCELLED'},
+        });
+      await pumpDoc(tester, Preset.owner);
+      expect(find.byKey(const Key('doc-waiting-allocation')), findsOneWidget);
+      expect(find.text('המסמך ממתין למספר הקצאה'), findsOneWidget);
+      expect(
+        find.text(
+          'תשלום ממתין: ₪1,180.00 העברה / ביט, יירשם כשיתקבל מספר ההקצאה',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('מה אפשר לעשות:'), findsOneWidget);
+      expect(find.textContaining('לחכות.'), findsOneWidget);
+      // Cancel the request is offered (owner); manual entry is off on this server.
+      expect(find.byKey(const Key('doc-waiting-cancel')), findsOneWidget);
+      expect(find.byKey(const Key('doc-waiting-manual')), findsNothing);
+      expect(find.textContaining('גם התשלום הממתין יבוטל'), findsOneWidget);
+
+      await tap(tester, find.byKey(const Key('pending-cancel-pp-1')));
+      await tap(tester, find.byKey(const Key('pending-cancel-confirm')));
+      expect(
+        backend.calls('DELETE', '/documents/:id/pending-payments/:pid'),
+        hasLength(1),
+      );
+      expect(
+        backend
+            .last('DELETE', '/documents/:id/pending-payments/:pid')!
+            .params['pid'],
+        'pp-1',
+      );
+    },
+  );
+
+  testWidgets('SA2: the waiting payment amount can be edited', (tester) async {
+    backend
+      ..json('GET', '/documents/:id', waitingWithPayment())
+      ..json('GET', '/documents/:id/allocation', {'state': 'REQUESTED'})
+      ..json('PATCH', '/documents/:id/pending-payments/:pid', {
+        'pendingPayment': {'id': 'pp-1', 'status': 'PENDING'},
+      });
+    await pumpDoc(tester, Preset.owner);
+    await tap(tester, find.byKey(const Key('pending-edit-pp-1')));
+    await tester.enterText(
+      find.byKey(const Key('pending-amount-field')),
+      '500',
+    );
+    await tap(tester, find.byKey(const Key('pending-amount-save')));
+    expect(
+      backend.last('PATCH', '/documents/:id/pending-payments/:pid')!.body,
+      {'amountMinor': '50000'},
+    );
+  });
+
+  testWidgets('SA2: a viewer without payment rights sees no edit / cancel', (
+    tester,
+  ) async {
+    backend
+      ..json('GET', '/documents/:id', waitingWithPayment())
+      ..json('GET', '/documents/:id/allocation', {'state': 'REQUESTED'});
+    await pumpDoc(tester, Preset.employee);
+    expect(find.byKey(const Key('doc-waiting-allocation')), findsOneWidget);
+    expect(find.byKey(const Key('pending-edit-pp-1')), findsNothing);
+    expect(find.byKey(const Key('pending-cancel-pp-1')), findsNothing);
+    expect(find.byKey(const Key('doc-waiting-cancel')), findsNothing);
+  });
+
   testWidgets(
     'row 6 (AT-64): "חתום והפק PDF" → passphrase dialog → unlock → /sign',
     (tester) async {

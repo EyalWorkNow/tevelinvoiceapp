@@ -607,7 +607,9 @@ String buildWhatsAppMessage({
       .replaceAll('{סוג}', docTypeLabel(documentType))
       .replaceAll(' {מספר}', documentNumber == null ? '' : ' $documentNumber')
       .replaceAll('{מספר}', documentNumber ?? '')
-      .replaceAll('{סכום}', formatMoney(totalMinor, trimZeroAgorot: true))
+      .replaceAll('{סכום}', formatMoney(totalMinor))
+      // Nothing to pay on a receipt / credit: no "ולתשלום" (Stage A).
+      .replaceAll('לצפייה ולתשלום:', '${shareViewLabel(documentType)}:')
       .replaceAll('{עסק}', businessName);
   text = text.contains('{קישור}')
       ? text.replaceAll('{קישור}', link)
@@ -653,5 +655,5 @@ String quoteWhatsAppMessage({
       : ', בתוקף עד ${formatDateHe(validUntil)}';
   final view = link == null ? '' : '. לצפייה: $link';
   return 'שלום${name.isEmpty ? '' : ' $name'}, הצעת מחיר על סך '
-      '${formatMoney(totalMinor, trimZeroAgorot: true)}$until$view. תודה, $businessName';
+      '${formatMoney(totalMinor)}$until$view. תודה, $businessName';
 }
