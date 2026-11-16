@@ -13,31 +13,62 @@ import '../../../util/cancel_policy.dart';
 import '../../../util/labels/labels.dart';
 import '../../../util/money.dart';
 import '../dialogs.dart';
+import '../../../api/readiness_api.dart' show dismissCorrection;
 
 /// What S8 did (D shows the toast and reloads; a credit opens its own D).
 class CancelResult {
-  const CancelResult({this.credit, this.voided = false});
+  const CancelResult({
+    this.credit,
+    this.voided = false,
+    this.dismissed = false,
+  });
 
   final CreditOutcome? credit;
   final bool voided;
+
+  /// C6: the accountant's correction request was closed without a correction.
+  final bool dismissed;
 }
 
+/// C6: [initialAmountMinor] / [requestReason] / [correctionRequestId] come
+/// from the accountant's "בקש תיקון/זיכוי" (the inbox card): the amount is
+/// prefilled, the reason is shown (and prefills the void reason), and the
+/// request can be closed without a correction.
 Future<CancelResult?> showCancelSheet(
   BuildContext context, {
   required String documentId,
   DocumentDetail? doc,
+  BigInt? initialAmountMinor,
+  String? requestReason,
+  String? correctionRequestId,
 }) {
   return showAppSheet<CancelResult>(
     context,
-    builder: (_) => CancelSheet(documentId: documentId, doc: doc),
+    builder: (_) => CancelSheet(
+      documentId: documentId,
+      doc: doc,
+      initialAmountMinor: initialAmountMinor,
+      requestReason: requestReason,
+      correctionRequestId: correctionRequestId,
+    ),
   );
 }
 
 class CancelSheet extends StatefulWidget {
-  const CancelSheet({super.key, required this.documentId, this.doc});
+  const CancelSheet({
+    super.key,
+    required this.documentId,
+    this.doc,
+    this.initialAmountMinor,
+    this.requestReason,
+    this.correctionRequestId,
+  });
 
   final String documentId;
   final DocumentDetail? doc;
+  final BigInt? initialAmountMinor;
+  final String? requestReason;
+  final String? correctionRequestId;
 
   @override
   State<CancelSheet> createState() => _CancelSheetState();
@@ -69,7 +100,13 @@ class _CancelSheetState extends State<CancelSheet> {
       setState(() {
         _doc = doc;
         _loadError = null;
-        _amount.text = agorotToKeypadText(creditableOf(doc));
+        final asked = widget.initialAmountMinor;
+        final max = creditableOf(doc);
+        _amount.text = agorotToKeypadText(
+          asked != null && asked > BigInt.zero && asked < max ? asked : max,
+        );
+        final reason = widget.requestReason;
+        if (reason != null && _reason.text.isEmpty) _reason.text = reason;
       });
       // Typing over the amount = partial credit, without an extra tap (J6).
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -163,6 +200,25 @@ class _CancelSheetState extends State<CancelSheet> {
     }
   }
 
+  Future<void> _dismissRequest() async {
+    final id = widget.correctionRequestId;
+    if (id == null) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await dismissCorrection(id);
+      if (mounted) {
+        Navigator.of(context).pop(const CancelResult(dismissed: true));
+      }
+    } on Object catch (e) {
+      if (mounted) setState(() => _error = e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final doc = _doc;
@@ -192,6 +248,15 @@ class _CancelSheetState extends State<CancelSheet> {
             DocumentHe.cancelTitle,
             subtitle: docTitle(doc.documentType, doc.documentNumber),
           ),
+          if ((widget.requestReason ?? '').isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: Space.m),
+              child: Text(
+                '${ReadinessHe.requestedBy}: ${widget.requestReason}',
+                key: const Key('s8-request-reason'),
+                style: AppText.body,
+              ),
+            ),
           if (action == CancelAction.credit) ..._creditBody(doc, p),
           if (action == CancelAction.voidDocument) ..._voidBody(doc, p),
           if (action == CancelAction.none)
@@ -222,6 +287,12 @@ class _CancelSheetState extends State<CancelSheet> {
               offline: businessContext.offline,
               loadingText: _busy ? DocumentHe.voidDocument : null,
               onPressed: _void,
+            ),
+          if (widget.correctionRequestId != null)
+            TextButton(
+              key: const Key('s8-dismiss-request'),
+              onPressed: _busy ? null : _dismissRequest,
+              child: const Text(ReadinessHe.dismissRequest),
             ),
         ],
       ),
