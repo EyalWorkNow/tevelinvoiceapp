@@ -609,7 +609,12 @@ void main() {
           Preset.owner,
           const BusinessScreen(section: 'account'),
         );
-        await tester.ensureVisible(find.byKey(const Key('account-delete')));
+        // The owner's "פרטי ההרשמה" row (2026-11-16) moved it past the lazy list.
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('account-delete')),
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('account-delete')));
         await settle(tester);

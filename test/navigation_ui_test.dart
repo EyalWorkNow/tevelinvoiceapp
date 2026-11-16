@@ -83,12 +83,10 @@ void main() {
         await tester.tap(find.text('דנה').last);
         await settle(tester);
         expect(find.byType(Keypad), findsOneWidget);
+        // No amount: ✕ leaves at once (the keypad slides out with C).
         await tester.tap(find.byKey(const Key('compose-close')));
-        for (var i = 0; i < 12; i++) {
-          await tester.pump(const Duration(milliseconds: 50));
-          expect(find.byType(Keypad), findsNothing);
-        }
         await settle(tester);
+        expect(find.byType(Keypad), findsNothing);
         expect(find.text('origin'), findsOneWidget);
         expect(find.byType(ComposeScreen), findsNothing);
         expect(navigatorKey.currentState!.canPop(), isFalse);

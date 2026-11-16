@@ -876,12 +876,14 @@ void main() {
     'SA6: a document parked WAITING_FOR_ALLOCATION leaves no local draft behind',
     (tester) async {
       fake.finalizeStatus = 'WAITING_FOR_ALLOCATION';
-      await open(tester, intent: 'REQUEST');
+      // REQUEST is the owner's "בקרוב" placeholder (2026-11-16): the 305 is
+      // issued through its own intent.
+      await open(tester, intent: 'TYPE:305');
       await type(tester, '7080');
       await tap(tester, primary());
       expect(backend.calls('POST', '/documents/:id/finalize'), hasLength(1));
       expect(find.byType(ComposeScreen), findsNothing, reason: 'D replaced C');
-      final draft = await tester.runAsync(() => loadLocalDraft('REQUEST'));
+      final draft = await tester.runAsync(() => loadLocalDraft('TYPE:305'));
       expect(
         draft,
         isNull,
