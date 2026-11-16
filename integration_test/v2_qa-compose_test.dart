@@ -194,6 +194,24 @@ void main() {
     await t.tap(find.text(label).last, why: label);
   }
 
+  /// C2 (Stage C): a paid kind never assumes the payment method for a
+  /// customer without one remembered — the user picks the chip (one counted
+  /// tap; SPEC J1 budgets are +1 for a first-time customer).
+  Future<void> pickMethod(
+    WidgetTester tester,
+    TapCounter t,
+    String method,
+  ) async {
+    final chip = find.descendant(
+      of: find.byKey(const Key('compose-methods')),
+      matching: find.text(paymentMethodLabels[method]!),
+    );
+    await pumpUntil(tester, chip, reason: 'method chip $method');
+    await tester.ensureVisible(chip);
+    await tester.pump(const Duration(milliseconds: 300));
+    await t.tap(chip, why: 'אמצעי תשלום (C2)');
+  }
+
   // ==== §7 journeys + Composer (P0a) ===============================================
 
   group('Composer journeys (§7, F3)', () {
@@ -209,6 +227,7 @@ void main() {
         await t.tap(find.byKey(const Key('intent-paid')), why: 'קיבלתי תשלום');
         await pickRecent(tester, t, cid);
         await typeAmount(tester, '1180');
+        await pickMethod(tester, t, 'CASH');
         expect(
           find.text(kindLabels[DocKind.taxInvoiceReceipt]!),
           findsNothing,
@@ -222,7 +241,11 @@ void main() {
         await t.tap(find.byKey(composePrimary), why: 'הפק ושלח בווטסאפ');
         await waitForD(tester);
 
-        expect(t.taps, lessThanOrEqualTo(3), reason: 'J1 budget');
+        expect(
+          t.taps,
+          lessThanOrEqualTo(4),
+          reason: 'J1 budget (3 + the C2 method tap for a first-time customer)',
+        );
         await expectWhatsAppLink(tester, '/d/');
         final doc = await newestDoc(owner, cid);
         expect(doc['document_type'], 'TAX_INVOICE_RECEIPT');
@@ -261,10 +284,15 @@ void main() {
       await t.tap(find.byKey(const Key('s2-save')), why: 'שמור');
       await pumpUntil(tester, find.byKey(const Key('compose-customer')));
       await typeAmount(tester, '590');
+      await pickMethod(tester, t, 'CASH');
       await t.tap(find.byKey(composePrimary), why: 'הפק ושלח בווטסאפ');
       await waitForD(tester);
 
-      expect(t.taps, lessThanOrEqualTo(5), reason: 'J1-לקוח-חדש budget');
+      expect(
+        t.taps,
+        lessThanOrEqualTo(6),
+        reason: 'J1-לקוח-חדש budget (5 + the C2 method tap)',
+      );
       await expectWhatsAppLink(tester, '/d/');
       // The dev business has hundreds of QA customers: search, not the first page.
       final customers =
@@ -356,11 +384,17 @@ void main() {
         await pickRecent(tester, t, cid);
         await typeAmount(tester, '500');
         noVat('C');
+        await pickMethod(tester, t, 'CASH');
         await t.tap(find.byKey(composePrimary));
         await waitForD(tester);
         noVat('D');
 
-        expect(t.taps, lessThanOrEqualTo(3), reason: 'J13 budget');
+        expect(
+          t.taps,
+          lessThanOrEqualTo(4),
+          reason:
+              'J13 budget (3 + the C2 method tap for a first-time customer)',
+        );
         final doc = await newestDoc(owner, cid);
         expect(doc['document_type'], 'RECEIPT');
         expect(minor(doc['tax_total_minor']), anyOf(0, -1));
@@ -512,7 +546,7 @@ void main() {
     });
 
     testWidgets(
-      'AT-15 defaults: description "תיקון דוד" and last method "העברה / ביט" come back',
+      'AT-15 defaults: description "תיקון דוד" and the customer\'s method "העברה" come back',
       (tester) async {
         final owner = await devUser(ownerEmail);
         final cid = await createCustomer(owner, phone: randomPhone());
@@ -529,12 +563,7 @@ void main() {
           'תיקון דוד',
         );
         await t.tap(find.text(CommonHe.save).last);
-        await t.tap(
-          find.descendant(
-            of: find.byKey(const Key('compose-methods')),
-            matching: find.text(paymentMethodLabels['BANK_TRANSFER']!),
-          ),
-        );
+        await pickMethod(tester, t, 'BANK_TRANSFER');
         await t.tap(find.byKey(composePrimary));
         await waitForD(tester);
         final first = await newestDoc(owner, cid);
@@ -559,8 +588,9 @@ void main() {
         final chips = tester.widget<ChipRow<String>>(
           find.byKey(const Key('compose-methods')),
         );
+        // C2: remembered for THIS customer; the chip is "העברה" (bit is its own).
         expect(chips.selected, 'BANK_TRANSFER');
-        expect(paymentMethodLabels['BANK_TRANSFER'], 'העברה / ביט');
+        expect(paymentMethodLabels['BANK_TRANSFER'], 'העברה');
       },
     );
 
@@ -600,6 +630,7 @@ void main() {
         await t.tap(find.byKey(const Key('s2-walkin')), why: 'לקוח מזדמן');
         await pumpUntil(tester, find.byKey(const Key('compose-customer')));
         await typeAmount(tester, '7080'); // 6,000 + 18%
+        await pickMethod(tester, t, 'CASH');
         await t.tap(find.byKey(composePrimary));
         await pumpWhile(
           tester,
@@ -808,6 +839,12 @@ void main() {
         await openD(tester, qid, quote: true);
         expect(primaryLabel(tester, docPrimary), DocumentHe.convertToInvoice);
         await t.tap(find.byKey(docPrimary), why: 'הפוך לחשבונית');
+        // C3: "ישלם אחר כך" (305) or "שילם עכשיו" (320).
+        await pumpUntil(tester, find.byKey(const Key('quote-choice-later')));
+        await t.tap(
+          find.byKey(const Key('quote-choice-later')),
+          why: 'ישלם אחר כך',
+        );
         await pumpUntil(tester, find.byType(ComposeScreen));
         await pumpUntil(
           tester,
@@ -817,7 +854,11 @@ void main() {
         await t.tap(find.byKey(composePrimary));
         await waitForD(tester);
 
-        expect(t.taps, lessThanOrEqualTo(3), reason: 'J5 convert budget');
+        expect(
+          t.taps,
+          lessThanOrEqualTo(4),
+          reason: 'J5 convert budget (3 + the C3 pay-later / paid-now choice)',
+        );
         final after = await quoteDetail(owner, qid);
         expect(
           after['status'],
@@ -847,6 +888,8 @@ void main() {
       final t = TapCounter(tester);
       await openD(tester, qid!, quote: true);
       await menu(tester, t, DocumentHe.convertToInvoice);
+      await pumpUntil(tester, find.byKey(const Key('quote-choice-later')));
+      await t.tap(find.byKey(const Key('quote-choice-later')));
       await pumpUntil(tester, find.byType(ComposeScreen));
       final after = await quoteDetail(owner, qid);
       expect(after['status'], 'CONVERTED');
@@ -1289,7 +1332,13 @@ void main() {
       (tester) async {
         final owner = await devUser(ownerEmail);
         final partner = await devUser(partnerEmail);
-        final cid = await createCustomer(owner, phone: randomPhone());
+        // Allocation rule v2 (0099, on main): ≥ ₪5,900 needs the recipient's
+        // dealer status — an unknown one stops the issue to ask (not this test).
+        final cid = await createCustomer(
+          owner,
+          phone: randomPhone(),
+          vatDealerStatus: 'AUTHORIZED_DEALER',
+        );
         final set = await setApproval(
           owner,
           mode: 'THRESHOLD',
@@ -1355,7 +1404,14 @@ void main() {
       (tester) async {
         final owner = await devUser(ownerEmail);
         final partner = await devUser(partnerEmail);
-        final cid = await createCustomer(owner, phone: randomPhone());
+        // Allocation rule v2 (0099, on main): ≥ ₪5,900 needs the recipient's
+        // dealer status — an unknown one stops the issue to ask (not this test).
+        final cid = await createCustomer(
+          owner,
+          phone: randomPhone(),
+          vatDealerStatus:
+              'PRIVATE', // not required: the source issues FINALIZED
+        );
         final src = await tester.runAsync(
           () => createDocument(
             owner,

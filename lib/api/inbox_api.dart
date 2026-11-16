@@ -564,6 +564,8 @@ HomeData filterHome(
 /// §6.H.1 "נראה ל-" column.
 bool cardAllowed(InboxItem c, Caps caps) => switch (c.kind) {
   InboxKind.approvalNeeded => caps.can(Cap.approvalDecide),
+  // C6: whoever may credit / void answers the accountant's request.
+  InboxKind.correctionRequested => caps.can(Cap.docCancel),
   InboxKind.myRejected ||
   InboxKind.unfinished ||
   InboxKind.quoteAccepted => caps.can(Cap.docDraft),

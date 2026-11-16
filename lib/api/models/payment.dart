@@ -1,6 +1,7 @@
 // Payments (squad C · §6 S5, §9). POST /payments bodies; BE-11 adds the
 // GET /payments history (P1) — [PaymentRow] reads it when present.
 
+import '../../util/labels/payment_he.dart' show walletReference, wireMethod;
 import 'json.dart';
 
 /// One payment typed in S5. Money is BigInt agorot.
@@ -22,8 +23,8 @@ class PaymentEntry {
   /// YYYY-MM-DD. For a cheque: the date on the cheque (§9.1).
   final String paymentDate;
 
-  /// CHECK only: the cheque number (digits). Never written for
-  /// "העברה / ביט" (§9.1: it is part of the idempotency hash).
+  /// CHECK only: the cheque number (digits). The wallet chips (BIT / PAYBOX)
+  /// write their fixed label instead (CD-WALLET-01, [walletReference]).
   final String? reference;
   final String? bankNumber;
   final String? branchNumber;
@@ -33,10 +34,11 @@ class PaymentEntry {
 
   /// POST /payments body.
   Map<String, Object> toJson() => {
-    'method': method,
+    'method': wireMethod(method),
     'amountMinor': amountMinor.toString(),
     'currency': 'ILS',
     'paymentDate': paymentDate,
+    'reference': ?walletReference(method),
     if (isCheck && reference != null && reference!.isNotEmpty)
       'reference': reference!,
     if (isCheck && bankNumber != null && bankNumber!.isNotEmpty)
@@ -243,6 +245,7 @@ class TimelineEvent {
   const TimelineEvent({
     required this.at,
     required this.event,
+    this.byName,
     this.byEmail,
     this.detail = const {},
   });
@@ -250,6 +253,7 @@ class TimelineEvent {
   factory TimelineEvent.fromJson(Map<String, dynamic> j) => TimelineEvent(
     at: jStr(j['at']) ?? '',
     event: jStr(j['event']) ?? '',
+    byName: jStr(j['byName']),
     byEmail: jStr(j['byEmail']),
     detail: jMap(j['detail']),
   );
@@ -258,7 +262,16 @@ class TimelineEvent {
 
   /// Raw audit type, e.g. document.finalized, document.shared, document.sent.
   final String event;
+
+  /// The actor's display name (users.display_name), for every viewer.
+  final String? byName;
+
+  /// Only for viewers who manage the team.
   final String? byEmail;
+
+  /// C5: who did it, as the history shows it (name, else e-mail).
+  String? get actor =>
+      (byName?.trim().isNotEmpty ?? false) ? byName!.trim() : byEmail;
   final Map<String, dynamic> detail;
 }
 

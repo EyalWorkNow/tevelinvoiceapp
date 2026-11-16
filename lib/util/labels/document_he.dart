@@ -202,6 +202,7 @@ abstract final class DocumentHe {
       'התשלום שבמסמך נשאר רשום; הזיכוי יוצר יתרת זכות ללקוח.';
   static const voidEffect = 'המסמך יסומן "בוטל". לא נוצר מסמך חדש.';
   static const voidHasPayments = 'יש תשלום. בטל קודם את הקבלה במחשב';
+  static const creditReason = 'סיבה (לא חובה)';
   static const voidReason = 'סיבת הביטול';
   static const creditIssued = 'הזיכוי הופק ✓';
   static const documentVoided = 'המסמך בוטל ✓';
@@ -240,6 +241,10 @@ abstract final class DocumentHe {
     'receipt.issued': 'הופקה קבלה',
   };
   static const timelineTitle = 'היסטוריה';
+
+  /// C5: "אושר על ידי אורי" (the actor of a history step).
+  static String timelineBy(String step, String who) => '$step על ידי $who';
+  static String timelineReason(String reason) => 'סיבה: $reason';
   static const paymentsTitle = 'תשלומים';
   static const linkedTitle = 'מסמכים קשורים';
   static const voidedPayment = 'בוטל';

@@ -289,6 +289,7 @@ Future<CreditOutcome> creditDocument(
   DocumentDetail doc, {
   required BigInt amountMinor,
   required PassphrasePrompt askPassphrase,
+  String? reason,
 }) async {
   final name = 'pending_credit_${doc.id}';
   final saved = await AppCache.read(name);
@@ -299,6 +300,14 @@ Future<CreditOutcome> creditDocument(
 
   if (p['creditId'] == null) {
     p['amount'] = amountMinor.toString();
+    // C6: the optional reason (printed as the credit's note). Saved with the
+    // key: a retry sends the same body (the idempotency hash covers it).
+    final why = reason?.trim() ?? '';
+    if (why.isNotEmpty) {
+      p['reason'] = why;
+    } else {
+      p.remove('reason');
+    }
     await save(); // before the call: a lost response keeps the key
     final Map<String, dynamic> json;
     try {
@@ -311,6 +320,7 @@ Future<CreditOutcome> creditDocument(
           amountMinor: amountMinor,
           partialDescription: DocumentHe.partialCreditLine(doc.documentNumber),
         ),
+        'reason': ?(p['reason'] as String?),
       }, p['key'] as String);
     } on ApiException catch (e) {
       if (e.code == 'CREDIT_LIMIT_EXCEEDED') {

@@ -24,6 +24,7 @@ import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/ui/theme.dart';
 import 'package:invoice/ui/widgets/primary_button.dart';
+import 'package:invoice/util/labels/compose_he.dart';
 
 import '../fakes/fake_api.dart';
 
@@ -606,9 +607,7 @@ void main() {
       expect(find.byKey(const Key('doc-waiting-allocation')), findsOneWidget);
       expect(find.text('המסמך ממתין למספר הקצאה'), findsOneWidget);
       expect(
-        find.text(
-          'תשלום ממתין: ₪1,180.00 העברה / ביט, יירשם כשיתקבל מספר ההקצאה',
-        ),
+        find.text('תשלום ממתין: ₪1,180.00 העברה, יירשם כשיתקבל מספר ההקצאה'),
         findsOneWidget,
       );
       expect(find.text('מה אפשר לעשות:'), findsOneWidget);
@@ -708,6 +707,11 @@ void main() {
       expect(primaryLabel(tester), 'הפוך לחשבונית');
       await tester.tap(primary());
       await settle(tester);
+      // C3: pay later (305) or paid now (320).
+      expect(find.text(ComposeHe.quoteHowPaid), findsOneWidget);
+      await pumpUntilFound(tester, find.byKey(const Key('quote-choice-later')));
+      await tester.tap(find.byKey(const Key('quote-choice-later')));
+      await settle(tester);
       expect(backend.last('POST', '/quotes/:id/status')!.body, {
         'to': 'ACCEPTED',
       });
@@ -715,6 +719,26 @@ void main() {
       expect(
         (c.draftId, c.fromQuoteId, c.intent),
         ('doc-new', 'q-1', 'TYPE:305'),
+      );
+    },
+  );
+
+  testWidgets(
+    'C3 quote → "חשבונית מס-קבלה – שילם עכשיו": C opens as 320 from the quote, nothing converted yet',
+    (tester) async {
+      await pumpDoc(tester, Preset.owner, id: 'q-1', quote: true);
+      await tester.tap(primary());
+      await settle(tester);
+      expect(find.text(ComposeHe.quotePaidNow), findsOneWidget);
+      await pumpUntilFound(tester, find.byKey(const Key('quote-choice-paid')));
+      await tester.tap(find.byKey(const Key('quote-choice-paid')));
+      await settle(tester);
+      final c = tester.widget<ComposeScreen>(find.byType(ComposeScreen));
+      expect((c.draftId, c.fromQuoteId, c.intent), (null, 'q-1', 'TYPE:320'));
+      expect(
+        backend.calls('POST', '/quotes/:id/convert'),
+        isEmpty,
+        reason: 'converted only when the user issues',
       );
     },
   );
@@ -868,7 +892,10 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       expect(find.text('הלקוח צפה'), findsOneWidget);
-      expect(find.text('נרשם תשלום'), findsOneWidget);
+      expect(
+        find.text('נרשם תשלום על ידי owner@example.test'),
+        findsOneWidget,
+      ); // C5
       await tester.scrollUntilVisible(
         find.byKey(const Key('doc-link-rcp-1')),
         200,
@@ -1269,6 +1296,12 @@ void main() {
         await pumpDoc(tester, Preset.owner, id: 'q-1', quote: true);
         await tester.tap(primary());
         await settle(tester);
+        await pumpUntilFound(
+          tester,
+          find.byKey(const Key('quote-choice-later')),
+        );
+        await tester.tap(find.byKey(const Key('quote-choice-later')));
+        await settle(tester);
         expect(
           backend
               .last('POST', '/quotes/:id/convert')!
@@ -1478,4 +1511,12 @@ void main() {
       expect(find.byKey(const Key('doc-allocation')), findsNothing);
     });
   });
+}
+
+/// The sheet of "הפוך לחשבונית" may still be animating in on a busy machine.
+Future<void> pumpUntilFound(WidgetTester tester, Finder f) async {
+  for (var i = 0; i < 100 && f.evaluate().isEmpty; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+  await tester.pump(const Duration(milliseconds: 400));
 }

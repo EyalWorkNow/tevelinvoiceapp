@@ -143,7 +143,7 @@ class _PaymentsLedgerState extends State<PaymentsLedger> {
       contentPadding: EdgeInsets.zero,
       title: Text(
         [
-          paymentMethodLabel(r.method),
+          paymentLabelOf(r.method, r.reference),
           if (r.customerName != null) r.customerName!,
         ].join(' · '),
         style: AppText.body.copyWith(color: muted ? p.muted : p.ink),

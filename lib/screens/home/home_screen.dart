@@ -24,6 +24,9 @@ import '../../ui/ds.dart';
 import '../../ui/widgets/ceiling_gauge.dart';
 import '../../ui/widgets/shell_inset.dart';
 import '../../util/labels/common_he.dart';
+import '../debts/debts_home_row.dart';
+import '../reports/daily_summary_home_row.dart';
+import '../../api/reports_api.dart' show dailySummaryKind;
 import '../../util/money.dart' show formatMoney;
 import '../../util/labels/inbox_he.dart';
 import '../people/customer_crm_agenda_screen.dart';
@@ -176,6 +179,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     SizedBox(height: context.isDark ? 10 : 36),
                     if (data != null && (data.openMinor != null)) ...[
                       _moneyCard(context, data),
+                      // C1: "מי חייב לי" (one row, money viewers only).
+                      if (caps.can(Cap.moneyView))
+                        DebtsHomeRow(
+                          onTap: () => unawaited(openDebts(context)),
+                        ),
                       SizedBox(height: context.isDark ? 10 : Space.l),
                     ],
                     // A6: עוסק פטור ceiling gauge (exempt only, money viewers).
@@ -204,6 +212,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (caps.homeIsCashier) ...[
                       _CashierPaid(caps: caps),
                       const SizedBox(height: Space.l),
+                    ],
+                    // C2: "סיכום היום שלי" for an employee / cashier (no
+                    // money:read — the server answers with their own count).
+                    if (!caps.can(Cap.moneyView) && caps.can(Cap.docView)) ...[
+                      DailySummaryHomeRow(
+                        onTap: () =>
+                            unawaited(openReport(context, dailySummaryKind)),
+                      ),
+                      const SizedBox(height: Space.m),
                     ],
                     if (caps.showIntentButtons ||
                         caps.can(Cap.docView) ||

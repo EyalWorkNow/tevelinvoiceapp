@@ -151,6 +151,33 @@ abstract final class ComposeHe {
   static const lineVatNone = 'ללא מע״מ';
   static const saveAsItem = 'לשמור כפריט?';
   static const savedAsItem = 'נשמר כפריט ✓';
+
+  // C3 split payment (persona 02: half bit + half cheque).
+  static const splitPayment = 'פיצול תשלום';
+  static const splitOff = 'תשלום אחד';
+  static const splitAmount = 'סכום';
+  static const splitRemove = 'הסר תשלום';
+  static const checkDate = "תאריך הצ'ק";
+  static const splitFull = 'הסכום מלא ✓';
+  static String splitRemaining(BigInt left) =>
+      'נותר: ${formatMoney(left, trimZeroAgorot: true)}';
+  static String splitOver(BigInt over) =>
+      'יותר מהסכום ב-${formatMoney(over, trimZeroAgorot: true)}';
+
+  // C3 "כמו בפעם הקודמת" (persona 04: the regular client).
+  static const repeatLast = 'כמו בפעם הקודמת';
+  static String repeatLastAmount(BigInt total) =>
+      '$repeatLast · ${formatMoney(total, trimZeroAgorot: true)}';
+  static const repeatNone = 'אין מסמך קודם ללקוח הזה';
+
+  // C3 quote → "the customer paid now" (persona 02).
+  static const quoteHowPaid = 'איך הלקוח משלם?';
+  static const quoteLater = 'חשבונית מס';
+  static const quoteLaterExempt = 'חשבון עסקה';
+  static const quoteLaterHint = 'הלקוח ישלם אחר כך';
+  static const quotePaidNow = 'חשבונית מס-קבלה – שילם עכשיו';
+  static const quotePaidNowExempt = 'קבלה – שילם עכשיו';
+  static const quotePaidNowHint = 'רושמים את התשלום עכשיו, אפשר גם לפצל';
 }
 
 /// "חשבונית מס-קבלה" etc. for the S3 / S1 type lists (shown only there and on

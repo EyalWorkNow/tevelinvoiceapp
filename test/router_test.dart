@@ -47,6 +47,7 @@ void main() {
       '/quote/:id',
       '/people',
       '/person/:id',
+      '/debts', // C1 "מי חייב לי" (a P view)
       '/expenses',
       '/expenses/overview',
       '/reports',

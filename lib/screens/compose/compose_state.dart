@@ -59,6 +59,103 @@ class ComposeLine {
   };
 }
 
+/// C3 "פיצול תשלום": one payment line (method + amount; a cheque keeps its
+/// details and its own date — a post-dated cheque).
+class SplitLine {
+  SplitLine({
+    this.method = 'CASH',
+    this.amountText = '',
+    this.bankNumber = '',
+    this.branchNumber = '',
+    this.accountNumber = '',
+    this.checkNumber = '',
+    String? date,
+  }) : date = date ?? todayIso();
+
+  factory SplitLine.fromJson(Map<String, dynamic> j) => SplitLine(
+    method: j['method'] as String? ?? 'CASH',
+    amountText: j['amountText'] as String? ?? '',
+    bankNumber: j['bankNumber'] as String? ?? '',
+    branchNumber: j['branchNumber'] as String? ?? '',
+    accountNumber: j['accountNumber'] as String? ?? '',
+    checkNumber: j['checkNumber'] as String? ?? '',
+    date: j['date'] as String?,
+  );
+
+  String method;
+
+  /// As typed ("6000", "1,250.50").
+  String amountText;
+  String bankNumber;
+  String branchNumber;
+  String accountNumber;
+  String checkNumber;
+
+  /// 'YYYY-MM-DD' (today; a cheque may carry a later date).
+  String date;
+
+  BigInt get amountMinor => parseAmount(amountText) ?? BigInt.zero;
+
+  bool get checkValid =>
+      method != 'CHECK' ||
+      [
+        bankNumber,
+        branchNumber,
+        accountNumber,
+        checkNumber,
+      ].every((v) => RegExp(r'^\d+$').hasMatch(v.trim()));
+
+  bool get valid =>
+      method.isNotEmpty && amountMinor > BigInt.zero && checkValid;
+
+  /// §9.1 "+ צ'ק נוסף": same bank, cheque number + 1, a month later.
+  SplitLine nextCheck(String amount) {
+    final n = int.tryParse(checkNumber.trim());
+    final d = DateTime.tryParse(date);
+    var next = date;
+    if (d != null) {
+      final lastDay = DateTime(d.year, d.month + 2, 0).day;
+      next = todayIso(
+        DateTime(d.year, d.month + 1, d.day > lastDay ? lastDay : d.day),
+      );
+    }
+    return SplitLine(
+      method: 'CHECK',
+      amountText: amount,
+      bankNumber: bankNumber,
+      branchNumber: branchNumber,
+      accountNumber: accountNumber,
+      checkNumber: n == null
+          ? ''
+          : (n + 1).toString().padLeft(checkNumber.trim().length, '0'),
+      date: next,
+    );
+  }
+
+  PaymentInput toPayment() => PaymentInput(
+    method: method,
+    amountMinor: amountMinor,
+    paymentDate: date,
+    bankNumber: method == 'CHECK' ? bankNumber.trim() : null,
+    branchNumber: method == 'CHECK' ? branchNumber.trim() : null,
+    accountNumber: method == 'CHECK' ? accountNumber.trim() : null,
+    checkNumber: method == 'CHECK' ? checkNumber.trim() : null,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'method': method,
+    'amountText': amountText,
+    'bankNumber': bankNumber,
+    'branchNumber': branchNumber,
+    'accountNumber': accountNumber,
+    'checkNumber': checkNumber,
+    'date': date,
+  };
+}
+
+/// The server takes at most 10 payments with one document (SA2).
+const int maxSplitLines = 10;
+
 class ComposeState extends ChangeNotifier {
   ComposeState({
     required this.kind,
@@ -79,13 +176,22 @@ class ComposeState extends ChangeNotifier {
 
   /// The user edited the description: choosing another customer keeps it.
   bool descriptionTouched = false;
-  String method = 'CASH';
+
+  /// The payment chip ('' = not chosen yet: a paid kind cannot issue).
+  String method = '';
+
+  /// The user picked the chip: choosing another customer keeps it.
+  bool methodTouched = false;
   String bankNumber = '';
   String branchNumber = '';
   String accountNumber = '';
   String checkNumber = '';
   final List<ComposeLine> extraLines = [];
   String discountText = '';
+
+  /// C3 "פיצול תשלום" (opt-in): [splits] replace [method] + cheque fields.
+  bool split = false;
+  final List<SplitLine> splits = [];
 
   /// S3 "מע״מ: ללא" (a VAT business issuing at 0%).
   bool vatNone = false;
@@ -213,6 +319,78 @@ class ComposeState extends ChangeNotifier {
         checkNumber,
       ].every((v) => v.trim().isNotEmpty);
 
+  BigInt get splitPaidMinor =>
+      splits.fold(BigInt.zero, (a, l) => a + l.amountMinor);
+
+  /// "נותר: ₪X" (negative = more than the total was typed).
+  BigInt get splitRemainingMinor => totalMinor - splitPaidMinor;
+
+  /// A tax invoice-receipt / receipt says the whole amount was received: the
+  /// lines must add up to the total exactly (a part payment is a 305 + S5).
+  bool get splitValid =>
+      splits.length >= 2 &&
+      splits.length <= maxSplitLines &&
+      splits.every((l) => l.valid) &&
+      splitRemainingMinor == BigInt.zero;
+
+  /// "פיצול תשלום": the current method becomes line 1 with the whole total
+  /// (the user lowers it and adds the rest with "+ תשלום נוסף").
+  void startSplit() {
+    split = true;
+    splits
+      ..clear()
+      ..add(
+        SplitLine(
+          method: method,
+          amountText: agorotToKeypadText(totalMinor),
+          bankNumber: method == 'CHECK' ? bankNumber : '',
+          branchNumber: method == 'CHECK' ? branchNumber : '',
+          accountNumber: method == 'CHECK' ? accountNumber : '',
+          checkNumber: method == 'CHECK' ? checkNumber : '',
+        ),
+      );
+    notifyListeners();
+  }
+
+  /// Back to one method (line 1's).
+  void endSplit() {
+    if (splits.isNotEmpty) method = splits.first.method;
+    split = false;
+    splits.clear();
+    notifyListeners();
+  }
+
+  /// "+ תשלום נוסף" / "+ צ'ק נוסף": the rest of the total, same method;
+  /// after a cheque, the next cheque (same bank, number + 1, a month later).
+  void addSplitLine() {
+    if (splits.length >= maxSplitLines) return;
+    final last = splits.isEmpty ? null : splits.last;
+    final left = splitRemainingMinor;
+    final rest = left > BigInt.zero ? agorotToKeypadText(left) : '';
+    if (last != null && last.method == 'CHECK') {
+      final same = last.amountMinor > BigInt.zero && left >= last.amountMinor
+          ? last.amountText
+          : rest;
+      splits.add(last.nextCheck(same));
+    } else {
+      splits.add(SplitLine(method: last?.method ?? method, amountText: rest));
+    }
+    notifyListeners();
+  }
+
+  void removeSplitLine(int i) {
+    splits.removeAt(i);
+    if (splits.length < 2) {
+      endSplit();
+    } else {
+      notifyListeners();
+    }
+  }
+
+  /// The split lines as sent (empty on the one-method path).
+  List<PaymentInput> get splitPayments =>
+      config.paid && split ? [for (final l in splits) l.toPayment()] : const [];
+
   bool get donorValid =>
       config.counterparty != Counterparty.donor ||
       (customer?.taxId?.isNotEmpty ?? false) ||
@@ -225,7 +403,8 @@ class ComposeState extends ChangeNotifier {
       mainDescription.isNotEmpty &&
       usedExtraLines.every((l) => l.isValid) &&
       discountValid &&
-      (!config.paid || checkValid) &&
+      (!config.paid ||
+          (split ? splitValid : (method.isNotEmpty && checkValid))) &&
       donorValid;
 
   bool get hasPhone => (customer?.phone ?? '').trim().isNotEmpty;
@@ -259,7 +438,7 @@ class ComposeState extends ChangeNotifier {
       ),
   ];
 
-  PaymentInput? get payment => !config.paid
+  PaymentInput? get payment => !config.paid || split
       ? null
       : PaymentInput(
           method: method,
@@ -339,6 +518,8 @@ class ComposeState extends ChangeNotifier {
     'checkNumber': checkNumber,
     'extraLines': [for (final l in extraLines) l.toJson()],
     'discountText': discountText,
+    'split': split,
+    'splits': [for (final l in splits) l.toJson()],
     'vatNone': vatNone,
     'vatPerLine': vatPerLine,
     'notes': notes,
@@ -361,7 +542,7 @@ class ComposeState extends ChangeNotifier {
     amountText = j['amountText'] as String? ?? '';
     inclusive = j['inclusive'] != false;
     description = j['description'] as String? ?? '';
-    method = j['method'] as String? ?? 'CASH';
+    method = j['method'] as String? ?? '';
     bankNumber = j['bankNumber'] as String? ?? '';
     branchNumber = j['branchNumber'] as String? ?? '';
     accountNumber = j['accountNumber'] as String? ?? '';
@@ -373,6 +554,13 @@ class ComposeState extends ChangeNotifier {
           ComposeLine.fromJson(Map<String, dynamic>.from(l as Map)),
       ]);
     discountText = j['discountText'] as String? ?? '';
+    splits
+      ..clear()
+      ..addAll([
+        for (final l in (j['splits'] as List? ?? const []))
+          SplitLine.fromJson(Map<String, dynamic>.from(l as Map)),
+      ]);
+    split = j['split'] == true && splits.isNotEmpty;
     vatNone = j['vatNone'] == true;
     vatPerLine = j['vatPerLine'] == true;
     notes = j['notes'] as String? ?? '';

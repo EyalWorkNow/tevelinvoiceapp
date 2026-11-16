@@ -34,8 +34,10 @@ import 'sheets/s13_editor.dart';
 import 'sheets/s14_switch.dart';
 import 'shaam_page.dart';
 import 'team_page.dart';
+import '../audit/audit_log_screen.dart' show canViewAuditLog, openAuditLog;
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../people/sheets/s2_customer.dart' show showCustomerSheet;
+import '../retainers/retainers_month_screen.dart';
 
 class BusinessScreen extends StatelessWidget {
   const BusinessScreen({super.key, this.section});
@@ -72,6 +74,8 @@ const Set<String> moreSettingsKeys = {
   'subscription',
   'notifications',
   'desktop',
+  // C5: the activity log (owner, partner, accountants).
+  'audit',
 };
 
 /// The "עוד הגדרות" row of B.
@@ -190,6 +194,8 @@ List<BusinessRowSpec> allBusinessRows(
   const BusinessRowSpec('account', BusinessHe.account, Iconsax.user),
   if (caps.can(Cap.settingsBusiness) || caps.can(Cap.reportView))
     const BusinessRowSpec('desktop', BusinessHe.desktop, Iconsax.monitor),
+  if (canViewAuditLog(caps))
+    const BusinessRowSpec('audit', AuditHe.row, Iconsax.note_2),
 ];
 
 class BusinessRowSpec {
@@ -396,6 +402,20 @@ class _BusinessListState extends State<_BusinessList> {
           onTap: () => unawaited(
             openCustomerCrmAgenda(context, businessId: currentBusinessId),
           ),
+        ),
+      // C4 "חבילת ריטיינר": the month's recurring drafts, reviewed and issued at once.
+      if (mayUseRetainers(caps))
+        _ManagementAction(
+          id: 'retainers',
+          label: RetainerHe.monthTitle,
+          icon: Iconsax.calendar_tick,
+          orb: const Icon(
+            Iconsax.calendar_tick,
+            color: Color(0xFF3E6250),
+            size: 27,
+          ),
+          color: const Color(0xFFD8EFE2),
+          onTap: () => unawaited(openRetainersMonth(context)),
         ),
       if (caps.can(Cap.docDraft)) ...[
         _ManagementAction(
@@ -660,6 +680,8 @@ void openBusinessRow(BuildContext context, String key) {
       showEditorSheet(context, instance: '13.3');
     case 'desktop':
       showEditorSheet(context, instance: '13.9');
+    case 'audit':
+      unawaited(openAuditLog(context));
   }
 }
 

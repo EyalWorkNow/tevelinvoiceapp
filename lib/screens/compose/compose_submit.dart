@@ -32,6 +32,7 @@ import '../../util/phone.dart';
 import '../../util/vat.dart';
 import 'compose_dialogs.dart';
 import 'compose_memory.dart';
+import 'compose_repeat.dart';
 import 'compose_state.dart';
 import 'signing_unlock.dart';
 
@@ -133,6 +134,7 @@ PendingIssue _pendingFor(ComposeRun run) {
     ..body = body
     ..form = s.toJson()
     ..payment = s.payment
+    ..splitPayments = s.splitPayments
     ..totalMinor = s.totalMinor
     ..needsApproval = run.needsApproval
     ..evaluate =
@@ -177,7 +179,11 @@ Future<void> runCompose(
     final id = result.document.id;
     if (result.outcome == IssueOutcome.issued) {
       await rememberDescription(s.customer?.id, s.mainDescription);
-      if (s.config.paid) await rememberPaymentMethod(s.method);
+    }
+    if (result.outcome != IssueOutcome.submittedForApproval) {
+      // C2 × C3: one per-customer memory of this issue — the remembered
+      // payment method (C2) and "כמו בפעם הקודמת" (C3) both read it.
+      await rememberRepeat(s);
     }
     // From here the document exists: nothing below may look like a failed
     // issue. A failed send says so, and D opens with S6 to share by hand.
@@ -294,22 +300,48 @@ Future<void> runCompose(
 
 /// QUOTE_ACCEPTED: POST /quotes/:id/convert now, then the issue continues
 /// that draft (its lines are replaced by what the Composer shows).
+/// C3 "הלקוח שילם עכשיו": a 320 is converted as a 320 (the payment goes with
+/// finalize); a receipt (פטור) cannot be converted — the quote is marked
+/// accepted and the receipt is issued on its own.
 Future<void> _convertQuoteFirst(ComposeRun run) async {
   final quote = run.convertQuote;
   if (quote == null || run.existingDraftId != null || run.pending != null) {
     return;
   }
   final s = run.state;
+  if (s.config.receiptOnly) {
+    if (quote.status == 'SENT') {
+      try {
+        await setQuoteStatus(quote.id, 'ACCEPTED');
+      } on ApiException catch (e) {
+        if (e.isNetwork) rethrow; // already accepted (a retry): fine
+      }
+    }
+    return;
+  }
   final exempt = isVatExemptBusiness(s.businessType);
-  final type = exempt ? 'TRANSACTION_INVOICE' : 'TAX_INVOICE';
-  run
-    ..existingDraftId = await convertQuoteToInvoice(
-      quote,
-      documentType: type,
-      taxRateBasisPoints: exempt ? 0 : s.vatBasisPoints,
-    )
-    ..existingDraftType = type;
+  final type = quoteTargetType(s.kind, exempt: exempt);
+  try {
+    run
+      ..existingDraftId = await convertQuoteToInvoice(
+        quote,
+        documentType: type,
+        taxRateBasisPoints: exempt ? 0 : s.vatBasisPoints,
+      )
+      ..existingDraftType = type;
+  } on ApiException catch (e) {
+    // A server before C3 converts only to 305 / 300: the 320 is made with
+    // POST /documents (the quote is already accepted).
+    if (type != 'TAX_INVOICE_RECEIPT' || e.status != 422) rethrow;
+  }
 }
+
+/// The document type a quote converts into for the Composer's kind.
+String quoteTargetType(DocKind kind, {required bool exempt}) => exempt
+    ? 'TRANSACTION_INVOICE'
+    : kind == DocKind.taxInvoiceReceipt
+    ? 'TAX_INVOICE_RECEIPT'
+    : 'TAX_INVOICE';
 
 String _toast(IssueOutcome outcome, bool sent, ComposeState s) =>
     switch (outcome) {
@@ -344,7 +376,7 @@ Future<IssueResult> _issue(
         p.evaluate ? ComposeHe.stepAuthority : ComposeHe.stepIssuing,
       IssueStage.finalized => ComposeHe.stepSigning,
       IssueStage.artifact =>
-        p.payment != null ? ComposeHe.stepPayment : ComposeHe.stepPdf,
+        p.hasPayment ? ComposeHe.stepPayment : ComposeHe.stepPdf,
       _ => ComposeHe.stepIssuing,
     }),
     unlockSigning: () => ensureSigningUnlocked(context),

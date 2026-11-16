@@ -52,6 +52,27 @@ Future<ReportData> fetchReport(String kind, ReportPeriod period) async =>
       ),
     );
 
+/// C2 "סיכום יום" (GET /reports/daily-summary). Route id for R2.
+const String dailySummaryKind = 'daily';
+
+Future<DailySummary> fetchDailySummary(DailyRange range) async =>
+    DailySummary.fromJson(
+      await _api.get('/reports/daily-summary', query: range.query),
+    );
+
+/// The printable summary (owner / manager: money:read).
+Future<ExportFile> fetchDailySummaryPdf(DailyRange range) async {
+  final bytes = await _api.getBytes(
+    '/reports/daily-summary',
+    query: {...range.query, 'format': 'pdf'},
+  );
+  return ExportFile(
+    bytes,
+    'daily-summary-${range.fromIso}-${range.toIso}.pdf',
+    _mime('pdf'),
+  );
+}
+
 /// A file ready for the share sheet.
 class ExportFile {
   const ExportFile(this.bytes, this.name, this.mimeType);
