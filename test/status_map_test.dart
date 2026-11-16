@@ -109,6 +109,11 @@ void main() {
     expect(quoteListStatus('CONVERTED'), QuoteListStatus.converted);
     expect(quoteListStatus('REJECTED'), QuoteListStatus.notRelevant);
     expect(quoteListStatus('EXPIRED'), QuoteListStatus.notRelevant);
+    expect(quoteListStatus('CANCELLED'), QuoteListStatus.cancelled);
+    expect(
+      quoteListStatus('CANCELLED', expired: true),
+      QuoteListStatus.cancelled,
+    );
     // Past validity (server `expired`): only an open quote turns "פג תוקף".
     expect(quoteListStatus('SENT', expired: true), QuoteListStatus.expired);
     expect(quoteListStatus('DRAFT', expired: true), QuoteListStatus.expired);
@@ -141,6 +146,7 @@ void main() {
         'הפכה לחשבונית',
         'לא רלוונטית',
         'פג תוקף',
+        'בוטלה',
       });
       expect(docStatusLabels.keys.toSet(), DocStatus.values.toSet());
       expect(docStatusTones.keys.toSet(), DocStatus.values.toSet());

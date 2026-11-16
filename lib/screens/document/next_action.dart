@@ -60,6 +60,9 @@ enum DocAction {
   customerAccepted,
   emailQuote,
   deleteQuote,
+
+  /// Owner decision 2026-11-17: "בטל הצעה" → CANCELLED (red, confirm).
+  cancelQuote,
   openInvoice,
   issueTaxInvoice,
   share,
@@ -260,6 +263,7 @@ String docActionLabel(
   DocAction.customerAccepted => DocumentHe.customerAccepted,
   DocAction.emailQuote => DocumentHe.emailQuote,
   DocAction.deleteQuote => DocumentHe.deleteQuote,
+  DocAction.cancelQuote => DocumentHe.cancelQuote,
   DocAction.openInvoice => DocumentHe.openInvoice,
   DocAction.issueTaxInvoice => DocumentHe.issueTaxInvoice,
   DocAction.share => DocumentHe.share,
@@ -280,11 +284,14 @@ NextAction nextAction(DocFacts d, DocViewer v) {
     menu.add(DocAction.issueTaxInvoice);
   }
   if (d.isQuote && d.quoteFull) {
-    if (mayShare) menu.add(DocAction.share);
+    // A cancelled quote is not sent again; "שכפל" makes a new one.
+    if (mayShare && d.status != 'CANCELLED') menu.add(DocAction.share);
     if (v.can(Cap.docDraft)) menu.add(DocAction.duplicate);
   }
   // Destructive items go last (red), like בטל / זכה.
-  if (menu.remove(DocAction.deleteQuote)) menu.add(DocAction.deleteQuote);
+  for (final red in const [DocAction.cancelQuote, DocAction.deleteQuote]) {
+    if (menu.remove(red)) menu.add(red);
+  }
   if (!d.isQuote) {
     if (mayShare &&
         _issued.contains(d.status) &&
@@ -403,11 +410,14 @@ bool _mayIssueTaxInvoice(DocFacts d, DocViewer v) {
   final edit = draft && !d.amountHidden;
   final email = send && d.customerHasEmail;
   final open = d.status == 'DRAFT' || d.status == 'SENT';
+  // An open quote that cannot just be deleted (it was shared) can be cancelled.
+  final cancel = draft && open && !d.quoteDeletable;
   if (open && d.quoteExpired) {
     final menu = [
       if (draft) DocAction.convertQuote,
       if (draft && d.status == 'SENT') DocAction.customerRejected,
       if (draft && d.quoteDeletable) DocAction.deleteQuote,
+      if (cancel) DocAction.cancelQuote,
     ];
     if (edit) return (15, DocAction.extendQuote, null, menu);
     return (15, null, DocumentHe.quoteExpiredWaiting, menu);
@@ -419,6 +429,7 @@ bool _mayIssueTaxInvoice(DocFacts d, DocViewer v) {
         if (edit) DocAction.editQuote,
         if (email) DocAction.emailQuote,
         if (draft && d.quoteDeletable) DocAction.deleteQuote,
+        if (cancel) DocAction.cancelQuote,
       ];
       if (send) return (11, DocAction.sendQuote, null, menu);
       if (draft) {
@@ -441,6 +452,7 @@ bool _mayIssueTaxInvoice(DocFacts d, DocViewer v) {
             if (send) DocAction.sendAgain,
             if (email) DocAction.emailQuote,
             if (edit) DocAction.editQuote,
+            if (cancel) DocAction.cancelQuote,
           ],
         );
       }
@@ -454,6 +466,8 @@ bool _mayIssueTaxInvoice(DocFacts d, DocViewer v) {
       }
     case 'REJECTED' || 'EXPIRED':
       return (15, null, DocumentHe.notRelevant, const []);
+    case 'CANCELLED':
+      return (15, null, DocumentHe.quoteCancelledWaiting, const []);
   }
   return (0, null, null, const []);
 }

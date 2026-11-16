@@ -220,6 +220,13 @@ abstract final class DocumentHe {
   static const customerAccepted = 'הלקוח אישר';
   static const emailQuote = 'שלח במייל';
   static const deleteQuote = 'מחק טיוטה';
+  static const cancelQuote = 'בטל הצעה';
+  static const quoteCancelledWaiting = 'ההצעה בוטלה';
+  static const quoteCancelled = 'ההצעה בוטלה';
+  static const cancelQuoteTitle = 'לבטל את ההצעה?';
+  static const cancelQuoteBody =
+      'הלקוח לא יוכל לאשר אותה, והקישור שקיבל יראה "ההצעה בוטלה". אפשר לשכפל אותה בהמשך.';
+  static const cancelQuoteConfirm = 'בטל הצעה';
   static const quoteExpiredWaiting = 'פג תוקף ההצעה';
   static const markedAccepted = 'סומן "אושרה" ✓';
   static const quoteDeleted = 'הטיוטה נמחקה';

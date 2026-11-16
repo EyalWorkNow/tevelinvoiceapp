@@ -37,6 +37,9 @@ enum QuoteListStatus {
   /// Owner feedback 2026-11-16: a DRAFT/SENT quote past its validity date
   /// (the server status stays; the customer can no longer accept it).
   expired,
+
+  /// Owner decision 2026-11-17: the business cancelled it (server CANCELLED).
+  cancelled,
 }
 
 /// Shown next to the status, never instead of it.
@@ -172,6 +175,7 @@ QuoteListStatus quoteListStatus(String status, {bool expired = false}) =>
       'SENT' => QuoteListStatus.withCustomer,
       'ACCEPTED' => QuoteListStatus.accepted,
       'CONVERTED' => QuoteListStatus.converted,
+      'CANCELLED' => QuoteListStatus.cancelled,
       'REJECTED' || 'EXPIRED' => QuoteListStatus.notRelevant,
       _ => QuoteListStatus.draft,
     };

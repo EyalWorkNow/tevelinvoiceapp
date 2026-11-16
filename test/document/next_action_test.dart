@@ -249,7 +249,11 @@ void main() {
           viewer(Preset.owner),
         );
         expect((n.row, n.label), (11, 'שלח הצעה'));
-        expect(n.menu, [DocAction.convertQuote, DocAction.editQuote]);
+        expect(n.menu, [
+          DocAction.convertQuote,
+          DocAction.editQuote,
+          DocAction.cancelQuote,
+        ]);
       },
     );
 
@@ -266,6 +270,7 @@ void main() {
           DocAction.customerRejected,
           DocAction.sendAgain,
           DocAction.editQuote,
+          DocAction.cancelQuote,
         ]);
       },
     );
@@ -586,6 +591,7 @@ void main() {
           DocAction.editQuote,
           DocAction.share,
           DocAction.duplicate,
+          DocAction.cancelQuote,
         ]);
         final rejected = nextAction(
           DocFacts(status: 'REJECTED', isQuote: true, quoteFull: true),
@@ -671,6 +677,54 @@ void main() {
         expect(n.menu, isNot(contains(DocAction.editQuote)));
         expect(n.menu, isNot(contains(DocAction.emailQuote)));
       });
+
+      test(
+        '2026-11-17: shared quote → "בטל הצעה" (red, last); cancelled → waiting + שכפל',
+        () {
+          final sent = nextAction(
+            DocFacts(status: 'SENT', isQuote: true, quoteFull: true),
+            viewer(Preset.owner),
+          );
+          expect(sent.menu.last, DocAction.cancelQuote);
+          expect(docActionLabel(DocAction.cancelQuote), 'בטל הצעה');
+          // An unshared draft is deleted, not cancelled.
+          final draft = nextAction(
+            DocFacts(status: 'DRAFT', isQuote: true, quoteDeletable: true),
+            viewer(Preset.owner),
+          );
+          expect(draft.menu, isNot(contains(DocAction.cancelQuote)));
+          final sharedDraft = nextAction(
+            DocFacts(status: 'DRAFT', isQuote: true),
+            viewer(Preset.owner),
+          );
+          expect(sharedDraft.menu.last, DocAction.cancelQuote);
+          final expired = nextAction(
+            DocFacts(status: 'SENT', isQuote: true, quoteExpired: true),
+            viewer(Preset.owner),
+          );
+          expect(expired.menu, contains(DocAction.cancelQuote));
+          final cancelled = nextAction(
+            DocFacts(status: 'CANCELLED', isQuote: true, quoteFull: true),
+            viewer(Preset.owner),
+          );
+          expect((cancelled.primary, cancelled.waiting), (null, 'ההצעה בוטלה'));
+          expect(cancelled.menu, [DocAction.duplicate]);
+          expect(
+            nextAction(
+              DocFacts(status: 'ACCEPTED', isQuote: true),
+              viewer(Preset.owner),
+            ).menu,
+            isNot(contains(DocAction.cancelQuote)),
+          );
+          expect(
+            nextAction(
+              DocFacts(status: 'SENT', isQuote: true),
+              viewer(Preset.viewer),
+            ).menu,
+            isNot(contains(DocAction.cancelQuote)),
+          );
+        },
+      );
 
       test('viewer: nothing that writes', () {
         final n = nextAction(

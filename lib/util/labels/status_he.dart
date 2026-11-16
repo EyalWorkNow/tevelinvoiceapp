@@ -70,6 +70,7 @@ const Map<QuoteListStatus, String> quoteStatusLabels = {
   QuoteListStatus.converted: 'הפכה לחשבונית',
   QuoteListStatus.notRelevant: 'לא רלוונטית',
   QuoteListStatus.expired: 'פג תוקף',
+  QuoteListStatus.cancelled: 'בוטלה',
 };
 
 /// Attribute words shown next to the status (never a status themselves).
@@ -97,4 +98,5 @@ const Map<QuoteListStatus, Tone> quoteStatusTones = {
   QuoteListStatus.converted: Tone.ok,
   QuoteListStatus.notRelevant: Tone.neutral,
   QuoteListStatus.expired: Tone.warn,
+  QuoteListStatus.cancelled: Tone.danger,
 };

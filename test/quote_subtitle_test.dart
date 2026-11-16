@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/models/inbox.dart';
 import 'package:invoice/screens/home/doc_rows.dart';
 
-String plain(String s) => s.replaceAll(RegExp('[⁦-⁩]'), '');
+String plain(String s) => s.replaceAll(RegExp('[\\u2066-\\u2069]'), '');
 
 void main() {
   QuoteRow row({String? n, bool expired = false, String? until}) => QuoteRow(

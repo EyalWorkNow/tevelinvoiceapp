@@ -126,6 +126,7 @@ void main() {
         'הפכה לחשבונית',
         'לא רלוונטית',
         'פג תוקף',
+        'בוטלה',
       ]);
       for (final s in QuoteListStatus.values) {
         expect(quoteStatusTones[s], isNotNull, reason: '$s has a tone');

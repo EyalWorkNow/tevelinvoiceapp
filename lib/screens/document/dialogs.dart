@@ -269,3 +269,25 @@ Future<bool> confirmDeleteQuote(BuildContext context) async =>
       ),
     ) ??
     false;
+
+/// "לבטל את ההצעה?" (owner decision 2026-11-17) — true = cancel it.
+Future<bool> confirmCancelQuote(BuildContext context) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(DocumentHe.cancelQuoteTitle),
+        content: const Text(DocumentHe.cancelQuoteBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(DocumentHe.keep),
+          ),
+          TextButton(
+            key: const Key('quote-cancel-yes'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(DocumentHe.cancelQuoteConfirm),
+          ),
+        ],
+      ),
+    ) ??
+    false;

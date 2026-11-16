@@ -172,3 +172,10 @@ Future<String> emailQuote(String id) async {
   notifyDocumentsChanged();
   return json['to'] as String? ?? '';
 }
+
+/// POST /quotes/:id/cancel (owner decision 2026-11-17): DRAFT/SENT → CANCELLED
+/// ("בוטלה"). Idempotent on the server.
+Future<void> cancelQuote(String id) async {
+  await _api.post('/quotes/$id/cancel', const {});
+  notifyDocumentsChanged();
+}

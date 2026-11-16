@@ -277,6 +277,7 @@ void main() {
       'הפכה לחשבונית',
       'לא רלוונטית',
       'פג תוקף',
+      'בוטלה',
     ]);
     expect(
       const StatusPill.doc(DocStatus.overdue).colorIn(AppPalette.light),

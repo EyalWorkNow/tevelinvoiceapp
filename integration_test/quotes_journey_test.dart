@@ -136,9 +136,9 @@ void main() {
           sentId = s['id'] as String;
           await api.post('/quotes/$sentId/status', {'to': 'SENT'});
           // Past validity cannot be created any more (QUOTE_VALID_UNTIL_PAST):
-        // the host ages one quote in the DB and passes its id.
-        expiredId = const String.fromEnvironment('EXPIRED_ID');
-        ok = true;
+          // the host ages one quote in the DB and passes its id.
+          expiredId = const String.fromEnvironment('EXPIRED_ID');
+          ok = true;
         });
         if (ok) break;
       }
@@ -235,6 +235,34 @@ void main() {
         unawaited(openActivity(ctx, chip: 'quotes'));
         await pumpMs(3500);
         await shot('list-quotes-after');
+        await hardRoot();
+      });
+
+      await guarded('cancel a sent quote (2026-11-17)', () async {
+        final c = await ApiClient.instance.post('/quotes', {
+          'customerId': cust,
+          'currency': 'ILS',
+          'validUntil': _day(10),
+          'lines': [_line('התקנת מזגן', 180000)],
+        });
+        final id = c['id'] as String;
+        await ApiClient.instance.post('/quotes/$id/share-link', const {});
+        await ApiClient.instance.post('/quotes/$id/status', {'to': 'SENT'});
+        unawaited(openQuote(ctx, id));
+        await pumpMs(5000);
+        await shot('branded-quote-pdf');
+        await _more();
+        await shot('cancel-menu');
+        await _tapText('בטל הצעה');
+        await shot('cancel-confirm');
+        final yes = find.byKey(const Key('quote-cancel-yes'));
+        if (yes.evaluate().isNotEmpty) {
+          await t.tap(yes, warnIfMissed: false);
+          await pumpMs(4000);
+        }
+        await shotScroll('cancelled-quote', pages: 2);
+        await _more();
+        await shot('cancelled-menu');
         await hardRoot();
       });
 

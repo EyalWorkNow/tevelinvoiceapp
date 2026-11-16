@@ -22,7 +22,8 @@ import '../../api/issue_api.dart'
         pendingPaymentsOf,
         updatePendingPayment;
 import '../../api/models/models.dart';
-import '../../api/quotes_api.dart' show deleteQuote, emailQuote, setQuoteStatus;
+import '../../api/quotes_api.dart'
+    show cancelQuote, deleteQuote, emailQuote, setQuoteStatus;
 import '../../api/signing_api.dart';
 import '../../router.dart';
 import '../../state/business_context.dart';
@@ -690,6 +691,12 @@ class _DocumentScreenState extends State<DocumentScreen> {
           toast(context, DocumentHe.quoteDeleted);
           Navigator.of(context).maybePop();
         }
+      case DocAction.cancelQuote:
+        if (!await confirmCancelQuote(context) || !mounted) return;
+        await _guard(label, () async {
+          await cancelQuote(quote!.id);
+          return DocumentHe.quoteCancelled;
+        });
       case DocAction.customerRejected:
         await _guard(label, () async {
           await setQuoteStatus(quote!.id, 'REJECTED');
@@ -903,7 +910,8 @@ class _DocumentScreenState extends State<DocumentScreen> {
                         ),
                         destructive:
                             a == DocAction.cancelOrCredit ||
-                            a == DocAction.deleteQuote,
+                            a == DocAction.deleteQuote ||
+                            a == DocAction.cancelQuote,
                         onSelected: () => _do(a),
                       ),
                     ?_monthlyItem(),
@@ -943,7 +951,8 @@ class _DocumentScreenState extends State<DocumentScreen> {
                             ),
                             destructive:
                                 a == DocAction.cancelOrCredit ||
-                                a == DocAction.deleteQuote,
+                                a == DocAction.deleteQuote ||
+                                a == DocAction.cancelQuote,
                             onSelected: () => _do(a),
                           ),
                         ?_monthlyItem(),

@@ -102,6 +102,9 @@ String auditSentence(AuditEvent e, {required MoneyFormat money}) {
       '$n ביטל/ה את בקשת מספר ההקצאה: ${_doc(e)}',
     'quote.created' => '$n יצר/ה ${_quote(e)}',
     'quote.converted' => '$n המיר/ה למסמך את ${_quote(e)}',
+    'quote.cancelled' => '$n ביטל/ה את ${_quote(e)}',
+    'quote.deleted' => '$n מחק/ה טיוטה של הצעת מחיר',
+    'quote.emailed' => '$n שלח/ה במייל את ${_quote(e)}',
     'quote.accepted_by_customer' =>
       '${AuditHe.customerSide} אישר/ה ${_quote(e)}',
     'payment.recorded' =>
