@@ -705,7 +705,9 @@ class _ComposeScreenState extends State<ComposeScreen> {
           child: s.ready || bc.offline
               ? PrimaryButton(
                   key: const Key('compose-primary'),
-                  label: _isPaymentRequest ? 'המשך' : actionLabel(action),
+                  label: _isPaymentRequest
+                      ? CommonHe.cont
+                      : actionLabel(action),
                   offline: bc.offline,
                   loadingText: _step,
                   onPressed: () {

@@ -33,6 +33,10 @@ const Map<String, String> roleLabels = {
 
 /// B · עסק rows and sub-pages (§6.B, §13).
 abstract final class BusinessHe {
+  // Owner 2026-11-16: פרטי ההרשמה וייצוא (business data page).
+  static const archivePreparing = 'מכין קובץ…';
+  static const archiveDownload = 'הורדת כל התוכן כ־ZIP';
+
   /// B1 (§13.6): the cashier cap.
   static const approvalsCashierCap = 'קופאי/ת מפיק/ה בלי אישור עד';
   static const approvalsCashierCapHint =
@@ -409,6 +413,9 @@ abstract final class AuthHe {
   static const gotIt = 'הבנתי';
   static const sendResetLink = 'שליחת קישור';
   static const back = 'חזרה';
+  // Owner 2026-11-16: business certificate at setup (moved from the screen).
+  static const certificateOpening = 'פותח קובץ…';
+  static const certificateUpload = 'העלאת תעודת עסק';
   static String unlockWith(String method) => 'פתיחה עם $method';
   static const lockSignOut = 'התנתקות';
   static const verifyWithApple = 'אימות עם Apple';

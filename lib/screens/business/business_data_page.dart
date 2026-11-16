@@ -7,6 +7,7 @@ import '../../state/cache.dart';
 import '../../state/customer_crm_store.dart';
 import '../../state/session.dart';
 import '../../ui/ds.dart';
+import '../../util/labels/labels.dart';
 import 'business_template.dart';
 
 class BusinessDataPage extends StatefulWidget {
@@ -114,7 +115,7 @@ class _BusinessDataPageState extends State<BusinessDataPage> {
               : errorTextHe(_error!),
           style: AppText.body,
         ),
-        TextButton(onPressed: _load, child: const Text('נסה שוב')),
+        TextButton(onPressed: _load, child: const Text(CommonHe.retry)),
       ],
       if (_registration?['certificate'] case final Map certificate)
         ListTile(
@@ -138,7 +139,9 @@ class _BusinessDataPageState extends State<BusinessDataPage> {
             ? null
             : () => _download(archive: true),
         icon: const Icon(Icons.folder_zip_outlined),
-        label: Text(_busy ? 'מכין קובץ…' : 'הורדת כל התוכן כ־ZIP'),
+        label: Text(
+          _busy ? BusinessHe.archivePreparing : BusinessHe.archiveDownload,
+        ),
       ),
     ],
   );

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../ui/ds.dart';
+import '../../util/labels/labels.dart';
 
 /// Placeholder for payment requests; no document is issued by this flow.
 class PaymentComingSoonScreen extends StatelessWidget {
@@ -89,7 +90,10 @@ class PaymentComingSoonScreen extends StatelessWidget {
                               backgroundColor: DesignTokens.lavender,
                               foregroundColor: const Color(0xFF302138),
                             ),
-                            child: const Text('חזרה', style: AppText.button),
+                            child: const Text(
+                              AuthHe.back,
+                              style: AppText.button,
+                            ),
                           ),
                         ),
                       ],

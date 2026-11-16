@@ -507,8 +507,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           icon: const Icon(Icons.attach_file_rounded),
           label: Text(
             _pickingCertificate
-                ? 'פותח קובץ…'
-                : _certificate?.filename ?? 'העלאת תעודת עסק',
+                ? AuthHe.certificateOpening
+                : _certificate?.filename ?? AuthHe.certificateUpload,
           ),
         ),
         if (_validate && _certificate == null)
