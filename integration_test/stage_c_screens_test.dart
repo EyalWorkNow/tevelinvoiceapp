@@ -3,7 +3,7 @@
 // שילם עכשיו / כמו בפעם הקודמת, C4 חבילת ריטיינר, C5 יומן פעולות, C6 מוכן
 // לרו״ח + בקש תיקון). Same SHOT: protocol as persona_screens_test.dart.
 //
-//   U=EF82558D-7B24-4BDD-8B96-DA66170CF700; OUT=docs/qa-2026-11-16/stageC-screens
+//   U=EF82558D-7B24-4BDD-8B96-DA66170CF700; OUT=$PWD/docs/qa-2026-11-16/stageC-screens (absolute: simctl ignores the cwd)
 //   ~/flutter/bin/flutter test integration_test/stage_c_screens_test.dart -d $U \
 //     --dart-define=API_BASE=http://127.0.0.1:3041 \
 //     --dart-define=MAILDIR=$HOME/invoiceproject-staging-qa/outgoing-emails 2>&1 |
