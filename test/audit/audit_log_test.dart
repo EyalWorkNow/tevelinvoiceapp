@@ -361,15 +361,33 @@ void main() {
     ];
 
     test('owner, partner and accountants; never employee or cashier', () {
-      for (final p in [
-        Preset.owner,
-        Preset.partner,
-        Preset.accountantFull,
-        Preset.accountantRep,
-      ]) {
+      for (final p in [Preset.owner, Preset.partner, Preset.accountantFull]) {
         expect(keys(caps(p)), contains('audit'), reason: '$p');
         expect(canViewAuditLog(caps(p)), isTrue, reason: '$p');
       }
+      // The representing accountant (role ACCOUNTANT_REP) has audit:read;
+      // a READ_ONLY member on that preset (P0) does not → no row, no 403.
+      final rep = Caps.fromMe(
+        Me.fromJson({
+          ...meJson(Preset.accountantRep),
+          'role': 'ACCOUNTANT_REP',
+        }),
+      );
+      expect(keys(rep), contains('audit'));
+      expect(keys(caps(Preset.accountantRep)), isNot(contains('audit')));
+      // With explicit permissions (BE-03) the row follows audit:read.
+      final gated = meJson(Preset.accountantRep, readGating: true);
+      expect(
+        canViewAuditLog(
+          Caps.fromMe(
+            Me.fromJson({
+              ...gated,
+              'permissions': [...gated['permissions'] as List, 'audit:read'],
+            }),
+          ),
+        ),
+        isTrue,
+      );
       for (final p in [
         Preset.employee,
         Preset.employeeIssuer,

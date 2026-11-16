@@ -70,6 +70,10 @@ enum Cap {
   /// Reports. P0: OWNER/ADMIN/ACCOUNTANT or the accountant preset; BE-03: `report:read`.
   reportView,
 
+  /// C5 "יומן פעולות". `audit:read` (owner, partner, accountants; never a
+  /// grant). Before BE-03 (no explicit permissions): by role.
+  auditView,
+
   /// Export. P0: like reportView; BE-03: `export:run`.
   reportExport,
 
@@ -238,6 +242,8 @@ class Caps {
       if (has('expense:record')) Cap.expenseCapture,
       if (has('expense:approve')) Cap.expenseApprove,
       if (reportView) Cap.reportView,
+      if (gated ? has('audit:read') : managerRole || role == 'ACCOUNTANT_REP')
+        Cap.auditView,
       if (gated ? has('export:run') : reportView) Cap.reportExport,
       if (has('business:configure')) Cap.settingsBusiness,
       if (has('settings:numbering')) Cap.settingsNumbering,

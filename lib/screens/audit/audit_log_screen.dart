@@ -37,12 +37,10 @@ Future<void> openAuditLog(BuildContext context) => Navigator.of(context).push(
 );
 
 /// Who may open it (server: OWNER, ADMIN, ACCOUNTANT, ACCOUNTANT_REP).
-bool canViewAuditLog(Caps caps) => const {
-  Preset.owner,
-  Preset.partner,
-  Preset.accountantFull,
-  Preset.accountantRep,
-}.contains(caps.preset);
+/// The row is shown exactly when the server would answer: `audit:read`
+/// (owner, partner, full / representing accountant — a READ_ONLY member on
+/// the representing-accountant preset does not have it).
+bool canViewAuditLog(Caps caps) => caps.can(Cap.auditView);
 
 class AuditLogScreen extends StatefulWidget {
   const AuditLogScreen({super.key});

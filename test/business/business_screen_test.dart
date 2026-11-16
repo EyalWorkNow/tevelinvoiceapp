@@ -129,7 +129,7 @@ void main() {
         expect(await moreFor(Preset.accountantRep), [
           'notifications',
           'desktop',
-          'audit', // C5
+          // C5: no "יומן פעולות" — this P0 member is READ_ONLY (no audit:read).
         ]);
         // A single rarely used row stays in B (no one-row sub-page).
         expect(await rowsFor(Preset.viewer), ['notifications', 'account']);
