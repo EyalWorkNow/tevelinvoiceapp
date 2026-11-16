@@ -316,6 +316,15 @@ void main() {
         for (var i = 0; i < 40 && launcher.opened.isEmpty; i++) {
           await Future<void>.delayed(const Duration(milliseconds: 20));
         }
+        // C1: the reminder is also logged on the server, and the hint reads
+        // the server's "last reminded" (404 here → this device's copy).
+        for (
+          var i = 0;
+          i < 100 && backend.last('GET', '/reminders/last') == null;
+          i++
+        ) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
         await Future<void>.delayed(const Duration(milliseconds: 100));
       });
       await tester.pumpAndSettle();

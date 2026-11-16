@@ -1,9 +1,12 @@
 // One-tap WhatsApp payment reminder (R1): who may see the button, and the
-// device-local "last reminded at" per document. The server has no endpoint
-// that records a WhatsApp reminder (docs/API-MOBILE.md: /reminders/send sends
-// e-mail, /documents/:id/dispatch sends the document), so the hint that
-// keeps the owner from spamming lives on this device only.
+// "last reminded at" per document / debt entry.
+//
+// C1 (server 0101): a reminder is recorded on the server (POST /reminders/log),
+// so every device and team member sees "נשלחה תזכורת לפני X ימים", and the
+// tone escalates by the server's count. This device keeps its own copy as the
+// fallback (offline, an older server without the route).
 
+import '../api/debts_api.dart';
 import '../screens/document/next_action.dart';
 import '../state/business_context.dart';
 import '../state/cache.dart';
@@ -60,10 +63,20 @@ abstract final class ReminderLog {
     };
   }
 
-  /// When this device last opened a reminder for [documentId], or null.
+  /// When a reminder for [documentId] was last sent: the later of the
+  /// server's record (any device / member) and this device's copy.
   static Future<DateTime?> lastFor(String documentId) async {
     final raw = (await _all())[documentId];
-    return raw == null ? null : DateTime.tryParse(raw)?.toLocal();
+    final local = raw == null ? null : DateTime.tryParse(raw)?.toLocal();
+    DateTime? server;
+    try {
+      server = (await fetchLastReminded([documentId]))[documentId];
+    } on Object {
+      // Offline / no such route: this device's copy only.
+    }
+    if (server == null) return local;
+    if (local == null) return server;
+    return server.isAfter(local) ? server : local;
   }
 
   /// Every known reminder time (the overdue list reads them at once).
@@ -72,13 +85,46 @@ abstract final class ReminderLog {
       if (DateTime.tryParse(e.value) case final t?) e.key: t.toLocal(),
   };
 
-  static Future<void> record(String documentId, {DateTime? at}) async {
+  /// Records a reminder for a document ([documentId]) or, with [debtEntry],
+  /// a debt-book entry: on this device and on the server ([channel] WHATSAPP
+  /// when the chat opened, SHARE for the share sheet). Never throws.
+  static Future<void> record(
+    String documentId, {
+    DateTime? at,
+    String channel = 'WHATSAPP',
+    bool debtEntry = false,
+  }) => recordMany(
+    documentIds: debtEntry ? const [] : [documentId],
+    debtEntryIds: debtEntry ? [documentId] : const [],
+    at: at,
+    channel: channel,
+  );
+
+  /// One reminder that covered several documents / entries (one tap).
+  static Future<void> recordMany({
+    List<String> documentIds = const [],
+    List<String> debtEntryIds = const [],
+    DateTime? at,
+    String channel = 'WHATSAPP',
+  }) async {
     try {
       final all = await _all();
-      all[documentId] = (at ?? DateTime.now()).toUtc().toIso8601String();
+      final when = (at ?? DateTime.now()).toUtc().toIso8601String();
+      for (final id in [...documentIds, ...debtEntryIds]) {
+        all[id] = when;
+      }
       await AppCache.write(_name, all);
     } on Object {
       // A hint only: never block the reminder over a disk error.
+    }
+    try {
+      await logReminder(
+        documentIds: documentIds,
+        debtEntryIds: debtEntryIds,
+        channel: channel,
+      );
+    } on Object {
+      // Offline / older server: the local copy stays the hint.
     }
   }
 }

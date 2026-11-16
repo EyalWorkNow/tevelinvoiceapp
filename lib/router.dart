@@ -24,6 +24,7 @@ import 'screens/auth/onboarding_screen.dart';
 import 'screens/business/business_screen.dart';
 import 'screens/business/delete_account_screen.dart';
 import 'screens/compose/compose_screen.dart';
+import 'screens/debts/debts_screen.dart';
 import 'screens/document/document_screen.dart';
 import 'screens/expense/expense_capture_screen.dart';
 import 'screens/expense/expenses_screen.dart';
@@ -63,6 +64,8 @@ const Map<String, ScreenId> routeTable = {
   '/quote/:id': ScreenId.d,
   '/people': ScreenId.p,
   '/person/:id': ScreenId.p2,
+  // C1: "מי חייב לי" — the debtors list (a P view; not a new §5 screen).
+  '/debts': ScreenId.p,
   '/expenses': ScreenId.e,
   '/expenses/overview': ScreenId.e,
   '/reports': ScreenId.r,
@@ -191,6 +194,7 @@ class AppRoute {
   /// Capability the route needs; null = any signed-in member.
   Cap? get requiredCap => switch (pattern) {
     '/compose' => Cap.docDraft,
+    '/debts' => Cap.moneyView,
     '/activity' || '/doc/:id' || '/quote/:id' || '/people' => Cap.docView,
     '/reports' || '/reports/:kind' => Cap.reportView,
     '/expenses/overview' => Cap.expenseApprove,
@@ -251,6 +255,7 @@ Widget? screenFor(AppRoute route) {
       id: p['id']!,
       isSupplier: q['kind'] == 'supplier',
     ),
+    '/debts' => const DebtsScreen(),
     '/expenses' => ExpensesScreen(expenseId: q['id']),
     '/expenses/overview' => const ExpenseOverviewScreen(),
     '/reports' => ReportsScreen(period: q['period']),
@@ -471,6 +476,9 @@ Future<void> openCompose(
   String? fromDocId,
   String? fromQuoteId,
   String? draftId,
+  BigInt? prefillAmountMinor,
+  String? prefillDescription,
+  ValueChanged<String>? onIssued,
 }) => _push(
   context,
   ComposeScreen(
@@ -479,6 +487,9 @@ Future<void> openCompose(
     fromDocId: fromDocId,
     fromQuoteId: fromQuoteId,
     draftId: draftId,
+    prefillAmountMinor: prefillAmountMinor,
+    prefillDescription: prefillDescription,
+    onIssued: onIssued,
   ),
   location('/compose', {
     'intent': intent,
@@ -521,6 +532,10 @@ Future<void> openQuote(
   final page = _page<void>(DocumentScreen(id: id, isQuote: true), '/quote/$id');
   return _pushPage(context, page, replace: replace);
 }
+
+/// C1 "מי חייב לי" (money viewers).
+Future<void> openDebts(BuildContext context) =>
+    _push(context, const DebtsScreen(), '/debts');
 
 /// P (tab). [chip]: all | debtors | suppliers.
 void openPeople({String? chip}) {
