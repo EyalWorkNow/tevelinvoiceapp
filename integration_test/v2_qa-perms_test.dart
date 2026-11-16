@@ -632,8 +632,10 @@ void qaPermsSuite() {
       'AT-41/42 [${p.key}] Composer primary: "שלח לאישור" only without document:finalize',
       (tester) async {
         await pumpApp(tester, p.key);
-        await pumpUntil(tester, find.byKey(const Key('intent-request')));
-        await tester.tap(find.byKey(const Key('intent-request')));
+        // Owner 2026-11-16: "בקש תשלום" is a "בקרוב" placeholder; the
+        // Composer's primary is checked on ＋ (the same 305/300 kind).
+        await pumpUntil(tester, find.byKey(const Key('tab-create')));
+        await tester.tap(find.byKey(const Key('tab-create')));
         expect(await pumpUntil(tester, find.byType(ComposeScreen)), isTrue);
         // §19 q4: customer first. Pick "לקוח מזדמן" in S2 when it opens.
         if (await pumpUntil(

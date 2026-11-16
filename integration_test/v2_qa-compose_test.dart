@@ -48,6 +48,11 @@ const bool qaShaam = bool.fromEnvironment('QA_SHAAM');
 const Key composePrimary = Key('compose-primary');
 const Key docPrimary = Key('doc-primary');
 
+/// The 305 entry. Owner 2026-11-16: "בקש תשלום" (REQUEST) is a "בקרוב"
+/// placeholder until payment requests ship; the invoice itself is issued
+/// through ＋ (TYPE:305 for a VAT business) — same kind, same taps.
+final invoiceEntry = find.byKey(const Key('tab-create'));
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   dismissPlansDuringTests();
@@ -411,7 +416,7 @@ void main() {
         await makeRecent(tester, cid);
         final t = TapCounter(tester);
 
-        await t.tap(find.byKey(const Key('intent-request')), why: 'בקש תשלום');
+        await t.tap(invoiceEntry, why: '＋ חשבונית');
         await pickRecent(tester, t, cid);
         await typeAmount(tester, '1180');
         expect(
@@ -527,7 +532,7 @@ void main() {
       await makeRecent(tester, cid);
       final t = TapCounter(tester);
 
-      await t.tap(find.byKey(const Key('intent-request')));
+      await t.tap(invoiceEntry);
       await pickRecent(tester, t, cid);
       await typeAmount(tester, '1180');
       await t.tap(find.byKey(const Key('compose-more-details')));
@@ -603,7 +608,7 @@ void main() {
       await makeRecent(tester, cid);
       final t = TapCounter(tester);
 
-      await t.tap(find.byKey(const Key('intent-request')));
+      await t.tap(invoiceEntry);
       await pickRecent(tester, t, cid);
       await typeAmount(tester, '50000');
       await t.tap(find.byKey(composePrimary));
@@ -684,7 +689,7 @@ void main() {
         await makeRecent(tester, at);
         final t = TapCounter(tester);
 
-        await t.tap(find.byKey(const Key('intent-request')));
+        await t.tap(invoiceEntry);
         await pickRecent(tester, t, over);
         await typeAmount(tester, '7080');
         await t.tap(find.byKey(composePrimary));
@@ -713,7 +718,7 @@ void main() {
         // (0094) and D stays open: go back to H for the second one.
         popToRootForTest();
         await pumpFor(tester, const Duration(seconds: 2));
-        await t.tap(find.byKey(const Key('intent-request')));
+        await t.tap(invoiceEntry);
         await pickRecent(tester, t, at);
         await typeAmount(tester, '5900'); // exactly 5,000.00 before VAT
         await t.tap(find.byKey(composePrimary));
@@ -1148,7 +1153,7 @@ void main() {
         expect(find.byKey(const Key('home-money')), findsNothing);
         await makeRecent(tester, cid);
         final t = TapCounter(tester);
-        await t.tap(find.byKey(const Key('intent-request')));
+        await t.tap(invoiceEntry);
         await pickRecent(tester, t, cid);
         await typeAmount(tester, '1180');
         expect(primaryLabel(tester, composePrimary), ComposeHe.submit);
@@ -1277,7 +1282,7 @@ void main() {
         await makeRecent(tester, cid);
         final t = TapCounter(tester);
 
-        await t.tap(find.byKey(const Key('intent-request')));
+        await t.tap(invoiceEntry);
         await pickRecent(tester, t, cid);
         await typeAmount(tester, '118');
         expect(
@@ -1350,7 +1355,7 @@ void main() {
         await makeRecent(tester, cid);
         final t = TapCounter(tester);
 
-        await t.tap(find.byKey(const Key('intent-request')));
+        await t.tap(invoiceEntry);
         await pickRecent(tester, t, cid);
         await typeAmount(tester, '4999.99');
         expect(
@@ -1533,7 +1538,7 @@ void main() {
         await signInApp(tester, owner);
         await makeRecent(tester, cid);
         final t = TapCounter(tester);
-        await t.tap(find.byKey(const Key('intent-request')));
+        await t.tap(invoiceEntry);
         await pickRecent(tester, t, cid);
         await typeAmount(tester, '1180');
         await t.tap(find.byKey(composePrimary));
@@ -1560,7 +1565,7 @@ void main() {
         final cid2 = await createCustomer(owner, phone: randomPhone());
         await signInApp(tester, owner);
         await makeRecent(tester, cid2);
-        await t.tap(find.byKey(const Key('intent-request')));
+        await t.tap(invoiceEntry);
         await pickRecent(tester, t, cid2);
         await typeAmount(tester, '590');
         await t.tap(find.byKey(composePrimary));
@@ -1584,7 +1589,7 @@ void main() {
         await signInApp(tester, owner);
         await makeRecent(tester, cid);
         final t = TapCounter(tester);
-        await t.tap(find.byKey(const Key('intent-request')));
+        await t.tap(invoiceEntry);
         await pickRecent(tester, t, cid);
         await typeAmount(tester, '7080');
         await t.tap(find.byKey(composePrimary));

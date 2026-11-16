@@ -169,11 +169,7 @@ void main() {
         find.byKey(const Key('statement-confirm')),
         what: 'statement confirm',
       );
-      await taps.tap(
-        tester,
-        find.byKey(const Key('statement-confirm')),
-        'שלח',
-      );
+      await taps.tap(tester, find.byKey(const Key('statement-confirm')), 'שלח');
       await pumpUntil(
         tester,
         find.text(PeopleHe.statementSent(debtorEmail)),
@@ -970,7 +966,8 @@ void main() {
       final newName = 'QA חדש $runTag';
 
       await launchAppAs(tester, owner);
-      atRoot((c) => openCompose(c, intent: 'REQUEST', customerId: debtorId));
+      // Owner 2026-11-16: REQUEST is a placeholder; the invoice is TYPE:305.
+      atRoot((c) => openCompose(c, intent: 'TYPE:305', customerId: debtorId));
       // "פרטים נוספים" lives in C's summary, which appears once there is an amount.
       await pumpUntil(
         tester,
