@@ -79,6 +79,7 @@ class ComposeState extends ChangeNotifier {
 
   /// The user edited the description: choosing another customer keeps it.
   bool descriptionTouched = false;
+
   /// The payment chip ('' = not chosen yet: a paid kind cannot issue).
   String method = '';
 

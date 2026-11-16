@@ -24,8 +24,7 @@ abstract final class DailySummaryHe {
   static const timeZoneNote = 'לפי שעון ישראל, לפי מועד רישום התקבול.';
 
   static String count(int n) => n == 1 ? 'תקבול אחד' : '$n תקבולים';
-  static String ownCount(int n) =>
-      n == 1 ? 'הפקת קבלה אחת' : 'הפקת $n קבלות';
+  static String ownCount(int n) => n == 1 ? 'הפקת קבלה אחת' : 'הפקת $n קבלות';
   static String methodLine(String label, int n, BigInt minor) =>
       '$label · ${count(n)} · ${formatMoney(minor)}';
 
@@ -42,7 +41,8 @@ abstract final class DailySummaryHe {
       '${isDay ? title : titleWeek} · $businessName · $rangeLabel',
       'סה״כ: ${formatMoney(totalMinor)} (${DailySummaryHe.count(count)})',
       for (final m in methods)
-        if (m.count > 0) '• ${m.label}: ${formatMoney(m.totalMinor)} (${m.count})',
+        if (m.count > 0)
+          '• ${m.label}: ${formatMoney(m.totalMinor)} (${m.count})',
     ];
     return lines.join('\n');
   }

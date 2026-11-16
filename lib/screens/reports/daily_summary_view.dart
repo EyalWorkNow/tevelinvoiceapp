@@ -271,9 +271,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                   children: [
                     Expanded(
                       child: Text(
-                        m.count == 0
-                            ? m.label
-                            : '${m.label} (${m.count})',
+                        m.count == 0 ? m.label : '${m.label} (${m.count})',
                         style: AppText.body.copyWith(
                           color: m.count == 0 ? p.muted : p.ink,
                         ),
