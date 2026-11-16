@@ -25,6 +25,8 @@ ComposeState paid({
     ComposeState(kind: kind, businessType: 'OSEK_MURSHE', vatBasisPoints: 1800)
       ..customer = const Customer(id: 'c1', name: 'קבלן')
       ..description = 'עבודת חשמל'
+      ..method =
+          'CASH' // C2: chosen, never assumed
       ..amountText = amount;
 
 /// A server with C3 (finalize records a split when asked) or without it.

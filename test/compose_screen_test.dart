@@ -340,11 +340,10 @@ void main() {
       final pay = backend.last('POST', '/payments')!.body;
       expect(pay['method'], 'BANK_TRANSFER');
       expect(pay['reference'], 'ביט');
-      final memory = await tester.runAsync(
-        () => AppCache.read('nd_method_by_customer_b1'),
-      );
-      expect((memory as Map)['c1'], 'BIT');
-      expect(memory['other'], 'CASH');
+      // C2 × C3: one per-customer memory (the repeat memory) holds the
+      // method; the pre-integration map is still read as a fallback.
+      expect(await tester.runAsync(() => lastPaymentMethod('c1')), 'BIT');
+      expect(await tester.runAsync(() => lastPaymentMethod('other')), 'CASH');
     },
   );
 
