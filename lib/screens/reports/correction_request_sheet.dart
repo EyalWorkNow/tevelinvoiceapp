@@ -14,6 +14,7 @@ import '../../state/business_context.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/labels.dart';
 import '../../util/money.dart';
+import '../../util/still_here.dart';
 
 /// The menu item shows for the accountant presets on an issued, not
 /// cancelled document that is not itself a credit note.
@@ -96,7 +97,7 @@ class _CorrectionRequestSheetState extends State<CorrectionRequestSheet> {
         reason: reason,
         amountMinor: amount,
       );
-      if (mounted) Navigator.of(context).pop(true);
+      if (mounted && stillHere(context)) Navigator.of(context).pop(true);
     } on Object catch (e) {
       if (mounted) setState(() => _error = e);
     } finally {

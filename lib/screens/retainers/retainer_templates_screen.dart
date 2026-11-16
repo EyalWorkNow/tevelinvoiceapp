@@ -134,7 +134,7 @@ class _RetainerTemplatesScreenState extends State<RetainerTemplatesScreen> {
             ],
           ),
         );
-        if (ok == true) await _patch(t, {'status': 'ENDED'});
+        if (ok == true && mounted) await _patch(t, {'status': 'ENDED'});
       case 'price':
         final base = t.pendingLines ?? t.lines;
         final prices = await showPricesDialog(
@@ -142,7 +142,7 @@ class _RetainerTemplatesScreenState extends State<RetainerTemplatesScreen> {
           title: RetainerHe.changePrice,
           prices: [for (final l in base) l.unitPriceMinor],
         );
-        if (prices == null) return;
+        if (prices == null || !mounted) return;
         await _patch(t, {
           'lines': [
             for (final (i, l) in base.indexed) l.withPrice(prices[i]).toJson(),

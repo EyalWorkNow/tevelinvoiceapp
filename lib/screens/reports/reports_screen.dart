@@ -246,6 +246,7 @@ class _ReportsState extends State<_Reports> {
   /// "שלח לרו״ח": below the readiness threshold only after an explicit confirm.
   Future<void> _sendToAccountant() async {
     if (!await confirmSendBelowThreshold(context, _readiness)) return;
+    if (!mounted) return;
     await _export('accountant');
   }
 

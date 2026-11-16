@@ -23,6 +23,7 @@ import '../../../util/labels/labels.dart';
 import '../../../util/payment_reminder.dart';
 import '../../../util/phone.dart';
 import '../../../util/sms_composer.dart';
+import '../../../util/still_here.dart';
 import '../dialogs.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
@@ -70,11 +71,16 @@ String get _businessName => businessContext.displayName;
 /// "שלח בווטסאפ" (§6.C step 6, §13.5): share-link → fixed text → wa.me (the
 /// customer's chat; WhatsApp's picker without a phone). WhatsApp did not
 /// open → the PDF through the share sheet.
+///
+/// [alive]: false once the caller's screen is gone (late navigation): then
+/// nothing opens.
 Future<void> sendDocumentWhatsApp(
   DocumentDetail doc,
-  Customer? customer,
-) async {
+  Customer? customer, {
+  bool Function()? alive,
+}) async {
   final link = await createShareLink(doc);
+  if (alive?.call() == false) return;
   final text = whatsAppMessage(
     customerName: customer?.name,
     documentType: doc.documentType,
@@ -86,7 +92,7 @@ Future<void> sendDocumentWhatsApp(
   final opened = await launchAllowed(
     whatsAppUri(phone: waPhone(customer?.phone), text: text),
   );
-  if (!opened) await sharePdf(doc, text: text);
+  if (!opened) await sharePdf(doc, text: text, alive: alive);
 }
 
 /// R1 one-tap payment reminder ("שלח תזכורת" in D, "הזכר בווטסאפ" in the
@@ -107,8 +113,11 @@ Future<void> sendPaymentReminder({
   String? paymentUrl,
   DateTime? now,
   int previous = 0,
+  bool Function()? alive,
 }) async {
   final url = await link();
+  // Left while the link was made: nothing opens and nothing is recorded.
+  if (alive?.call() == false) return;
   final wa = waPhone(phone);
   var opened = false;
   if (wa != null) {
@@ -152,6 +161,7 @@ Future<void> sharePdf(
   DocumentDetail doc, {
   bool copy = false,
   String? text,
+  bool Function()? alive,
 }) async {
   final Uint8List bytes;
   if (copy) {
@@ -160,6 +170,7 @@ Future<void> sharePdf(
     await ensureOriginal(doc);
     bytes = await fetchOriginalPdf(doc.id);
   }
+  if (alive?.call() == false) return;
   final name = docTitle(doc.documentType, doc.documentNumber);
   await pdfSharer(bytes, copy ? '$name – העתק' : name, text: text);
 }
@@ -304,6 +315,9 @@ class _ShareSheetState extends State<ShareSheet> {
     }
   }
 
+  /// Late navigation: the sheet (or the screen under it) is gone.
+  bool _alive() => stillHere(context);
+
   Future<String?> _sendEmail() async {
     final doc = _doc!;
     final recipient = _email.text.trim();
@@ -330,7 +344,7 @@ class _ShareSheetState extends State<ShareSheet> {
         final agreed = await askEmailConsent(context);
         if (agreed == null) return null;
         if (!agreed) {
-          await sendDocumentWhatsApp(doc, _customer);
+          await sendDocumentWhatsApp(doc, _customer, alive: _alive);
           return '';
         }
         await recordConsent(doc.customerId!);
@@ -380,7 +394,7 @@ class _ShareSheetState extends State<ShareSheet> {
                   ? DocumentHe.sendWhatsApp
                   : null,
               onPressed: () => _run(_Busy.whatsapp, () async {
-                await sendDocumentWhatsApp(doc, _customer);
+                await sendDocumentWhatsApp(doc, _customer, alive: _alive);
                 return '';
               }),
             ),
@@ -402,7 +416,7 @@ class _ShareSheetState extends State<ShareSheet> {
               DocumentHe.pdf,
               const Key('s6-pdf'),
               () => _run(_Busy.pdf, () async {
-                await sharePdf(doc);
+                await sharePdf(doc, alive: _alive);
                 return '';
               }),
               busy: _busy == _Busy.pdf,
@@ -464,6 +478,7 @@ class _ShareSheetState extends State<ShareSheet> {
                                 );
                               }
                               final link = await createShareLink(doc);
+                              if (!_alive()) return null;
                               final result = await smsComposer(
                                 '+$number',
                                 DocumentHe.customerSms(_businessName, link),
@@ -518,6 +533,7 @@ class _ShareSheetState extends State<ShareSheet> {
                   const Key('s6-cardcom'),
                   () => _run(_Busy.paymentLink, () async {
                     final link = await createCustomerPaymentLink(doc.id);
+                    if (!_alive()) return null;
                     await textSharer('לתשלום ל$_businessName:\n$link');
                     return 'קישור התשלום מוכן לשיתוף';
                   }),
@@ -528,7 +544,7 @@ class _ShareSheetState extends State<ShareSheet> {
                 DocumentHe.pdfCopy,
                 const Key('s6-pdf-copy'),
                 () => _run(_Busy.pdfCopy, () async {
-                  await sharePdf(doc, copy: true);
+                  await sharePdf(doc, copy: true, alive: _alive);
                   return '';
                 }),
                 busy: _busy == _Busy.pdfCopy,
@@ -554,7 +570,7 @@ class _ShareSheetState extends State<ShareSheet> {
               offline: _offline,
               loadingText: _busy == _Busy.pdf ? DocumentHe.pdf : null,
               onPressed: () => _run(_Busy.pdf, () async {
-                await sharePdf(doc);
+                await sharePdf(doc, alive: _alive);
                 return '';
               }),
             ),
@@ -563,7 +579,7 @@ class _ShareSheetState extends State<ShareSheet> {
               DocumentHe.pdfCopy,
               const Key('s6-pdf-copy'),
               () => _run(_Busy.pdfCopy, () async {
-                await sharePdf(doc, copy: true);
+                await sharePdf(doc, copy: true, alive: _alive);
                 return '';
               }),
               busy: _busy == _Busy.pdfCopy,

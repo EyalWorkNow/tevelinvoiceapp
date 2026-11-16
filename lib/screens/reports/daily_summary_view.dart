@@ -20,6 +20,7 @@ import '../../util/allowed_urls.dart' show launchAllowed;
 import '../../util/labels/labels.dart';
 import '../../util/money.dart' show formatMoney;
 import '../../util/phone.dart' show whatsAppUri;
+import '../../util/still_here.dart';
 
 enum _RangeKind { today, week, picked }
 
@@ -119,6 +120,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     setState(() => _pdf = true);
     try {
       final file = await fetchDailySummaryPdf(_range);
+      // Late navigation: left (or leaving) while the PDF was made.
+      if (!mounted || !stillHere(context)) return;
       await fileSharer(
         file,
         subject: '${DailySummaryHe.title} · ${businessContext.displayName}',

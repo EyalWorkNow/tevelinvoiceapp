@@ -133,7 +133,7 @@ class _RetainersMonthScreenState extends State<RetainersMonthScreen> {
       title: run.customerName,
       prices: current,
     );
-    if (prices == null) return;
+    if (prices == null || !mounted) return;
     await _row(run.runId, () => setRetainerRunPrices(run.runId, prices));
   }
 
@@ -156,7 +156,7 @@ class _RetainersMonthScreenState extends State<RetainersMonthScreen> {
         ],
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) return;
     await _row(run.runId, () => removeRetainerRun(run.runId));
   }
 

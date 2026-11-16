@@ -190,7 +190,7 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
       if (id != null && !result.stillScanning) {
         await rememberMyExpense(id);
         if (hint != null) captureSupplierHints[id] = hint;
-        if (!mounted) return;
+        if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
         await openExpenses(context, expenseId: id, replace: true);
         return;
       }

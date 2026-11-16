@@ -246,7 +246,7 @@ class _PaymentSheetState extends State<PaymentSheet> {
         now.year + 2,
       ), // a post-dated cheque carries its own date (§9.1)
     );
-    if (picked != null) setState(() => d.date = isoDay(picked));
+    if (picked != null && mounted) setState(() => d.date = isoDay(picked));
   }
 
   @override

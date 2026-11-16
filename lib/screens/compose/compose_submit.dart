@@ -160,7 +160,7 @@ Future<void> runCompose(
   onStep(ComposeHe.stepIssuing);
   try {
     if (s.config.isQuote) {
-      await _sendQuote(run, messenger);
+      await _sendQuote(run, messenger, alive: () => context.mounted);
       if (context.mounted) {
         unawaited(
           openIssuedQuote(context, run.quoteId!),
@@ -211,6 +211,9 @@ Future<void> runCompose(
       onStep(ComposeHe.stepSending);
       try {
         final link = await createIssueShareLink(id);
+        // Late navigation: the Composer was closed while the link was made —
+        // the document stays issued, WhatsApp does not open by itself.
+        if (!context.mounted) return;
         final text = issueWhatsAppText(
           customerName: s.customer!.name,
           documentType: result.document.documentType,
@@ -372,8 +375,9 @@ Future<IssueResult> _issue(
 
 Future<void> _sendQuote(
   ComposeRun run,
-  ScaffoldMessengerState messenger,
-) async {
+  ScaffoldMessengerState messenger, {
+  required bool Function() alive,
+}) async {
   final s = run.state;
   final customer = s.customer!;
   if (run.quoteId == null) {
@@ -429,6 +433,9 @@ Future<void> _sendQuote(
         );
   // SENT only when it really left: WhatsApp opened / the share sheet shared.
   var sent = false;
+  // Late navigation: the Composer was closed meanwhile; the quote is saved
+  // as a draft, nothing opens by itself.
+  if (!alive()) return;
   try {
     if (run.action == ComposerAction.sendQuoteWhatsApp) {
       sent = await launchAllowed(
