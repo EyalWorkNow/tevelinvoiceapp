@@ -40,7 +40,7 @@ void main() {
   void expectCard(WidgetTester tester, String id, {required bool selected}) =>
       expect(
         tester.getSemantics(find.byKey(Key('branding-template-$id'))),
-        containsSemantics(
+        isSemantics(
           label:
               'תבנית ${invoiceTemplates[id]!.$1}. ${invoiceTemplates[id]!.$2}',
           isButton: true,
