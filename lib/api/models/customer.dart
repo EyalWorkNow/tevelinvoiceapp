@@ -125,6 +125,12 @@ class CustomerDetail {
     this.address,
     this.contactPerson,
     this.paymentTerms,
+    this.paymentTermsDays,
+    this.preferredPaymentMethod,
+    this.effectiveTerms,
+    this.effectiveTermsDays,
+    this.effectiveMethod,
+    this.effectiveSource,
     this.notes,
     this.accountKey,
     this.consentMethod,
@@ -140,6 +146,7 @@ class CustomerDetail {
     final s = jMap(json['stats']);
     final consent = jMap(c['consent']);
     final a = c['address'];
+    final eff = jMap(c['effectivePaymentTerms']);
     return CustomerDetail(
       customer: Customer.fromJson(c),
       address: a is Map
@@ -147,6 +154,15 @@ class CustomerDetail {
           : null,
       contactPerson: jStr(c['contactPerson']),
       paymentTerms: jStr(c['paymentTerms']),
+      paymentTermsDays: jIntOrNull(c['paymentTermsDays']),
+      preferredPaymentMethod: jStr(c['preferredPaymentMethod']),
+      // Before 0110 the server sends only the customer's own code.
+      effectiveTerms: c.containsKey('effectivePaymentTerms')
+          ? jStr(eff['code'])
+          : jStr(c['paymentTerms']),
+      effectiveTermsDays: jIntOrNull(eff['days']),
+      effectiveMethod: jStr(eff['preferredPaymentMethod']),
+      effectiveSource: jStr(eff['source']),
       notes: jStr(c['notes']),
       accountKey: jStr(c['accountKey']),
       consentMethod: jStr(consent['method']),
@@ -162,8 +178,21 @@ class CustomerDetail {
   final CustomerAddress? address;
   final String? contactPerson;
 
-  /// IMMEDIATE | EOM | EOM_30 | EOM_45 | EOM_60 | EOM_90
+  /// IMMEDIATE | EOM | EOM_30 | EOM_45 | EOM_60 | EOM_90 | EOM_DAYS | NET_DAYS
   final String? paymentTerms;
+
+  /// The custom codes' days (0110).
+  final int? paymentTermsDays;
+
+  /// The method a new receipt for this customer starts with (0110).
+  final String? preferredPaymentMethod;
+
+  /// The customer's terms, else the business default (0110): what a new
+  /// document starts with. [effectiveSource]: CUSTOMER | BUSINESS | null.
+  final String? effectiveTerms;
+  final int? effectiveTermsDays;
+  final String? effectiveMethod;
+  final String? effectiveSource;
   final String? notes;
   final String? accountKey;
   final String? consentMethod;

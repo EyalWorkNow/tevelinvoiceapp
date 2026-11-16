@@ -296,7 +296,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
       );
     }
     s.changed();
-    await applyCustomerTerms(s);
+    await applyCustomerTerms(s, preferMethod: !s.methodTouched);
     unawaited(_findRepeat());
     return c;
   }
