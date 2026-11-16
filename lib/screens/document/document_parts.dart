@@ -323,6 +323,38 @@ class DocTimeline extends StatelessWidget {
   }
 }
 
+/// "בתוקף עד …" / "פג תוקף ב-… עדכנו תוקף…".
+String quoteValidityText(Quote quote) {
+  final date = formatDateHe(quote.validUntil);
+  return quote.expired
+      ? DocumentHe.quoteExpiredOn(date)
+      : '${DocumentHe.quoteValidUntil} $date';
+}
+
+/// Under the quote PDF: the status pill and the validity (owner feedback
+/// 2026-11-16 — with the PDF on screen D showed neither).
+class QuoteStatusLine extends StatelessWidget {
+  const QuoteStatusLine({super.key, required this.quote});
+
+  final Quote quote;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    key: const Key('quote-status-line'),
+    spacing: Space.s,
+    runSpacing: Space.xs,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      StatusPill.quote(quoteListStatus(quote.status, expired: quote.expired)),
+      if (quote.validUntil != null)
+        Text(
+          quoteValidityText(quote),
+          style: AppText.secondary.copyWith(color: context.palette.muted),
+        ),
+    ],
+  );
+}
+
 /// Quote card: header, and the lines with BE-06 (shown while the PDF loads,
 /// or instead of it). P0 (list row only): header and a note.
 class QuoteCard extends StatelessWidget {
@@ -352,10 +384,12 @@ class QuoteCard extends StatelessWidget {
             runSpacing: Space.xs,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              StatusPill.quote(quoteListStatus(quote.status)),
+              StatusPill.quote(
+                quoteListStatus(quote.status, expired: quote.expired),
+              ),
               if (quote.validUntil != null)
                 Text(
-                  '${DocumentHe.quoteValidUntil} ${formatDateHe(quote.validUntil)}',
+                  quoteValidityText(quote),
                   style: AppText.secondary.copyWith(color: p.muted),
                 ),
             ],

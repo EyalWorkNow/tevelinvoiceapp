@@ -304,7 +304,10 @@ Future<void> _prefillQuote(ComposeLoad load, String quoteId) async {
   if (q.customerId != null) s.customer = await findCustomer(q.customerId!);
   if (q.editable && q.detailed && !q.amountHidden) {
     load.editQuoteId = q.id;
-    if (q.validUntil != null) s.validUntil = q.validUntil!;
+    // Past its validity ("עדכן תוקף"): the default +14 days stays.
+    if (q.validUntil != null && q.validUntil!.compareTo(todayIso()) >= 0) {
+      s.validUntil = q.validUntil!;
+    }
   }
 }
 

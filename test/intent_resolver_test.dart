@@ -101,6 +101,8 @@ void main() {
     expect(a(DocKind.taxInvoiceReceipt, approval: true), ComposerAction.submit);
     expect(a(DocKind.quote), ComposerAction.sendQuoteWhatsApp);
     expect(a(DocKind.quote, phone: false), ComposerAction.sendQuote);
+    // Without doc.send the share link is refused: save the quote only.
+    expect(a(DocKind.quote, send: false), ComposerAction.saveQuote);
     expect(a(DocKind.taxInvoiceReceipt), ComposerAction.issueAndWhatsApp);
     expect(a(DocKind.taxInvoice, phone: false), ComposerAction.issue);
     expect(

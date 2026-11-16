@@ -249,7 +249,7 @@ void main() {
           viewer(Preset.owner),
         );
         expect((n.row, n.label), (11, 'שלח הצעה'));
-        expect(n.menu, [DocAction.convertQuote]);
+        expect(n.menu, [DocAction.convertQuote, DocAction.editQuote]);
       },
     );
 
@@ -261,7 +261,12 @@ void main() {
           viewer(Preset.owner),
         );
         expect((n.row, n.label), (12, 'הפוך לחשבונית'));
-        expect(n.menu, [DocAction.customerRejected, DocAction.sendAgain]);
+        expect(n.menu, [
+          DocAction.customerAccepted,
+          DocAction.customerRejected,
+          DocAction.sendAgain,
+          DocAction.editQuote,
+        ]);
       },
     );
 
@@ -575,8 +580,10 @@ void main() {
           viewer(Preset.owner),
         );
         expect(sent.menu, [
+          DocAction.customerAccepted,
           DocAction.customerRejected,
           DocAction.sendAgain,
+          DocAction.editQuote,
           DocAction.share,
           DocAction.duplicate,
         ]);
@@ -592,5 +599,93 @@ void main() {
         expect(view.menu, [DocAction.share]);
       },
     );
+  
+    group('quotes owner feedback 2026-11-16', () {
+      test('DRAFT never shared: ערוך · שלח במייל · מחק טיוטה (red, last)', () {
+        final n = nextAction(
+          DocFacts(
+            status: 'DRAFT',
+            isQuote: true,
+            quoteFull: true,
+            quoteDeletable: true,
+            customerHasEmail: true,
+          ),
+          viewer(Preset.owner),
+        );
+        expect(n.primary, DocAction.sendQuote);
+        expect(n.menu, [
+          DocAction.convertQuote,
+          DocAction.editQuote,
+          DocAction.emailQuote,
+          DocAction.share,
+          DocAction.duplicate,
+          DocAction.deleteQuote,
+        ]);
+        expect(docActionLabel(DocAction.deleteQuote), 'מחק טיוטה');
+        expect(docActionLabel(DocAction.emailQuote), 'שלח במייל');
+      });
+
+      test('SENT with e-mail: "הלקוח אישר" first, "שלח במייל" offered', () {
+        final n = nextAction(
+          DocFacts(status: 'SENT', isQuote: true, customerHasEmail: true),
+          viewer(Preset.owner),
+        );
+        expect(n.menu.first, DocAction.customerAccepted);
+        expect(n.menu, contains(DocAction.emailQuote));
+        expect(n.menu, isNot(contains(DocAction.deleteQuote)));
+      });
+
+      test('past validity: "עדכן תוקף" instead of sending a dead link', () {
+        for (final s in ['DRAFT', 'SENT']) {
+          final n = nextAction(
+            DocFacts(status: s, isQuote: true, quoteExpired: true),
+            viewer(Preset.owner),
+          );
+          expect((n.row, n.label), (15, 'עדכן תוקף'), reason: s);
+          expect(n.menu, contains(DocAction.convertQuote), reason: s);
+          expect(n.menu, isNot(contains(DocAction.sendAgain)), reason: s);
+        }
+        final view = nextAction(
+          DocFacts(status: 'SENT', isQuote: true, quoteExpired: true),
+          viewer(Preset.viewer),
+        );
+        expect((view.primary, view.waiting), (null, 'פג תוקף ההצעה'));
+        // An accepted quote does not expire.
+        final acc = nextAction(
+          DocFacts(status: 'ACCEPTED', isQuote: true, quoteExpired: true),
+          viewer(Preset.owner),
+        );
+        expect(acc.row, 13);
+      });
+
+      test('hidden amounts: no edit (it would load ₪0 prices), no e-mail', () {
+        final n = nextAction(
+          DocFacts(
+            status: 'SENT',
+            isQuote: true,
+            amountHidden: true,
+            customerHasEmail: true,
+          ),
+          viewer(Preset.employee),
+        );
+        expect(n.menu, isNot(contains(DocAction.editQuote)));
+        expect(n.menu, isNot(contains(DocAction.emailQuote)));
+      });
+
+      test('viewer: nothing that writes', () {
+        final n = nextAction(
+          DocFacts(
+            status: 'DRAFT',
+            isQuote: true,
+            quoteFull: true,
+            quoteDeletable: true,
+            customerHasEmail: true,
+          ),
+          viewer(Preset.viewer),
+        );
+        expect(n.primary, isNull);
+        expect(n.menu, [DocAction.share]);
+      });
+    });
   });
 }

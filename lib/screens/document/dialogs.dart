@@ -247,3 +247,25 @@ class _PassphraseDialogState extends State<_PassphraseDialog> {
     ],
   );
 }
+
+/// "למחוק את הטיוטה?" (owner feedback 2026-11-16) — true = delete.
+Future<bool> confirmDeleteQuote(BuildContext context) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(DocumentHe.deleteQuoteTitle),
+        content: const Text(DocumentHe.deleteQuoteBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(DocumentHe.keep),
+          ),
+          TextButton(
+            key: const Key('quote-delete-yes'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(DocumentHe.deleteQuoteConfirm),
+          ),
+        ],
+      ),
+    ) ??
+    false;

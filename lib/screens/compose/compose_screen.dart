@@ -703,16 +703,36 @@ class _ComposeScreenState extends State<ComposeScreen> {
         BottomActionArea(
           note: note,
           child: s.ready || bc.offline
-              ? PrimaryButton(
-                  key: const Key('compose-primary'),
-                  label: _isPaymentRequest
-                      ? CommonHe.cont
-                      : actionLabel(action),
-                  offline: bc.offline,
-                  loadingText: _step,
-                  onPressed: () {
-                    if (_armed) _press(action, needsApproval);
-                  },
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    PrimaryButton(
+                      key: const Key('compose-primary'),
+                      label: _isPaymentRequest
+                          ? CommonHe.cont
+                          : actionLabel(action),
+                      offline: bc.offline,
+                      loadingText: _step,
+                      onPressed: () {
+                        if (_armed) _press(action, needsApproval);
+                      },
+                    ),
+                    // Owner feedback 2026-11-16: a quote can be saved (and
+                    // previewed / edited in D) before it goes to the customer.
+                    if (s.config.isQuote && action != ComposerAction.saveQuote)
+                      TextButton(
+                        key: const Key('compose-save-quote'),
+                        onPressed: bc.offline || _step != null
+                            ? null
+                            : () {
+                                if (_armed) {
+                                  _press(ComposerAction.saveQuote, needsApproval);
+                                }
+                              },
+                        child: Text(actionLabel(ComposerAction.saveQuote)),
+                      ),
+                  ],
                 )
               : const _ButtonSpace(),
         ),
