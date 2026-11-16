@@ -323,6 +323,7 @@ const Set<String> _ownerPerms = {
   'item:manage',
   'payment:refund',
   'allocation:request',
+  'audit:read', // C5: owner / partner / accountants, never a grant
 };
 
 const List<PresetSpec> presets = [
@@ -347,6 +348,7 @@ const List<PresetSpec> presets = [
       'account',
       'desktop',
       'notifications',
+      'audit', // C5 (audit:read)
       'integrations',
       'subscription',
     },
@@ -379,6 +381,7 @@ const List<PresetSpec> presets = [
       'account',
       'desktop',
       'notifications',
+      'audit', // C5 (audit:read)
       'integrations',
     },
     cancelCredit: true,
@@ -478,6 +481,7 @@ const List<PresetSpec> presets = [
       'account',
       'desktop',
       'notifications',
+      'audit', // C5 (audit:read)
     },
     cancelCredit: false,
     approve: false,
@@ -490,6 +494,7 @@ const List<PresetSpec> presets = [
       'expense:approve',
       'money:read',
       'report:read',
+      'audit:read', // C5
       'export:run',
       'allocation:request',
       'settings:numbering',
@@ -514,6 +519,7 @@ const List<PresetSpec> presets = [
       'account',
       'desktop',
       'notifications',
+      'audit', // C5 (audit:read)
     },
     cancelCredit: true,
     approve: true,
@@ -533,6 +539,7 @@ const List<PresetSpec> presets = [
       'approval:decide',
       'money:read',
       'report:read',
+      'audit:read', // C5
       'export:run',
       'customer:manage',
       'supplier:manage',
@@ -579,6 +586,7 @@ const List<PresetSpec> presets = [
       'account',
       'desktop',
       'notifications',
+      'audit', // C5 (audit:read)
       'integrations',
       'subscription',
     },

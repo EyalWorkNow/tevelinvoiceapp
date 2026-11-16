@@ -93,7 +93,8 @@ Future<void> sendDocumentWhatsApp(
 /// overdue list). Only ever runs from a user tap. [link] = the existing
 /// share-link creation; a usable phone (wa.me 972…) → the customer's WhatsApp
 /// chat with [ReminderHe.message]; no phone, or WhatsApp did not open → the
-/// share sheet with [ReminderHe.short]. Records "last reminded" locally.
+/// share sheet with [ReminderHe.short]. Records "last reminded" on the
+/// server and this device (C1). [previous]: reminders already sent (tone).
 Future<void> sendPaymentReminder({
   required String documentId,
   required String documentType,
@@ -105,6 +106,7 @@ Future<void> sendPaymentReminder({
   required Future<String> Function() link,
   String? paymentUrl,
   DateTime? now,
+  int previous = 0,
 }) async {
   final url = await link();
   final wa = waPhone(phone);
@@ -122,6 +124,7 @@ Future<void> sendPaymentReminder({
           business: _businessName,
           link: url,
           paymentUrl: paymentUrl,
+          previous: previous,
         ),
       ),
     );
@@ -137,7 +140,11 @@ Future<void> sendPaymentReminder({
       ),
     );
   }
-  await ReminderLog.record(documentId, at: now);
+  await ReminderLog.record(
+    documentId,
+    at: now,
+    channel: opened ? 'WHATSAPP' : 'SHARE',
+  );
 }
 
 /// The original (or [copy]) PDF through the iOS share sheet.

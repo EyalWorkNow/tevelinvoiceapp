@@ -70,6 +70,9 @@ class DashboardSummary {
 enum InboxKind {
   approvalNeeded('APPROVAL_NEEDED'),
   myRejected('MY_REJECTED'),
+
+  /// C6: the accountant asked to correct / credit a document.
+  correctionRequested('CORRECTION_REQUESTED'),
   taxInvoiceDue('TAX_INVOICE_DUE'),
   paymentWithoutReceipt('PAYMENT_WITHOUT_RECEIPT'),
   allocationProblem('ALLOCATION_PROBLEM'),
@@ -133,6 +136,8 @@ class InboxItem {
     this.dueDate,
     this.daysLeft,
     this.setupStep,
+    this.requestId,
+    this.requestedAmountMinor,
   });
 
   /// [now] turns BE-05 `detail.refreshTokenExpiresAt` into [daysLeft].
@@ -152,12 +157,16 @@ class InboxItem {
       documentType: pick('documentType'),
       reason: rejection is Map
           ? jStr(rejection['reason'])
-          : jStr(json['reason']),
+          : jStr(json['reason']) ?? jStr(d['reason']),
       dueDate: jStr(d['dueBy']) ?? jStr(json['dueDate']),
       daysLeft:
           jIntOrNull(json['daysLeft']) ??
           _shaamDaysLeft(d, now ?? DateTime.now()),
       setupStep: SetupStep.fromWire(pick('step')),
+      requestId: pick('requestId'),
+      requestedAmountMinor: jBigOrNull(
+        d['requestedAmountMinor'] ?? json['requestedAmountMinor'],
+      ),
     );
   }
 
@@ -187,6 +196,11 @@ class InboxItem {
   final int? daysLeft;
   final SetupStep? setupStep;
 
+  /// CORRECTION_REQUESTED (C6): the oldest open request and the amount the
+  /// accountant asked to credit (null = the owner decides).
+  final String? requestId;
+  final BigInt? requestedAmountMinor;
+
   Map<String, dynamic> toJson() => {
     'kind': kind.wire,
     'count': count,
@@ -201,6 +215,9 @@ class InboxItem {
     'dueDate': ?dueDate,
     'daysLeft': ?daysLeft,
     if (setupStep != null) 'step': setupStep!.wire,
+    'requestId': ?requestId,
+    if (requestedAmountMinor != null)
+      'requestedAmountMinor': requestedAmountMinor.toString(),
   };
 }
 

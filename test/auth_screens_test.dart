@@ -209,7 +209,8 @@ void main() {
       await tester.ensureVisible(find.text('כניסה'));
       await tester.tap(find.text('כניסה'));
       // AppCache writes real files: let real async I/O run.
-      for (var i = 0; i < 5; i++) {
+      // Pump until signed in (more startup I/O since Stage A); bounded.
+      for (var i = 0; i < 40 && session.status != SessionStatus.signedIn; i++) {
         await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 50)),
         );

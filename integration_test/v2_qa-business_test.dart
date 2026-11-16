@@ -66,6 +66,8 @@ const allBusinessRows = {
   // PM 2026-11-12: integrations / subscription / notifications / desktop sit
   // under one "עוד הגדרות" row when two or more of them exist.
   'more',
+  // C5: "יומן פעולות" (audit:read), under "עוד הגדרות".
+  'audit',
 };
 
 late QaUser owner, staff, viewer, accountant, cpaRep, roleUser, switchUser;
@@ -678,15 +680,22 @@ void main() {
           'report:read',
         );
         if (reportRead) {
+          // C6: the "מוכן לרו״ח" card sits above the income card (which can
+          // be below the fold in the lazy list): wait for the period line.
           await waitFor(
             tester,
-            find.byKey(const Key('report-card-income')),
+            find.byKey(const Key('report-period')),
             seconds: 20,
           );
           expect(
             periodLabel(tester),
             label,
             reason: 'AT-26 period label $label (vatReporting=$vat)',
+          );
+          // C6: the readiness card sits above the report cards.
+          await scrollUntilBuilt(
+            tester,
+            find.byKey(const Key('report-card-expenses')),
           );
           expect(
             find.byKey(const Key('report-card-expenses')),
@@ -788,17 +797,20 @@ void main() {
       await scrollUntilBuilt(tester, find.byKey(const Key('brow-reports')));
       await tester.tap(find.byKey(const Key('brow-reports')));
       await waitFor(tester, find.byType(ReportsScreen), seconds: 20);
+      // C6: the "מוכן לרו״ח" card sits above the report cards (lazy list).
       await waitFor(
         tester,
-        find.byKey(const Key('report-card-income')),
+        find.byKey(const Key('report-period')),
         seconds: 20,
       );
-      expect(
-        find.byKey(const Key('report-card-vat')),
-        findsOneWidget,
-        reason: '§11 owner: income · VAT · debts',
-      );
-      expect(find.byKey(const Key('report-card-receivables')), findsOneWidget);
+      for (final k in ['income', 'vat', 'receivables']) {
+        await scrollUntilBuilt(tester, find.byKey(Key('report-card-$k')));
+        expect(
+          find.byKey(Key('report-card-$k')),
+          findsOneWidget,
+          reason: '§11 owner: income · VAT · debts ($k)',
+        );
+      }
       expect(
         find.byKey(const Key('send-to-accountant')),
         findsOneWidget,
@@ -1018,7 +1030,11 @@ void main() {
       // SA5 (persona 01): a one-person פטור keeps "צוות והרשאות" under
       // "עוד הגדרות", not among the main rows.
       expect(rows, containsAll(['reports', 'profile']));
-      expect(rows, isNot(contains('team')), reason: 'solo פטור: under עוד הגדרות');
+      expect(
+        rows,
+        isNot(contains('team')),
+        reason: 'solo פטור: under עוד הגדרות',
+      );
       expectScreenRules('B solo');
 
       await tester.tap(find.byKey(const Key('brow-reports')));

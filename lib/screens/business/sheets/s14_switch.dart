@@ -17,10 +17,13 @@ import '../../../api/client.dart';
 import '../../../api/settings_api.dart' show serverHasPost;
 import '../../../api/models/models.dart';
 import '../../../router.dart';
+import '../../../state/business_context.dart';
 import '../../../state/session.dart';
 import '../../../ui/ds.dart';
 import '../../auth/onboarding_screen.dart' show openNewBusiness;
 import '../../../util/labels/labels.dart';
+import '../../reports/readiness_card.dart' show ReadinessBadge;
+import 'readiness_board.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 /// [required] = right after sign-in with several businesses (no dismiss, no
@@ -61,15 +64,27 @@ class _SwitchBusinessSheetState extends State<SwitchBusinessSheet> {
   int _remoteTotal = 0;
   bool _canAdd = false;
 
+  /// C6: the accountant's board (scores per business, least ready first).
+  final ReadinessBoard _board = ReadinessBoard();
+  int _boardLimit = ReadinessBoard.pageSize;
+
   @override
   void initState() {
     super.initState();
+    _board.addListener(_onBoard);
     if (!widget.required) unawaited(_probeAdd());
+  }
+
+  void _onBoard() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _board
+      ..removeListener(_onBoard)
+      ..dispose();
     super.dispose();
   }
 
@@ -164,6 +179,14 @@ class _SwitchBusinessSheetState extends State<SwitchBusinessSheet> {
                   if (b.legalName.toLowerCase().contains(q.toLowerCase())) b,
               ]);
     final current = session.business?.businessId;
+    // C6: an accountant of several businesses sees each one's readiness,
+    // least ready first, a page at a time; scores load for the shown rows only.
+    final board = ReadinessBoard.appliesTo(
+      all,
+      actingAsAccountant: businessContext.caps.homeIsReports,
+    );
+    final rows = board ? _board.sort(shown).take(_boardLimit).toList() : shown;
+    if (board) _board.ensure(rows);
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Column(
@@ -204,12 +227,40 @@ class _SwitchBusinessSheetState extends State<SwitchBusinessSheet> {
               shrinkWrap: true,
               padding: const EdgeInsets.symmetric(horizontal: Space.page),
               children: [
-                for (final b in shown)
+                if (board)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Space.xs),
+                    child: Text(
+                      ReadinessHe.sortedLeastReady,
+                      key: const Key('s14-board'),
+                      style: AppText.secondary.copyWith(color: p.muted),
+                    ),
+                  ),
+                for (final b in rows)
                   _BusinessRow(
                     business: b,
                     current: b.businessId == current,
                     loading: _loadingId == b.businessId,
                     onTap: () => _pick(b),
+                    readiness:
+                        board &&
+                            ReadinessBoard.rowApplies(b) &&
+                            (_board.isLoading(b.businessId) ||
+                                _board.scoreOf(b.businessId) != null)
+                        ? ReadinessBadge(
+                            key: Key('s14-score-${b.businessId}'),
+                            score: _board.scoreOf(b.businessId),
+                            size: 36,
+                          )
+                        : null,
+                    readinessScore: board ? _board.scoreOf(b.businessId) : null,
+                  ),
+                if (board && rows.length < shown.length)
+                  TextButton(
+                    key: const Key('s14-board-more'),
+                    onPressed: () =>
+                        setState(() => _boardLimit += ReadinessBoard.pageSize),
+                    child: const Text(ReadinessHe.showMore),
                   ),
                 if (_remote != null && _remote!.length < _remoteTotal)
                   TextButton(
@@ -256,12 +307,18 @@ class _BusinessRow extends StatelessWidget {
     required this.current,
     required this.loading,
     required this.onTap,
+    this.readiness,
+    this.readinessScore,
   });
 
   final Business business;
   final bool current;
   final bool loading;
   final VoidCallback onTap;
+
+  /// C6: the accountant's board badge (score ring).
+  final Widget? readiness;
+  final int? readinessScore;
 
   @override
   Widget build(BuildContext context) {
@@ -271,7 +328,8 @@ class _BusinessRow extends StatelessWidget {
       button: true,
       selected: current,
       label:
-          '${business.legalName}, $role${current ? ', ${BusinessHe.active}' : ''}',
+          '${business.legalName}, $role${current ? ', ${BusinessHe.active}' : ''}'
+          '${readinessScore == null ? '' : ', ${ReadinessHe.scoreSemantics(readinessScore!, ReadinessHe.badge(readinessScore!, 90))}'}',
       excludeSemantics: true,
       child: InkWell(
         key: Key('s14-${business.businessId}'),
@@ -304,6 +362,10 @@ class _BusinessRow extends StatelessWidget {
                   ],
                 ),
               ),
+              if (readiness != null) ...[
+                readiness!,
+                const SizedBox(width: Space.s),
+              ],
               if (loading)
                 const SizedBox.square(
                   dimension: 22,

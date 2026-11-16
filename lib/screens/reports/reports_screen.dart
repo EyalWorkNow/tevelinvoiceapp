@@ -29,6 +29,9 @@ import '../business/sheets/s14_switch.dart';
 import '../home/inbox_cards.dart' show inboxCardFor;
 import '../../util/allocation_meter.dart' show AllocationHe;
 import 'allocation_scan_view.dart';
+import 'daily_summary_view.dart';
+import '../../api/readiness_api.dart';
+import 'readiness_card.dart';
 import 'report_view.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
@@ -51,6 +54,8 @@ class ReportsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => kind == allocationScanKind
       ? const AllocationScanView()
+      : kind == dailySummaryKind
+      ? const DailySummaryView()
       : kind != null
       ? ReportView(kind: kind!, period: ReportPeriod.parse(period))
       : _Reports(period: ReportPeriod.parse(period), embedded: embedded);
@@ -140,6 +145,9 @@ class _ReportsState extends State<_Reports> {
   BigInt? _periodIncome;
   bool _cards = false;
   List<InboxItem> _todo = const [];
+
+  /// C6 "מוכן לרו״ח" of the selected period (null = not served / no access).
+  Readiness? _readiness;
   bool _loading = true;
   Object? _error;
   String? _exporting;
@@ -180,6 +188,9 @@ class _ReportsState extends State<_Reports> {
         widget.embedded
             ? _optionalInbox()
             : Future<Object?>.value(const <InboxItem>[]),
+        caps.can(Cap.reportView)
+            ? _optionalReadiness()
+            : Future<Object?>.value(),
       ]);
       final cards = results[1] as bool;
       // The headline follows the chip: income of the selected period (BE-18).
@@ -201,6 +212,7 @@ class _ReportsState extends State<_Reports> {
         _periodIncome = periodIncome;
         _cards = cards;
         _todo = results[2] as List<InboxItem>;
+        _readiness = results[3] as Readiness?;
         _loading = false;
       });
     } on Object catch (e) {
@@ -220,6 +232,21 @@ class _ReportsState extends State<_Reports> {
     } on Object {
       return const [];
     }
+  }
+
+  /// C6: the readiness card never blocks R either.
+  Future<Readiness?> _optionalReadiness() async {
+    try {
+      return await fetchReadiness(_period);
+    } on Object {
+      return null;
+    }
+  }
+
+  /// "שלח לרו״ח": below the readiness threshold only after an explicit confirm.
+  Future<void> _sendToAccountant() async {
+    if (!await confirmSendBelowThreshold(context, _readiness)) return;
+    await _export('accountant');
   }
 
   Future<void> _uniformFormat() async {
@@ -281,6 +308,14 @@ class _ReportsState extends State<_Reports> {
           style: AppText.secondary,
         ),
         const SizedBox(height: Space.s),
+        if (_readiness != null) ...[
+          ReadinessCard(
+            readiness: _readiness!,
+            period: _key.name,
+            onChanged: () => unawaited(_load()),
+          ),
+          const SizedBox(height: Space.m),
+        ],
         if (_periodIncome != null)
           MoneyCard(
             key: const Key('period-income'),
@@ -332,6 +367,8 @@ class _ReportsState extends State<_Reports> {
             ),
         ],
         for (final k in [
+          // C2: the till's day first (the salon's first question each evening).
+          if (owner && caps.can(Cap.docView)) dailySummaryKind,
           if (_cards) ...reportKinds(caps, exempt: exempt),
           if (caps.can(Cap.docView))
             paymentsReportKind, // §3.3: R → "תקבולים" (BE-11)
@@ -355,6 +392,7 @@ class _ReportsState extends State<_Reports> {
                     ),
                     child: Icon(
                       switch (k) {
+                        dailySummaryKind => Iconsax.calendar_tick,
                         'vat' => Iconsax.percentage_circle,
                         'debts' || 'receivables' => Iconsax.wallet_2,
                         paymentsReportKind => Iconsax.money_recive,
@@ -377,6 +415,8 @@ class _ReportsState extends State<_Reports> {
                         Text(
                           k == allocationScanKind
                               ? AllocationHe.scanTitle
+                              : k == dailySummaryKind
+                              ? DailySummaryHe.title
                               : ReportsHe.kinds[k] ?? k,
                           style: AppText.headline,
                         ),
@@ -440,7 +480,7 @@ class _ReportsState extends State<_Reports> {
                   ? ReportsHe.preparing
                   : null,
               offline: session.offline,
-              onPressed: () => _export('accountant'),
+              onPressed: _sendToAccountant,
             ),
           )
         : null;
@@ -515,6 +555,7 @@ class _ReportsState extends State<_Reports> {
     'customers' => 'פירוט הכנסות לפי לקוח',
     'continuity' => 'רצף המסמכים והמספור בעסק',
     paymentsReportKind => 'תשלומים שנרשמו ושיוכם למסמכים',
+    dailySummaryKind => DailySummaryHe.cardHint,
     allocationScanKind => AllocationHe.scanHint,
     _ => 'פירוט הנתונים לתקופה שנבחרה',
   };

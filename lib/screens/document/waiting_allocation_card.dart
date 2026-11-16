@@ -74,6 +74,7 @@ class WaitingAllocationCard extends StatelessWidget {
                         PendingPaymentHe.pendingLine(
                           pay.amountMinor,
                           pay.method,
+                          pay.reference,
                         ),
                         style: AppText.body.copyWith(color: p.ink),
                       ),

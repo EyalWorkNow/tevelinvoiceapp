@@ -168,7 +168,8 @@ List<(String, String)> timelineOf(
 }
 
 /// BE-12: the server timeline (audit events, oldest first) in words; event
-/// types without a label are left out.
+/// types without a label are left out. C5: each step names its actor, and a
+/// rejection carries its reason.
 List<(String, String)> timelineFromEvents(
   List<TimelineEvent> events, {
   BuildContext? context,
@@ -183,18 +184,27 @@ List<(String, String)> timelineFromEvents(
     for (final e in events)
       if (DocumentHe.timelineEvents[e.event] case final label?)
         (
-          label,
+          // C5 (persona 05): every step says who — "אושר על ידי אורי".
+          e.actor == null || _customerSide.contains(e.event)
+              ? label
+              : DocumentHe.timelineBy(label, e.actor!),
           [
             if (e.event == 'payment.allocated') money(e.detail['amountMinor']),
             if (e.event == 'document.credited')
               money(e.detail['creditTotalMinor']),
             if (e.event == 'document.sent' && e.detail['recipient'] != null)
               '${e.detail['recipient']}',
+            if (e.event == 'document.approval_rejected' &&
+                '${e.detail['reason'] ?? ''}'.trim().isNotEmpty)
+              DocumentHe.timelineReason('${e.detail['reason']}'.trim()),
             _localDay(e.at),
           ].where((t) => t.isNotEmpty).join(' · '),
         ),
   ];
 }
+
+/// Steps the customer took (public link): no team member to name.
+const _customerSide = {'document.share_downloaded'};
 
 String _localDay(String at) {
   final t = DateTime.tryParse(at);
@@ -226,7 +236,7 @@ class DocPaymentsList extends StatelessWidget {
                 Expanded(
                   child: Text(
                     [
-                      paymentMethodLabel(pay.method),
+                      paymentLabelOf(pay.method, pay.reference),
                       if (pay.paymentDate != null)
                         formatDateHe(pay.paymentDate),
                       if (pay.voidedAt != null) DocumentHe.voidedPayment,

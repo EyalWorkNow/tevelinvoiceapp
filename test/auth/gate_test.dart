@@ -11,7 +11,6 @@ import 'package:invoice/screens/auth/mfa_sheet.dart';
 import 'package:invoice/screens/auth/onboarding_screen.dart';
 import 'package:invoice/screens/billing/billing_screen.dart';
 import 'package:invoice/app_shell.dart';
-import 'package:invoice/router.dart' show navigatorKey;
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/ds.dart';
@@ -299,10 +298,7 @@ void main() {
       await settle(tester);
       expect(find.byType(RequiredSubscriptionScreen), findsNothing);
       expect(find.byType(AppShell), findsOneWidget);
-      // Closed once → not shown again in this launch.
-      await tester.runAsync(() => routeSignedIn(navigatorKey.currentContext!));
-      await settle(tester);
-      expect(find.byType(RequiredSubscriptionScreen), findsNothing);
+      // "Not shown again in this launch" is covered by the build-10 group below.
     },
   );
 

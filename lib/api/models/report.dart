@@ -185,3 +185,170 @@ class ReportData {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// C2 · "סיכום יום" — GET /reports/daily-summary?date= | from=&to=
+// ---------------------------------------------------------------------------
+
+/// The ranges of the daily summary: one Israel civil day, or this week.
+/// (PeriodKey stays the VAT-period chips of R; a till closes per day.)
+class DailyRange {
+  const DailyRange(this.from, this.to);
+
+  /// [day] alone (today by default).
+  factory DailyRange.day(DateTime day) {
+    final d = DateTime(day.year, day.month, day.day);
+    return DailyRange(d, d);
+  }
+
+  /// Sunday (the Israeli week start) up to [now]'s day.
+  factory DailyRange.week(DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+    // DateTime.weekday: Monday = 1 … Sunday = 7.
+    final sunday = today.subtract(Duration(days: today.weekday % 7));
+    return DailyRange(sunday, today);
+  }
+
+  final DateTime from;
+  final DateTime to;
+
+  bool get isDay => from == to;
+
+  String get fromIso => _iso(from);
+  String get toIso => _iso(to);
+
+  Map<String, String> get query =>
+      isDay ? {'date': fromIso} : {'from': fromIso, 'to': toIso};
+
+  /// '16.11.2026' or '15–21.11.2026' (wrap in ltrIsolate() inside Hebrew).
+  String get label {
+    String d(DateTime x) => '${x.day}.${x.month}.${x.year}';
+    if (isDay) return d(from);
+    if (from.year == to.year && from.month == to.month) {
+      return '${from.day}–${d(to)}';
+    }
+    return '${d(from)}–${d(to)}';
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is DailyRange && other.from == from && other.to == to;
+
+  @override
+  int get hashCode => Object.hash(from, to);
+
+  static String _iso(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+/// One method bucket: CASH | CREDIT_CARD | CHECK | BANK_TRANSFER | BIT |
+/// PAYBOX | OTHER (bit / PayBox = BANK_TRANSFER + wallet reference).
+class DailyMethodTotal {
+  const DailyMethodTotal({
+    required this.method,
+    required this.label,
+    required this.count,
+    required this.totalMinor,
+  });
+
+  factory DailyMethodTotal.fromJson(Map<String, dynamic> j) => DailyMethodTotal(
+    method: jStr(j['method']) ?? 'OTHER',
+    label: jStr(j['label']) ?? '',
+    count: jIntOrNull(j['count']) ?? 0,
+    totalMinor: jBig(j['totalMinor']),
+  );
+
+  final String method;
+  final String label;
+  final int count;
+  final BigInt totalMinor;
+}
+
+/// One payment of the range (time in Israel; the receipt that covers it).
+class DailyReceipt {
+  const DailyReceipt({
+    required this.paymentId,
+    required this.day,
+    required this.time,
+    required this.method,
+    required this.summaryMethod,
+    required this.amountMinor,
+    this.reference,
+    this.documentId,
+    this.documentType,
+    this.documentNumber,
+    this.customerName,
+  });
+
+  factory DailyReceipt.fromJson(Map<String, dynamic> j) => DailyReceipt(
+    paymentId: jStr(j['paymentId']) ?? '',
+    day: jStr(j['day']) ?? '',
+    time: jStr(j['time']) ?? '',
+    method: jStr(j['method']) ?? 'OTHER',
+    summaryMethod: jStr(j['summaryMethod']) ?? jStr(j['method']) ?? 'OTHER',
+    amountMinor: jBig(j['amountMinor']),
+    reference: jStr(j['reference']),
+    documentId: jStr(j['documentId']),
+    documentType: jStr(j['documentType']),
+    documentNumber: jStr(j['documentNumber']),
+    customerName: jStr(j['customerName']),
+  );
+
+  final String paymentId;
+  final String day;
+  final String time;
+  final String method;
+
+  /// The bucket (BIT / PAYBOX for a wallet transfer).
+  final String summaryMethod;
+  final BigInt amountMinor;
+  final String? reference;
+  final String? documentId;
+  final String? documentType;
+  final String? documentNumber;
+  final String? customerName;
+}
+
+class DailySummary {
+  const DailySummary({
+    required this.from,
+    required this.to,
+    required this.restricted,
+    required this.count,
+    required this.ownCount,
+    this.totalMinor,
+    this.byMethod = const [],
+    this.receipts = const [],
+    this.truncated = false,
+  });
+
+  factory DailySummary.fromJson(Map<String, dynamic> j) => DailySummary(
+    from: jStr(j['from']) ?? '',
+    to: jStr(j['to']) ?? '',
+    restricted: jBool(j['restricted']),
+    count: jIntOrNull(j['count']) ?? 0,
+    ownCount: jIntOrNull(j['ownCount']) ?? 0,
+    totalMinor: jBigOrNull(j['totalMinor']),
+    byMethod: [
+      for (final m in (j['byMethod'] as List? ?? const []))
+        DailyMethodTotal.fromJson(jMap(m)),
+    ],
+    receipts: [
+      for (final r in (j['receipts'] as List? ?? const []))
+        DailyReceipt.fromJson(jMap(r)),
+    ],
+    truncated: jBool(j['truncated']),
+  );
+
+  final String from;
+  final String to;
+
+  /// No money:read (employee / cashier): only [ownCount], no amounts.
+  final bool restricted;
+  final int count;
+  final int ownCount;
+  final BigInt? totalMinor;
+  final List<DailyMethodTotal> byMethod;
+  final List<DailyReceipt> receipts;
+  final bool truncated;
+}

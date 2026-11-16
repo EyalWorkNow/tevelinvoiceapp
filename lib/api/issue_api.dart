@@ -27,6 +27,7 @@ import '../state/business_context.dart';
 import '../state/cache.dart';
 import '../state/session.dart';
 import '../util/composer_config.dart' show isPaidServerType;
+import '../util/labels/payment_he.dart' show walletReference, wireMethod;
 import 'client.dart';
 import 'documents_api.dart' show fetchDocument, notifyDocumentsChanged;
 import 'models/models.dart';
@@ -144,7 +145,11 @@ Future<IssueResult?> resumeIssueFor(
 }) async {
   final p = await loadPendingIssue();
   if (p == null || p.draftId != documentId) return null;
-  if (skipPayment) p.payment = null;
+  if (skipPayment) {
+    p
+      ..payment = null
+      ..splitPayments = const [];
+  }
   return runIssue(p, unlockSigning: unlockSigning);
 }
 
@@ -207,9 +212,9 @@ Future<IssueResult> _runDocument(
     }
     p.scopeKey ??= await resolveScopeKey();
     p.finalizeKey ??= ApiClient.newIdempotencyKey();
-    if (p.payment != null) p.paymentDate ??= todayIso();
+    if (p.hasPayment) p.paymentDate ??= todayIso();
     await save();
-    final pay = p.payment;
+    final pay = p.hasPayment ? p : null;
     final Map<String, dynamic> json;
     try {
       json = await _api.post('/documents/$id/finalize', {
@@ -217,7 +222,9 @@ Future<IssueResult> _runDocument(
         if (p.requestAllocation) 'requestAllocation': true,
         // SA2: if the document has to wait for its allocation number, the server
         // keeps the money with it (and records it when the number arrives).
-        if (pay != null) 'pendingPayments': [pay.pendingBody(p.paymentDate!)],
+        if (pay != null) 'pendingPayments': pendingBodiesOf(p),
+        // C3: a split payment is recorded with the issue itself (one transaction).
+        if (p.split) 'recordPendingPayments': true,
       }, p.finalizeKey);
     } on ApiException catch (e) {
       if (e.code == 'APPROVAL_REQUIRED') return _submitResult(p);
@@ -226,7 +233,7 @@ Future<IssueResult> _runDocument(
     }
     p.documentNumber = json['documentNumber']?.toString();
     // B1: the cashier's payment was recorded with the finalize (same request).
-    if (json['paymentRecorded'] == true) p.payment = null;
+    if (json['paymentRecorded'] == true) p.dropPayments();
     final waiting = json['status'] == 'WAITING_FOR_ALLOCATION';
     p.stage = waiting ? IssueStage.waitingAllocation : IssueStage.finalized;
     if (waiting && pay != null) {
@@ -234,7 +241,7 @@ Future<IssueResult> _runDocument(
       // The server answered with the stored payment: the phone keeps no copy.
       if (json['pendingPayments'] is List &&
           (json['pendingPayments'] as List).isNotEmpty) {
-        p.payment = null;
+        p.dropPayments();
       }
     }
     await save();
@@ -244,7 +251,7 @@ Future<IssueResult> _runDocument(
   // Waiting for a SHAAM number: ask the ITA once now (AT-60: the number lands on D
   // with no extra step); anything else stays on D (§6.D 4/5) and resume calls again.
   if (p.stage == IssueStage.waitingAllocation) {
-    if (p.payment != null) {
+    if (p.hasPayment) {
       p.paymentViaServer = true;
       try {
         await _uploadPendingPayment(p); // an older server: the copy stays here
@@ -267,6 +274,11 @@ Future<IssueResult> _runDocument(
 
   // PAID 320: the payment, with the server's total.
   if (p.stage == IssueStage.artifact) {
+    // C3: an older server did not record the split with finalize — each line
+    // now, with the keys finalize used (never twice).
+    if (p.split && !await _uploadPendingPayment(p)) {
+      throw ApiException(404, 'NOT_FOUND', 'NOT_FOUND');
+    }
     var pay = p.payment;
     // SA2: it waited with the document → the server records it (never twice).
     if (pay != null && p.paymentViaServer && await _uploadPendingPayment(p)) {
@@ -307,11 +319,15 @@ Future<IssueResult> _runReceipt(
   void report() => onStage?.call(p.stage);
   Future<void> save() => savePendingIssue(p);
   if (p.stage.index < IssueStage.finalized.index) {
-    final pay = p.payment!;
+    final pay = p.split ? p.splitPayments.first : p.payment!;
     // B1: the cashier records no payment on its own — the receipt carries it
     // (one request, capped by the server).
-    final inline = businessContext.caps.isCashier;
-    if (!inline) await _createPayment(p, pay, p.totalMinor);
+    final inline = businessContext.caps.isCashier && !p.split;
+    if (p.split) {
+      await _createSplitPayments(p);
+    } else if (!inline) {
+      await _createPayment(p, pay, p.totalMinor);
+    }
     p.paymentDate ??= todayIso();
     p.scopeKey ??= await resolveScopeKey();
     p.receiptKey ??= ApiClient.newIdempotencyKey();
@@ -324,7 +340,8 @@ Future<IssueResult> _runReceipt(
           'payment': pay.requestBody(p.totalMinor, p.paymentDate!)
         else
           'paymentIds': [
-            {'id': p.paymentId},
+            for (final id in p.split ? p.splitPaymentIds : [p.paymentId])
+              {'id': id},
           ],
         if (p.body['customerId'] != null) 'customerId': p.body['customerId'],
       }, p.receiptKey);
@@ -457,29 +474,67 @@ Future<void> _createPayment(
 /// (the local copy is dropped); false = a server without SA2 (keep it here).
 /// Network errors are thrown.
 Future<bool> _uploadPendingPayment(PendingIssue p) async {
-  final pay = p.payment;
   final id = p.draftId;
-  if (pay == null || id == null) return true;
+  if (!p.hasPayment || id == null) return true;
   p.finalizeKey ??= ApiClient.newIdempotencyKey();
   p.paymentDate ??= todayIso();
   await savePendingIssue(p);
+  final bodies = pendingBodiesOf(p);
   try {
-    await _api.post(
-      '/documents/$id/pending-payments',
-      pay.pendingBody(p.paymentDate!),
-      pendingPaymentKey(p.finalizeKey!),
-    );
+    for (var i = 0; i < bodies.length; i++) {
+      await _api.post(
+        '/documents/$id/pending-payments',
+        bodies[i],
+        pendingPaymentKey(p.finalizeKey!, i),
+      );
+    }
   } on ApiException catch (e) {
     if (e.status == 404 && e.code == 'NOT_FOUND') return false; // no route yet
     rethrow;
   }
-  p.payment = null;
+  p.dropPayments();
   await savePendingIssue(p);
   return true;
 }
 
-/// The key the server gives the first payment sent with POST /finalize.
-String pendingPaymentKey(String finalizeKey) => '$finalizeKey:pending:0';
+/// The key the server gives payment [index] sent with POST /finalize.
+String pendingPaymentKey(String finalizeKey, [int index = 0]) =>
+    '$finalizeKey:pending:$index';
+
+/// finalize / submit / pending-payments bodies of [p]: its one payment, or
+/// the split lines (C3). The last line of a split document goes without an
+/// amount: the server gives it what is still open, so a rounding difference
+/// between the preview and the server total never leaves a balance.
+List<Map<String, dynamic>> pendingBodiesOf(PendingIssue p) {
+  final date = p.paymentDate ?? todayIso();
+  if (!p.split) return [if (p.payment != null) p.payment!.pendingBody(date)];
+  final lines = p.splitPayments;
+  return [
+    for (var i = 0; i < lines.length; i++)
+      (i == lines.length - 1 ? lines[i].withoutAmount() : lines[i]).pendingBody(
+        date,
+      ),
+  ];
+}
+
+/// C3 receipt (400 / 405) split: one POST /payments per line, each with its
+/// own key (`<paymentKey>:<i>`), then one POST /receipts links them all.
+Future<void> _createSplitPayments(PendingIssue p) async {
+  p.paymentKey ??= ApiClient.newIdempotencyKey();
+  p.paymentDate ??= todayIso();
+  final lines = p.splitPayments;
+  final ids = [...p.splitPaymentIds];
+  for (var i = ids.length; i < lines.length; i++) {
+    final json = await _api.post(
+      '/payments',
+      lines[i].requestBody(lines[i].amountMinor!, p.paymentDate!),
+      '${p.paymentKey}:$i',
+    );
+    ids.add(json['paymentId'] as String);
+    p.splitPaymentIds = ids;
+    await savePendingIssue(p);
+  }
+}
 
 final Set<String> _uploadedFor = {};
 
@@ -493,7 +548,7 @@ Future<void> uploadLocalPendingPayment() async {
   try {
     final p = await loadPendingIssue();
     if (p == null ||
-        p.payment == null ||
+        !p.hasPayment ||
         p.draftId == null ||
         p.receiptOnly ||
         p.businessId != business) {
@@ -564,7 +619,11 @@ Future<void> updatePendingPayment(
 }) async {
   await _api.patch('/documents/$documentId/pending-payments/$pendingId', {
     if (amountMinor != null) 'amountMinor': amountMinor.toString(),
-    'method': ?method,
+    // A chip change sets the wallet reference too (null clears "ביט").
+    if (method != null) ...{
+      'method': wireMethod(method),
+      'reference': walletReference(method),
+    },
   });
   notifyDocumentsChanged();
 }
@@ -622,10 +681,10 @@ Future<IssueResult> _submitResult(PendingIssue p) async {
     // on the server and is recorded when the owner approves.
     await _api.post(
       '/documents/${p.draftId}/submit',
-      pay != null && businessContext.caps.isCashier
-          ? {
-              'pendingPayments': [pay.pendingBody(p.paymentDate ?? todayIso())],
-            }
+      // C3: a split payment waits with the document too (any role that may
+      // record payments), so the approver issues it with the money.
+      (pay != null && businessContext.caps.isCashier) || p.split
+          ? {'pendingPayments': pendingBodiesOf(p)}
           : null,
     );
   } on ApiException catch (e) {
@@ -659,7 +718,7 @@ Future<void> _ensureDraft(PendingIssue p) async {
       } else if (e.code == 'DOCUMENT_ACTION_FORBIDDEN') {
         // Numbered behind our back (lost finalize response): finish it as issued.
         p.body = {...p.body, 'documentType': p.draftType};
-        if (!isPaidServerType(p.draftType!)) p.payment = null;
+        if (!isPaidServerType(p.draftType!)) p.dropPayments();
       } else {
         rethrow;
       }
@@ -832,6 +891,8 @@ class PaymentInput {
     this.branchNumber,
     this.accountNumber,
     this.checkNumber,
+    this.amountMinor,
+    this.paymentDate,
   });
 
   factory PaymentInput.fromJson(Map<String, dynamic> j) => PaymentInput(
@@ -840,9 +901,26 @@ class PaymentInput {
     branchNumber: j['branchNumber'] as String?,
     accountNumber: j['accountNumber'] as String?,
     checkNumber: j['checkNumber'] as String?,
+    amountMinor: BigInt.tryParse(j['amountMinor'] as String? ?? ''),
+    paymentDate: j['paymentDate'] as String?,
   );
 
-  /// CASH | BANK_TRANSFER | CREDIT_CARD | CHECK | DIRECT_DEBIT | OTHER
+  /// C3 split line: its own amount (null = the whole open amount) and date
+  /// (a post-dated cheque; null = the issue's payment date).
+  final BigInt? amountMinor;
+  final String? paymentDate;
+
+  PaymentInput withoutAmount() => PaymentInput(
+    method: method,
+    bankNumber: bankNumber,
+    branchNumber: branchNumber,
+    accountNumber: accountNumber,
+    checkNumber: checkNumber,
+    paymentDate: paymentDate,
+  );
+
+  /// The chip: CASH | BANK_TRANSFER | CREDIT_CARD | CHECK | DIRECT_DEBIT |
+  /// OTHER, or BIT / PAYBOX (sent as BANK_TRANSFER + reference, [wireMethod]).
   final String method;
   final String? bankNumber;
   final String? branchNumber;
@@ -855,14 +933,18 @@ class PaymentInput {
     'branchNumber': branchNumber,
     'accountNumber': accountNumber,
     'checkNumber': checkNumber,
+    if (amountMinor != null) 'amountMinor': amountMinor.toString(),
+    if (paymentDate != null) 'paymentDate': paymentDate,
   };
 
   /// SA2 pending payment (finalize.pendingPayments / POST pending-payments).
   /// No amount: the server takes what is open on the document (its total).
   Map<String, dynamic> pendingBody(String paymentDate) => {
-    'method': method,
+    'method': wireMethod(method),
+    if (amountMinor != null) 'amountMinor': amountMinor.toString(),
     'currency': 'ILS',
-    'paymentDate': paymentDate,
+    'paymentDate': this.paymentDate ?? paymentDate,
+    'reference': ?walletReference(method),
     if (method == 'CHECK') ...{
       'bankNumber': bankNumber,
       'branchNumber': branchNumber,
@@ -871,13 +953,15 @@ class PaymentInput {
     },
   };
 
-  /// POST /payments body. Only CHECK writes `reference` (it is part of the
-  /// idempotency hash; "העברה / ביט" never writes it, §9.1).
+  /// POST /payments body. Only CHECK (the cheque number) and the wallet chips
+  /// bit / PayBox (BANK_TRANSFER + "ביט" / "פייבוקס", CD-WALLET-01) write
+  /// `reference`; it is part of the idempotency hash, so it is fixed per chip.
   Map<String, dynamic> requestBody(BigInt amountMinor, String paymentDate) => {
-    'method': method,
+    'method': wireMethod(method),
+    'reference': ?walletReference(method),
     'amountMinor': amountMinor.toString(),
     'currency': 'ILS',
-    'paymentDate': paymentDate,
+    'paymentDate': this.paymentDate ?? paymentDate,
     if (method == 'CHECK') ...{
       'bankNumber': bankNumber,
       'branchNumber': branchNumber,
@@ -916,6 +1000,8 @@ class PendingIssue {
     this.cloneFrom,
     this.cloneTotal,
     this.paymentViaServer = false,
+    this.splitPayments = const [],
+    this.splitPaymentIds = const [],
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -948,6 +1034,13 @@ class PendingIssue {
     cloneFrom: j['cloneFrom'] as String?,
     cloneTotal: j['cloneTotal'] as String?,
     paymentViaServer: j['paymentViaServer'] == true,
+    splitPayments: [
+      for (final x in (j['splitPayments'] as List? ?? const []))
+        PaymentInput.fromJson(Map<String, dynamic>.from(x as Map)),
+    ],
+    splitPaymentIds: [
+      for (final x in (j['splitPaymentIds'] as List? ?? const [])) x as String,
+    ],
     createdAt: DateTime.tryParse(j['createdAt'] as String? ?? ''),
   );
 
@@ -1004,7 +1097,23 @@ class PendingIssue {
   /// SA2: the document waited for its allocation number, so [payment] belongs
   /// to the server (POST pending-payments), never to a local POST /payments.
   bool paymentViaServer;
+
+  /// C3 "פיצול תשלום": 2–10 payment lines (method + amount) instead of
+  /// [payment]; empty = the one-method path.
+  List<PaymentInput> splitPayments;
+
+  /// Receipt split: the POST /payments ids made so far (in line order).
+  List<String> splitPaymentIds;
   final DateTime createdAt;
+
+  bool get split => splitPayments.isNotEmpty;
+  bool get hasPayment => payment != null || split;
+
+  /// The money is on the server now (or the document takes none).
+  void dropPayments() {
+    payment = null;
+    splitPayments = const [];
+  }
 
   String get documentType => body['documentType'] as String;
 
@@ -1048,6 +1157,8 @@ class PendingIssue {
     'cloneFrom': cloneFrom,
     'cloneTotal': cloneTotal,
     'paymentViaServer': paymentViaServer,
+    'splitPayments': [for (final x in splitPayments) x.toJson()],
+    'splitPaymentIds': splitPaymentIds,
     'createdAt': createdAt.toIso8601String(),
   };
 }

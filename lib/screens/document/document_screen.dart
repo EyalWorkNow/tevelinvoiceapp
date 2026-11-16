@@ -37,6 +37,7 @@ import '../../util/phone.dart';
 import '../../util/status_map.dart' show effectiveDueDate;
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../compose/compose_memory.dart' show fetchVatRate;
+import '../retainers/make_monthly_sheet.dart';
 import 'dialogs.dart';
 import 'document_parts.dart';
 import 'next_action.dart';
@@ -45,6 +46,8 @@ import 'sheets/s5_payment.dart';
 import 'sheets/s6_share.dart';
 import 'sheets/s8_cancel.dart';
 import 'waiting_allocation_card.dart';
+import '../compose/sheets/quote_paid_choice.dart';
+import '../reports/correction_request_sheet.dart';
 
 class DocumentScreen extends StatefulWidget {
   const DocumentScreen({
@@ -619,6 +622,18 @@ class _DocumentScreenState extends State<DocumentScreen> {
       case DocAction.sendQuote:
         return _sendQuote(label);
       case DocAction.convertQuote:
+        // C3: pay later (305 / 300) or "שילם עכשיו" (320 / receipt + payment).
+        final exemptBusiness = businessContext.isVatExempt;
+        final choice = await askQuotePaid(context, exempt: exemptBusiness);
+        if (choice == null || !mounted) return;
+        if (choice == QuotePaidChoice.paidNow) {
+          await openCompose(
+            context,
+            intent: paidNowIntent(exempt: exemptBusiness),
+            fromQuoteId: quote!.id,
+          );
+          return;
+        }
         String? draftId;
         await _guard(label, () async {
           final exempt = businessContext.isVatExempt;
@@ -696,6 +711,17 @@ class _DocumentScreenState extends State<DocumentScreen> {
         final creditId = out.credit?.creditId;
         if (creditId != null && mounted) await openDocument(context, creditId);
     }
+  }
+
+  /// C4 "הפוך לחשבונית חודשית" (issued 305/300; MoreMenu keeps the red item last).
+  MoreMenuItem? _monthlyItem() {
+    final doc = _doc;
+    if (_quote != null || doc == null) return null;
+    if (!mayMakeMonthly(doc, businessContext.caps)) return null;
+    return MoreMenuItem(
+      label: RetainerHe.makeMonthly,
+      onSelected: () => unawaited(showMakeMonthlySheet(context, doc)),
+    );
   }
 
   Future<void> _openShare() async {
@@ -838,6 +864,14 @@ class _DocumentScreenState extends State<DocumentScreen> {
                         destructive: a == DocAction.cancelOrCredit,
                         onSelected: () => _do(a),
                       ),
+                    ?_monthlyItem(),
+                    // C6: the accountant asks the owner for a correction.
+                    if (doc != null && canRequestCorrection(doc))
+                      MoreMenuItem(
+                        label: ReadinessHe.requestAction,
+                        onSelected: () =>
+                            unawaited(showCorrectionRequestSheet(context, doc)),
+                      ),
                   ],
                 ),
               ],
@@ -867,6 +901,14 @@ class _DocumentScreenState extends State<DocumentScreen> {
                             ),
                             destructive: a == DocAction.cancelOrCredit,
                             onSelected: () => _do(a),
+                          ),
+                        ?_monthlyItem(),
+                        if (doc != null && canRequestCorrection(doc))
+                          MoreMenuItem(
+                            label: ReadinessHe.requestAction,
+                            onSelected: () => unawaited(
+                              showCorrectionRequestSheet(context, doc),
+                            ),
                           ),
                       ],
                     ),

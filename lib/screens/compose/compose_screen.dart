@@ -24,7 +24,9 @@ import '../../util/money.dart';
 import '../people/sheets/s2_customer.dart';
 import 'compose_dialogs.dart';
 import 'compose_loader.dart';
+import 'compose_state.dart';
 import 'compose_memory.dart';
+import 'compose_repeat.dart';
 import 'compose_submit.dart';
 import '../../router.dart' show BusinessSection, openBusinessSection;
 import 'fields/allocation_hint_line.dart';
@@ -58,6 +60,9 @@ class ComposeScreen extends StatefulWidget {
     this.fromDocId,
     this.fromQuoteId,
     this.draftId,
+    this.prefillAmountMinor,
+    this.prefillDescription,
+    this.onIssued,
   });
 
   final String intent;
@@ -65,6 +70,12 @@ class ComposeScreen extends StatefulWidget {
   final String? fromDocId;
   final String? fromQuoteId;
   final String? draftId;
+
+  /// C1 "הפק קבלה" from a debt-book entry: the amount and the note to start
+  /// with, and the issued document's id once it is issued (closes the entry).
+  final BigInt? prefillAmountMinor;
+  final String? prefillDescription;
+  final ValueChanged<String>? onIssued;
 
   @override
   State<ComposeScreen> createState() => _ComposeScreenState();
@@ -90,7 +101,12 @@ class _ComposeScreenState extends State<ComposeScreen> {
   /// amount, or "הצג מקלדת", brings it back.
   bool _keypadAway = false;
   String? _lastMethod;
+  bool _lastSplit = false;
   bool _markingDealer = false;
+
+  /// C3 "כמו בפעם הקודמת" for the chosen customer (null: nothing to repeat).
+  RepeatTemplate? _repeat;
+  String? _repeatFor;
 
   @override
   void initState() {
@@ -119,6 +135,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
       );
       if (!mounted) return;
       if (load == null) return setState(() => _unavailable = true);
+      _applyPrefill(load.state);
       load.state.addListener(_changed);
       _lastMethod = load.state.method;
       setState(() {
@@ -148,8 +165,21 @@ class _ComposeScreenState extends State<ComposeScreen> {
         }
         setState(() => _pickingInitialCustomer = false);
       }
+      unawaited(_findRepeat());
     } on Object catch (e) {
       if (mounted) setState(() => _error = e);
+    }
+  }
+
+  void _applyPrefill(ComposeState s) {
+    final amount = widget.prefillAmountMinor;
+    if (amount != null && amount > BigInt.zero) {
+      s.amountText = agorotToKeypadText(amount);
+    }
+    final description = widget.prefillDescription?.trim() ?? '';
+    if (description.isNotEmpty) {
+      s.description = description;
+      s.descriptionTouched = true;
     }
   }
 
@@ -206,6 +236,9 @@ class _ComposeScreenState extends State<ComposeScreen> {
       _keypadAway = true; // four cheque fields need the room
     }
     _lastMethod = method;
+    final split = _load?.state.split ?? false;
+    if (split && !_lastSplit) _keypadAway = true; // the lines need the room
+    _lastSplit = split;
     final ready = _load?.state.ready ?? false;
     if (ready && !_wasReady) {
       _armed = false;
@@ -242,6 +275,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
       return null;
     }
     s.customer = c;
+    if (!s.methodTouched) s.method = await lastPaymentMethod(c.id);
     if (!s.descriptionTouched) {
       s.description = await defaultDescription(
         c.id,
@@ -251,7 +285,43 @@ class _ComposeScreenState extends State<ComposeScreen> {
     }
     s.changed();
     await applyCustomerTerms(s);
+    unawaited(_findRepeat());
     return c;
+  }
+
+  /// C3: what was issued last for the customer (device memory, else the
+  /// server). Best effort: no chip on any failure.
+  Future<void> _findRepeat() async {
+    final s = _load?.state;
+    final id = s?.customer?.id;
+    if (s == null ||
+        id == null ||
+        s.config.isQuote ||
+        s.config.counterparty != Counterparty.customer) {
+      return;
+    }
+    if (_repeatFor == id) return;
+    _repeatFor = id;
+    RepeatTemplate? t;
+    try {
+      t = await findRepeat(
+        id,
+        businessType: s.businessType,
+        vatBasisPoints: s.vatBasisPoints,
+      );
+    } on Object {
+      t = null;
+    }
+    if (!mounted || s.customer?.id != id) return;
+    setState(() => _repeat = t);
+  }
+
+  void _applyRepeat() {
+    final t = _repeat;
+    final load = _load;
+    if (t == null || load == null) return;
+    applyRepeat(load.state, t);
+    setState(() => _repeat = null);
   }
 
   /// "סמן כעוסק מורשה" under the amount: the customer's status is saved on
@@ -293,6 +363,9 @@ class _ComposeScreenState extends State<ComposeScreen> {
         stage.index >= IssueStage.submitted.index &&
         stage != IssueStage.done) {
       _issuedOrLeft = true;
+    }
+    if (stage == IssueStage.done && run.pending?.draftId != null) {
+      widget.onIssued?.call(run.pending!.draftId!);
     }
     if (mounted && stage == IssueStage.done) {
       _issuedOrLeft = true;
@@ -513,6 +586,20 @@ class _ComposeScreenState extends State<ComposeScreen> {
                           : _markDealer,
                     ),
                   if (s.totalMinor == BigInt.zero) ...[
+                    if (_repeat != null &&
+                        _repeatFor == s.customer?.id &&
+                        !s.config.isQuote)
+                      Padding(
+                        padding: const EdgeInsets.only(top: Space.l),
+                        child: FilledButton.tonalIcon(
+                          key: const Key('compose-repeat'),
+                          onPressed: _applyRepeat,
+                          icon: const Icon(Iconsax.repeat, size: 19),
+                          label: Text(
+                            ComposeHe.repeatLastAmount(_repeat!.totalMinor),
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 24),
                     _kindActions(load),
                     const SizedBox(height: 24),
@@ -525,6 +612,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
                           constraints: const BoxConstraints(maxWidth: 352),
                           child: SummarySection(
                             state: s,
+                            allowSplit: !bc.caps.isCashier,
                             onMoreDetails: () => showMoreDetailsSheet(
                               context,
                               state: s,
