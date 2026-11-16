@@ -63,11 +63,16 @@ List<AgendaItem> agendaItems(CalendarAgenda a, DateTime from, int days) {
   final end = start.add(Duration(days: days));
   bool inRange(DateTime s, DateTime e) =>
       s.toLocal().isBefore(end) && e.toLocal().isAfter(start);
+  final seenBusy = <String>{};
   final items = <AgendaItem>[
     for (final b in a.bookings)
       if (inRange(b.startsAt, b.endsAt)) AgendaItem.booking(b),
     for (final x in a.busy)
       if (inRange(x.start, x.end) &&
+          // Two phones / calendars with the same busy time: one row.
+          seenBusy.add(
+            '${x.start.toIso8601String()}|${x.end.toIso8601String()}',
+          ) &&
           !a.bookings.any(
             (b) => b.confirmed && b.startsAt == x.start && b.endsAt == x.end,
           ))

@@ -9,29 +9,30 @@
 //                PUBLIC:<booking url> and BUSY:<start>.
 //   (host)       Calendar app + the public page in Safari (the busy time is
 //                gone, no title) → a client books in Safari → mail catcher.
-//   PHASE=after  the app opens again (same phone, no reset) → the new booking
-//                arrives with the notch animation, is written into the phone
-//                calendar, and the local reminder before the meeting fires
-//                with the same animation while the app is open.
+//   PHASE=after  (flutter test reinstalls the app) sign in, grant, connect →
+//                the existing bookings are written into the phone calendar →
+//                a client books now (host) → the notch animation names them →
+//                the week agenda → the in-app reminder before the soonest
+//                meeting fires with the same animation.
 //
 // Same SHOT: protocol as persona_screens_test.dart (the host takes the
 // screenshot when it reads the line).
 // ignore_for_file: avoid_print, use_build_context_synchronously
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:invoice/api/client.dart';
-import 'package:invoice/main.dart' as app;
 import 'package:invoice/screens/calendar/calendar_screen.dart';
 import 'package:invoice/screens/calendar/calendar_sync.dart';
 
 import 'crash_sweep_test.dart' show t, pumpMs, waitFor;
 import 'persona_screens_test.dart'
     show role, shot, runCaptured, owner, ctx, startPlansGuard, plansGuardOn;
-import 'v2_qa_gate_helpers.dart' show launchSignedInAs, keychain;
+import 'v2_qa_gate_helpers.dart' show launchSignedInAs;
 
 const phase = String.fromEnvironment('PHASE', defaultValue: 'setup');
 
@@ -59,6 +60,31 @@ List<Map<String, Object>> _hours() {
               ],
       },
   ];
+}
+
+/// `flutter test` reinstalls the app, which resets its iOS privacy grants: the
+/// host grants calendar access (simctl privacy) when it reads GRANT-CALENDAR
+/// and drops a marker file next to the mail folder.
+Future<void> _hostGrantsCalendar() async {
+  final marker = File(
+    '${const String.fromEnvironment('MAILDIR')}/../calendar-granted',
+  );
+  print('GRANT-CALENDAR');
+  final until = DateTime.now().add(const Duration(minutes: 4));
+  while (!marker.existsSync() && DateTime.now().isBefore(until)) {
+    await pumpMs(500);
+  }
+  if (!marker.existsSync()) throw StateError('host did not grant calendar');
+}
+
+Future<void> _hostBooks() async {
+  final marker = File('${const String.fromEnvironment('MAILDIR')}/../booked');
+  print('BOOK-NOW');
+  final until = DateTime.now().add(const Duration(minutes: 3));
+  while (!marker.existsSync() && DateTime.now().isBefore(until)) {
+    await pumpMs(500);
+  }
+  if (!marker.existsSync()) throw StateError('host did not book');
 }
 
 DateTime _tomorrowAt(int hour) {
@@ -117,10 +143,16 @@ Future<void> _setup() async {
   print('PUBLIC:$url');
 
   await _openCalendar();
+  // A clean start on a phone that ran this before: not connected.
+  if ((await calendarSync.loadPrefs())?.connected ?? false) {
+    await calendarSync.disconnect();
+    await pumpMs(1500);
+  }
   await shot('agenda-before-connect');
 
-  // iOS permission was granted to the app on the simulator before this run
-  // (simctl privacy … grant calendar): the tap below gets "full access" at once.
+  // The Hebrew iOS prompt itself is in ios-permission-prompt-he.png; here the
+  // host grants access, so the tap below gets "full access" at once.
+  await _hostGrantsCalendar();
   await t.tap(find.byKey(const Key('calendar-connect')));
   await pumpMs(3000);
 
@@ -163,26 +195,34 @@ Future<void> _setup() async {
 }
 
 Future<void> _after() async {
-  // Same phone, same sign-in: no reset (the calendar choices stay).
-  final token = await keychain.read(key: 'device_token');
-  if (token == null) throw StateError('run PHASE=setup first');
-  app.main();
+  // `flutter test` reinstalls the app (Keychain + privacy grants are gone):
+  // sign in again, the host grants calendar access, connect.
+  await launchSignedInAs(t, owner);
   await waitFor(find.byKey(const Key('tab-home')), ms: 40000);
-  // The sync on launch sees the client's booking → notch (shot mid-animation).
+  await pumpMs(2500);
+  // The reminder is switched on at the end, timed to fire during the run.
+  await ApiClient.instance.put('/calendar/settings', {'reminderMinutes': 0});
+  await _hostGrantsCalendar();
+  await calendarSync.connect();
+  // The first sync on this phone marks the bookings that exist as seen and
+  // writes them into the phone calendar.
+  await calendarSync.sync(force: true);
+  await pumpMs(3000);
+  // A client books NOW (the host posts the public form) → the next sync shows
+  // the notch with the client's name and time.
+  await _hostBooks();
+  await calendarSync.sync(force: true);
   await waitFor(find.byKey(const Key('notch-notice')), ms: 30000);
-  await shot('notch-new-booking', settleMs: 700);
+  await shot('notch-new-booking', settleMs: 900);
   await pumpMs(5000);
   await _openCalendar();
-  await t.tap(find.byKey(const Key('calendar-view')).first);
-  await pumpMs(500);
   await t.tap(find.text('שבוע').first);
   await pumpMs(1500);
-  await shot('agenda-week-with-booking');
-  final written = calendarSync.prefs?.events.length ?? 0;
-  print('WRITTEN-EVENTS:$written');
+  await shot('agenda-week-with-bookings');
+  print('WRITTEN-EVENTS:${calendarSync.prefs?.events.length ?? 0}');
 
-  // Reminder before a meeting: a booking that starts soon (made by the host
-  // script), with the reminder set so it fires about a minute from now.
+  // Reminder before a meeting: the booking that starts soonest (the one just
+  // made), with the reminder set so it fires about a minute from now.
   final agenda = calendarSync.agenda!;
   final soon = agenda.bookings
       .where((b) => b.confirmed && b.startsAt.isAfter(DateTime.now()))

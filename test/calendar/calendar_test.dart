@@ -385,7 +385,8 @@ void main() {
   });
 
   group('agenda items', () {
-    test('busy blocks that exactly cover a booking are not listed twice', () {
+    test('busy blocks that exactly cover a booking, or repeat another block, '
+        'are listed once', () {
       final s = DateTime.utc(2026, 11, 18, 8);
       final a = CalendarAgenda.fromJson({
         'bookings': [booking('b1', start: s)],
@@ -399,6 +400,11 @@ void main() {
             'start': s.add(const Duration(hours: 2)).toIso8601String(),
             'end': s.add(const Duration(hours: 3)).toIso8601String(),
             'mine': true,
+          },
+          {
+            'start': s.add(const Duration(hours: 2)).toIso8601String(),
+            'end': s.add(const Duration(hours: 3)).toIso8601String(),
+            'mine': false,
           },
         ],
         'enabled': true,

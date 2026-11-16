@@ -23,7 +23,26 @@ cd $ROOT
 
 snap() { xcrun simctl io $U screenshot --type=png "$OUT/$1.png" >/dev/null 2>&1 && print -r -- "saved $OUT/$1.png"; }
 
+grant_calendar() {
+  sqlite3 ~/Library/Developer/CoreSimulator/Devices/$U/data/Library/TCC/TCC.db \
+    "insert or replace into access (service, client, client_type, auth_value, auth_reason, auth_version, indirect_object_identifier_type, flags)
+     values ('kTCCServiceCalendar', 'space.tevel.invoice', 0, 2, 4, 1, 0, 0)"
+}
+
+# BOOK-NOW (after phase): a client books the first slot ≥ 12 minutes from now, through the same
+# public endpoint the page posts to (the app is in the foreground, so no Safari here).
+book_now() {
+  source $STATE
+  local slug=${PUBLIC##*/}
+  local start=$(curl -s -H 'Accept: application/json' "$PUBLIC" |
+    json "[s['start'] for s in d['slots'] if __import__('datetime').datetime.fromisoformat(s['start'].replace('Z','+00:00')).timestamp() > __import__('time').time() + 12*60][0]")
+  curl -s -X POST "$API/book/$slug" -H 'Content-Type: application/json' \
+    -d "{\"start\":\"$start\",\"name\":\"מיכל אברהם\",\"phone\":\"050-5551234\",\"email\":\"michal.client@example.test\",\"notes\":\"בדיקת מסמכים לפני הגשה\"}" |
+    python3 -c 'import json,sys; d=json.load(sys.stdin); print("BOOKED", d.get("status"), d.get("startsAt"))'
+}
+
 phase() {
+  rm -f $MAILDIR/../calendar-granted $MAILDIR/../booked
   ~/flutter/bin/flutter test integration_test/calendar_e2e_test.dart -d $U \
     --dart-define=API_BASE=$API --dart-define=MAILDIR=$MAILDIR --dart-define=PHASE=$1 2>&1 |
     while IFS= read -r line; do
@@ -32,6 +51,9 @@ phase() {
         *SHOT:*) n=${line##*SHOT:}; n=${n#calendar/}; snap "app-$1-${n//\//-}" ;;
         *PUBLIC:*) print -r -- "PUBLIC=${line##*PUBLIC:}" >>$STATE ;;
         *BUSY:*) print -r -- "BUSY=${line##*BUSY:}" >>$STATE ;;
+        # simctl privacy would terminate the running app; the same TCC row written directly does not.
+        *GRANT-CALENDAR*) grant_calendar && touch $MAILDIR/../calendar-granted ;;
+        *BOOK-NOW*) book_now && touch $MAILDIR/../booked ;;
       esac
     done
 }
@@ -42,9 +64,13 @@ host() {
   source $STATE
   local slug=${PUBLIC##*/}
   # 1. The owner's private event in the iOS Calendar app (calshow: seconds since 2001-01-01).
-  local busy_epoch=$(date -j -u -f '%Y-%m-%dT%H:%M:%S' "${BUSY%%.*}" +%s)
-  xcrun simctl openurl $U "calshow:$((busy_epoch - 978307200))"
-  sleep 5; snap web-01-ios-calendar-private-event
+  #    The Calendar app's own first-run permission alerts stay on screen (nobody can tap them on a
+  #    headless run), so it is opened only when asked: CALENDAR_APP=1.
+  if [[ ${CALENDAR_APP:-0} == 1 ]]; then
+    local busy_epoch=$(date -j -u -f '%Y-%m-%dT%H:%M:%S' "${BUSY%%.*}" +%s)
+    xcrun simctl openurl $U "calshow:$((busy_epoch - 978307200))"
+    sleep 5; snap web-01-ios-calendar-private-event
+  fi
   # 2. The public page in Safari: free times only.
   xcrun simctl openurl $U "$PUBLIC"
   sleep 6; snap web-02-public-free-slots
@@ -95,10 +121,12 @@ HTML
 }
 
 after_host() {
+  [[ ${CALENDAR_APP:-0} == 1 ]] || return 0
   source $STATE
-  # The booking written into the phone calendar by the app (tomorrow 12:00).
-  local tomorrow_noon=$(TZ=Asia/Jerusalem date -v+1d -j -f '%H:%M:%S' '12:00:00' +%s)
-  xcrun simctl openurl $U "calshow:$((tomorrow_noon - 978307200))"
+  # The phone calendar tomorrow: the owner's private event (10:00) next to the booking the app
+  # wrote (12:00, "פגישה: דנה כהן"). The Calendar app's own permission alert may cover part of it.
+  local busy_epoch=$(date -j -u -f '%Y-%m-%dT%H:%M:%S' "${BUSY%%.*}" +%s)
+  xcrun simctl openurl $U "calshow:$((busy_epoch - 978307200))"
   sleep 5; snap web-09-ios-calendar-booking-written
 }
 
