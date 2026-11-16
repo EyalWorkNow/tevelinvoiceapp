@@ -164,6 +164,7 @@ class _CancelSheetState extends State<CancelSheet> {
         _doc!,
         amountMinor: amount,
         askPassphrase: () => askSigningPassphrase(context),
+        reason: _reason.text,
       );
       if (mounted) Navigator.of(context).pop(CancelResult(credit: out));
     } on CreditLimitExceeded catch (e) {
@@ -323,6 +324,18 @@ class _CancelSheetState extends State<CancelSheet> {
           prefixText: '₪ ',
         ),
         onChanged: (_) => setState(() => _invalid = null),
+      ),
+      const SizedBox(height: Space.s),
+      // C6: optional reason — printed on the credit; the accountant's
+      // readiness check flags a credit without one.
+      TextField(
+        key: const Key('s8-credit-reason'),
+        controller: _reason,
+        maxLength: 300,
+        decoration: const InputDecoration(
+          labelText: DocumentHe.creditReason,
+          counterText: '',
+        ),
       ),
       const SizedBox(height: Space.m),
       Text(
