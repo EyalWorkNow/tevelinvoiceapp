@@ -24,6 +24,8 @@ Directory? _tmp;
 Future<FakeBackend> eSetUp() async {
   _tmp ??= await Directory.systemTemp.createTemp('e_test');
   AppCache.directoryProvider = () async => _tmp!;
+  // Journey tests start after the optional first-entry Contacts explanation.
+  await AppCache.write('contacts_permission_prompted', true);
   FlutterSecureStorage.setMockInitialValues({});
   resetSession();
   resetFeatureProbes();

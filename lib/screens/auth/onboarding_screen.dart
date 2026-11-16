@@ -13,6 +13,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../api/auth_api.dart';
+import '../../api/business_registration_api.dart';
+import 'business_certificate_picker.dart';
 import '../../api/models/models.dart' show Business;
 import '../../api/client.dart';
 import '../../api/settings_api.dart' show setStartingNumber;
@@ -49,6 +51,14 @@ String taxIdLabelFor(String businessType) => switch (businessType) {
 };
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
+  final _fullName = TextEditingController();
+  final _street = TextEditingController();
+  final _number = TextEditingController();
+  final _city = TextEditingController();
+  final _phone = TextEditingController();
+  final _email = TextEditingController();
+  BusinessCertificateFile? _certificate;
+  bool _pickingCertificate = false;
   final _name = TextEditingController();
   final _taxId = TextEditingController();
   final _description = TextEditingController();
@@ -66,7 +76,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
+    _fullName.text = session.account?.displayName ?? '';
+    _email.text = session.account?.email ?? '';
     final profile = widget.newBusiness ? null : session.profile;
+    final address = profile?.raw['address'] as Map<String, dynamic>?;
+    _street.text = address?['street'] as String? ?? '';
+    _number.text = address?['number'] as String? ?? '';
+    _city.text = address?['city'] as String? ?? '';
+    _phone.text = profile?.phone ?? '';
+    _email.text = profile?.email ?? _email.text;
     _locked = profile?.identityLocked ?? false;
     if (profile != null) {
       // The self-signup placeholder ("העסק של …") is not a real name.
@@ -83,7 +101,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _taxId, _description, _startNumber]) {
+    for (final c in [
+      _name,
+      _taxId,
+      _description,
+      _startNumber,
+      _fullName,
+      _street,
+      _number,
+      _city,
+      _phone,
+      _email,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -115,10 +144,37 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return n == null || n < 1 || n > 999999999 ? AuthHe.numberInvalid : null;
   }
 
+  bool get _registrationValid =>
+      _fullName.text.trim().length >= 2 &&
+      _street.text.trim().isNotEmpty &&
+      _city.text.trim().isNotEmpty &&
+      isValidIsraeliPhone(_phone.text) &&
+      isValidEmail(_email.text) &&
+      _certificate != null;
+
+  Future<void> _pickCertificate() async {
+    if (_pickingCertificate || _saving) return;
+    setState(() => _pickingCertificate = true);
+    try {
+      final file = await pickBusinessCertificate(context);
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      if (file != null) {
+        setState(() {
+          _certificate = file;
+          _error = null;
+        });
+      }
+    } on Object catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _pickingCertificate = false);
+    }
+  }
+
   void _next() {
     FocusScope.of(context).unfocus();
     setState(() => _validate = true);
-    if (_nameError != null || _taxIdError != null) {
+    if (_nameError != null || _taxIdError != null || !_registrationValid) {
       HapticFeedback.heavyImpact();
       return;
     }
@@ -133,12 +189,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _finish() async {
+    if (_saving) return;
     FocusScope.of(context).unfocus();
     setState(() {
       _validate = true;
       _error = null;
     });
-    if (_nameError != null || _taxIdError != null || _numberError != null) {
+    if (_nameError != null ||
+        _taxIdError != null ||
+        _numberError != null ||
+        !_registrationValid) {
       HapticFeedback.heavyImpact();
       return;
     }
@@ -164,7 +224,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (_continues == true) {
         await setStartingNumber(int.parse(_startNumber.text.trim()));
       }
-      await completeOnboarding();
+      await completeBusinessRegistration(
+        fullName: _fullName.text,
+        profile: {
+          'legalName': _name.text.trim(),
+          if (!_locked) 'businessType': _type ?? 'OSEK_MURSHE',
+          if (!_locked) 'taxId': _taxId.text.trim(),
+          'defaultLineDescription': _description.text.trim(),
+          'address': {
+            'street': _street.text.trim(),
+            'number': _number.text.trim(),
+            'city': _city.text.trim(),
+          },
+          'phone': _phone.text.trim(),
+          'email': _email.text.trim(),
+        },
+        certificate: _certificate!,
+      );
       HapticFeedback.mediumImpact();
       try {
         await Future.wait([
@@ -183,7 +259,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       } else {
         resetToHome();
       }
-    } on ApiException catch (e) {
+    } on Object catch (e) {
       HapticFeedback.heavyImpact();
       if (mounted) setState(() => _error = e);
     } finally {
@@ -202,9 +278,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final showBack = _step > (_locked ? 1 : 0);
     final last = _step == _lastStep;
     return PopScope(
-      canPop: !showBack && canPop,
+      canPop: !_saving && !showBack && canPop,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && showBack) _back();
+        if (!didPop && showBack && !_saving) _back();
       },
       child: Scaffold(
         appBar: AppBar(
@@ -213,13 +289,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ? IconButton(
                   tooltip: AuthHe.back,
                   icon: const BackButtonIcon(),
-                  onPressed: _back,
+                  onPressed: _saving ? null : _back,
                 )
               : canPop
               ? IconButton(
                   tooltip: CommonHe.close,
                   icon: const Icon(Iconsax.close_circle),
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: _saving ? null : () => Navigator.of(context).pop(),
                 )
               : null,
           title: Text(
@@ -337,12 +413,110 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         TextField(
           controller: _description,
           textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _next(),
+          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
           decoration: const InputDecoration(
             labelText: AuthHe.defaultDescription,
             hintText: 'שירותים',
           ),
         ),
+        const SizedBox(height: Space.xl),
+        const Text('פרטי בעל העסק', style: AppText.headline),
+        const SizedBox(height: Space.m),
+        TextField(
+          key: const Key('setup-full-name'),
+          controller: _fullName,
+          autofillHints: const [AutofillHints.name],
+          textInputAction: TextInputAction.next,
+          decoration: InputDecoration(
+            labelText: 'שם מלא',
+            errorText: _validate && _fullName.text.trim().length < 2
+                ? 'נא להזין שם מלא'
+                : null,
+          ),
+        ),
+        const SizedBox(height: Space.m),
+        TextField(
+          key: const Key('setup-phone'),
+          controller: _phone,
+          keyboardType: TextInputType.phone,
+          autofillHints: const [AutofillHints.telephoneNumber],
+          textInputAction: TextInputAction.next,
+          decoration: InputDecoration(
+            labelText: 'טלפון העסק',
+            errorText: _validate && !isValidIsraeliPhone(_phone.text)
+                ? 'נא להזין מספר טלפון תקין'
+                : null,
+          ),
+        ),
+        const SizedBox(height: Space.m),
+        TextField(
+          key: const Key('setup-email'),
+          controller: _email,
+          keyboardType: TextInputType.emailAddress,
+          autofillHints: const [AutofillHints.email],
+          textInputAction: TextInputAction.next,
+          decoration: InputDecoration(
+            labelText: 'מייל העסק',
+            errorText: _validate && !isValidEmail(_email.text)
+                ? 'נא להזין כתובת מייל תקינה'
+                : null,
+          ),
+        ),
+        const SizedBox(height: Space.m),
+        TextField(
+          key: const Key('setup-street'),
+          controller: _street,
+          textInputAction: TextInputAction.next,
+          decoration: InputDecoration(
+            labelText: 'רחוב העסק',
+            errorText: _validate && _street.text.trim().isEmpty
+                ? 'נא להזין רחוב'
+                : null,
+          ),
+        ),
+        const SizedBox(height: Space.m),
+        TextField(
+          key: const Key('setup-house-number'),
+          controller: _number,
+          textInputAction: TextInputAction.next,
+          decoration: const InputDecoration(labelText: 'מספר בית'),
+        ),
+        const SizedBox(height: Space.m),
+        TextField(
+          key: const Key('setup-city'),
+          controller: _city,
+          textInputAction: TextInputAction.done,
+          decoration: InputDecoration(
+            labelText: 'עיר',
+            errorText: _validate && _city.text.trim().isEmpty
+                ? 'נא להזין עיר'
+                : null,
+          ),
+        ),
+        const SizedBox(height: Space.xl),
+        const Text('תעודת העסק', style: AppText.headline),
+        const SizedBox(height: Space.s),
+        const Text(
+          'תעודת עוסק פטור, עוסק מורשה או תעודת התאגדות לחברה. אפשר להעלות צילום או PDF עד 4 MB.',
+          style: AppText.secondary,
+        ),
+        const SizedBox(height: Space.s),
+        OutlinedButton.icon(
+          key: const Key('setup-certificate'),
+          onPressed: _pickingCertificate ? null : _pickCertificate,
+          icon: const Icon(Icons.attach_file_rounded),
+          label: Text(
+            _pickingCertificate
+                ? 'פותח קובץ…'
+                : _certificate?.filename ?? 'העלאת תעודת עסק',
+          ),
+        ),
+        if (_validate && _certificate == null)
+          Text(
+            'נא לצרף תעודת עסק',
+            style: AppText.secondary.copyWith(color: p.danger),
+          ),
+        _errorText(context),
         if (!_locked) ...[
           const SizedBox(height: Space.l),
           Text(
@@ -350,7 +524,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             style: AppText.secondary.copyWith(color: p.muted),
           ),
         ],
-        if (_locked) _errorText(context),
       ],
     );
   }
@@ -412,7 +585,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           child: Semantics(
             liveRegion: true,
             child: Text(
-              errorTextHe(_error!),
+              _error is BusinessRegistrationInputException
+                  ? (_error as BusinessRegistrationInputException).message
+                  : errorTextHe(_error!),
               style: AppText.body.copyWith(color: context.palette.danger),
             ),
           ),

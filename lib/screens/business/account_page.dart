@@ -23,6 +23,7 @@ import '../../util/biometric.dart';
 import '../../util/error_log.dart';
 import '../../util/labels/labels.dart';
 import 'business_template.dart';
+import 'business_data_page.dart';
 import 'sheets/s13_editor.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'team_editors.dart' show confirmDanger;
@@ -89,6 +90,7 @@ class _AccountPageState extends State<AccountPage> {
     )) {
       return;
     }
+    if (!mounted) return;
     await session.signOut();
   }
 
@@ -101,6 +103,7 @@ class _AccountPageState extends State<AccountPage> {
     )) {
       return;
     }
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
       await logoutAllDevices();
@@ -164,6 +167,18 @@ class _AccountPageState extends State<AccountPage> {
           value: ltrIsolate(email),
           icon: Iconsax.sms,
         ),
+        if (businessContext.can(Cap.owner))
+          BusinessRow(
+            label: 'פרטי ההרשמה, תעודת העסק וייצוא מלא',
+            icon: Icons.folder_zip_outlined,
+            onTap: session.offline
+                ? null
+                : () => Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const BusinessDataPage(),
+                    ),
+                  ),
+          ),
         const RowGroupGap(),
         if (_faceIdAvailable == true)
           SwitchListTile.adaptive(

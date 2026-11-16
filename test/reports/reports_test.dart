@@ -1,5 +1,6 @@
 // R / R2 (SPEC-v2 §6.R, §11; AT-26, AT-54, AT-90; J9).
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/models/models.dart';
@@ -127,6 +128,23 @@ void main() {
       expect(shared, hasLength(1));
       expect(shared.single.$1.name, 'accountant-2026.zip');
       expect(shared.single.$3, 'cpa@x.test');
+    },
+  );
+
+  testWidgets(
+    'leaving reports while an export loads never opens a late share sheet',
+    (tester) async {
+      final download = Completer<FakeResponse>();
+      backend.on('GET', '/exports/download', (_) => download.future);
+      await pumpAs(tester, backend, Preset.owner, const ReportsScreen());
+      await tester.tap(find.byKey(const Key('send-to-accountant')));
+      await tester.pump();
+      await tester.pumpWidget(eApp(const Scaffold(body: Text('left reports'))));
+      download.complete(FakeResponse(200, <int>[80, 75, 3, 4]));
+      await settle(tester);
+      expect(find.text('left reports'), findsOneWidget);
+      expect(shared, isEmpty);
+      expect(tester.takeException(), isNull);
     },
   );
 
