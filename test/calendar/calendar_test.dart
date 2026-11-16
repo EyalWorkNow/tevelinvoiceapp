@@ -349,6 +349,19 @@ void main() {
       expect(device.reminders, isEmpty);
     });
 
+    testWidgets('in-app reminder: once, when the meeting is within the '
+        'reminder window', (t) async {
+      final soon = <String>[];
+      sync.soonNotice = (b) => soon.add(b.id);
+      await signIn(t);
+      final start = now.add(const Duration(minutes: 10));
+      agenda(b, [booking('b1', start: start)], reminderMinutes: 15);
+      await t.runAsync(() => sync.sync(force: true));
+      expect(soon, ['b1']);
+      await t.runAsync(() => sync.sync(force: true));
+      expect(soon, ['b1']);
+    });
+
     testWidgets('disconnect: busy times are deleted on the server', (t) async {
       await signIn(t);
       agenda(b, []);
@@ -422,6 +435,7 @@ void main() {
       final at = DateTime(today.year, today.month, today.day, 10).toUtc();
       agenda(
         b,
+        reminderMinutes: 0,
         [booking('b1', start: at, name: 'נועה לוי', notes: 'שאלה על חוזה')],
         busy: [
           {
@@ -444,7 +458,7 @@ void main() {
     testWidgets('share sheet: the public link + WhatsApp / share / copy', (
       t,
     ) async {
-      agenda(b, []);
+      agenda(b, [], reminderMinutes: 0);
       await pump(t);
       await t.tap(find.byKey(const Key('calendar-share')));
       await settle(t);
@@ -462,7 +476,7 @@ void main() {
     ) async {
       final today = DateTime.now();
       final at = DateTime(today.year, today.month, today.day, 10).toUtc();
-      agenda(b, [booking('b1', start: at)]);
+      agenda(b, [booking('b1', start: at)], reminderMinutes: 0);
       b.json('POST', '/calendar/bookings/:id/cancel', {
         'booking': booking('b1', start: at, status: 'CANCELLED'),
       });
@@ -483,7 +497,7 @@ void main() {
         'settings': settingsJson(enabled: false),
       });
       b.json('PUT', '/calendar/settings', {'settings': settingsJson()});
-      agenda(b, [], enabled: false);
+      agenda(b, [], enabled: false, reminderMinutes: 0);
       await pump(t);
       expect(find.byKey(const Key('calendar-off')), findsOneWidget);
       await t.tap(find.byKey(const Key('calendar-turn-on')));

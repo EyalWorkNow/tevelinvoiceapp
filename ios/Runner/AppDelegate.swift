@@ -370,9 +370,9 @@ final class DeviceCalendar: NSObject {
           }
           DispatchQueue.main.async { result(scheduled) }
         }
-        if settings.authorizationStatus == .notDetermined && !items.isEmpty {
-          center.requestAuthorization(options: [.alert, .sound]) { _, _ in add() }
-        } else if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
+        // Never prompts from here: the owner turns notifications on in the app's own
+        // notification setting; until then the reminder is the in-app notch only.
+        if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
           add()
         } else {
           DispatchQueue.main.async { result(0) }

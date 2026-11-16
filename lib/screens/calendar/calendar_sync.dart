@@ -112,6 +112,9 @@ class SecureCalendarPrefsStore implements CalendarPrefsStore {
 /// A notice for a booking this phone sees for the first time.
 typedef BookingNoticeSink = void Function(Booking booking);
 
+/// A notice that a meeting starts soon (the in-app reminder).
+typedef SoonNoticeSink = void Function(Booking booking);
+
 /// "יום ג׳ 17.11 · 10:00" in the phone's (Israel) time.
 String bookingWhen(DateTime at) {
   final l = at.toLocal();
@@ -133,6 +136,7 @@ class CalendarSync extends ChangeNotifier with WidgetsBindingObserver {
     CalendarPrefsStore? store,
     DateTime Function()? clock,
     this.notice,
+    this.soonNotice,
   }) : device = device ?? MethodChannelDeviceCalendar(),
        store = store ?? SecureCalendarPrefsStore(),
        _clock = clock ?? DateTime.now;
@@ -143,6 +147,9 @@ class CalendarSync extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Shows a new-booking notice; default: the notch animation.
   BookingNoticeSink? notice;
+
+  /// Shows "the next meeting is soon" while the app is open; default: notch.
+  SoonNoticeSink? soonNotice;
 
   static const horizon = Duration(days: 60);
   static const _minInterval = Duration(seconds: 20);
@@ -157,6 +164,8 @@ class CalendarSync extends ChangeNotifier with WidgetsBindingObserver {
   Future<void>? _running;
   bool _again = false;
   Timer? _timer;
+  Timer? _soonTimer;
+  final Set<String> _reminded = {};
   bool _installed = false;
 
   CalendarPrefs? get prefs => _prefs;
@@ -181,6 +190,11 @@ class CalendarSync extends ChangeNotifier with WidgetsBindingObserver {
     // A bookingNew push in the foreground: re-sync, and the notch names the
     // client and the time (instead of the generic text).
     systemNotices.foregroundHandlers['bookingNew'] = (_) {
+      unawaited(sync(force: true));
+      return true;
+    };
+    // While the app is open the in-app timer shows the richer reminder.
+    systemNotices.foregroundHandlers['bookingSoon'] = (_) {
       unawaited(sync(force: true));
       return true;
     };
@@ -347,6 +361,7 @@ class CalendarSync extends ChangeNotifier with WidgetsBindingObserver {
       _noticeNew(prefs, a, now);
       // 5. local reminders when server push is not active here.
       await _reminders(a, now, business);
+      _armSoon(a);
       await _savePrefs();
       lastSyncAt = _clock();
       lastError = null;
@@ -453,8 +468,59 @@ class CalendarSync extends ChangeNotifier with WidgetsBindingObserver {
     await device.scheduleReminders(items);
   }
 
+  /// In-app reminder: N minutes before the next meeting, the notch — no OS
+  /// notification permission needed while the app is open.
+  void _armSoon(CalendarAgenda a) {
+    _soonTimer?.cancel();
+    final minutes = a.reminderMinutes;
+    if (minutes <= 0) return;
+    final now = _clock();
+    final lead = Duration(minutes: minutes);
+    Booking? next;
+    for (final b in a.bookings) {
+      if (!b.confirmed || !b.startsAt.isAfter(now)) continue;
+      if (_reminded.contains('${b.id}-${b.sequence}')) continue;
+      if (next == null || b.startsAt.isBefore(next.startsAt)) next = b;
+    }
+    if (next == null) return;
+    final booking = next;
+    final at = booking.startsAt.subtract(lead);
+    void fire() {
+      if (WidgetsBinding.instance.lifecycleState != null &&
+          WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+        return; // the OS notification / push covers the background
+      }
+      if (!_reminded.add('${booking.id}-${booking.sequence}')) return;
+      (soonNotice ?? _soonNotch)(booking);
+      final current = agenda;
+      if (current != null) _armSoon(current);
+    }
+
+    if (!at.isAfter(now)) {
+      fire();
+    } else {
+      _soonTimer = Timer(at.difference(now), fire);
+    }
+  }
+
+  static void _soonNotch(Booking b) {
+    notchNoticeKey.currentState?.show(
+      SnackBar(
+        content: Text(
+          '${CalendarHe.soon}\n${CalendarHe.soonBody(b.clientName, hhmm(b.startsAt))}',
+        ),
+        action: SnackBarAction(
+          label: CalendarHe.open,
+          onPressed: () => unawaited(go('/calendar')),
+        ),
+      ),
+      motion: NoticeMotion.calendar,
+    );
+  }
+
   @override
   void dispose() {
+    _soonTimer?.cancel();
     _timer?.cancel();
     session.removeListener(_onSession);
     WidgetsBinding.instance.removeObserver(this);

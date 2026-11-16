@@ -110,6 +110,8 @@ abstract final class CalendarHe {
   static const notifyNewHint = 'הודעה באפליקציה ובאימייל כשלקוח קובע או מבטל.';
   static const reminder = 'תזכורת לפני פגישה';
   static const reminderOff = 'בלי';
+  static const reminderHint =
+      'כשהאפליקציה פתוחה — הודעה מונפשת בראש המסך. כשהיא סגורה — התראה בטלפון, אם התראות תבל מופעלות.';
   static const calendars = 'יומנים באייפון';
   static const readFrom = 'לחסום שעות תפוסות מתוך';
   static const writeTo = 'להוסיף פגישות שנקבעו אל';

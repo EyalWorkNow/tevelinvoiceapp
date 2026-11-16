@@ -357,6 +357,13 @@ class _CalendarSettingsScreenState extends State<CalendarSettingsScreen> {
           selected: _reminder,
           onSelected: (v) => setState(() => _reminder = v),
         ),
+        Padding(
+          padding: const EdgeInsets.only(top: Space.s),
+          child: Text(
+            CalendarHe.reminderHint,
+            style: AppText.secondary.copyWith(color: p.muted),
+          ),
+        ),
         if (_sync.device.supported) ...[
           const RowGroupGap(),
           _Label(CalendarHe.calendars),
