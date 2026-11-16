@@ -26,9 +26,15 @@ import '../document/sheets/s6_share.dart' show sendPaymentReminder;
 import '../../api/actions_api.dart' show fetchCustomerById;
 import '../../api/reports_api.dart' show paymentsReportKind;
 import 'inbox_list.dart';
+import '../../util/labels/readiness_he.dart';
+import '../document/sheets/s8_cancel.dart' show showCancelSheet;
 
 String inboxTitle(InboxItem c) => switch (c.kind) {
   InboxKind.approvalNeeded => InboxHe.approvalNeeded(c.count),
+  InboxKind.correctionRequested =>
+    c.count == 1 && (c.reason ?? '').isNotEmpty
+        ? '${ReadinessHe.cardTitle(1, c.customerName)}: ${c.reason}'
+        : ReadinessHe.cardTitle(c.count, c.customerName),
   InboxKind.myRejected =>
     c.count == 1
         ? InboxHe.myRejected(c.customerName, c.reason ?? '')
@@ -66,6 +72,7 @@ String inboxTitle(InboxItem c) => switch (c.kind) {
 
 String inboxActionLabel(InboxItem c) => switch (c.kind) {
   InboxKind.approvalNeeded => InboxHe.actOpen,
+  InboxKind.correctionRequested => ReadinessHe.cardAction,
   InboxKind.myRejected => InboxHe.actFix,
   // A8: the accountant opens the document; only an issuer issues.
   InboxKind.taxInvoiceDue =>
@@ -86,6 +93,7 @@ String inboxActionLabel(InboxItem c) => switch (c.kind) {
 
 IconData inboxIcon(InboxKind k) => switch (k) {
   InboxKind.approvalNeeded => Iconsax.user_tick,
+  InboxKind.correctionRequested => Iconsax.message_edit,
   InboxKind.myRejected => Iconsax.rotate_left,
   InboxKind.taxInvoiceDue => Iconsax.receipt_item,
   InboxKind.paymentWithoutReceipt => Iconsax.money_recive,
@@ -110,6 +118,7 @@ InboxTone inboxTone(InboxKind k) => switch (k) {
   InboxKind.overdue ||
   InboxKind.continuityGap => InboxTone.danger,
   InboxKind.approvalNeeded ||
+  InboxKind.correctionRequested ||
   InboxKind.signingLocked ||
   InboxKind.unfinished ||
   InboxKind.expenseReview ||
@@ -181,6 +190,8 @@ Future<void> runInboxAction(
     case InboxKind.approvalNeeded:
       if (c.count == 1 && first != null) return openDocument(context, first);
       return openActivity(context, chip: 'inbox');
+    case InboxKind.correctionRequested:
+      return _answerCorrection(context, c, onChanged);
     case InboxKind.myRejected:
     case InboxKind.unfinished:
       if (c.count == 1 && first != null) {
@@ -237,6 +248,32 @@ Future<void> runInboxAction(
     case InboxKind.reportReady:
     case InboxKind.continuityGap:
       return openReports(context);
+  }
+}
+
+/// C6: the oldest request → S8 prefilled (the accountant's amount and reason);
+/// a credit opens the new credit note. The server stores the reason on the
+/// credit and closes the request.
+Future<void> _answerCorrection(
+  BuildContext context,
+  InboxItem c,
+  VoidCallback onChanged,
+) async {
+  final first = c.documentIds.isEmpty ? null : c.documentIds.first;
+  if (first == null) return;
+  final out = await showCancelSheet(
+    context,
+    documentId: first,
+    initialAmountMinor: c.requestedAmountMinor,
+    requestReason: c.reason,
+    correctionRequestId: c.requestId,
+  );
+  onChanged();
+  final creditId = out?.credit?.creditId;
+  if (creditId != null && context.mounted) {
+    await openDocument(context, creditId);
+  } else if (out?.dismissed == true && context.mounted) {
+    _toast(context, ReadinessHe.dismissed);
   }
 }
 

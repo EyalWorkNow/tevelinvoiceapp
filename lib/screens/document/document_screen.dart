@@ -45,6 +45,7 @@ import 'sheets/s5_payment.dart';
 import 'sheets/s6_share.dart';
 import 'sheets/s8_cancel.dart';
 import 'waiting_allocation_card.dart';
+import '../reports/correction_request_sheet.dart';
 
 class DocumentScreen extends StatefulWidget {
   const DocumentScreen({
@@ -838,6 +839,13 @@ class _DocumentScreenState extends State<DocumentScreen> {
                         destructive: a == DocAction.cancelOrCredit,
                         onSelected: () => _do(a),
                       ),
+                    // C6: the accountant asks the owner for a correction.
+                    if (doc != null && canRequestCorrection(doc))
+                      MoreMenuItem(
+                        label: ReadinessHe.requestAction,
+                        onSelected: () =>
+                            unawaited(showCorrectionRequestSheet(context, doc)),
+                      ),
                   ],
                 ),
               ],
@@ -867,6 +875,13 @@ class _DocumentScreenState extends State<DocumentScreen> {
                             ),
                             destructive: a == DocAction.cancelOrCredit,
                             onSelected: () => _do(a),
+                          ),
+                        if (doc != null && canRequestCorrection(doc))
+                          MoreMenuItem(
+                            label: ReadinessHe.requestAction,
+                            onSelected: () => unawaited(
+                              showCorrectionRequestSheet(context, doc),
+                            ),
                           ),
                       ],
                     ),
