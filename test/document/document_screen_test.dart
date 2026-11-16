@@ -24,6 +24,7 @@ import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/ui/theme.dart';
 import 'package:invoice/ui/widgets/primary_button.dart';
+import 'package:invoice/util/labels/compose_he.dart';
 
 import '../fakes/fake_api.dart';
 
@@ -708,6 +709,10 @@ void main() {
       expect(primaryLabel(tester), 'הפוך לחשבונית');
       await tester.tap(primary());
       await settle(tester);
+      // C3: pay later (305) or paid now (320).
+      expect(find.text(ComposeHe.quoteHowPaid), findsOneWidget);
+      await tester.tap(find.byKey(const Key('quote-choice-later')));
+      await settle(tester);
       expect(backend.last('POST', '/quotes/:id/status')!.body, {
         'to': 'ACCEPTED',
       });
@@ -715,6 +720,25 @@ void main() {
       expect(
         (c.draftId, c.fromQuoteId, c.intent),
         ('doc-new', 'q-1', 'TYPE:305'),
+      );
+    },
+  );
+
+  testWidgets(
+    'C3 quote → "חשבונית מס-קבלה – שילם עכשיו": C opens as 320 from the quote, nothing converted yet',
+    (tester) async {
+      await pumpDoc(tester, Preset.owner, id: 'q-1', quote: true);
+      await tester.tap(primary());
+      await settle(tester);
+      expect(find.text(ComposeHe.quotePaidNow), findsOneWidget);
+      await tester.tap(find.byKey(const Key('quote-choice-paid')));
+      await settle(tester);
+      final c = tester.widget<ComposeScreen>(find.byType(ComposeScreen));
+      expect((c.draftId, c.fromQuoteId, c.intent), (null, 'q-1', 'TYPE:320'));
+      expect(
+        backend.calls('POST', '/quotes/:id/convert'),
+        isEmpty,
+        reason: 'converted only when the user issues',
       );
     },
   );
@@ -1268,6 +1292,8 @@ void main() {
         });
         await pumpDoc(tester, Preset.owner, id: 'q-1', quote: true);
         await tester.tap(primary());
+        await settle(tester);
+        await tester.tap(find.byKey(const Key('quote-choice-later')));
         await settle(tester);
         expect(
           backend
