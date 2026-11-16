@@ -16,6 +16,7 @@ import '../../../util/labels/labels.dart';
 import '../../../util/money.dart';
 import '../../business/sheets/s13_editor.dart' show UnsavedChangesGuard;
 import '../dialogs.dart';
+import '../../../util/money_input.dart';
 
 /// Opens S5 for an open document. Returns the outcome after "רשום", or null.
 Future<PaymentsOutcome?> showPaymentSheet(
@@ -363,7 +364,8 @@ class _PaymentSheetState extends State<PaymentSheet> {
           TextField(
             key: Key('s5-amount-$i'),
             controller: d.amount,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: moneyKeyboard,
+            inputFormatters: moneyFormatters,
             textDirection: TextDirection.ltr,
             style: AppText.amountCard,
             decoration: const InputDecoration(

@@ -15,6 +15,7 @@ import '../../util/labels/debts_he.dart';
 import '../../util/money.dart';
 import '../../util/still_here.dart';
 import '../people/sheets/s2_customer.dart';
+import '../../util/money_input.dart';
 
 /// S2 for "מי חייב" (tests replace it).
 Future<Customer?> Function(BuildContext context) pickDebtCustomer = (c) =>
@@ -164,7 +165,8 @@ class _DebtEntrySheetState extends State<DebtEntrySheet> {
         TextField(
           key: const Key('debt-entry-amount'),
           controller: _amount,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          keyboardType: moneyKeyboard,
+          inputFormatters: moneyFormatters,
           textDirection: TextDirection.ltr,
           decoration: const InputDecoration(
             labelText: DebtsHe.amount,

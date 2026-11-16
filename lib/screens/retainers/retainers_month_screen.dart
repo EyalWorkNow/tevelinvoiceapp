@@ -22,6 +22,7 @@ import '../compose/signing_unlock.dart';
 import '../document/dialogs.dart' show toast;
 import 'retainer_templates_screen.dart';
 import 'retainers_api.dart';
+import '../../util/money_input.dart';
 
 /// Opens "חשבוניות החודש" ([period] YYYY-MM, default: this Israel month).
 Future<void> openRetainersMonth(BuildContext context, {String? period}) =>
@@ -406,7 +407,8 @@ class _PricesDialogState extends State<_PricesDialog> {
           TextField(
             key: Key('retainer-price-$i'),
             controller: f,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: moneyKeyboard,
+            inputFormatters: moneyFormatters,
             textDirection: TextDirection.ltr,
             decoration: InputDecoration(
               labelText: _fields.length == 1

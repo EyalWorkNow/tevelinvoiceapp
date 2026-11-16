@@ -9,6 +9,7 @@ import '../../api/issue_api.dart' show PendingPayment;
 import '../../ui/ds.dart';
 import '../../util/labels/labels.dart';
 import '../../util/money.dart';
+import '../../util/money_input.dart';
 
 class WaitingAllocationCard extends StatelessWidget {
   const WaitingAllocationCard({
@@ -199,7 +200,8 @@ class _AmountDialogState extends State<_AmountDialog> {
       key: const Key('pending-amount-field'),
       controller: _c,
       autofocus: true,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      keyboardType: moneyKeyboard,
+      inputFormatters: moneyFormatters,
       textInputAction: TextInputAction.done,
       onSubmitted: (_) => _submit(),
       decoration: InputDecoration(
