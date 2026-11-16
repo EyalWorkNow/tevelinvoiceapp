@@ -168,10 +168,10 @@ DocListState docListState({
 /// §15.5 quotes. [expired]: the server's `expired` (DRAFT/SENT past validity).
 QuoteListStatus quoteListStatus(String status, {bool expired = false}) =>
     switch (status) {
-  'DRAFT' || 'SENT' when expired => QuoteListStatus.expired,
-  'SENT' => QuoteListStatus.withCustomer,
-  'ACCEPTED' => QuoteListStatus.accepted,
-  'CONVERTED' => QuoteListStatus.converted,
-  'REJECTED' || 'EXPIRED' => QuoteListStatus.notRelevant,
-  _ => QuoteListStatus.draft,
-};
+      'DRAFT' || 'SENT' when expired => QuoteListStatus.expired,
+      'SENT' => QuoteListStatus.withCustomer,
+      'ACCEPTED' => QuoteListStatus.accepted,
+      'CONVERTED' => QuoteListStatus.converted,
+      'REJECTED' || 'EXPIRED' => QuoteListStatus.notRelevant,
+      _ => QuoteListStatus.draft,
+    };

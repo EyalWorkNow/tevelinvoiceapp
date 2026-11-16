@@ -599,7 +599,7 @@ void main() {
         expect(view.menu, [DocAction.share]);
       },
     );
-  
+
     group('quotes owner feedback 2026-11-16', () {
       test('DRAFT never shared: ערוך · שלח במייל · מחק טיוטה (red, last)', () {
         final n = nextAction(

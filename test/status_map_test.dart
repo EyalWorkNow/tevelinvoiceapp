@@ -112,7 +112,10 @@ void main() {
     // Past validity (server `expired`): only an open quote turns "פג תוקף".
     expect(quoteListStatus('SENT', expired: true), QuoteListStatus.expired);
     expect(quoteListStatus('DRAFT', expired: true), QuoteListStatus.expired);
-    expect(quoteListStatus('ACCEPTED', expired: true), QuoteListStatus.accepted);
+    expect(
+      quoteListStatus('ACCEPTED', expired: true),
+      QuoteListStatus.accepted,
+    );
     expect(
       quoteListStatus('CONVERTED', expired: true),
       QuoteListStatus.converted,

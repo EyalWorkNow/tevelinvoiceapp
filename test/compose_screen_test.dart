@@ -667,9 +667,10 @@ void main() {
           (put.body['validUntil'] as String).compareTo('2020-01-01'),
           greaterThan(0),
         );
-        expect(put.body['validUntil'], todayIso(
-          DateTime.now().add(const Duration(days: 14)),
-        ));
+        expect(
+          put.body['validUntil'],
+          todayIso(DateTime.now().add(const Duration(days: 14))),
+        );
       },
     );
 

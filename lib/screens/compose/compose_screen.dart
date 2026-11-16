@@ -727,7 +727,10 @@ class _ComposeScreenState extends State<ComposeScreen> {
                             ? null
                             : () {
                                 if (_armed) {
-                                  _press(ComposerAction.saveQuote, needsApproval);
+                                  _press(
+                                    ComposerAction.saveQuote,
+                                    needsApproval,
+                                  );
                                 }
                               },
                         child: Text(actionLabel(ComposerAction.saveQuote)),

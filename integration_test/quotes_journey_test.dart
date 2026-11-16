@@ -117,29 +117,31 @@ void main() {
       late String cust;
       late String sentId;
       late String expiredId;
-      await guarded('data', () async {
-        cust = await customer('רונית שיפוצים');
-        final s = await api.post('/quotes', {
-          'customerId': cust,
-          'currency': 'ILS',
-          'validUntil': _day(14),
-          'notes': 'כולל חומרים. תשלום שוטף +30.',
-          'lines': [
-            _line('צביעת דירה 4 חדרים', 450000),
-            _line('תיקון טיח', 35000, qty: 3),
-          ],
+      // The host can be very busy (other simulators / suites): retry the
+      // fixture writes rather than skip the whole journey.
+      for (var attempt = 0; attempt < 3; attempt++) {
+        var ok = false;
+        await guarded('data', () async {
+          cust = await customer('רונית שיפוצים');
+          final s = await api.post('/quotes', {
+            'customerId': cust,
+            'currency': 'ILS',
+            'validUntil': _day(14),
+            'notes': 'כולל חומרים. תשלום שוטף +30.',
+            'lines': [
+              _line('צביעת דירה 4 חדרים', 450000),
+              _line('תיקון טיח', 35000, qty: 3),
+            ],
+          });
+          sentId = s['id'] as String;
+          await api.post('/quotes/$sentId/status', {'to': 'SENT'});
+          // Past validity cannot be created any more (QUOTE_VALID_UNTIL_PAST):
+        // the host ages one quote in the DB and passes its id.
+        expiredId = const String.fromEnvironment('EXPIRED_ID');
+        ok = true;
         });
-        sentId = s['id'] as String;
-        await api.post('/quotes/$sentId/status', {'to': 'SENT'});
-        final e = await api.post('/quotes', {
-          'customerId': cust,
-          'currency': 'ILS',
-          'validUntil': _day(-3),
-          'lines': [_line('ייעוץ', 50000)],
-        });
-        expiredId = e['id'] as String;
-        await api.post('/quotes/$expiredId/status', {'to': 'SENT'});
-      });
+        if (ok) break;
+      }
 
       await guarded('entry points', () async {
         unawaited(openActivity(ctx, chip: 'quotes'));
@@ -192,7 +194,9 @@ void main() {
         await _tapKey('compose-primary');
         await pumpMs(6000);
         await shot('after-send');
-        noteFor('launched: ${launched.map((u) => Uri.decodeFull(u.toString())).join(' || ')}');
+        noteFor(
+          'launched: ${launched.map((u) => Uri.decodeFull(u.toString())).join(' || ')}',
+        );
         await hardRoot();
       });
 

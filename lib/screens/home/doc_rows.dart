@@ -123,21 +123,27 @@ Widget quoteRowFor(QuoteRow q, {required VoidCallback onTap, Key? key}) =>
       onTap: onTap,
     );
 
-/// "הצעה 12 · בתוקף עד 12.10.2026" (else "נוצרה …") — never the title's
-/// fallback word. Past validity: "פג תוקף ב-…".
+/// "בתוקף עד 12.10.2026" (else "נוצרה …") — never the title's fallback
+/// word. With a number (it must fit one row): "מס׳ 12 · עד 12.10.2026",
+/// past validity "מס׳ 12 · פג ב-…".
 String quoteSubtitle(QuoteRow q) {
-  final number = q.quoteNumber == null
-      ? ''
-      : '${InboxHe.quoteNumber(ltrIsolate(q.quoteNumber!))} · ';
+  final n = q.quoteNumber;
   if (q.validUntil != null) {
     final date = ltrIsolate(formatDateHe(q.validUntil));
-    return number +
-        (q.expired
-            ? InboxHe.quoteExpiredOn(date)
-            : InboxHe.quoteValidUntil(date));
+    if (n != null) {
+      return InboxHe.quoteNumberedUntil(
+        ltrIsolate(n),
+        date,
+        expired: q.expired,
+      );
+    }
+    return q.expired
+        ? InboxHe.quoteExpiredOn(date)
+        : InboxHe.quoteValidUntil(date);
   }
+  final number = n == null ? '' : '${InboxHe.quoteNumber(ltrIsolate(n))} · ';
   if (q.createdAt != null) {
     return number + InboxHe.quoteCreated(ltrIsolate(formatDateHe(q.createdAt)));
   }
-  return number.isEmpty ? '' : number.substring(0, number.length - 3);
+  return n == null ? '' : InboxHe.quoteNumber(ltrIsolate(n));
 }
