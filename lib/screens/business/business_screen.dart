@@ -36,6 +36,7 @@ import 'shaam_page.dart';
 import 'team_page.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../people/sheets/s2_customer.dart' show showCustomerSheet;
+import '../retainers/retainers_month_screen.dart';
 
 class BusinessScreen extends StatelessWidget {
   const BusinessScreen({super.key, this.section});
@@ -396,6 +397,20 @@ class _BusinessListState extends State<_BusinessList> {
           onTap: () => unawaited(
             openCustomerCrmAgenda(context, businessId: currentBusinessId),
           ),
+        ),
+      // C4 "חבילת ריטיינר": the month's recurring drafts, reviewed and issued at once.
+      if (mayUseRetainers(caps))
+        _ManagementAction(
+          id: 'retainers',
+          label: RetainerHe.monthTitle,
+          icon: Iconsax.calendar_tick,
+          orb: const Icon(
+            Iconsax.calendar_tick,
+            color: Color(0xFF3E6250),
+            size: 27,
+          ),
+          color: const Color(0xFFD8EFE2),
+          onTap: () => unawaited(openRetainersMonth(context)),
         ),
       if (caps.can(Cap.docDraft)) ...[
         _ManagementAction(

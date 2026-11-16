@@ -29,6 +29,7 @@ const _events = EventChannel('tevel/system_notice_events');
   'issued' => ('המסמך הופק', NoticeMotion.document),
   'sent' => ('המסמך נשלח', NoticeMotion.sent),
   'signed' => ('המסמך נחתם', NoticeMotion.signed),
+  'recurringReady' => ('טיוטות חודשיות מוכנות לאישור', NoticeMotion.document),
   _ => null,
 };
 
