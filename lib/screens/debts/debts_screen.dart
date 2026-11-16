@@ -22,6 +22,7 @@ import '../../ui/ds.dart';
 import '../../util/labels/debts_he.dart';
 import '../../util/labels/reminder_he.dart';
 import '../../util/payment_reminder.dart' show daysSince;
+import '../../util/still_here.dart';
 import 'debt_entry_sheet.dart';
 import 'debt_reminder.dart';
 
@@ -53,6 +54,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
   }
 
   Future<void> _load() async {
+    // Also runs after an await (a reminder, a sheet): the screen may be gone.
+    if (!mounted) return;
     setState(() => _error = null);
     try {
       final data = await loadWhoOwesMe();
@@ -74,7 +77,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
 
   Future<void> _remind(Debtor d) async {
     try {
-      await remindDebtor(d, now: _now);
+      await remindDebtor(d, now: _now, alive: () => stillHere(context));
     } on Object catch (e) {
       if (mounted) showErrorSnack(context, e);
     }

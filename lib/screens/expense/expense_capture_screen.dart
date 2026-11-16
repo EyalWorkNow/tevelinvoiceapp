@@ -105,11 +105,13 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
       });
       return;
     }
-    if (file == null || !mounted) return; // cancelled: stay on the chooser
+    if (file == null || !mounted || ModalRoute.of(context)?.isCurrent != true) {
+      return; // cancelled: stay on the chooser
+    }
     setState(() => _step = _Step.preparing);
     try {
       final jpeg = await prepareExpenseJpeg(await file.readAsBytes());
-      if (!mounted) return;
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
       _jpeg = jpeg;
       _isPdf = false;
       await _send();
@@ -137,7 +139,11 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
       if (mounted) setState(() => _pickProblem = ExpenseHe.filesFailed);
       return;
     }
-    if (bytes == null || !mounted) return; // cancelled: stay on the chooser
+    if (bytes == null ||
+        !mounted ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return; // cancelled: stay on the chooser
+    }
     if (!isPdf(bytes) || bytes.length > maxExpensePdfBytes) {
       setState(
         () => _pickProblem = isPdf(bytes!)
@@ -169,14 +175,14 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
         filename: name,
         contentType: _isPdf ? 'application/pdf' : 'image/jpeg',
         // Closing the screen stops the scan polling (the upload is already in).
-        cancelled: () => !mounted,
+        cancelled: () => !mounted || ModalRoute.of(context)?.isCurrent != true,
         onStage: (stage) {
           if (mounted && stage == ExpenseUploadStage.scanning) {
             setState(() => _step = _Step.scanning);
           }
         },
       );
-      if (!mounted) return;
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
       HapticFeedback.heavyImpact();
       final id = result.expenseId;
       final hint = nextCaptureSupplier;
@@ -184,7 +190,7 @@ class _ExpenseCaptureScreenState extends State<ExpenseCaptureScreen> {
       if (id != null && !result.stillScanning) {
         await rememberMyExpense(id);
         if (hint != null) captureSupplierHints[id] = hint;
-        if (!mounted) return;
+        if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
         await openExpenses(context, expenseId: id, replace: true);
         return;
       }

@@ -22,7 +22,13 @@ const int reminderLinksMax = 3;
 /// Lines listed in one customer message.
 const int reminderItemsMax = 10;
 
-Future<void> remindDebtor(Debtor d, {DateTime? now}) async {
+/// [alive]: false once the debts screen is gone (late navigation): nothing
+/// opens and nothing is recorded.
+Future<void> remindDebtor(
+  Debtor d, {
+  DateTime? now,
+  bool Function()? alive,
+}) async {
   final previous = d.reminderCount;
   final paymentUrl = businessContext.profile?.paymentLinkUrl;
   if (d.documents.length == 1 && d.debtEntries.isEmpty) {
@@ -39,6 +45,7 @@ Future<void> remindDebtor(Debtor d, {DateTime? now}) async {
       paymentUrl: paymentUrl,
       now: now,
       previous: previous,
+      alive: alive,
     );
     return;
   }
@@ -67,6 +74,7 @@ Future<void> remindDebtor(Debtor d, {DateTime? now}) async {
     paymentUrl: paymentUrl,
     previous: previous,
   );
+  if (alive?.call() == false) return;
   final wa = waPhone(d.phone);
   var opened = false;
   if (wa != null) {

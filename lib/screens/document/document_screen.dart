@@ -35,6 +35,7 @@ import '../../util/labels/labels.dart';
 import '../../util/payment_reminder.dart';
 import '../../util/phone.dart';
 import '../../util/status_map.dart' show effectiveDueDate;
+import '../../util/still_here.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../compose/compose_memory.dart' show fetchVatRate;
 import '../retainers/make_monthly_sheet.dart';
@@ -476,6 +477,9 @@ class _DocumentScreenState extends State<DocumentScreen> {
 
   // ---- actions ----------------------------------------------------------------
 
+  /// Late navigation (owner sweep 2026-11-16): D is gone or covered.
+  bool _alive() => stillHere(context);
+
   Future<void> _guard(String busyText, Future<String?> Function() work) async {
     // A dialog before the guard may outlive the screen (QA 01: setState
     // after await without mounted).
@@ -571,7 +575,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
       case DocAction.sendWhatsApp:
         if (!_facts.customerHasPhone) return _openShare();
         await _guard(label, () async {
-          await sendDocumentWhatsApp(doc!, _customer);
+          await sendDocumentWhatsApp(doc!, _customer, alive: _alive);
           return null;
         });
       case DocAction.send || DocAction.share:
@@ -597,6 +601,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
             phone: _customer?.phone,
             link: () => createShareLink(d),
             paymentUrl: businessContext.profile?.paymentLinkUrl,
+            alive: _alive,
           );
           return null;
         });
@@ -625,7 +630,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
         // C3: pay later (305 / 300) or "שילם עכשיו" (320 / receipt + payment).
         final exemptBusiness = businessContext.isVatExempt;
         final choice = await askQuotePaid(context, exempt: exemptBusiness);
-        if (choice == null || !mounted) return;
+        if (choice == null || !mounted || !_alive()) return;
         if (choice == QuotePaidChoice.paidNow) {
           await openCompose(
             context,
@@ -750,6 +755,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
     final bytes = _pdf ?? await quotePdfBytes(q.id);
     String? text;
     if (businessContext.can(Cap.docSend)) text = await _quoteText(q);
+    if (!_alive()) return null;
     await pdfSharer(bytes, DocumentHe.quoteTitle, text: text);
     return null;
   });
@@ -777,6 +783,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
   Future<void> _sendQuote(String label) => _guard(label, () async {
     final q = _quote!;
     final text = await _quoteText(q);
+    if (!_alive()) return null;
     final phone = waPhone(_customer?.phone);
     if (phone != null) {
       await launchAllowed(whatsAppUri(phone: phone, text: text));
@@ -792,7 +799,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
     if (id == null) return;
     await _guard(PaymentHe.sendReceipt, () async {
       final receipt = await fetchDocumentDetail(id);
-      await sendDocumentWhatsApp(receipt, _customer);
+      await sendDocumentWhatsApp(receipt, _customer, alive: _alive);
       return null;
     });
   }

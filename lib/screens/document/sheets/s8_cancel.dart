@@ -12,6 +12,7 @@ import '../../../ui/ds.dart';
 import '../../../util/cancel_policy.dart';
 import '../../../util/labels/labels.dart';
 import '../../../util/money.dart';
+import '../../../util/still_here.dart';
 import '../dialogs.dart';
 import '../../../api/readiness_api.dart' show dismissCorrection;
 
@@ -166,7 +167,10 @@ class _CancelSheetState extends State<CancelSheet> {
         askPassphrase: () => askSigningPassphrase(context),
         reason: _reason.text,
       );
-      if (mounted) Navigator.of(context).pop(CancelResult(credit: out));
+      // Late navigation: a sheet already closing must not pop D under it.
+      if (mounted && stillHere(context)) {
+        Navigator.of(context).pop(CancelResult(credit: out));
+      }
     } on CreditLimitExceeded catch (e) {
       if (mounted) {
         setState(() {
@@ -193,7 +197,9 @@ class _CancelSheetState extends State<CancelSheet> {
     });
     try {
       await voidDocument(_doc!.id, _reason.text);
-      if (mounted) Navigator.of(context).pop(const CancelResult(voided: true));
+      if (mounted && stillHere(context)) {
+        Navigator.of(context).pop(const CancelResult(voided: true));
+      }
     } on Object catch (e) {
       if (mounted) setState(() => _error = e);
     } finally {
@@ -210,7 +216,7 @@ class _CancelSheetState extends State<CancelSheet> {
     });
     try {
       await dismissCorrection(id);
-      if (mounted) {
+      if (mounted && stillHere(context)) {
         Navigator.of(context).pop(const CancelResult(dismissed: true));
       }
     } on Object catch (e) {

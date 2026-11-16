@@ -270,23 +270,49 @@ void main() {
     },
   );
 
-  testWidgets('AT-12 J2: REQUEST → 305 in 3 taps, link contains /d/', (
-    tester,
-  ) async {
-    await open(tester, intent: 'REQUEST');
-    await type(tester, '590');
-    await tap(tester, primary());
-    expect(taps, 3);
-    expect(
-      backend.last('POST', '/documents')!.body['documentType'],
-      'TAX_INVOICE',
+  for (final systemBack in [false, true]) {
+    testWidgets(
+      'payment request returns from coming soon without issuing (system back: $systemBack)',
+      (tester) async {
+        await open(tester, intent: 'REQUEST');
+        await type(tester, '590');
+        expect(primaryLabel(tester), 'המשך');
+        final writesBefore = backend.requests
+            .where((r) => r.method != 'GET')
+            .length;
+        for (var attempt = 0; attempt < 2; attempt++) {
+          await tap(tester, primary());
+          expect(find.byKey(const Key('payment-coming-soon')), findsOneWidget);
+          if (systemBack) {
+            Navigator.of(
+              tester.element(find.byKey(const Key('payment-coming-soon'))),
+            ).pop();
+          } else {
+            await tester.tap(find.byKey(const Key('payment-coming-soon-back')));
+          }
+          await flush(tester);
+          if (systemBack) {
+            expect(find.byType(Keypad), findsOneWidget);
+            expect(primaryLabel(tester), 'המשך');
+          } else {
+            expect(find.byType(ComposeScreen), findsNothing);
+            expect(find.text('open'), findsOneWidget);
+          }
+          expect(find.textContaining('הופק'), findsNothing);
+          expect(routes.where((route) => route.startsWith('/doc/')), isEmpty);
+          expect(
+            backend.requests.where((r) => r.method != 'GET').length,
+            writesBefore,
+          );
+          expect(launcher.opened, isEmpty);
+          if (!systemBack) break;
+        }
+      },
     );
-    expect(backend.calls('POST', '/payments'), isEmpty);
-    expect(Uri.decodeComponent(launcher.last.toString()), contains('/d/'));
-  });
+  }
 
   testWidgets('tap on the VAT line toggles כולל ↔ לפני מע״מ', (tester) async {
-    await open(tester, intent: 'REQUEST');
+    await open(tester, intent: 'TYPE:305');
     await type(tester, '1000');
     expect(find.text(vatModeLabel(true)), findsOneWidget);
     await tester.tap(find.byKey(const Key('vat-breakdown')));
@@ -348,7 +374,7 @@ void main() {
   );
 
   testWidgets('AT-16: ≥ ₪50,000 → one confirmation dialog', (tester) async {
-    await open(tester, intent: 'REQUEST');
+    await open(tester, intent: 'TYPE:305');
     await type(tester, '50000');
     await tap(tester, primary());
     expect(find.byKey(const Key('big-amount-dialog')), findsOneWidget);
@@ -382,7 +408,7 @@ void main() {
       'state': 'REQUIRES_USER_INPUT',
       'evaluation': {'reasonCode': 'CUSTOMER_VAT_STATUS_UNKNOWN'},
     });
-    await open(tester, intent: 'REQUEST', customer: ron);
+    await open(tester, intent: 'TYPE:305', customer: ron);
     await type(tester, '7080');
     await tap(tester, primary());
     expect(find.byKey(const Key('vat-dealer-dialog')), findsOneWidget);
@@ -412,7 +438,7 @@ void main() {
   ) async {
     await open(
       tester,
-      intent: 'REQUEST',
+      intent: 'TYPE:305',
       approvalPolicy: {
         'mode': 'THRESHOLD',
         'thresholdMinor': '500000',
@@ -440,7 +466,7 @@ void main() {
   });
 
   testWidgets('AT-98 offline: the primary shows "אין חיבור"', (tester) async {
-    await open(tester, intent: 'REQUEST', offline: true);
+    await open(tester, intent: 'TYPE:305', offline: true);
     await type(tester, '100');
     final b = tester.widget<PrimaryButton>(primary());
     expect(b.offline, isTrue);
@@ -450,7 +476,7 @@ void main() {
   testWidgets('amount 0 → no primary button (F2/F5: absent, not grey)', (
     tester,
   ) async {
-    await open(tester, intent: 'REQUEST');
+    await open(tester, intent: 'TYPE:305');
     expect(primary(), findsNothing);
     expect(find.byKey(const Key('compose-description')), findsNothing);
   });
@@ -537,7 +563,7 @@ void main() {
         ],
       });
       tester.view.physicalSize = const Size(1170, 2532);
-      await open(tester, intent: 'REQUEST');
+      await open(tester, intent: 'TYPE:305');
       // re-open with fromQuoteId through the router helper
       final ctx = tester.element(find.byType(ComposeScreen));
       Navigator.of(ctx).pop();
@@ -545,7 +571,7 @@ void main() {
       unawaited(
         openCompose(
           tester.element(find.text('open')),
-          intent: 'REQUEST',
+          intent: 'TYPE:305',
           fromQuoteId: 'q5',
         ),
       );
@@ -711,7 +737,7 @@ void main() {
       'BE-07/09: the due date follows the customer terms; S3 shows it',
       (tester) async {
         fake.paymentTerms['c1'] = 'EOM';
-        await open(tester, intent: 'REQUEST');
+        await open(tester, intent: 'TYPE:305');
         await type(tester, '1180');
         await tap(tester, find.byKey(const Key('compose-more-details')));
         expect(find.byKey(const Key('s3-due-date')), findsOneWidget);
@@ -850,12 +876,14 @@ void main() {
     'SA6: a document parked WAITING_FOR_ALLOCATION leaves no local draft behind',
     (tester) async {
       fake.finalizeStatus = 'WAITING_FOR_ALLOCATION';
-      await open(tester, intent: 'REQUEST');
+      // REQUEST is the owner's "בקרוב" placeholder (2026-11-16): the 305 is
+      // issued through its own intent.
+      await open(tester, intent: 'TYPE:305');
       await type(tester, '7080');
       await tap(tester, primary());
       expect(backend.calls('POST', '/documents/:id/finalize'), hasLength(1));
       expect(find.byType(ComposeScreen), findsNothing, reason: 'D replaced C');
-      final draft = await tester.runAsync(() => loadLocalDraft('REQUEST'));
+      final draft = await tester.runAsync(() => loadLocalDraft('TYPE:305'));
       expect(
         draft,
         isNull,

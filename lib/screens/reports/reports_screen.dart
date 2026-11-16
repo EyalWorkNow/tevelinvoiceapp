@@ -246,6 +246,7 @@ class _ReportsState extends State<_Reports> {
   /// "שלח לרו״ח": below the readiness threshold only after an explicit confirm.
   Future<void> _sendToAccountant() async {
     if (!await confirmSendBelowThreshold(context, _readiness)) return;
+    if (!mounted) return;
     await _export('accountant');
   }
 
@@ -266,9 +267,16 @@ class _ReportsState extends State<_Reports> {
   Future<void> _export(String kind) async {
     if (_exporting != null) return;
     setState(() => _exporting = kind);
+    final period = _period;
+    final business = session.business?.businessId;
     try {
-      final file = await exportPeriod(kind, _period);
-      await shareWithAccountant(file, _period);
+      final file = await exportPeriod(kind, period);
+      if (!mounted ||
+          ModalRoute.of(context)?.isCurrent != true ||
+          business != session.business?.businessId) {
+        return;
+      }
+      await shareWithAccountant(file, period);
     } on Object catch (e) {
       if (mounted) showErrorSnack(context, e);
     } finally {

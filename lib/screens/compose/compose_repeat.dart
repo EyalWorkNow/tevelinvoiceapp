@@ -19,6 +19,7 @@ import '../../state/cache.dart';
 import '../../util/composer_config.dart';
 import '../../util/labels/payment_he.dart' show chipOf;
 import '../../util/money.dart';
+import '../../util/still_here.dart';
 import 'compose_memory.dart' show fetchVatRate, repeatMemoryKey;
 import 'compose_state.dart';
 
@@ -230,7 +231,8 @@ Future<bool> openRepeat(BuildContext context, String customerId) async {
   } on Object {
     t = null; // offline with nothing remembered: same as nothing to repeat
   }
-  if (t == null || !context.mounted) return false;
+  // Late navigation: the customer card was left while the template loaded.
+  if (t == null || !context.mounted || !stillHere(context)) return false;
   composeRepeatNext = (customerId: customerId, template: t);
   await openCompose(
     context,

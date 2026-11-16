@@ -18,6 +18,7 @@ import '../../state/business_context.dart';
 import '../../state/caps.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/common_he.dart';
+import '../../util/still_here.dart';
 import '../../util/labels/inbox_he.dart';
 import '../../util/labels/reminder_he.dart';
 import '../../util/payment_reminder.dart';
@@ -236,7 +237,7 @@ Future<void> runInboxAction(
       // Either way the quote converts only when "הפק" is pressed.
       final exempt = businessContext.isVatExempt;
       final choice = await askQuotePaid(context, exempt: exempt);
-      if (choice == null || !context.mounted) return;
+      if (choice == null || !context.mounted || !stillHere(context)) return;
       return openCompose(
         context,
         intent: choice == QuotePaidChoice.paidNow
@@ -285,7 +286,7 @@ Future<void> _answerCorrection(
   );
   onChanged();
   final creditId = out?.credit?.creditId;
-  if (creditId != null && context.mounted) {
+  if (creditId != null && context.mounted && stillHere(context)) {
     await openDocument(context, creditId);
   } else if (out?.dismissed == true && context.mounted) {
     _toast(context, ReadinessHe.dismissed);
@@ -567,6 +568,7 @@ Future<void> _remindRow(BuildContext context, DocumentSummary d) async {
       phone: customer?.phone,
       link: () => shareLinkFor(d.id),
       paymentUrl: businessContext.profile?.paymentLinkUrl,
+      alive: () => stillHere(context),
     );
   } on ApiException catch (e) {
     if (context.mounted) {
@@ -607,6 +609,7 @@ Future<void> showWhatsAppReminders(
                       phone: t.phone,
                       link: () => shareLinkFor(t.documentId),
                       paymentUrl: businessContext.profile?.paymentLinkUrl,
+                      alive: () => stillHere(dialogContext),
                     );
                   } on ApiException catch (e) {
                     if (dialogContext.mounted) {

@@ -77,12 +77,19 @@ class _ReportViewState extends State<ReportView> {
   Future<void> _share(String format) async {
     if (_sharing) return;
     setState(() => _sharing = true);
+    final period = _period;
+    final business = session.business?.businessId;
     try {
       final data = _data;
       final file = _ledger && data != null
-          ? reportCsv(widget.kind, _period, data)
-          : await fetchReportFile(widget.kind, _period, format);
-      await shareWithAccountant(file, _period);
+          ? reportCsv(widget.kind, period, data)
+          : await fetchReportFile(widget.kind, period, format);
+      if (!mounted ||
+          ModalRoute.of(context)?.isCurrent != true ||
+          business != session.business?.businessId) {
+        return;
+      }
+      await shareWithAccountant(file, period);
     } on Object catch (e) {
       if (mounted) showErrorSnack(context, e);
     } finally {
@@ -111,7 +118,9 @@ class _ReportViewState extends State<ReportView> {
     } finally {
       if (mounted) setState(() => _sharing = false);
     }
-    if (!sent) await _share('pdf');
+    if (!sent && mounted && ModalRoute.of(context)?.isCurrent == true) {
+      await _share('pdf');
+    }
   }
 
   @override

@@ -20,7 +20,10 @@ void main() {
   setUp(() async {
     backend = await eSetUp();
     installIssueFakes(backend);
-    installPeopleFakes(backend);
+    installPeopleFakes(
+      backend,
+      customers: [customerJson('c1', 'דנה', phone: '0501234567')],
+    );
     pickCustomer = (context) => showCustomerSheet(context);
     await signInAs(backend, Preset.owner);
   });
@@ -61,6 +64,29 @@ void main() {
           expect(find.byType(Keypad), findsNothing);
         }
         await settle(tester);
+        expect(find.text('origin'), findsOneWidget);
+        expect(find.byType(ComposeScreen), findsNothing);
+        expect(navigatorKey.currentState!.canPop(), isFalse);
+      },
+    );
+  }
+
+  for (final intent in ['REQUEST', 'TYPE:305']) {
+    testWidgets(
+      // Main's U0: ✕ leaves the Composer in one tap (the customer changes
+      // from the chip), so the owner's "back reopens the picker" step is ✕.
+      '$intent: ✕ after choosing a customer returns home without an amount flash',
+      (tester) async {
+        final root = await start(tester);
+        unawaited(openCompose(root, intent: intent));
+        await settle(tester);
+        await tester.tap(find.text('דנה').last);
+        await settle(tester);
+        expect(find.byType(Keypad), findsOneWidget);
+        // No amount: ✕ leaves at once (the keypad slides out with C).
+        await tester.tap(find.byKey(const Key('compose-close')));
+        await settle(tester);
+        expect(find.byType(Keypad), findsNothing);
         expect(find.text('origin'), findsOneWidget);
         expect(find.byType(ComposeScreen), findsNothing);
         expect(navigatorKey.currentState!.canPop(), isFalse);

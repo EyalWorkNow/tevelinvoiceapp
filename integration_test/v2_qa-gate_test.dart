@@ -15,6 +15,8 @@
 // Items of A that have no AT number in §17 are tagged with their spec section.
 // The tests share one throwaway employee ("T") in order; each test can also
 // create what it needs when an earlier one failed (ensureTester / ensureTesterBusiness).
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -25,6 +27,8 @@ import 'package:invoice/main.dart' as app;
 import 'package:invoice/router.dart' show navigatorKey;
 import 'package:invoice/screens/auth/invite_screen.dart';
 import 'package:invoice/screens/auth/login_screen.dart';
+import 'package:invoice/api/business_registration_api.dart';
+import 'package:invoice/screens/auth/business_certificate_picker.dart';
 import 'package:invoice/screens/auth/onboarding_screen.dart';
 import 'package:invoice/screens/business/account_page.dart'
     show SoleOwnerWarning;
@@ -545,6 +549,25 @@ void main() {
         reason: 'business name prefilled',
       );
       await tester.enterText(find.byType(TextField).at(1), '123456782');
+      // Owner 2026-11-16: the owner's details and the business certificate
+      // are part of setup (POST /business/registration).
+      for (final (key, value) in [
+        ('setup-full-name', 'בודק שער'),
+        ('setup-phone', '0501234567'),
+        ('setup-email', testerEmail!),
+        ('setup-street', 'הרצל'),
+        ('setup-city', 'חיפה'),
+      ]) {
+        await tester.ensureVisible(byKey(key));
+        await tester.enterText(byKey(key), value);
+      }
+      pickBusinessCertificate = (_) async => BusinessCertificateFile(
+        bytes: Uint8List.fromList('%PDF-1.4 qa'.codeUnits),
+        filename: 'business-certificate.pdf',
+        mimeType: 'application/pdf',
+      );
+      await tester.ensureVisible(byKey('setup-certificate'));
+      await tapOn(tester, byKey('setup-certificate'));
       await tapOn(tester, byKey('setup-next'));
       await pumpUntil(tester, find.text(AuthHe.setupStep(3)));
       await tapOn(tester, byKey('setup-next')); // סיימתי

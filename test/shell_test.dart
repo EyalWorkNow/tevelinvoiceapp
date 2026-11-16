@@ -45,8 +45,11 @@ void main() {
     Preset preset, {
     bool contactsPermissionPrompted = true,
     int businesses = 1,
+    double width = 390,
+    double textScale = 1,
+    bool reducedMotion = false,
   }) async {
-    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.physicalSize = Size(width * 3, 2532);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     await tester.runAsync(
@@ -67,6 +70,13 @@ void main() {
         supportedLocales: const [Locale('he', 'IL')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         theme: buildTheme(Brightness.light),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(textScale),
+            disableAnimations: reducedMotion,
+          ),
+          child: child!,
+        ),
         home: const AppShell(),
       ),
     );
@@ -126,7 +136,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(currentTab.value, AppTab.business);
     expect(find.byType(BusinessScreen), findsOneWidget);
-    // Owner, TestFlight build 9: ＋ slides out off Home, the bar grows.
+    // ＋ slides out off Home; the capsule keeps its size (owner 2026-11-16).
     expect(find.byKey(const Key('tab-create')), findsNothing);
     await tester.tap(find.byKey(const Key('tab-profile')));
     await tester.pumpAndSettle();
@@ -138,6 +148,105 @@ void main() {
     expect(currentTab.value, AppTab.home);
     expect(find.byKey(const Key('home-create-glass')), findsOneWidget);
   });
+
+  testWidgets(
+    'capsule keeps its reference size and recenters during navigation',
+    (tester) async {
+      await pumpShell(tester, Preset.owner);
+      // The owner sees לקוחות too (doc.view): one more item of the same size,
+      // and the bar scales to fit 390pt with the orb beside it.
+      const width4 = 206 + 62.808 + 3.538;
+      const s = (390 - 24) / (width4 + 80 + 8);
+      final capsule = find.byKey(const Key('navigation-capsule'));
+      expect(tester.getSize(capsule), const Size(width4 * s, 72 * s));
+      expect(
+        tester.getSize(find.byKey(const Key('home-create-glass'))),
+        const Size(80 * s, 80 * s),
+      );
+      final homeX = tester.getCenter(capsule).dx;
+      await tester.tap(find.byKey(const Key('tab-business')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.getCenter(capsule).dx, greaterThan(homeX));
+      expect(tester.getCenter(capsule).dx, lessThan(195));
+      expect(find.byKey(const Key('tab-create')), findsNothing);
+      await tester.pumpAndSettle();
+      expect(tester.getCenter(capsule).dx, closeTo(195, .01));
+      expect(tester.getSize(capsule), const Size(width4 * s, 72 * s));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('three tabs: the owner reference size 206 x 72 at 1.07', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(402 * 3, 2622);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: ShellBottomNavigation(
+            current: AppTab.home,
+            showCreate: true,
+            onTab: (_) {},
+            onCreate: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byKey(const Key('navigation-capsule'))),
+      const Size(206 * 1.07, 72 * 1.07),
+    );
+    expect(find.byKey(const Key('tab-people')), findsNothing);
+  });
+
+  testWidgets(
+    'tab press compresses and releases without changing its hit area',
+    (tester) async {
+      await pumpShell(tester, Preset.owner);
+      final tab = find.byKey(const Key('tab-home'));
+      final hitSize = tester.getSize(tab);
+      final gesture = await tester.startGesture(tester.getCenter(tab));
+      await tester.pump(const Duration(milliseconds: 150));
+      final pressScale = find.descendant(
+        of: tab,
+        matching: find.byType(AnimatedScale),
+      );
+      expect(tester.widget<AnimatedScale>(pressScale).scale, .93);
+      expect(tester.getSize(tab), hitSize);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(tester.widget<AnimatedScale>(pressScale).scale, 1);
+    },
+  );
+
+  for (final width in [320.0, 402.0]) {
+    testWidgets(
+      'navigation fits at width $width with large text and reduced motion',
+      (tester) async {
+        await pumpShell(
+          tester,
+          Preset.owner,
+          width: width,
+          textScale: 2,
+          reducedMotion: true,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.byKey(const Key('tab-business')));
+        await tester.pump();
+        expect(find.byKey(const Key('tab-create')), findsNothing);
+        expect(
+          tester.getCenter(find.byKey(const Key('navigation-capsule'))).dx,
+          closeTo(width / 2, .01),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets(
     '＋ follows the caps (doc.draft), never the role or the home tab; accountant home = R',

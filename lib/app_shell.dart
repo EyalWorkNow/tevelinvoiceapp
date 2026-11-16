@@ -2,7 +2,7 @@
 // [בית][לקוחות][ניהול][פרופיל] (§5; לקוחות only with Caps.showPeopleTab).
 // Invoice creation (＋) sits beside the navigation on Home when the caps allow
 // creating documents (Caps.showCreateTab, 1.5); on the other tabs it slides
-// out and the capsule grows into its space (owner, TestFlight build 9).
+// out and the capsule keeps its size (owner's navbar, 2026-11-16).
 
 import 'dart:async';
 import 'dart:ui' as ui;
@@ -12,7 +12,6 @@ import 'api/issue_api.dart' show uploadLocalPendingPayment;
 import 'screens/billing/billing_screen.dart';
 import 'state/caps.dart';
 import 'package:flutter/services.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import 'router.dart' show openCompose, peopleChip;
 import 'screens/business/business_screen.dart';
@@ -24,20 +23,11 @@ import 'state/business_context.dart';
 import 'ui/widgets/design_controls.dart' show DesignIcon;
 import 'util/intent_resolver.dart' show invoiceIntentFor;
 
-const double _navigationDesignScale = 1.4;
-const double _navigationScaleReduction = .87;
-const double _navigationMaxScale =
-    _navigationDesignScale * _navigationScaleReduction;
-const double _navigationActionSize = 84;
-const double _shellBottomNavigationHeight =
-    _navigationActionSize * _navigationMaxScale;
-
-/// Capsule width for [items] tabs (3 tabs = the original 206pt design).
-double _navigationCapsuleWidth(int items) =>
-    items * _navigationItemSize +
-    (items - 1) * _navigationItemGap +
-    2 * 4.423 +
-    1.7;
+// Reference artwork uses a 206 x 72 capsule beside an 80pt invoice orb.
+const double _navigationDisplayScale = 1.07;
+const double _navigationActionSize = 80;
+const double _shellBottomNavigationHeight = 88 * _navigationDisplayScale;
+const double _navigationCapsuleWidth = 206;
 const double _navigationCapsuleHeight = 72;
 const double _navigationGap = 8;
 const double _navigationItemSize = 62.808;
@@ -165,7 +155,7 @@ class _AppShellState extends State<AppShell> {
         : _shellBottomNavigationHeight + media.viewPadding.bottom;
     return Scaffold(
       extendBody: true,
-      bottomNavigationBar: ShellBottomNavigation(
+      bottomNavigationBar: _ShellBottomNavigation(
         current: tab,
         showPeople: caps.showPeopleTab,
         showCreate: tab == AppTab.home && caps.showCreateTab,
@@ -249,84 +239,57 @@ class _KeepAliveTabState extends State<_KeepAliveTab>
   }
 }
 
+/// The owner's navigation, reachable from tests.
 @visibleForTesting
-class ShellBottomNavigation extends StatefulWidget {
-  const ShellBottomNavigation({
-    super.key,
+typedef ShellBottomNavigation = _ShellBottomNavigation;
+
+class _ShellBottomNavigation extends StatefulWidget {
+  const _ShellBottomNavigation({
     required this.current,
-    required this.showPeople,
+    this.showPeople = false,
     required this.showCreate,
     required this.onTab,
     required this.onCreate,
   });
 
   final AppTab current;
+
+  /// לקוחות as a fourth tab (Caps.showPeopleTab): one more item of the same
+  /// size; the capsule widens by exactly that item.
   final bool showPeople;
   final bool showCreate;
   final ValueChanged<AppTab> onTab;
   final VoidCallback onCreate;
 
   @override
-  State<ShellBottomNavigation> createState() => _ShellBottomNavigationState();
+  State<_ShellBottomNavigation> createState() => _ShellBottomNavigationState();
 }
 
-class _ShellBottomNavigationState extends State<ShellBottomNavigation>
-    with SingleTickerProviderStateMixin {
+class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
   bool _pressed = false;
-
-  /// 1 = ＋ beside a compact capsule (Home); 0 = ＋ gone, capsule full width.
-  /// Hiding (1 → 0) runs ＋ out first, then the capsule grows; showing runs
-  /// the same intervals backwards: the capsule shrinks, then ＋ slides in.
-  late final AnimationController _fab = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 320),
-    value: widget.showCreate ? 1 : 0,
-  );
-  static const _barPhase = Interval(0, .5, curve: Curves.easeInOutCubic);
-  static const _fabPhase = Interval(.45, 1, curve: Curves.easeInOutCubic);
-
-  @override
-  void didUpdateWidget(ShellBottomNavigation old) {
-    super.didUpdateWidget(old);
-    if (old.showCreate == widget.showCreate) return;
-    final target = widget.showCreate ? 1.0 : 0.0;
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _fab.value = target;
-    } else {
-      unawaited(_fab.animateTo(target));
-    }
-  }
-
-  @override
-  void dispose() {
-    _fab.dispose();
-    super.dispose();
-  }
+  AppTab? _pressedTab;
 
   @override
   Widget build(BuildContext context) {
     final selected = widget.current == AppTab.people && !widget.showPeople
         ? AppTab.business
         : widget.current;
-    final capsuleWidth = _navigationCapsuleWidth(widget.showPeople ? 4 : 3);
+    final capsuleWidth =
+        _navigationCapsuleWidth +
+        (widget.showPeople ? _navigationItemSize + _navigationItemGap : 0);
     final screenWidth = MediaQuery.sizeOf(context).width;
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
     final motionDuration = reducedMotion
         ? Duration.zero
         : const Duration(milliseconds: 360);
+    // Keep the same capsule size on every tab, reserving room for the orb.
     final scale =
-        (((screenWidth - 24) /
-                        (capsuleWidth + _navigationActionSize + _navigationGap))
-                    .clamp(.7, _navigationDesignScale) *
-                _navigationScaleReduction)
-            .clamp(.7, _navigationMaxScale)
+        ((screenWidth - 24) /
+                (capsuleWidth + _navigationActionSize + _navigationGap))
+            .clamp(0.0, _navigationDisplayScale)
             .toDouble();
+    final navWidth = capsuleWidth * scale;
     final actionSize = _navigationActionSize * scale;
-    final gap = _navigationGap * scale;
-    final direction = Directionality.of(context);
-    // ＋ is the Row's first child: it sits at the start edge, so "aside" is
-    // towards the start (right in RTL, left in LTR).
-    final aside = direction == TextDirection.rtl ? 1.0 : -1.0;
     const barHeight = _shellBottomNavigationHeight;
 
     return SizedBox(
@@ -338,170 +301,134 @@ class _ShellBottomNavigationState extends State<ShellBottomNavigation>
           alignment: Alignment.center,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
-            // AT-29: the compact width still animates when לקוחות comes or
-            // goes; the ＋/capsule hand-off rides on top of it.
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(end: capsuleWidth * scale),
-              duration: motionDuration,
-              curve: Curves.easeInOutCubic,
-              builder: (context, navWidth, _) => AnimatedBuilder(
-                animation: _fab,
-                builder: (context, _) {
-                  final bar = _barPhase.transform(_fab.value);
-                  final fab = _fabPhase.transform(_fab.value);
-                  final hidden = !widget.showCreate || fab == 0;
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    textDirection: direction,
-                    children: [
-                      SizedBox(
-                        key: const Key('shell-create-slot'),
-                        width: actionSize * bar,
-                        height: actionSize,
-                        child: OverflowBox(
-                          alignment: AlignmentDirectional.centerStart,
-                          minWidth: actionSize,
-                          maxWidth: actionSize,
-                          minHeight: actionSize,
-                          maxHeight: actionSize,
-                          child: FractionalTranslation(
-                            key: const Key('shell-create-motion'),
-                            translation: Offset(aside * 1.15 * (1 - fab), 0),
-                            child: Opacity(
-                              opacity: fab,
-                              child: Transform.scale(
-                                scale: .82 + .18 * fab,
-                                child: IgnorePointer(
-                                  ignoring: hidden,
-                                  child: ExcludeSemantics(
-                                    excluding: hidden,
-                                    child: fab == 0
-                                        ? SizedBox.square(dimension: actionSize)
-                                        : _createButton(actionSize, scale),
-                                  ),
-                                ),
+            child: Row(
+              // AT-29: when לקוחות comes or goes (a business switch) the bar
+              // starts at its new scale instead of resizing in place.
+              key: ValueKey(widget.showPeople),
+              mainAxisAlignment: MainAxisAlignment.center,
+              textDirection: TextDirection.rtl,
+              children: [
+                ClipRect(
+                  child: AnimatedContainer(
+                    duration: motionDuration,
+                    curve: Curves.easeInOutCubic,
+                    width: widget.showCreate ? actionSize : 0,
+                    height: actionSize,
+                    child: ClipRect(
+                      child: OverflowBox(
+                        alignment: Alignment.centerRight,
+                        minWidth: actionSize,
+                        maxWidth: actionSize,
+                        minHeight: actionSize,
+                        maxHeight: actionSize,
+                        child: AnimatedSlide(
+                          duration: motionDuration,
+                          curve: Curves.easeInOutCubic,
+                          offset: widget.showCreate
+                              ? Offset.zero
+                              : const Offset(1.15, 0),
+                          child: AnimatedOpacity(
+                            duration: motionDuration,
+                            curve: Curves.easeOutCubic,
+                            opacity: widget.showCreate ? 1 : 0,
+                            child: IgnorePointer(
+                              ignoring: !widget.showCreate,
+                              child: ExcludeSemantics(
+                                excluding: !widget.showCreate,
+                                child: _createButton(actionSize, scale),
                               ),
                             ),
                           ),
                         ),
                       ),
-                      SizedBox(width: gap * bar),
-                      SizedBox(
-                        key: const Key('shell-capsule'),
-                        width: navWidth + (actionSize + gap) * (1 - bar),
-                        height: _navigationCapsuleHeight * scale,
-                        child: _capsule(
-                          context,
-                          selected,
-                          motionDuration,
-                          scale,
-                          direction,
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _capsule(
-    BuildContext context,
-    AppTab selected,
-    Duration motionDuration,
-    double scale,
-    TextDirection direction,
-  ) {
-    final count = widget.showPeople ? 4 : 3;
-    final natural =
-        (count * _navigationItemSize + (count - 1) * _navigationItemGap) *
-        scale;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(34.5 * scale),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 2 * scale, sigmaY: 2 * scale),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: const Color.fromRGBO(39, 27, 40, .68),
-            borderRadius: BorderRadius.circular(34.5 * scale),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: .22),
-              width: scale,
-            ),
-          ),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              4.423 * scale,
-              2.654 * scale,
-              4.423 * scale,
-              3.538 * scale,
-            ),
-            // AT-29: when the לקוחות tab comes or goes (caps change on a
-            // business switch) the capsule animates its width while the Row
-            // already has the new item count; the tabs keep their size and
-            // the capsule clips them instead of overflowing. When the capsule
-            // is wider than the tabs (＋ gone) they spread out evenly.
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final width = constraints.maxWidth > natural
-                    ? constraints.maxWidth
-                    : natural;
-                return OverflowBox(
-                  minWidth: width,
-                  maxWidth: width,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    textDirection: direction,
-                    children: [
-                      _item(
-                        context,
-                        AppTab.home,
-                        'בית',
-                        'home',
-                        selected,
-                        motionDuration,
-                        scale,
-                      ),
-                      if (widget.showPeople) ...[
-                        SizedBox(width: _navigationItemGap * scale),
-                        _item(
-                          context,
-                          AppTab.people,
-                          'לקוחות',
-                          'existing-customer',
-                          selected,
-                          motionDuration,
-                          scale,
-                        ),
-                      ],
-                      SizedBox(width: _navigationItemGap * scale),
-                      _item(
-                        context,
-                        AppTab.business,
-                        'ניהול',
-                        'manage',
-                        selected,
-                        motionDuration,
-                        scale,
-                      ),
-                      SizedBox(width: _navigationItemGap * scale),
-                      _item(
-                        context,
-                        AppTab.profile,
-                        'פרופיל',
-                        'profile',
-                        selected,
-                        motionDuration,
-                        scale,
-                      ),
-                    ],
+                    ),
                   ),
-                );
-              },
+                ),
+                AnimatedContainer(
+                  duration: motionDuration,
+                  curve: Curves.easeInOutCubic,
+                  width: widget.showCreate ? _navigationGap * scale : 0,
+                ),
+                SizedBox(
+                  width: navWidth,
+                  height: _navigationCapsuleHeight * scale,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(36 * scale),
+                    child: BackdropFilter(
+                      filter: ui.ImageFilter.blur(
+                        sigmaX: 12 * scale,
+                        sigmaY: 12 * scale,
+                      ),
+                      child: DecoratedBox(
+                        key: const Key('navigation-capsule'),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF39363A).withValues(alpha: .88),
+                          borderRadius: BorderRadius.circular(36 * scale),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: .28),
+                            width: scale,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            4.423 * scale,
+                            2.654 * scale,
+                            4.423 * scale,
+                            3.538 * scale,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            textDirection: TextDirection.rtl,
+                            children: [
+                              _item(
+                                context,
+                                AppTab.home,
+                                'בית',
+                                'home',
+                                selected,
+                                motionDuration,
+                                scale,
+                              ),
+                              if (widget.showPeople) ...[
+                                SizedBox(width: _navigationItemGap * scale),
+                                _item(
+                                  context,
+                                  AppTab.people,
+                                  'לקוחות',
+                                  'existing-customer',
+                                  selected,
+                                  motionDuration,
+                                  scale,
+                                ),
+                              ],
+                              SizedBox(width: _navigationItemGap * scale),
+                              _item(
+                                context,
+                                AppTab.business,
+                                'ניהול',
+                                'manage',
+                                selected,
+                                motionDuration,
+                                scale,
+                              ),
+                              SizedBox(width: _navigationItemGap * scale),
+                              _item(
+                                context,
+                                AppTab.profile,
+                                'פרופיל',
+                                'profile',
+                                selected,
+                                motionDuration,
+                                scale,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -527,41 +454,59 @@ class _ShellBottomNavigationState extends State<ShellBottomNavigation>
       child: InkWell(
         key: Key('tab-${tab.name}'),
         borderRadius: BorderRadius.circular(31.404 * scale),
+        onHighlightChanged: (pressed) {
+          setState(() => _pressedTab = pressed ? tab : null);
+        },
         onTap: () {
           if (selected != tab) widget.onTab(tab);
         },
-        child: AnimatedContainer(
-          duration: duration,
+        child: AnimatedScale(
+          scale: _pressedTab == tab ? .93 : 1,
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 140),
           curve: Curves.easeOutCubic,
-          width: _navigationItemSize * scale,
-          height: _navigationItemSize * scale,
-          decoration: BoxDecoration(
-            color: selected == tab
-                ? const Color(0xFFD6BDF1)
-                : const Color(0xFF322A35),
-            borderRadius: BorderRadius.circular(31.404 * scale),
-          ),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              8 * scale,
-              8 * scale,
-              8 * scale,
-              4 * scale,
+          child: AnimatedContainer(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            width: _navigationItemSize * scale,
+            height: _navigationItemSize * scale,
+            decoration: BoxDecoration(
+              color: selected == tab
+                  ? const Color(0xFFD6BDF1)
+                  : const Color(0xFF322A35),
+              borderRadius: BorderRadius.circular(31.404 * scale),
             ),
-            // scaleDown: four tabs on a narrow phone shrink the bar's scale;
-            // the label and icon then fit instead of overflowing.
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                4 * scale,
+                4 * scale,
+                4 * scale,
+                4 * scale,
+              ),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  ColorFiltered(
-                    colorFilter: ColorFilter.mode(
-                      selected == tab ? const Color(0xFF302138) : Colors.white,
-                      BlendMode.srcIn,
+                  AnimatedSlide(
+                    offset: selected == tab
+                        ? const Offset(0, -.025)
+                        : Offset.zero,
+                    duration: duration,
+                    curve: Curves.easeOutCubic,
+                    child: TweenAnimationBuilder<Color?>(
+                      tween: ColorTween(
+                        end: selected == tab
+                            ? const Color(0xFF302138)
+                            : Colors.white,
+                      ),
+                      duration: duration,
+                      curve: Curves.easeOutCubic,
+                      builder: (context, color, child) => ColorFiltered(
+                        colorFilter: ColorFilter.mode(color!, BlendMode.srcIn),
+                        child: child,
+                      ),
+                      child: DesignIcon(iconName, size: 30 * scale),
                     ),
-                    child: DesignIcon(iconName, size: 33 * scale),
                   ),
                   SizedBox(height: 3 * scale),
                   Text(
@@ -573,7 +518,7 @@ class _ShellBottomNavigationState extends State<ShellBottomNavigation>
                           ? const Color(0xFF302138)
                           : Colors.white,
                       fontFamily: 'SF Hebrew Rounded',
-                      fontSize: 12.5 * scale,
+                      fontSize: 10.5 * scale,
                       fontWeight: FontWeight.w400,
                       height: 1,
                     ),
@@ -587,65 +532,99 @@ class _ShellBottomNavigationState extends State<ShellBottomNavigation>
     ),
   );
 
-  Widget _createButton(double size, double scale) => AnimatedScale(
-    scale: _pressed ? .96 : 1,
-    duration: const Duration(milliseconds: 180),
-    curve: Curves.easeOutCubic,
-    child: ClipOval(
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 10 * scale, sigmaY: 10 * scale),
-        child: Container(
-          key: widget.showCreate
-              ? const Key('home-create-glass')
-              : const Key('home-create-hidden'),
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: const Color.fromRGBO(66, 34, 49, .24),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.white.withValues(alpha: .25),
-              width: 4 * scale,
-            ),
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(4 * scale),
-            child: Material(
-              color: Colors.transparent,
-              shape: const CircleBorder(),
-              child: InkWell(
-                key: widget.showCreate ? const Key('tab-create') : null,
-                customBorder: const CircleBorder(),
-                onTap: widget.showCreate ? widget.onCreate : null,
-                onHighlightChanged: (pressed) {
-                  if (mounted && _pressed != pressed) {
-                    setState(() => _pressed = pressed);
-                  }
-                },
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: 4 * scale),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
+  Widget _createButton(double size, double scale) {
+    final labelScale = MediaQuery.textScalerOf(context).scale(12) / 12;
+    final iconSize = (33 - 14 * (labelScale - 1)).clamp(19.0, 33.0) * scale;
+    return AnimatedScale(
+      scale: _pressed ? .94 : 1,
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 160),
+      curve: Curves.easeOutCubic,
+      child: Semantics(
+        button: true,
+        label: 'חשבונית',
+        excludeSemantics: true,
+        child: ClipOval(
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 12 * scale, sigmaY: 12 * scale),
+            child: Container(
+              key: widget.showCreate
+                  ? const Key('home-create-glass')
+                  : const Key('home-create-hidden'),
+              width: size,
+              height: size,
+              padding: EdgeInsets.all(3 * scale),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFF2EBF3),
+                    Color(0xFF736A75),
+                    Color(0xFF403741),
+                    Color(0xFFB5A0AC),
+                  ],
+                  stops: [0, .28, .60, 1],
+                ),
+              ),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xEB211A24), Color(0xD92B1721)],
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: .16),
+                    width: 1.5 * scale,
+                  ),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    key: widget.showCreate ? const Key('tab-create') : null,
+                    customBorder: const CircleBorder(),
+                    onTap: widget.showCreate ? widget.onCreate : null,
+                    onHighlightChanged: (pressed) {
+                      if (_pressed != pressed) {
+                        setState(() => _pressed = pressed);
+                      }
+                    },
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Iconsax.add_circle,
-                          color: Colors.white,
-                          size: 45.5 * scale,
+                        Container(
+                          width: iconSize,
+                          height: iconSize,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 2.2 * scale,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.add_rounded,
+                            color: Colors.white,
+                            size: iconSize * .85,
+                          ),
                         ),
-                        SizedBox(height: 2 * scale),
+                        SizedBox(height: 4 * scale),
                         Text(
                           'חשבונית',
                           maxLines: 1,
+                          softWrap: false,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
                             fontFamily: 'SF Hebrew Rounded',
-                            fontSize: 12.5 * scale,
+                            fontSize: 12 * scale,
                             fontWeight: FontWeight.w400,
-                            height: 1,
+                            height: 1.05,
                           ),
                         ),
                       ],
@@ -657,6 +636,6 @@ class _ShellBottomNavigationState extends State<ShellBottomNavigation>
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

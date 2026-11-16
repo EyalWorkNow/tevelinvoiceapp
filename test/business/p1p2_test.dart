@@ -4,7 +4,10 @@
 // transfer (BE-49). Routes the server does not have answer 404 NOT_FOUND and
 // their rows/fields stay hidden (F5).
 
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:invoice/api/business_registration_api.dart';
+import 'package:invoice/screens/auth/business_certificate_picker.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/models/models.dart';
 import 'package:invoice/screens/auth/onboarding_screen.dart';
@@ -138,7 +141,7 @@ void main() {
             '/business/profile',
             (r) => FakeResponse(200, {'profile': profileJson()['profile']}),
           )
-          ..json('PUT', '/business/onboarding', {
+          ..json('POST', '/business/registration', {
             'onboarding': {'completed': true},
           });
         await pumpAs(
@@ -158,6 +161,29 @@ void main() {
         await settle(tester);
         await tester.enterText(find.byType(TextField).at(0), 'העסק השני');
         await tester.enterText(find.byType(TextField).at(1), '123456782');
+        for (final (key, value) in [
+          ('setup-full-name', 'דנה כהן'),
+          ('setup-phone', '0501234567'),
+          ('setup-email', 'dana@example.test'),
+          ('setup-street', 'הרצל'),
+          ('setup-city', 'חיפה'),
+        ]) {
+          await tester.ensureVisible(find.byKey(Key(key)));
+          await tester.enterText(find.byKey(Key(key)), value);
+        }
+        final originalPicker = pickBusinessCertificate;
+        addTearDown(() => pickBusinessCertificate = originalPicker);
+        pickBusinessCertificate = (_) async => BusinessCertificateFile(
+          bytes: Uint8List.fromList('%PDF-1.4 test'.codeUnits),
+          filename: 'certificate.pdf',
+          mimeType: 'application/pdf',
+        );
+        tester.testTextInput.hide();
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byKey(const Key('setup-certificate')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('setup-certificate')));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('setup-next')));
         await settle(tester);
         await tester.tap(find.byKey(const Key('setup-next'))); // "סיימתי"
@@ -172,7 +198,7 @@ void main() {
         // The profile/onboarding writes went to the NEW business.
         expect(
           backend
-              .last('PUT', '/business/onboarding')!
+              .last('POST', '/business/registration')!
               .raw
               .headers['X-Business-Id'],
           'b-new',
@@ -583,7 +609,12 @@ void main() {
           Preset.owner,
           const BusinessScreen(section: 'account'),
         );
-        await tester.ensureVisible(find.byKey(const Key('account-delete')));
+        // The owner's "פרטי ההרשמה" row (2026-11-16) moved it past the lazy list.
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('account-delete')),
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('account-delete')));
         await settle(tester);

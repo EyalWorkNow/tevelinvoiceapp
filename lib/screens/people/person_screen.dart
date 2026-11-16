@@ -23,6 +23,7 @@ import '../../api/models/models.dart';
 import '../../api/suppliers_api.dart';
 import '../../router.dart';
 import '../../state/business_context.dart';
+import '../../state/session.dart';
 import '../../state/caps.dart';
 import '../../ui/ds.dart';
 import '../../util/allowed_urls.dart';
@@ -180,6 +181,7 @@ class _PersonScreenState extends State<PersonScreen> {
         _caps.can(Cap.customerManage);
     if (byEmail && !await _confirmStatement(email)) return;
     if (!mounted) return;
+    final business = session.business?.businessId;
     setState(() => _busy = true);
     try {
       if (byEmail) {
@@ -192,12 +194,18 @@ class _PersonScreenState extends State<PersonScreen> {
         }
       } else {
         final bytes = await fetchStatementPdf(widget.id);
+        if (!mounted ||
+            ModalRoute.of(context)?.isCurrent != true ||
+            business != session.business?.businessId) {
+          return;
+        }
         await pdfSharer(bytes, PeopleHe.statementFileName(_name));
       }
     } on Object catch (e) {
       if (mounted) showErrorSnack(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-    if (mounted) setState(() => _busy = false);
   }
 
   Future<bool> _confirmStatement(String email) async {

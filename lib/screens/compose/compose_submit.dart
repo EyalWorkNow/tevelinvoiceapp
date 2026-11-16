@@ -7,7 +7,6 @@
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../ui/widgets/notch_notice.dart';
@@ -21,8 +20,6 @@ import '../../api/models/models.dart' show Quote;
 import '../../api/quotes_api.dart';
 import '../../router.dart' show openDocument, openQuote;
 import '../../ui/widgets/error_view.dart' show errorTextHe;
-import '../business/cardcom_merchant_screen.dart'
-    show CustomerPaymentPreviewScreen;
 import '../../state/business_context.dart';
 import '../../util/allowed_urls.dart';
 import '../../util/composer_config.dart';
@@ -163,7 +160,7 @@ Future<void> runCompose(
   onStep(ComposeHe.stepIssuing);
   try {
     if (s.config.isQuote) {
-      await _sendQuote(run, messenger);
+      await _sendQuote(run, messenger, alive: () => context.mounted);
       if (context.mounted) {
         unawaited(
           openIssuedQuote(context, run.quoteId!),
@@ -214,6 +211,9 @@ Future<void> runCompose(
       onStep(ComposeHe.stepSending);
       try {
         final link = await createIssueShareLink(id);
+        // Late navigation: the Composer was closed while the link was made —
+        // the document stays issued, WhatsApp does not open by itself.
+        if (!context.mounted) return;
         final text = issueWhatsAppText(
           customerName: s.customer!.name,
           documentType: result.document.documentType,
@@ -244,23 +244,6 @@ Future<void> runCompose(
       first = false;
     }
     if (!context.mounted) return;
-    if (result.outcome == IssueOutcome.issued &&
-        s.config.after == AfterIssue.collect &&
-        kDebugMode) {
-      await nav.push<void>(
-        MaterialPageRoute<void>(
-          settings: const RouteSettings(name: '/demo/customer-payment'),
-          builder: (_) => CustomerPaymentPreviewScreen(
-            businessName: businessContext.displayName,
-            invoiceLabel: result.document.documentNumber == null
-                ? docTypeLabel(result.document.documentType)
-                : '${docTypeLabel(result.document.documentType)} · ${result.document.documentNumber}',
-            amountMinor: result.document.totalMinor,
-          ),
-        ),
-      );
-      if (!context.mounted) return;
-    }
     unawaited(openIssuedDocument(context, id)); // completes when D closes
     messenger.showNotchNotice(
       SnackBar(
@@ -392,8 +375,9 @@ Future<IssueResult> _issue(
 
 Future<void> _sendQuote(
   ComposeRun run,
-  ScaffoldMessengerState messenger,
-) async {
+  ScaffoldMessengerState messenger, {
+  required bool Function() alive,
+}) async {
   final s = run.state;
   final customer = s.customer!;
   if (run.quoteId == null) {
@@ -449,6 +433,9 @@ Future<void> _sendQuote(
         );
   // SENT only when it really left: WhatsApp opened / the share sheet shared.
   var sent = false;
+  // Late navigation: the Composer was closed meanwhile; the quote is saved
+  // as a draft, nothing opens by itself.
+  if (!alive()) return;
   try {
     if (run.action == ComposerAction.sendQuoteWhatsApp) {
       sent = await launchAllowed(

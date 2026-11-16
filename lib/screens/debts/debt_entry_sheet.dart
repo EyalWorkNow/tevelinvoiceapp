@@ -13,6 +13,7 @@ import '../../ui/ds.dart';
 import '../../util/labels/common_he.dart';
 import '../../util/labels/debts_he.dart';
 import '../../util/money.dart';
+import '../../util/still_here.dart';
 import '../people/sheets/s2_customer.dart';
 
 /// S2 for "מי חייב" (tests replace it).
@@ -127,7 +128,9 @@ class _DebtEntrySheetState extends State<DebtEntrySheet> {
               note: note,
               debtDate: _date,
             );
-      if (mounted) Navigator.of(context).pop(saved);
+      // Late navigation: a sheet swiped away while saving must not pop the
+      // debts screen under it.
+      if (mounted && stillHere(context)) Navigator.of(context).pop(saved);
     } on Object catch (e) {
       if (mounted) {
         setState(() => _saving = false);

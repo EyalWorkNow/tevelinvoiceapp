@@ -296,7 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onDismiss: c.kind == InboxKind.setup && c.setupStep != null
                 ? () async {
                     await dismissSetup(c.setupStep!);
-                    _reload();
+                    if (mounted) _reload();
                   }
                 : null,
           ),

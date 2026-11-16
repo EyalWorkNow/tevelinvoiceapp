@@ -451,7 +451,12 @@ void main() {
     'sole owner → warning lists who loses access → "מחק בכל זאת" → delete screen (§13.15)',
     (tester) async {
       await pumpAs(tester, backend, Preset.owner, const AccountPage());
-      await tester.ensureVisible(find.byKey(const Key('account-delete')));
+      // The owner's "פרטי ההרשמה" row (2026-11-16) moved it past the lazy list.
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('account-delete')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('account-delete')));
       await settle(tester);
@@ -466,7 +471,12 @@ void main() {
 
   testWidgets('non-owner goes straight to the delete screen', (tester) async {
     await pumpAs(tester, backend, Preset.partner, const AccountPage());
-    await tester.ensureVisible(find.byKey(const Key('account-delete')));
+    // The owner's "פרטי ההרשמה" row (2026-11-16) moved it past the lazy list.
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('account-delete')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('account-delete')));
     await settle(tester);

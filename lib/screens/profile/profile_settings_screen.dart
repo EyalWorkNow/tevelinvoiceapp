@@ -7,6 +7,7 @@ import '../billing/billing_screen.dart';
 import '../../state/business_context.dart';
 import '../../state/caps.dart';
 import '../../ui/theme.dart';
+import '../../state/session.dart';
 import '../business/account_page.dart';
 import '../business/business_screen.dart';
 
@@ -104,6 +105,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     mainAxisSize: MainAxisSize.min,
     children: [
       _switcher(context),
+      if (session.account?.displayName case final String name
+          when name.trim().isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Text(name, style: AppText.headline),
+        ),
       if (plan) ...[const SizedBox(height: 10), _planButton(context)],
     ],
   );
