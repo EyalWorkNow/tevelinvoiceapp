@@ -24,6 +24,9 @@ class FakeServer {
   bool approvalPolicy = false;
   String finalizeOutcome = 'FINALIZED';
 
+  /// B1: the server records the payment with the finalize (the cashier).
+  bool recordWithFinalize = false;
+
   http.Response _json(int code, Object body) => http.Response(
     jsonEncode(body),
     code,
@@ -114,10 +117,12 @@ class FakeServer {
         finalizeKeys['d1'] = k;
         numbers++;
         status = finalizeOutcome;
+        if (recordWithFinalize) paid = BigInt.from(118000);
         return _json(200, {
           'status': finalizeOutcome,
           'documentNumber': '$numbers',
           'reused': false,
+          if (recordWithFinalize) 'paymentRecorded': true,
         });
       case 'POST /documents/d1/submit':
         status = 'PENDING_APPROVAL';
@@ -381,6 +386,18 @@ void main() {
           .toList();
       expect(dates.last, '2026-10-29');
       expect(server.paymentKeys.length, 1);
+    },
+  );
+
+  test(
+    'B1 cashier: finalize answers paymentRecorded → no second POST /payments',
+    () async {
+      server.recordWithFinalize = true;
+      final r = await runIssue(newIssue());
+      expect(r.outcome, IssueOutcome.issued);
+      expect(server.count('POST /payments'), 0);
+      expect(server.count('POST /documents/d1/payments'), 0);
+      expect(server.paid, BigInt.from(118000));
     },
   );
 

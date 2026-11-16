@@ -34,6 +34,8 @@ void main() {
         Preset.employee,
         Preset.employeeIssuer,
         Preset.accountantFull,
+        Preset.cashier,
+        Preset.officeManager,
       },
       Cap.docIssue: {
         Preset.owner,
@@ -47,16 +49,29 @@ void main() {
         Preset.employee,
         Preset.employeeIssuer,
         Preset.accountantFull,
+        Preset.cashier,
+        Preset.officeManager,
       },
       Cap.docCancel: {Preset.owner, Preset.partner, Preset.accountantFull},
       Cap.approvalDecide: {Preset.owner, Preset.partner, Preset.accountantFull},
+      // B1: payment:record alone (the office manager) records on existing docs.
       Cap.paymentRecord: {
         Preset.owner,
         Preset.partner,
         Preset.employeeIssuer,
+        Preset.officeManager,
+        Preset.accountantFull,
+      },
+      // B1: "קיבלתי תשלום" on a new document — the cashier included.
+      Cap.paymentIssue: {
+        Preset.owner,
+        Preset.partner,
+        Preset.employeeIssuer,
+        Preset.cashier,
         Preset.accountantFull,
       },
       Cap.paymentRefund: {},
+      // P0: role ≠ EMPLOYEE (the office manager gets it from money:read after BE-03).
       Cap.moneyView: {
         Preset.owner,
         Preset.partner,
@@ -78,6 +93,7 @@ void main() {
         Preset.employeeIssuer,
         Preset.accountantRep,
         Preset.accountantFull,
+        Preset.officeManager,
       },
       Cap.expenseApprove: {
         Preset.owner,

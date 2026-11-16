@@ -62,12 +62,13 @@ void main() {
   });
 
   test(
-    '400 קבלה: receipt only (no POST /documents), no VAT, payment.record',
+    '400 קבלה: receipt only (no POST /documents), no VAT, payment.issue',
     () {
       final c = configFor(DocKind.receipt);
       expect(
         (c.code, c.serverType, c.paid, c.vat, c.cap),
-        (400, 'RECEIPT', true, VatRule.never, Cap.paymentRecord),
+        // B1: a NEW paid document — the cashier's issue right counts too.
+        (400, 'RECEIPT', true, VatRule.never, Cap.paymentIssue),
       );
       expect(c.receiptOnly, isTrue);
       expect(kindAllowedFor(DocKind.receipt, 'OSEK_PATUR'), isTrue);

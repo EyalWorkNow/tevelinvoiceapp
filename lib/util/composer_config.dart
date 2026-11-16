@@ -144,7 +144,7 @@ const Map<DocKind, ComposerConfig> composerTable = {
     counterparty: Counterparty.customer,
     vat: VatRule.never,
     paid: true,
-    cap: Cap.paymentRecord,
+    cap: Cap.paymentIssue,
     after: AfterIssue.share,
   ),
   DocKind.donationReceipt: ComposerConfig(
@@ -154,7 +154,8 @@ const Map<DocKind, ComposerConfig> composerTable = {
     counterparty: Counterparty.donor,
     vat: VatRule.never,
     paid: true,
-    cap: Cap.paymentRecord,
+    // B1: + the full issue right (not the cashier's) — kindAllowedForCaps.
+    cap: Cap.paymentIssue,
     after: AfterIssue.share,
     needsSection46: true,
     nonprofitOnly: true,
@@ -268,7 +269,11 @@ bool kindAllowedForCaps(
   bool supplierPicker = false,
 }) {
   final c = configFor(kind);
-  if (!caps.can(Cap.docDraft) && c.cap != Cap.paymentRecord) return false;
+  if (!caps.can(Cap.docDraft) && c.cap != Cap.paymentIssue) return false;
+  // 405 (receipt-only, cannot go to approval): payment + full issue right.
+  if (kind == DocKind.donationReceipt) {
+    return caps.can(Cap.paymentIssue) && caps.can(Cap.docIssue);
+  }
   if (c.cap == Cap.docIssue) return caps.can(Cap.docDraft);
   if (c.counterparty == Counterparty.supplier) {
     return supplierPicker && caps.can(Cap.supplierManage);

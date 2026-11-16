@@ -437,7 +437,8 @@ class _ComposeScreenState extends State<ComposeScreen> {
     final bc = businessContext;
     final needsApproval = kindNeedsApproval(
       s.kind,
-      () => bc.caps.approvalNeeded(s.totalMinor),
+      () => bc.caps.approvalNeeded(s.totalMinor, paid: s.config.paid),
+      cappedReceipts: bc.caps.isCashier,
     );
     final action = resolveAction(
       kind: s.kind,

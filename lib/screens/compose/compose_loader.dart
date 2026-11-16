@@ -130,7 +130,7 @@ Future<ComposeLoad?> loadComposer({
     intent,
     bt,
     section46: section46,
-    canRecordPayment: caps.can(Cap.paymentRecord),
+    canRecordPayment: caps.can(Cap.paymentIssue),
   );
   if (kind == null || !kindAllowedForCaps(kind, caps, supplierPicker: true)) {
     return null;

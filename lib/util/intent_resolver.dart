@@ -95,9 +95,15 @@ ComposerAction resolveAction({
 /// §4.8 + BE-37: receipts (400/405) never go to approval; quotes are never
 /// finalized. Everything else asks the capability rule ([approvalNeeded] =
 /// `Caps.approvalNeeded(total)`, `>=` on the total INCLUDING VAT).
-bool kindNeedsApproval(DocKind kind, bool Function() approvalNeeded) {
+/// B1: [cappedReceipts] (the cashier) — a receipt above the cashier cap also
+/// goes to the owner.
+bool kindNeedsApproval(
+  DocKind kind,
+  bool Function() approvalNeeded, {
+  bool cappedReceipts = false,
+}) {
   final c = configFor(kind);
-  if (c.isQuote || c.receiptOnly) return false;
+  if (c.isQuote || (c.receiptOnly && !cappedReceipts)) return false;
   return approvalNeeded();
 }
 

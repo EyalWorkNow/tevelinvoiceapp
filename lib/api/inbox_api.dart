@@ -260,7 +260,10 @@ class InboxContext {
 
   /// "שלו בלבד לעובד" (§4.4): employees see only their own drafts.
   bool get ownOnly =>
-      caps.preset == Preset.employee || caps.preset == Preset.employeeIssuer;
+      caps.preset == Preset.employee ||
+      caps.preset == Preset.employeeIssuer ||
+      caps.preset == Preset.officeManager ||
+      caps.preset == Preset.cashier;
 }
 
 const Set<String> _unfinishedStatuses = {

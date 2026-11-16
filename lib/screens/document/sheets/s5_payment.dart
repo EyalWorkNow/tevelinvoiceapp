@@ -10,6 +10,7 @@ import '../../../api/models/models.dart';
 import '../../../api/payments_api.dart';
 import '../../../state/business_context.dart';
 import '../../../state/cache.dart';
+import '../../../state/caps.dart';
 import '../../../ui/ds.dart';
 import '../../../util/labels/labels.dart';
 import '../../../util/money.dart';
@@ -195,9 +196,15 @@ class _PaymentSheetState extends State<PaymentSheet> {
           : PaymentHe.recording,
     );
     try {
-      final outcome = await recordPayments(_doc!, [
-        for (final d in _drafts) d.toEntry(),
-      ], askPassphrase: () => askSigningPassphrase(context));
+      final outcome = await recordPayments(
+        _doc!,
+        [for (final d in _drafts) d.toEntry()],
+        // B1: only an issuer can release the signature; an office manager's
+        // receipt waits for the owner's signature instead of a 403.
+        askPassphrase: businessContext.can(Cap.docIssue)
+            ? () => askSigningPassphrase(context)
+            : null,
+      );
       await AppCache.write(_lastMethodKey(), _drafts.last.method);
       if (mounted) Navigator.of(context).pop(outcome);
     } on Object catch (e) {
