@@ -38,6 +38,7 @@ class _BrandingScreenState extends State<BrandingScreen> {
   final _hex = TextEditingController(),
       _header = TextEditingController(),
       _footer = TextEditingController();
+  final _scroll = ScrollController();
   String? _businessId;
   @override
   void initState() {
@@ -65,6 +66,7 @@ class _BrandingScreenState extends State<BrandingScreen> {
     _hex.dispose();
     _header.dispose();
     _footer.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -319,36 +321,36 @@ class _BrandingScreenState extends State<BrandingScreen> {
                   : ErrorView(error: _error!, onRetry: _load),
             )
           else
+            // Owner Q1: ONE tree for every height. The keyboard shrinks the
+            // body; switching to another tree there recreated the scroll view
+            // (jump to the top) and the text field (focus + keyboard lost).
             Expanded(
               child: LayoutBuilder(
-                builder: (context, box) => box.maxHeight < 400
-                    ? SingleChildScrollView(
-                        key: const Key('branding-controls'),
-                        child: Column(
-                          children: [
-                            SizedBox(height: 240, child: _previewPanel()),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                              child: _controls(_draft!),
-                            ),
-                          ],
-                        ),
-                      )
-                    : Column(
-                        children: [
-                          SizedBox(
-                            height: (box.maxHeight * .43).clamp(160.0, 330.0),
-                            child: _previewPanel(),
-                          ),
-                          Expanded(
-                            child: SingleChildScrollView(
-                              key: const Key('branding-controls'),
-                              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                              child: _controls(_draft!),
-                            ),
-                          ),
-                        ],
+                builder: (context, box) {
+                  // Keyboard up: the preview steps aside for the fields.
+                  final preview = box.maxHeight < 400
+                      ? 0.0
+                      : (box.maxHeight * .43).clamp(160.0, 330.0);
+                  return Column(
+                    children: [
+                      SizedBox(
+                        height: preview,
+                        child: preview > 0 ? _previewPanel() : null,
                       ),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          key: const Key('branding-controls'),
+                          controller: _scroll,
+                          primary: false,
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.manual,
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                          child: _controls(_draft!),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           if (_draft != null)

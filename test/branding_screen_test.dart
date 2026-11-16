@@ -137,4 +137,78 @@ void main() {
     await settle(tester);
     expect(find.text('PDF 4'), findsOneWidget);
   });
+
+  testWidgets(
+    'owner Q1: keyboard up keeps the footer note focused and the scroll put; '
+    'table-header switch and both notes save',
+    (tester) async {
+      phone(tester);
+      await tester.pumpWidget(
+        eApp(const BrandingScreen(), brightness: Brightness.dark),
+      );
+      await settle(tester);
+      ScrollPosition pos() => tester
+          .state<ScrollableState>(
+            find
+                .descendant(
+                  of: find.byKey(const Key('branding-controls')),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          )
+          .position;
+
+      // The switch toggles in place.
+      final tile = find.widgetWithText(SwitchListTile, 'הדגשת כותרת הטבלה');
+      await tester.ensureVisible(tile);
+      await settle(tester);
+      final before = pos().pixels;
+      expect(before, greaterThan(0));
+      final was = tester.widget<SwitchListTile>(tile).value;
+      await tester.tap(tile);
+      await tester.pump(const Duration(milliseconds: 450));
+      await settle(tester);
+      expect(tester.widget<SwitchListTile>(tile).value, !was);
+      expect(pos().pixels, before);
+
+      // Footer note: the keyboard opens (the body shrinks under 400 pt).
+      final footer = find.byKey(const Key('branding-footer-note'));
+      await tester.ensureVisible(footer);
+      await settle(tester);
+      await tester.tap(footer);
+      await tester.pump();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 336 * 3);
+      addTearDown(tester.view.resetViewInsets);
+      await settle(tester);
+      final field = find.descendant(
+        of: footer,
+        matching: find.byType(EditableText),
+      );
+      expect(tester.widget<EditableText>(field).focusNode.hasFocus, isTrue);
+      expect(pos().pixels, greaterThan(0));
+      await tester.enterText(footer, 'תודה שבחרתם בנו');
+      await tester.pump(const Duration(milliseconds: 450));
+      await settle(tester);
+      expect(tester.widget<EditableText>(field).focusNode.hasFocus, isTrue);
+      expect(
+        backend.last('POST', '/settings/branding/preview')!.body['footerNote'],
+        'תודה שבחרתם בנו',
+      );
+
+      final header = find.byKey(const Key('branding-header-note'));
+      await tester.ensureVisible(header);
+      await tester.enterText(header, 'א׳–ה׳ 9:00–18:00');
+      await tester.pump(const Duration(milliseconds: 450));
+      await settle(tester);
+
+      tester.view.resetViewInsets();
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('editor-save')));
+      await settle(tester);
+      final put = backend.last('PUT', '/settings/branding')!.body;
+      expect(put['footerNote'], 'תודה שבחרתם בנו');
+      expect(put['headerNote'], 'א׳–ה׳ 9:00–18:00');
+      expect(put['accentTableHeader'], !was);
+    },
+  );
 }
