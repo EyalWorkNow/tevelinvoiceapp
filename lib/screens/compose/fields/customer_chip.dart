@@ -18,20 +18,29 @@ class CustomerChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = customer?.name;
     return Semantics(
-      button: true, label: name ?? ComposeHe.chooseCustomer,
-      hint: name == null ? null : ComposeHe.editCustomer, excludeSemantics: true,
+      button: true,
+      label: name ?? ComposeHe.chooseCustomer,
+      hint: name == null ? null : ComposeHe.editCustomer,
+      excludeSemantics: true,
       child: TextButton(
-        key: const Key('compose-customer'), onPressed: onTap,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(name ?? ComposeHe.chooseCustomer, textAlign: TextAlign.center,
-            style: AppText.body.copyWith(color: context.palette.ink)),
-          if (customer?.phone case final phone? when phone.isNotEmpty)
-            Text(formatPhoneHe(phone), textDirection: TextDirection.ltr,
-              style: AppText.body.copyWith(color: context.palette.ink))
-          else if (context.isDark && name != null)
-            Text('052-0000111', textDirection: TextDirection.ltr,
-              style: AppText.body.copyWith(color: context.palette.ink)),
-        ]),
+        key: const Key('compose-customer'),
+        onPressed: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              name ?? ComposeHe.chooseCustomer,
+              textAlign: TextAlign.center,
+              style: AppText.body.copyWith(color: context.palette.ink),
+            ),
+            if (customer?.phone case final phone? when phone.isNotEmpty)
+              Text(
+                formatPhoneHe(phone),
+                textDirection: TextDirection.ltr,
+                style: AppText.body.copyWith(color: context.palette.ink),
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -16,6 +16,12 @@ void main() {
         'rejected',
         'viewed',
         'expense',
+        'reminder',
+        'visit',
+        'collection',
+        'issued',
+        'sent',
+        'signed',
       ]) {
         final presentation = systemNoticePresentation(kind);
         expect(presentation, isNotNull);

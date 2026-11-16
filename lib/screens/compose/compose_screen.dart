@@ -8,6 +8,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app_shell.dart' show AppTab, currentTab;
 import '../../ui/widgets/notch_notice.dart';
 import '../../api/customers_api.dart' show rememberRecentPaymentCustomer;
 import '../../api/models/models.dart';
@@ -22,6 +23,7 @@ import '../people/sheets/s2_customer.dart';
 import 'compose_loader.dart';
 import 'compose_memory.dart';
 import 'compose_submit.dart';
+import 'payment_coming_soon_screen.dart';
 import 'fields/amount_field.dart';
 import 'fields/customer_chip.dart';
 import 'fields/summary_section.dart';
@@ -70,6 +72,16 @@ class _ComposeScreenState extends State<ComposeScreen> {
   bool _unavailable = false;
   String? _step;
   bool _issuedOrLeft = false;
+  bool _showingPaymentComingSoon = false;
+
+  // Only the unfinished payment-request flow is a placeholder. Explicit
+  // invoice creation and existing document/quote workflows still issue normally.
+  bool get _isPaymentRequest =>
+      widget.intent == intentRequest &&
+      widget.fromDocId == null &&
+      widget.fromQuoteId == null &&
+      widget.draftId == null;
+
   bool _pickingInitialCustomer = false;
 
   @override
@@ -113,7 +125,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
         if (chosen == null || load.state.customer == null) {
           // Keep the amount screen hidden throughout both reverse transitions.
           if (ModalRoute.of(context)?.isCurrent == true) {
-            Navigator.of(context).pop();
+            _returnHome();
           }
           return;
         }
@@ -182,6 +194,21 @@ class _ComposeScreenState extends State<ComposeScreen> {
   }
 
   Future<void> _press(ComposerAction action, bool needsApproval) async {
+    if (_isPaymentRequest) {
+      if (_showingPaymentComingSoon) return;
+      _showingPaymentComingSoon = true;
+      try {
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            settings: const RouteSettings(name: '/payment/coming-soon'),
+            builder: (_) => PaymentComingSoonScreen(onReturnHome: _returnHome),
+          ),
+        );
+      } finally {
+        _showingPaymentComingSoon = false;
+      }
+      return;
+    }
     final load = _load!;
     final run = load.run(action: action, needsApproval: needsApproval);
     await runCompose(
@@ -204,6 +231,12 @@ class _ComposeScreenState extends State<ComposeScreen> {
     }
   }
 
+  void _returnHome() {
+    if (!mounted) return;
+    currentTab.value = AppTab.home;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   Future<void> _backToCustomerPicker() async {
     if (_issuedOrLeft) {
       if (mounted) Navigator.of(context).maybePop();
@@ -212,8 +245,14 @@ class _ComposeScreenState extends State<ComposeScreen> {
     if (_load == null || _pickingInitialCustomer) return;
     FocusScope.of(context).unfocus();
     setState(() => _pickingInitialCustomer = true);
-    await _chooseCustomer();
-    if (mounted) setState(() => _pickingInitialCustomer = false);
+    final chosen = await _chooseCustomer();
+    if (!mounted) return;
+    if (chosen == null) {
+      // Keep the amount screen hidden while leaving both selection routes.
+      if (ModalRoute.of(context)?.isCurrent == true) _returnHome();
+      return;
+    }
+    setState(() => _pickingInitialCustomer = false);
   }
 
   @override
@@ -307,7 +346,8 @@ class _ComposeScreenState extends State<ComposeScreen> {
     );
     final policy = bc.caps.approvalPolicy;
     final note =
-        action == ComposerAction.submit &&
+        !_isPaymentRequest &&
+            action == ComposerAction.submit &&
             policy.isThreshold &&
             bc.can(Cap.docIssue)
         ? approvalNote(policy.thresholdMinor)
@@ -386,7 +426,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
             note: note,
             child: PrimaryButton(
               key: const Key('compose-primary'),
-              label: actionLabel(action),
+              label: _isPaymentRequest ? 'המשך' : actionLabel(action),
               offline: bc.offline,
               loadingText: _step,
               onPressed: () => _press(action, needsApproval),

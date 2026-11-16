@@ -1,5 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:invoice/api/business_registration_api.dart';
+import 'package:invoice/screens/auth/business_certificate_picker.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -104,6 +107,8 @@ class _FakeAuth extends LocalAuthentication {
 
 void main() {
   late Directory tmp;
+  final originalCertificatePicker = pickBusinessCertificate;
+  tearDown(() => pickBusinessCertificate = originalCertificatePicker);
 
   setUpAll(() async {
     tmp = await Directory.systemTemp.createTemp('auth_test');
@@ -209,7 +214,7 @@ void main() {
       await tester.ensureVisible(find.text('כניסה'));
       await tester.tap(find.text('כניסה'));
       // AppCache writes real files: let real async I/O run.
-      for (var i = 0; i < 5; i++) {
+      for (var i = 0; i < 40 && session.status != SessionStatus.signedIn; i++) {
         await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 50)),
         );
@@ -386,7 +391,7 @@ void main() {
             },
           },
         ),
-        'PUT /business/onboarding': (
+        'POST /business/registration': (
           200,
           {
             'onboarding': {'completed': true},
@@ -469,6 +474,28 @@ void main() {
       expect(sent, isEmpty);
 
       await tester.enterText(find.byType(TextField).at(1), '123456782');
+      for (final (key, value) in [
+        ('setup-full-name', 'דנה כהן'),
+        ('setup-phone', '0501234567'),
+        ('setup-email', 'dana@example.test'),
+        ('setup-street', 'הרצל'),
+        ('setup-house-number', '12'),
+        ('setup-city', 'חיפה'),
+      ]) {
+        await tester.ensureVisible(find.byKey(Key(key)));
+        await tester.enterText(find.byKey(Key(key)), value);
+      }
+      pickBusinessCertificate = (_) async => BusinessCertificateFile(
+        bytes: Uint8List.fromList('%PDF-1.4 test'.codeUnits),
+        filename: 'certificate.pdf',
+        mimeType: 'application/pdf',
+      );
+      tester.testTextInput.hide();
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('setup-certificate')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('setup-certificate')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('setup-next')));
       await tester.pumpAndSettle();
       // Step 3: numbering.
@@ -501,7 +528,20 @@ void main() {
         (r) => r.url.path == '/sequences/default/start',
       );
       expect(jsonDecode(start.body), {'nextNumber': 1042});
-      expect(sent.any((r) => r.url.path == '/business/onboarding'), isTrue);
+      final registration =
+          jsonDecode(
+                sent
+                    .firstWhere((r) => r.url.path == '/business/registration')
+                    .body,
+              )
+              as Map<String, dynamic>;
+      expect(registration['fullName'], 'דנה כהן');
+      expect((registration['profile'] as Map)['phone'], '0501234567');
+      expect(
+        (registration['certificate'] as Map)['filename'],
+        'certificate.pdf',
+      );
+      expect(sent.any((r) => r.url.path == '/business/onboarding'), isFalse);
       expect(session.profile!.businessType, 'OSEK_PATUR');
     },
   );

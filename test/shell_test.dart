@@ -40,8 +40,11 @@ void main() {
     WidgetTester tester,
     Preset preset, {
     bool contactsPermissionPrompted = true,
+    double width = 390,
+    double textScale = 1,
+    bool reducedMotion = false,
   }) async {
-    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.physicalSize = Size(width * 3, 2532);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     await tester.runAsync(
@@ -60,13 +63,20 @@ void main() {
         supportedLocales: const [Locale('he', 'IL')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         theme: buildTheme(Brightness.light),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(textScale),
+            disableAnimations: reducedMotion,
+          ),
+          child: child!,
+        ),
         home: const AppShell(),
       ),
     );
     await tester.pumpAndSettle();
   }
 
-  testWidgets('large reserved glass navigation; create action only at home', (
+  testWidgets('reference glass navigation; create action only at home', (
     tester,
   ) async {
     await pumpShell(tester, Preset.owner);
@@ -112,6 +122,75 @@ void main() {
     expect(currentTab.value, AppTab.home);
     expect(find.byKey(const Key('home-create-glass')), findsOneWidget);
   });
+
+  testWidgets(
+    'capsule keeps its reference size and recenters during navigation',
+    (tester) async {
+      await pumpShell(tester, Preset.owner);
+      final capsule = find.byKey(const Key('navigation-capsule'));
+      expect(tester.getSize(capsule), const Size(206 * 1.07, 72 * 1.07));
+      expect(
+        tester.getSize(find.byKey(const Key('home-create-glass'))),
+        const Size(80 * 1.07, 80 * 1.07),
+      );
+      final homeX = tester.getCenter(capsule).dx;
+      await tester.tap(find.byKey(const Key('tab-business')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.getCenter(capsule).dx, greaterThan(homeX));
+      expect(tester.getCenter(capsule).dx, lessThan(195));
+      expect(find.byKey(const Key('tab-create')), findsNothing);
+      await tester.pumpAndSettle();
+      expect(tester.getCenter(capsule).dx, closeTo(195, .01));
+      expect(tester.getSize(capsule), const Size(206 * 1.07, 72 * 1.07));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'tab press compresses and releases without changing its hit area',
+    (tester) async {
+      await pumpShell(tester, Preset.owner);
+      final tab = find.byKey(const Key('tab-home'));
+      final hitSize = tester.getSize(tab);
+      final gesture = await tester.startGesture(tester.getCenter(tab));
+      await tester.pump(const Duration(milliseconds: 150));
+      final pressScale = find.descendant(
+        of: tab,
+        matching: find.byType(AnimatedScale),
+      );
+      expect(tester.widget<AnimatedScale>(pressScale).scale, .93);
+      expect(tester.getSize(tab), hitSize);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(tester.widget<AnimatedScale>(pressScale).scale, 1);
+    },
+  );
+
+  for (final width in [320.0, 402.0]) {
+    testWidgets(
+      'navigation fits at width $width with large text and reduced motion',
+      (tester) async {
+        await pumpShell(
+          tester,
+          Preset.owner,
+          width: width,
+          textScale: 2,
+          reducedMotion: true,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.byKey(const Key('tab-business')));
+        await tester.pump();
+        expect(find.byKey(const Key('tab-create')), findsNothing);
+        expect(
+          tester.getCenter(find.byKey(const Key('navigation-capsule'))).dx,
+          closeTo(width / 2, .01),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets(
     'no invoice action for read-only and accountant presets; accountant home = R',

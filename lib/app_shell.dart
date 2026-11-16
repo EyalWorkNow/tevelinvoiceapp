@@ -8,7 +8,6 @@ import 'api/commerce_api.dart';
 import 'screens/billing/billing_screen.dart';
 import 'state/caps.dart';
 import 'package:flutter/services.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import 'router.dart' show openCompose, peopleChip;
 import 'screens/business/business_screen.dart';
@@ -20,13 +19,10 @@ import 'state/business_context.dart';
 import 'ui/widgets/design_controls.dart' show DesignIcon;
 import 'util/intent_resolver.dart' show invoiceIntentFor;
 
-const double _navigationDesignScale = 1.4;
-const double _navigationScaleReduction = .87;
-const double _navigationMaxScale =
-    _navigationDesignScale * _navigationScaleReduction;
-const double _navigationActionSize = 84;
-const double _shellBottomNavigationHeight =
-    _navigationActionSize * _navigationMaxScale;
+// Reference artwork uses a 206 x 72 capsule beside an 80pt invoice orb.
+const double _navigationDisplayScale = 1.07;
+const double _navigationActionSize = 80;
+const double _shellBottomNavigationHeight = 88 * _navigationDisplayScale;
 const double _navigationCapsuleWidth = 206;
 const double _navigationCapsuleHeight = 72;
 const double _navigationGap = 8;
@@ -232,6 +228,7 @@ class _ShellBottomNavigation extends StatefulWidget {
 
 class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
   bool _pressed = false;
+  AppTab? _pressedTab;
 
   @override
   Widget build(BuildContext context) {
@@ -243,14 +240,13 @@ class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
     final motionDuration = reducedMotion
         ? Duration.zero
         : const Duration(milliseconds: 360);
+    // Keep the same capsule size on every tab, reserving room for the orb.
     final scale =
-        (((screenWidth - 24) /
-                        (_navigationCapsuleWidth +
-                            _navigationActionSize +
-                            _navigationGap))
-                    .clamp(.7, _navigationDesignScale) *
-                _navigationScaleReduction)
-            .clamp(.7, _navigationMaxScale)
+        ((screenWidth - 24) /
+                (_navigationCapsuleWidth +
+                    _navigationActionSize +
+                    _navigationGap))
+            .clamp(0.0, _navigationDisplayScale)
             .toDouble();
     final navWidth = _navigationCapsuleWidth * scale;
     final actionSize = _navigationActionSize * scale;
@@ -310,24 +306,23 @@ class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
                   curve: Curves.easeInOutCubic,
                   width: widget.showCreate ? _navigationGap * scale : 0,
                 ),
-                AnimatedContainer(
-                  duration: motionDuration,
-                  curve: Curves.easeInOutCubic,
+                SizedBox(
                   width: navWidth,
                   height: _navigationCapsuleHeight * scale,
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(34.5 * scale),
+                    borderRadius: BorderRadius.circular(36 * scale),
                     child: BackdropFilter(
                       filter: ui.ImageFilter.blur(
-                        sigmaX: 2 * scale,
-                        sigmaY: 2 * scale,
+                        sigmaX: 12 * scale,
+                        sigmaY: 12 * scale,
                       ),
                       child: DecoratedBox(
+                        key: const Key('navigation-capsule'),
                         decoration: BoxDecoration(
-                          color: const Color.fromRGBO(39, 27, 40, .68),
-                          borderRadius: BorderRadius.circular(34.5 * scale),
+                          color: const Color(0xFF39363A).withValues(alpha: .88),
+                          borderRadius: BorderRadius.circular(36 * scale),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: .22),
+                            color: Colors.white.withValues(alpha: .28),
                             width: scale,
                           ),
                         ),
@@ -404,121 +399,76 @@ class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
       child: InkWell(
         key: Key('tab-${tab.name}'),
         borderRadius: BorderRadius.circular(31.404 * scale),
+        onHighlightChanged: (pressed) {
+          setState(() => _pressedTab = pressed ? tab : null);
+        },
         onTap: () {
           if (selected != tab) widget.onTab(tab);
         },
-        child: AnimatedContainer(
-          duration: duration,
+        child: AnimatedScale(
+          scale: _pressedTab == tab ? .93 : 1,
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 140),
           curve: Curves.easeOutCubic,
-          width: _navigationItemSize * scale,
-          height: _navigationItemSize * scale,
-          decoration: BoxDecoration(
-            color: selected == tab
-                ? const Color(0xFFD6BDF1)
-                : const Color(0xFF322A35),
-            borderRadius: BorderRadius.circular(31.404 * scale),
-          ),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              8 * scale,
-              8 * scale,
-              8 * scale,
-              4 * scale,
+          child: AnimatedContainer(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            width: _navigationItemSize * scale,
+            height: _navigationItemSize * scale,
+            decoration: BoxDecoration(
+              color: selected == tab
+                  ? const Color(0xFFD6BDF1)
+                  : const Color(0xFF322A35),
+              borderRadius: BorderRadius.circular(31.404 * scale),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ColorFiltered(
-                  colorFilter: ColorFilter.mode(
-                    selected == tab ? const Color(0xFF302138) : Colors.white,
-                    BlendMode.srcIn,
-                  ),
-                  child: DesignIcon(iconName, size: 33 * scale),
-                ),
-                SizedBox(height: 3 * scale),
-                Text(
-                  label,
-                  maxLines: 1,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: selected == tab
-                        ? const Color(0xFF302138)
-                        : Colors.white,
-                    fontFamily: 'SF Hebrew Rounded',
-                    fontSize: 12.5 * scale,
-                    fontWeight: FontWeight.w400,
-                    height: 1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-
-  Widget _createButton(double size, double scale) => AnimatedScale(
-    scale: _pressed ? .96 : 1,
-    duration: const Duration(milliseconds: 180),
-    curve: Curves.easeOutCubic,
-    child: ClipOval(
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 10 * scale, sigmaY: 10 * scale),
-        child: Container(
-          key: widget.showCreate
-              ? const Key('home-create-glass')
-              : const Key('home-create-hidden'),
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: const Color.fromRGBO(66, 34, 49, .24),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.white.withValues(alpha: .25),
-              width: 4 * scale,
-            ),
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(4 * scale),
-            child: Material(
-              color: Colors.transparent,
-              shape: const CircleBorder(),
-              child: InkWell(
-                key: widget.showCreate ? const Key('tab-create') : null,
-                customBorder: const CircleBorder(),
-                onTap: widget.showCreate ? widget.onCreate : null,
-                onHighlightChanged: (pressed) {
-                  if (mounted && _pressed != pressed) {
-                    setState(() => _pressed = pressed);
-                  }
-                },
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: 4 * scale),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Iconsax.add_circle,
-                        color: Colors.white,
-                        size: 45.5 * scale,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                4 * scale,
+                4 * scale,
+                4 * scale,
+                4 * scale,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedSlide(
+                    offset: selected == tab
+                        ? const Offset(0, -.025)
+                        : Offset.zero,
+                    duration: duration,
+                    curve: Curves.easeOutCubic,
+                    child: TweenAnimationBuilder<Color?>(
+                      tween: ColorTween(
+                        end: selected == tab
+                            ? const Color(0xFF302138)
+                            : Colors.white,
                       ),
-                      SizedBox(height: 2 * scale),
-                      Text(
-                        'חשבונית',
-                        maxLines: 1,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'SF Hebrew Rounded',
-                          fontSize: 12.5 * scale,
-                          fontWeight: FontWeight.w400,
-                          height: 1,
-                        ),
+                      duration: duration,
+                      curve: Curves.easeOutCubic,
+                      builder: (context, color, child) => ColorFiltered(
+                        colorFilter: ColorFilter.mode(color!, BlendMode.srcIn),
+                        child: child,
                       ),
-                    ],
+                      child: DesignIcon(iconName, size: 30 * scale),
+                    ),
                   ),
-                ),
+                  SizedBox(height: 3 * scale),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: selected == tab
+                          ? const Color(0xFF302138)
+                          : Colors.white,
+                      fontFamily: 'SF Hebrew Rounded',
+                      fontSize: 10.5 * scale,
+                      fontWeight: FontWeight.w400,
+                      height: 1,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -526,4 +476,111 @@ class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
       ),
     ),
   );
+
+  Widget _createButton(double size, double scale) {
+    final labelScale = MediaQuery.textScalerOf(context).scale(12) / 12;
+    final iconSize = (33 - 14 * (labelScale - 1)).clamp(19.0, 33.0) * scale;
+    return AnimatedScale(
+      scale: _pressed ? .94 : 1,
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 160),
+      curve: Curves.easeOutCubic,
+      child: Semantics(
+        button: true,
+        label: 'חשבונית',
+        excludeSemantics: true,
+        child: ClipOval(
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 12 * scale, sigmaY: 12 * scale),
+            child: Container(
+              key: widget.showCreate
+                  ? const Key('home-create-glass')
+                  : const Key('home-create-hidden'),
+              width: size,
+              height: size,
+              padding: EdgeInsets.all(3 * scale),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFF2EBF3),
+                    Color(0xFF736A75),
+                    Color(0xFF403741),
+                    Color(0xFFB5A0AC),
+                  ],
+                  stops: [0, .28, .60, 1],
+                ),
+              ),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xEB211A24), Color(0xD92B1721)],
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: .16),
+                    width: 1.5 * scale,
+                  ),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    key: widget.showCreate ? const Key('tab-create') : null,
+                    customBorder: const CircleBorder(),
+                    onTap: widget.showCreate ? widget.onCreate : null,
+                    onHighlightChanged: (pressed) {
+                      if (_pressed != pressed) {
+                        setState(() => _pressed = pressed);
+                      }
+                    },
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: iconSize,
+                          height: iconSize,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 2.2 * scale,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.add_rounded,
+                            color: Colors.white,
+                            size: iconSize * .85,
+                          ),
+                        ),
+                        SizedBox(height: 4 * scale),
+                        Text(
+                          'חשבונית',
+                          maxLines: 1,
+                          softWrap: false,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'SF Hebrew Rounded',
+                            fontSize: 12 * scale,
+                            fontWeight: FontWeight.w400,
+                            height: 1.05,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

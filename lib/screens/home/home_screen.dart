@@ -1,3 +1,4 @@
+import '../../app_shell.dart' show currentTab, AppTab;
 // H · בית (SPEC-v2 §6.H). Owner: squad A.
 //
 // At most 4 blocks under the header: money card (2 numbers), 2 intent
@@ -61,7 +62,13 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_owned) unawaited(_c.load());
     unawaited(_loadProfileAvatar());
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(requestContactsPermissionOnEntry(context));
+      if (mounted)
+        unawaited(
+          requestContactsPermissionOnEntry(
+            context,
+            isActive: () => currentTab.value == AppTab.home,
+          ),
+        );
     });
   }
 

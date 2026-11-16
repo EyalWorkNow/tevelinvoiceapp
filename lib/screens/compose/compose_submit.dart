@@ -7,7 +7,6 @@
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../ui/widgets/notch_notice.dart';
@@ -19,8 +18,6 @@ import '../../api/client.dart';
 import '../../api/issue_api.dart';
 import '../../api/quotes_api.dart';
 import '../../router.dart' show openDocument, openQuote;
-import '../business/cardcom_merchant_screen.dart'
-    show CustomerPaymentPreviewScreen;
 import '../../state/business_context.dart';
 import '../../util/allowed_urls.dart';
 import '../../util/composer_config.dart';
@@ -199,23 +196,6 @@ Future<void> runCompose(
     final first =
         result.outcome == IssueOutcome.issued && await takeFirstIssueFlag();
     if (!context.mounted) return;
-    if (result.outcome == IssueOutcome.issued &&
-        s.config.after == AfterIssue.collect &&
-        kDebugMode) {
-      await nav.push<void>(
-        MaterialPageRoute<void>(
-          settings: const RouteSettings(name: '/demo/customer-payment'),
-          builder: (_) => CustomerPaymentPreviewScreen(
-            businessName: businessContext.displayName,
-            invoiceLabel: result.document.documentNumber == null
-                ? docTypeLabel(result.document.documentType)
-                : '${docTypeLabel(result.document.documentType)} · ${result.document.documentNumber}',
-            amountMinor: result.document.totalMinor,
-          ),
-        ),
-      );
-      if (!context.mounted) return;
-    }
     unawaited(openIssuedDocument(context, id)); // completes when D closes
     messenger.showNotchNotice(
       SnackBar(

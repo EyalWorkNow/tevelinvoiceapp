@@ -5,6 +5,7 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import '../billing/billing_screen.dart';
 import '../../ui/theme.dart';
+import '../../state/session.dart';
 import '../business/account_page.dart';
 import '../business/business_screen.dart';
 
@@ -102,6 +103,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     mainAxisSize: MainAxisSize.min,
     children: [
       _switcher(context),
+      if (session.account?.displayName case final String name
+          when name.trim().isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Text(name, style: AppText.headline),
+        ),
       const SizedBox(height: 10),
       _planButton(context),
     ],

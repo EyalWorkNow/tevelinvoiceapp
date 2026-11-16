@@ -8,13 +8,20 @@ bool _requestInFlight = false;
 
 /// Ask once after sign-in, with context about why the app needs Contacts.
 /// The app still imports only a contact the user explicitly selects.
-Future<void> requestContactsPermissionOnEntry(BuildContext context) async {
+Future<void> requestContactsPermissionOnEntry(
+  BuildContext context, {
+  bool Function()? isActive,
+}) async {
   if (_requestInFlight || !context.mounted) return;
   _requestInFlight = true;
   try {
     const key = 'contacts_permission_prompted';
     final alreadyPrompted = await AppCache.read(key);
-    if (alreadyPrompted == true || !context.mounted) return;
+    if (alreadyPrompted == true ||
+        !context.mounted ||
+        ModalRoute.of(context)?.isCurrent != true ||
+        isActive?.call() == false)
+      return;
 
     final accepted = await showDialog<bool>(
       context: context,

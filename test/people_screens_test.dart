@@ -832,7 +832,13 @@ void main() {
         preset: Preset.viewer,
       );
       unawaited(showCustomerSheet(navigatorKey.currentContext!));
-      await flush(tester);
+      for (
+        var attempt = 0;
+        attempt < 20 && find.byKey(const Key('s2-row-c1')).evaluate().isEmpty;
+        attempt++
+      ) {
+        await flush(tester);
+      }
       expect(find.byKey(const Key('s2-new')), findsNothing);
       expect(find.byKey(const Key('s2-walkin')), findsNothing);
       expect(find.byKey(const Key('s2-row-c1')), findsOneWidget);
