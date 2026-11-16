@@ -711,6 +711,7 @@ void main() {
       await settle(tester);
       // C3: pay later (305) or paid now (320).
       expect(find.text(ComposeHe.quoteHowPaid), findsOneWidget);
+      await pumpUntilFound(tester, find.byKey(const Key('quote-choice-later')));
       await tester.tap(find.byKey(const Key('quote-choice-later')));
       await settle(tester);
       expect(backend.last('POST', '/quotes/:id/status')!.body, {
@@ -731,6 +732,7 @@ void main() {
       await tester.tap(primary());
       await settle(tester);
       expect(find.text(ComposeHe.quotePaidNow), findsOneWidget);
+      await pumpUntilFound(tester, find.byKey(const Key('quote-choice-paid')));
       await tester.tap(find.byKey(const Key('quote-choice-paid')));
       await settle(tester);
       final c = tester.widget<ComposeScreen>(find.byType(ComposeScreen));
@@ -1293,6 +1295,10 @@ void main() {
         await pumpDoc(tester, Preset.owner, id: 'q-1', quote: true);
         await tester.tap(primary());
         await settle(tester);
+        await pumpUntilFound(
+          tester,
+          find.byKey(const Key('quote-choice-later')),
+        );
         await tester.tap(find.byKey(const Key('quote-choice-later')));
         await settle(tester);
         expect(
@@ -1504,4 +1510,12 @@ void main() {
       expect(find.byKey(const Key('doc-allocation')), findsNothing);
     });
   });
+}
+
+/// The sheet of "הפוך לחשבונית" may still be animating in on a busy machine.
+Future<void> pumpUntilFound(WidgetTester tester, Finder f) async {
+  for (var i = 0; i < 100 && f.evaluate().isEmpty; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+  await tester.pump(const Duration(milliseconds: 400));
 }
