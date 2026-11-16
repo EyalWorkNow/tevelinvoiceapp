@@ -19,7 +19,9 @@ import '../../state/business_context.dart';
 import '../../state/caps.dart';
 import '../../util/composer_config.dart';
 import '../../util/intent_resolver.dart';
+import '../../util/money.dart' show agorotToKeypadText;
 import 'compose_memory.dart';
+import 'compose_repeat.dart';
 import 'compose_state.dart';
 import 'compose_submit.dart';
 
@@ -171,7 +173,14 @@ Future<ComposeLoad?> loadComposer({
     if (converted) {
       await _prefill(load, quote.convertedDocumentId!, asDraft: true);
     } else {
-      if (!quote.amountHidden) s.loadQuoteLines(quote.lines);
+      if (quote.amountHidden) {
+        // BE-03: no amounts to copy.
+      } else if (s.config.receiptOnly) {
+        // C3 "שילם עכשיו" of a פטור: a receipt for the quote's total.
+        s.amountText = agorotToKeypadText(quote.totalMinor);
+      } else {
+        s.loadQuoteLines(quote.lines);
+      }
       s.notes = quote.notes ?? '';
       if (quote.customerId != null) {
         s.customer = await findCustomer(quote.customerId!);
@@ -214,6 +223,8 @@ Future<ComposeLoad?> loadComposer({
   }
   if (customerId != null) {
     s.customer = await findCustomer(customerId) ?? s.customer;
+    // C3: the customer card's "כמו בפעם הקודמת".
+    if (sourceId == null && fromQuoteId == null) takeRepeatFor(s);
   }
   if (s.customer != null && s.description.isEmpty) {
     s.description = await defaultDescription(

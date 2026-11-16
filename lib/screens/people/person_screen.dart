@@ -36,7 +36,9 @@ import '../../util/intent_resolver.dart' show invoiceIntentFor;
 import '../../util/labels/customer_crm_he.dart';
 import '../../util/status_map.dart';
 import '../document/sheets/s6_share.dart' show pdfSharer;
+import '../compose/compose_repeat.dart' show lastRepeatable, openRepeat;
 import '../expense/expense_capture_screen.dart' show nextCaptureSupplier;
+import '../../util/labels/compose_he.dart';
 import 'sheets/s2_customer.dart';
 import 'customer_crm_agenda_screen.dart';
 import 'customer_crm_panel.dart';
@@ -317,6 +319,22 @@ class _PersonScreenState extends State<PersonScreen> {
               openCompose(context, intent: 'REQUEST', customerId: widget.id),
           icon: const Icon(Iconsax.receipt_add, size: 18),
           label: const Text(PeopleHe.newInvoice),
+        ),
+      // C3 "כמו בפעם הקודמת": the last document again, two taps (persona 04).
+      if ((_caps.can(Cap.docDraft) || _caps.can(Cap.paymentIssue)) &&
+          lastRepeatable(_docs ?? const []) != null)
+        TextButton.icon(
+          key: const Key('person-repeat'),
+          onPressed: () async {
+            final opened = await openRepeat(context, widget.id);
+            if (!opened && mounted) {
+              ScaffoldMessenger.of(context).showNotchNotice(
+                const SnackBar(content: Text(ComposeHe.repeatNone)),
+              );
+            }
+          },
+          icon: const Icon(Iconsax.repeat, size: 18),
+          label: const Text(ComposeHe.repeatLast),
         ),
       if (_caps.can(Cap.paymentIssue))
         TextButton.icon(
