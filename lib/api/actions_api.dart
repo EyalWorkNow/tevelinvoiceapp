@@ -12,6 +12,7 @@ import 'dart:typed_data';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../state/cache.dart';
+import '../state/session.dart' show session;
 import '../util/cancel_policy.dart';
 import '../util/labels/labels.dart';
 import '../util/money.dart';
@@ -319,6 +320,7 @@ Future<CreditOutcome> creditDocument(
           alreadyCreditedMinor: doc.creditedMinor ?? BigInt.zero,
           amountMinor: amountMinor,
           partialDescription: DocumentHe.partialCreditLine(doc.documentNumber),
+          agreedTotals: session.freshMe?.lineAgreedTotal ?? false,
         ),
         'reason': ?(p['reason'] as String?),
       }, p['key'] as String);

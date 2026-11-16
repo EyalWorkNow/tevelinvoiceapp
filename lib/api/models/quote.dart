@@ -14,6 +14,7 @@ class QuoteLine {
     this.discountMinor,
     this.taxRateBasisPoints,
     this.itemId,
+    this.agreedTotalMinor,
   });
 
   factory QuoteLine.fromJson(Map<String, dynamic> j) => QuoteLine(
@@ -27,6 +28,9 @@ class QuoteLine {
       jPick(j, ['taxRateBasisPoints', 'tax_rate_basis_points']),
     ),
     itemId: jStr(jPick(j, ['itemId', 'item_id'])),
+    agreedTotalMinor: jBigOrNull(
+      jPick(j, ['agreedTotalMinor', 'agreed_total_minor']),
+    ),
   );
 
   final String description;
@@ -38,6 +42,10 @@ class QuoteLine {
   final int? taxRateBasisPoints;
   final String? itemId;
 
+  /// Owner Q1: the VAT-included total the user typed (server
+  /// `agreedTotalMinor`); null = the standard calculation.
+  final BigInt? agreedTotalMinor;
+
   /// POST /quotes line body.
   Map<String, dynamic> toJson() => {
     'description': description,
@@ -47,6 +55,8 @@ class QuoteLine {
       'discountMinor': discountMinor.toString(),
     if (taxRateBasisPoints != null) 'taxRateBasisPoints': taxRateBasisPoints,
     if (itemId != null) 'itemId': itemId,
+    if (agreedTotalMinor != null)
+      'agreedTotalMinor': agreedTotalMinor.toString(),
   };
 }
 

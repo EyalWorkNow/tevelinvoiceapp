@@ -227,5 +227,9 @@ class Me {
 
   bool get hasEffectivePermissions => permissions != null;
 
+  /// Owner Q1: the server keeps a line's typed VAT-included total
+  /// (`agreedTotalMinor`). Older servers: absent → false.
+  bool get lineAgreedTotal => raw['lineAgreedTotal'] == true;
+
   Map<String, dynamic> toJson() => raw;
 }

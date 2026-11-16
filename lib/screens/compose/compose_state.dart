@@ -250,28 +250,64 @@ class ComposeState extends ChangeNotifier {
   BigInt? lineNetPrice(ComposeLine l) =>
       l.priceMinor == null ? null : _net(l.priceMinor!, lineRate(l));
 
-  /// Lines exactly as sent to POST /documents (net unit prices).
+  /// The server keeps a typed VAT-included total exactly (`agreedTotalMinor`,
+  /// GET /me `lineAgreedTotal`). Off: the nearest net price (₪2 → ₪1.99).
+  bool agreedTotals = false;
+
+  /// Lines exactly as sent to POST /documents (net unit prices; with
+  /// amounts incl. VAT, `agreedTotalMinor` = the typed gross — owner Q1).
   List<Map<String, dynamic>> get requestLines {
     final rate = taxRate;
-    final discount = _net(discountInput);
+    Map<String, dynamic> line({
+      required String description,
+      required BigInt quantity,
+      required BigInt typedPrice,
+      BigInt? typedDiscount,
+      required int rate,
+      String? itemId,
+    }) {
+      final gross = _grossInput && rate > 0;
+      final g = gross
+          ? grossLine(
+              quantityMicros: quantity,
+              grossUnitMinor: typedPrice,
+              grossDiscountMinor: typedDiscount,
+              basisPoints: rate,
+              agreed: agreedTotals,
+            )
+          : null;
+      final unit = g?.unitPriceMinor ?? typedPrice;
+      final discount = g?.discountMinor ?? typedDiscount ?? BigInt.zero;
+      return {
+        'description': description,
+        'quantityMicros': quantity.toString(),
+        'unitPriceMinor': unit.toString(),
+        if (discount > BigInt.zero) 'discountMinor': discount.toString(),
+        'taxRateBasisPoints': rate,
+        if (g?.agreedTotalMinor != null)
+          'agreedTotalMinor': g!.agreedTotalMinor.toString(),
+        'itemId': ?itemId,
+      };
+    }
+
     return [
       if (amountMinor > BigInt.zero)
-        {
-          'description': mainDescription,
-          'quantityMicros': oneQuantity.toString(),
-          'unitPriceMinor': _net(amountMinor).toString(),
-          if (discount > BigInt.zero) 'discountMinor': discount.toString(),
-          'taxRateBasisPoints': rate,
-        },
+        line(
+          description: mainDescription,
+          quantity: oneQuantity,
+          typedPrice: amountMinor,
+          typedDiscount: discountInput > BigInt.zero ? discountInput : null,
+          rate: rate,
+        ),
       for (final l in usedExtraLines)
         if (l.isValid)
-          {
-            'description': l.description.trim(),
-            'quantityMicros': l.quantityMicros!.toString(),
-            'unitPriceMinor': _net(l.priceMinor!, lineRate(l)).toString(),
-            'taxRateBasisPoints': lineRate(l),
-            if (l.itemId != null) 'itemId': l.itemId,
-          },
+          line(
+            description: l.description.trim(),
+            quantity: l.quantityMicros!,
+            typedPrice: l.priceMinor!,
+            rate: lineRate(l),
+            itemId: l.itemId,
+          ),
     ];
   }
 
@@ -289,6 +325,9 @@ class ComposeState extends ChangeNotifier {
             unitPriceMinor: BigInt.parse(l['unitPriceMinor'] as String),
             discountMinor: BigInt.tryParse(l['discountMinor'] as String? ?? ''),
             taxRateBasisPoints: l['taxRateBasisPoints'] as int,
+            agreedTotalMinor: BigInt.tryParse(
+              l['agreedTotalMinor'] as String? ?? '',
+            ),
           );
     }
     return sum;
@@ -435,6 +474,9 @@ class ComposeState extends ChangeNotifier {
         discountMinor: BigInt.tryParse(l['discountMinor'] as String? ?? ''),
         taxRateBasisPoints: l['taxRateBasisPoints'] as int, // BE-06
         itemId: l['itemId'] as String?,
+        agreedTotalMinor: BigInt.tryParse(
+          l['agreedTotalMinor'] as String? ?? '',
+        ),
       ),
   ];
 
@@ -453,6 +495,7 @@ class ComposeState extends ChangeNotifier {
   void loadLines(List<DocumentLine> lines) {
     extraLines.clear();
     if (lines.isEmpty) return;
+    if (_loadGross(lines)) return;
     inclusive = false;
     final first = lines.first;
     final firstIsUnit = first.quantityMicros == oneQuantity;
@@ -482,6 +525,55 @@ class ComposeState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Owner Q1: lines that kept a typed VAT-included total (stored total ≠
+  /// the standard calculation) come back as the gross that was typed, so a
+  /// copy totals the same. Only when every line has a whole gross unit price
+  /// and no discount; otherwise the net prefill.
+  bool _loadGross(List<DocumentLine> lines) {
+    if (!showVat || !agreedTotals) return false;
+    var any = false;
+    final gross = <BigInt>[];
+    for (final l in lines) {
+      if (l.totalMinor <= BigInt.zero || l.discountMinor > BigInt.zero) {
+        return false;
+      }
+      final standard = calculateLine(
+        quantityMicros: l.quantityMicros,
+        unitPriceMinor: l.unitPriceMinor,
+        taxRateBasisPoints: l.taxRateBasisPoints,
+      ).totalMinor;
+      if (standard != l.totalMinor) any = true;
+      final scaled = l.totalMinor * oneQuantity;
+      if (scaled % l.quantityMicros != BigInt.zero) return false;
+      gross.add(scaled ~/ l.quantityMicros);
+    }
+    if (!any) return false;
+    inclusive = true;
+    final first = lines.first;
+    final firstIsUnit = first.quantityMicros == oneQuantity;
+    description = first.description;
+    if (firstIsUnit) {
+      amountText = agorotToKeypadText(gross.first);
+      discountText = '';
+    }
+    for (var i = firstIsUnit ? 1 : 0; i < lines.length; i++) {
+      final l = lines[i];
+      extraLines.add(
+        ComposeLine(
+          description: l.description,
+          quantityText: formatQuantity(l.quantityMicros),
+          priceText: agorotToKeypadText(gross[i]),
+          itemId: l.itemId,
+          vatNone: l.taxRateBasisPoints == 0,
+        ),
+      );
+    }
+    vatNone = lines.every((l) => l.taxRateBasisPoints == 0);
+    vatPerLine = !vatNone && lines.any((l) => l.taxRateBasisPoints == 0);
+    notifyListeners();
+    return true;
+  }
+
   /// Quote lines (BE-06 GET /quotes/:id) → the same prefill as a document.
   void loadQuoteLines(List<QuoteLine> lines) => loadLines([
     for (var i = 0; i < lines.length; i++)
@@ -495,7 +587,7 @@ class ComposeState extends ChangeNotifier {
         subtotalMinor: BigInt.zero,
         taxRateBasisPoints: lines[i].taxRateBasisPoints ?? vatBasisPoints,
         taxAmountMinor: BigInt.zero,
-        totalMinor: BigInt.zero,
+        totalMinor: lines[i].agreedTotalMinor ?? BigInt.zero,
       ),
   ]);
 
