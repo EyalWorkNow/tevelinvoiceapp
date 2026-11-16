@@ -78,7 +78,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 450));
   }
 
-  Future<void> open(WidgetTester tester, {required String intent}) async {
+  Future<void> open(
+    WidgetTester tester, {
+    required String intent,
+    BigInt? prefillAmountMinor,
+    String? prefillDescription,
+    ValueChanged<String>? onIssued,
+  }) async {
     tester.view.physicalSize = const Size(1170, 2532);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -96,7 +102,13 @@ void main() {
         home: Builder(
           builder: (c) => Scaffold(
             body: TextButton(
-              onPressed: () => openCompose(c, intent: intent),
+              onPressed: () => openCompose(
+                c,
+                intent: intent,
+                prefillAmountMinor: prefillAmountMinor,
+                prefillDescription: prefillDescription,
+                onIssued: onIssued,
+              ),
               child: const Text('open'),
             ),
           ),
@@ -109,6 +121,17 @@ void main() {
 
   Finder primary() => find.byKey(const Key('compose-primary'));
   Finder key(String k) => find.byKey(Key(k));
+
+  Future<void> chip(WidgetTester tester, String row, String method) async {
+    final f = find.descendant(
+      of: key(row),
+      matching: find.text(paymentMethodLabels[method]!),
+    );
+    await tester.ensureVisible(f);
+    await tester.pump();
+    await tester.tap(f);
+    await tester.pump(const Duration(milliseconds: 450));
+  }
 
   Future<void> tapKey(WidgetTester tester, String k) async {
     await tester.ensureVisible(key(k));
@@ -144,6 +167,10 @@ void main() {
       recordSplitOnFinalize();
       await open(tester, intent: 'PAID');
       await type(tester, '1180');
+      // C2: no method is assumed for a new customer — chosen, then issue.
+      expect(primary(), findsNothing);
+      await chip(tester, 'compose-methods', 'CASH');
+      await tester.pump(const Duration(milliseconds: 450));
       expect(primary(), findsOneWidget, reason: 'one method: as fast as today');
       await tapKey(tester, 'compose-split');
       expect(key('compose-splits'), findsOneWidget);
@@ -159,13 +186,7 @@ void main() {
       expect(find.text(ComposeHe.splitFull), findsOneWidget);
 
       // Line 2 → cheque: the issue waits for its details.
-      await tester.ensureVisible(key('split-methods-1'));
-      await tester.tap(
-        find.descendant(
-          of: key('split-methods-1'),
-          matching: find.text(paymentMethodLabels['CHECK']!),
-        ),
-      );
+      await chip(tester, 'split-methods-1', 'CHECK');
       await tester.pump();
       expect(primary(), findsNothing);
       for (final (k, v) in [
@@ -200,12 +221,7 @@ void main() {
     (tester) async {
       await open(tester, intent: 'PAID');
       await type(tester, '350');
-      await tester.tap(
-        find.descendant(
-          of: key('compose-methods'),
-          matching: find.text(paymentMethodLabels['CREDIT_CARD']!),
-        ),
-      );
+      await chip(tester, 'compose-methods', 'CREDIT_CARD');
       await tester.pump(const Duration(milliseconds: 450));
       await tester.tap(primary());
       await flush(tester);
@@ -234,6 +250,48 @@ void main() {
       expect(pays.length, before + 1);
       expect(pays.last.body['method'], 'CREDIT_CARD');
       expect(pays.last.body['amountMinor'], '35000');
+    },
+  );
+
+  testWidgets(
+    'C1 × C2 × C3: debt-book "הפק קבלה" (prefill) with a split cash + bit closes the entry',
+    (tester) async {
+      recordSplitOnFinalize();
+      String? issued;
+      await open(
+        tester,
+        intent: 'PAID',
+        prefillAmountMinor: BigInt.from(24000),
+        prefillDescription: '2 שיעורים',
+        onIssued: (id) => issued = id,
+      );
+      for (var i = 0; i < 10 && key('compose-split').evaluate().isEmpty; i++) {
+        await flush(tester);
+      }
+      // The debt's amount is binding: no "כמו בפעם הקודמת" over it.
+      expect(key('compose-repeat'), findsNothing);
+      await chip(tester, 'compose-methods', 'CASH');
+      await tester.pump(const Duration(milliseconds: 450));
+      await tapKey(tester, 'compose-split');
+      await tester.enterText(key('split-amount-0'), '100');
+      await tester.pump();
+      await tapKey(tester, 'split-add');
+      // The split rows offer the same chips as the one-method row (C2: bit).
+      await chip(tester, 'split-methods-1', 'BIT');
+      await tester.pump(const Duration(milliseconds: 450));
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump(const Duration(milliseconds: 450));
+      expect(find.text(ComposeHe.splitFull), findsOneWidget);
+      await tester.ensureVisible(primary());
+      await tester.tap(primary());
+      await flush(tester);
+      final fin = backend.last('POST', '/documents/:id/finalize')!.body;
+      final list = (fin['pendingPayments'] as List).cast<Map>();
+      // bit goes out as BANK_TRANSFER + "ביט" (CD-WALLET-01), never BIT (422).
+      expect(list.map((p) => p['method']), ['CASH', 'BANK_TRANSFER']);
+      expect(list.last['reference'], 'ביט');
+      expect(list.first['amountMinor'], '10000');
+      expect(issued, 'd1', reason: 'the debt entry is closed with this id');
     },
   );
 }
