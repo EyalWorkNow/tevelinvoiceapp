@@ -73,7 +73,9 @@ void main() {
 
   for (final intent in ['REQUEST', 'TYPE:305']) {
     testWidgets(
-      '$intent: cancel reopened customer picker returns home without an amount flash',
+      // Main's U0: ✕ leaves the Composer in one tap (the customer changes
+      // from the chip), so the owner's "back reopens the picker" step is ✕.
+      '$intent: ✕ after choosing a customer returns home without an amount flash',
       (tester) async {
         final root = await start(tester);
         unawaited(openCompose(root, intent: intent));
@@ -81,10 +83,7 @@ void main() {
         await tester.tap(find.text('דנה').last);
         await settle(tester);
         expect(find.byType(Keypad), findsOneWidget);
-        await tester.tap(find.byType(DesignBackButton).last);
-        await settle(tester);
-        expect(find.byType(CustomerSheet), findsOneWidget);
-        await tester.tap(find.byType(DesignBackButton).last);
+        await tester.tap(find.byKey(const Key('compose-close')));
         for (var i = 0; i < 12; i++) {
           await tester.pump(const Duration(milliseconds: 50));
           expect(find.byType(Keypad), findsNothing);
