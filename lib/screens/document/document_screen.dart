@@ -37,6 +37,7 @@ import '../../util/phone.dart';
 import '../../util/status_map.dart' show effectiveDueDate;
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../compose/compose_memory.dart' show fetchVatRate;
+import '../retainers/make_monthly_sheet.dart';
 import 'dialogs.dart';
 import 'document_parts.dart';
 import 'next_action.dart';
@@ -698,6 +699,17 @@ class _DocumentScreenState extends State<DocumentScreen> {
     }
   }
 
+  /// C4 "הפוך לחשבונית חודשית" (issued 305/300; MoreMenu keeps the red item last).
+  MoreMenuItem? _monthlyItem() {
+    final doc = _doc;
+    if (_quote != null || doc == null) return null;
+    if (!mayMakeMonthly(doc, businessContext.caps)) return null;
+    return MoreMenuItem(
+      label: RetainerHe.makeMonthly,
+      onSelected: () => unawaited(showMakeMonthlySheet(context, doc)),
+    );
+  }
+
   Future<void> _openShare() async {
     final quote = _quote;
     if (quote != null) return _shareQuote();
@@ -838,6 +850,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
                         destructive: a == DocAction.cancelOrCredit,
                         onSelected: () => _do(a),
                       ),
+                    ?_monthlyItem(),
                   ],
                 ),
               ],
@@ -868,6 +881,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
                             destructive: a == DocAction.cancelOrCredit,
                             onSelected: () => _do(a),
                           ),
+                        ?_monthlyItem(),
                       ],
                     ),
                     const SizedBox(width: 8),
