@@ -341,12 +341,26 @@ class QuoteRow {
     this.createdAt,
     this.convertedDocumentId,
     this.validUntil,
+    this.quoteNumber,
+    this.expired = false,
+    this.amountHidden = false,
   });
 
+  /// The list shows the total INCLUDING VAT, like the quote screen (server
+  /// `grossMinor`); an older server sends the net `totalMinor` only.
   factory QuoteRow.fromJson(Map<String, dynamic> json) => QuoteRow(
     id: json['id'] as String,
     status: jStr(json['status']) ?? 'DRAFT',
-    totalMinor: jBig(jPick(json, ['totalMinor', 'total_minor'])),
+    totalMinor: jBig(
+      json.containsKey('grossMinor')
+          ? json['grossMinor']
+          : jPick(json, ['totalMinor', 'total_minor']),
+    ),
+    amountHidden: json.containsKey('grossMinor')
+        ? json['grossMinor'] == null
+        : jPick(json, ['totalMinor', 'total_minor']) == null,
+    quoteNumber: jStr(jPick(json, ['quoteNumber', 'quote_number'])),
+    expired: json['expired'] == true,
     title: jStr(json['title']),
     customerName: jStr(jPick(json, ['customerName', 'customer_name'])),
     createdAt: jStr(jPick(json, ['createdAt', 'created_at'])),
@@ -369,10 +383,21 @@ class QuoteRow {
   /// 'YYYY-MM-DD' (GET /quotes `validUntil`).
   final String? validUntil;
 
+  /// Running number per business (server 0107).
+  final String? quoteNumber;
+
+  /// DRAFT/SENT past [validUntil] (server, Israel calendar).
+  final bool expired;
+
+  /// BE-03: another member's quote without money:read.
+  final bool amountHidden;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'status': status,
-    'totalMinor': totalMinor.toString(),
+    'grossMinor': amountHidden ? null : totalMinor.toString(),
+    'quoteNumber': quoteNumber,
+    'expired': expired,
     'title': title,
     'customerName': customerName,
     'createdAt': createdAt,

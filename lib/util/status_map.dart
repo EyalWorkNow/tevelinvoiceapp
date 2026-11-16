@@ -27,7 +27,17 @@ enum DocStatus {
 }
 
 /// F10 quote statuses.
-enum QuoteListStatus { draft, withCustomer, accepted, converted, notRelevant }
+enum QuoteListStatus {
+  draft,
+  withCustomer,
+  accepted,
+  converted,
+  notRelevant,
+
+  /// Owner feedback 2026-11-16: a DRAFT/SENT quote past its validity date
+  /// (the server status stays; the customer can no longer accept it).
+  expired,
+}
 
 /// Shown next to the status, never instead of it.
 enum DocAttribute { waitingTaxAuthority, waitingSignature, sent, viewed }
@@ -155,8 +165,10 @@ DocListState docListState({
   return DocListState(DocStatus.issued, attrs);
 }
 
-/// §15.5 quotes.
-QuoteListStatus quoteListStatus(String status) => switch (status) {
+/// §15.5 quotes. [expired]: the server's `expired` (DRAFT/SENT past validity).
+QuoteListStatus quoteListStatus(String status, {bool expired = false}) =>
+    switch (status) {
+  'DRAFT' || 'SENT' when expired => QuoteListStatus.expired,
   'SENT' => QuoteListStatus.withCustomer,
   'ACCEPTED' => QuoteListStatus.accepted,
   'CONVERTED' => QuoteListStatus.converted,

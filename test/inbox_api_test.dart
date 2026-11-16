@@ -755,6 +755,58 @@ void main() {
       expect(searchQuotes(qs, 'לוגו').single.id, 'q2');
     });
 
+    test('quotes: the number first (owner feedback 2026-11-16)', () {
+      final qs = [
+        QuoteRow(
+          id: 'q1',
+          status: 'SENT',
+          totalMinor: BigInt.from(1200),
+          customerName: 'רון',
+          quoteNumber: '7',
+        ),
+        QuoteRow(
+          id: 'q2',
+          status: 'DRAFT',
+          totalMinor: BigInt.from(1200),
+          quoteNumber: '12',
+        ),
+      ];
+      expect(searchQuotes(qs, '12').first.id, 'q2');
+      expect(searchQuotes(qs, '7').single.id, 'q1');
+    });
+
+    test('QuoteRow: gross (incl. VAT) total, number, expiry, hidden amount', () {
+      final r = QuoteRow.fromJson({
+        'id': 'q',
+        'status': 'SENT',
+        'totalMinor': '100000',
+        'taxMinor': '18000',
+        'grossMinor': '118000',
+        'quoteNumber': '12',
+        'expired': true,
+      });
+      expect(r.totalMinor, BigInt.from(118000));
+      expect((r.quoteNumber, r.expired, r.amountHidden), ('12', true, false));
+      final hidden = QuoteRow.fromJson({
+        'id': 'q',
+        'status': 'SENT',
+        'totalMinor': null,
+        'grossMinor': null,
+      });
+      expect(hidden.amountHidden, isTrue);
+      // An older server: the net total, as before.
+      expect(
+        QuoteRow.fromJson({'id': 'q', 'totalMinor': '500'}).totalMinor,
+        BigInt.from(500),
+      );
+      final again = QuoteRow.fromJson(r.toJson());
+      expect((again.totalMinor, again.quoteNumber, again.expired), (
+        BigInt.from(118000),
+        '12',
+        true,
+      ));
+    });
+
     test(
       'groups by month, newest first; drafts without a date go to this month',
       () {
