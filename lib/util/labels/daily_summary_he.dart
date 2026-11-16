@@ -7,6 +7,9 @@ abstract final class DailySummaryHe {
   static const title = 'סיכום יום';
   static const titleWeek = 'סיכום השבוע';
   static const cardHint = 'כמה התקבל היום, לפי אמצעי תשלום';
+
+  /// Home row for an employee / cashier (own count only).
+  static const homeRowOwn = 'סיכום היום שלי';
   static const today = 'היום';
   static const week = 'השבוע';
   static const pickDay = 'בחירת יום';
