@@ -462,7 +462,9 @@ void main() {
     (tester) async {
       await launchAppAs(tester, owner);
       atRoot((c) => openPerson(c, debtorId));
-      await pumpUntil(tester, find.byKey(const Key('person-owes')));
+      // C1 "רשום חוב" + C3 "כמו בפעם הקודמת" add actions above the card:
+      // it can start below the fold of the lazy list.
+      await pumpUntilScrolled(tester, find.byKey(const Key('person-owes')));
       await pumpFor(
         tester,
         const Duration(seconds: 1),
