@@ -164,6 +164,19 @@ void main() {
       });
     }
 
+    test('a quote keeps the old nearest price (no server column yet)', () {
+      final s =
+          ComposeState(
+              kind: DocKind.quote,
+              businessType: 'OSEK_MURSHE',
+              vatBasisPoints: 1800,
+            )
+            ..agreedTotals = true
+            ..amountText = '2';
+      expect(s.requestLines.single.containsKey('agreedTotalMinor'), isFalse);
+      expect(s.quoteLines.single.agreedTotalMinor, isNull);
+    });
+
     test('extra line ₪2.00 incl. VAT keeps ₪2.00', () {
       final s = compose()
         ..amountText = '10'
