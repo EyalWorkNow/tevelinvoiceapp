@@ -621,11 +621,22 @@ Future<EditorConfig> approvalsEditor() async {
           initial: !policy.selfApprovalAllowed,
           visibleWhen: (v) => v.flag('enabled'),
         ),
+      // B1: up to this total (incl. VAT) a cashier issues without approval.
+      EditorField(
+        key: 'cashierCap',
+        label: BusinessHe.approvalsCashierCap,
+        kind: FieldKind.money,
+        initial: policy.cashierCapMinor,
+        hint: BusinessHe.approvalsCashierCapHint,
+        validator: (x) =>
+            x is BigInt && x >= BigInt.zero ? null : 'נא להזין סכום',
+      ),
     ],
     onSave: (v) => saveApprovalPolicy(
       enabled: v.flag('enabled'),
       thresholdMinor: v.money('threshold'),
       selfApprovalAllowed: !(otherExists && v.flag('notSelf')),
+      cashierCapMinor: v.money('cashierCap'),
     ),
   );
 }

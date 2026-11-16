@@ -23,6 +23,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
+import '../state/business_context.dart';
 import '../state/cache.dart';
 import '../state/session.dart';
 import '../util/composer_config.dart' show isPaidServerType;
@@ -224,6 +225,8 @@ Future<IssueResult> _runDocument(
       rethrow;
     }
     p.documentNumber = json['documentNumber']?.toString();
+    // B1: the cashier's payment was recorded with the finalize (same request).
+    if (json['paymentRecorded'] == true) p.payment = null;
     final waiting = json['status'] == 'WAITING_FOR_ALLOCATION';
     p.stage = waiting ? IssueStage.waitingAllocation : IssueStage.finalized;
     if (waiting && pay != null) {
@@ -305,7 +308,11 @@ Future<IssueResult> _runReceipt(
   Future<void> save() => savePendingIssue(p);
   if (p.stage.index < IssueStage.finalized.index) {
     final pay = p.payment!;
-    await _createPayment(p, pay, p.totalMinor);
+    // B1: the cashier records no payment on its own — the receipt carries it
+    // (one request, capped by the server).
+    final inline = businessContext.caps.isCashier;
+    if (!inline) await _createPayment(p, pay, p.totalMinor);
+    p.paymentDate ??= todayIso();
     p.scopeKey ??= await resolveScopeKey();
     p.receiptKey ??= ApiClient.newIdempotencyKey();
     await save();
@@ -313,9 +320,12 @@ Future<IssueResult> _runReceipt(
     try {
       json = await _api.post('/receipts', {
         'scopeKey': p.scopeKey,
-        'paymentIds': [
-          {'id': p.paymentId},
-        ],
+        if (inline)
+          'payment': pay.requestBody(p.totalMinor, p.paymentDate!)
+        else
+          'paymentIds': [
+            {'id': p.paymentId},
+          ],
         if (p.body['customerId'] != null) 'customerId': p.body['customerId'],
       }, p.receiptKey);
     } on ApiException catch (e) {
@@ -323,6 +333,17 @@ Future<IssueResult> _runReceipt(
       rethrow;
     }
     final outcome = json['outcome'] as Map<String, dynamic>? ?? const {};
+    if (outcome['status'] == 'PENDING_APPROVAL') {
+      // B1: a cashier's receipt above the cap went to the owner with its money.
+      p
+        ..draftId = json['receiptDocumentId'] as String
+        ..stage = IssueStage.submitted;
+      await clearPendingIssue(p.businessId);
+      return IssueResult(
+        IssueOutcome.submittedForApproval,
+        await fetchDocument(p.draftId!),
+      );
+    }
     if (outcome['status'] == 'APPROVAL_REQUIRED') {
       // Before BE-37 a receipt above the threshold is refused (AT-45 edge case).
       throw ApiException(409, 'APPROVAL_REQUIRED', 'APPROVAL_REQUIRED');
@@ -595,8 +616,18 @@ Future<IssueResult> _done(PendingIssue p, void Function() report) async {
 }
 
 Future<IssueResult> _submitResult(PendingIssue p) async {
+  final pay = p.payment;
   try {
-    await _api.post('/documents/${p.draftId}/submit');
+    // B1: the cashier above the cap — the money taken waits with the document
+    // on the server and is recorded when the owner approves.
+    await _api.post(
+      '/documents/${p.draftId}/submit',
+      pay != null && businessContext.caps.isCashier
+          ? {
+              'pendingPayments': [pay.pendingBody(p.paymentDate ?? todayIso())],
+            }
+          : null,
+    );
   } on ApiException catch (e) {
     if (e.code != 'DOCUMENT_INVALID_TRANSITION') rethrow; // already submitted
   }

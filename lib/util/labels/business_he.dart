@@ -27,11 +27,17 @@ const Map<String, String> roleLabels = {
   'ACCOUNTANT': 'רו״ח – מלא',
   'ACCOUNTANT_REP': 'רואה חשבון',
   'EMPLOYEE': 'עובד',
+  'CASHIER': 'קופאי/ת',
   'READ_ONLY': 'צפייה בלבד',
 };
 
 /// B · עסק rows and sub-pages (§6.B, §13).
 abstract final class BusinessHe {
+  /// B1 (§13.6): the cashier cap.
+  static const approvalsCashierCap = 'קופאי/ת מפיק/ה בלי אישור עד';
+  static const approvalsCashierCapHint =
+      'סכום כולל מע״מ. מעל הסכום הזה הקבלה נשלחת לאישורך, והתשלום ממתין איתה.';
+
   static String monthlySubscriptionPrice(String price) =>
       'מינוי חודשי · $price';
   static String securePaymentPrice(int amountMinor) =>
@@ -301,6 +307,8 @@ abstract final class PresetHe {
   static const accountant = 'רואה חשבון';
   static const accountantFull = 'רו״ח – מלא';
   static const viewer = 'צפייה בלבד';
+  static const cashier = 'קופאי/ת';
+  static const officeManager = 'מנהל/ת משרד';
 
   static const employeeHint =
       'יוצר מסמכים ושולח אותם לאישורך. לא מפיק לבד, לא מבטל, לא משנה הגדרות.';
@@ -308,6 +316,10 @@ abstract final class PresetHe {
   static const accountantHint =
       'רואה מסמכים ודוחות, מאשר הוצאות. לא מפיק ולא שולח ללקוחות. יתבקש אימות דו-שלבי.';
   static const viewerHint = 'רואה מסמכים בלבד.';
+  static const cashierHint =
+      'מפיק/ה קבלה על תשלום שהתקבל עכשיו, עד ₪2,000 בלי אישור. לא רואה הכנסות ולא מבטל/ת.';
+  static const officeManagerHint =
+      'רואה יתרות, רושם/ת תשלומים על מסמכים קיימים ומצלם/ת הוצאות. לא מפיק/ה חשבוניות. יתבקש אימות דו-שלבי.';
   static const accountantFullHint =
       'הרשאות רו״ח מלאות (קיים). אפשר לשנות לתפקיד אחר.';
 
@@ -316,6 +328,8 @@ abstract final class PresetHe {
     Preset.partner => partner,
     Preset.employee => employee,
     Preset.employeeIssuer => employeeIssuer,
+    Preset.cashier => cashier,
+    Preset.officeManager => officeManager,
     Preset.accountantRep => accountant,
     Preset.accountantFull => accountantFull,
     Preset.viewer => viewer,
@@ -324,6 +338,8 @@ abstract final class PresetHe {
   static String hint(Preset p) => switch (p) {
     Preset.partner => partnerHint,
     Preset.employee || Preset.employeeIssuer => employeeHint,
+    Preset.cashier => cashierHint,
+    Preset.officeManager => officeManagerHint,
     Preset.accountantRep => accountantHint,
     Preset.accountantFull => accountantFullHint,
     Preset.viewer => viewerHint,

@@ -57,6 +57,27 @@ const List<String> _allPerms = [
           'payment:record',
         ],
       ),
+      // B1: the cashier (role CASHIER) and the office manager.
+      Preset.cashier => (
+        'CASHIER',
+        [
+          'document:read',
+          'document:draft:write',
+          'document:send',
+          'document:finalize_with_payment',
+        ],
+      ),
+      Preset.officeManager => (
+        'EMPLOYEE',
+        [
+          'document:read',
+          'document:draft:write',
+          'document:send',
+          'expense:record',
+          'payment:record',
+          'money:read',
+        ],
+      ),
       Preset.accountantRep => (
         'READ_ONLY',
         ['document:read', 'expense:record', 'expense:approve'],

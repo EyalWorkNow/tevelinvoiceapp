@@ -63,11 +63,14 @@ Future<void> saveApprovalPolicy({
   required bool enabled,
   required BigInt thresholdMinor,
   required bool selfApprovalAllowed,
+  BigInt? cashierCapMinor,
 }) async {
   await _api.put('/settings/approval', {
     'mode': enabled ? 'THRESHOLD' : 'NONE',
     'thresholdMinor': (enabled ? thresholdMinor : BigInt.zero).toString(),
     'selfApprovalAllowed': selfApprovalAllowed,
+    // B1: absent = the server keeps the stored cap.
+    'cashierCapMinor': ?cashierCapMinor?.toString(),
   });
   await session.refreshBusiness();
 }

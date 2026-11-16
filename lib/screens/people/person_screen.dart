@@ -318,7 +318,7 @@ class _PersonScreenState extends State<PersonScreen> {
           icon: const Icon(Iconsax.receipt_add, size: 18),
           label: const Text(PeopleHe.newInvoice),
         ),
-      if (_caps.can(Cap.paymentRecord))
+      if (_caps.can(Cap.paymentIssue))
         TextButton.icon(
           key: const Key('person-paid'),
           onPressed: () =>

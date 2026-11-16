@@ -33,7 +33,10 @@ class _CreateSheetState extends State<CreateSheet> {
     final caps = bc.caps;
     // §4.4 "אריחי ＋": עובד / עובד+מפיק see הצעה·הוצאה·לקוח only – no "עוד".
     final employee =
-        caps.preset == Preset.employee || caps.preset == Preset.employeeIssuer;
+        caps.preset == Preset.employee ||
+        caps.preset == Preset.employeeIssuer ||
+        caps.preset == Preset.officeManager ||
+        caps.preset == Preset.cashier;
     final kinds = employee
         ? const <DocKind>[]
         : moreKinds(

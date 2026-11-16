@@ -24,6 +24,7 @@ import '../../ui/ds.dart';
 import '../../ui/widgets/ceiling_gauge.dart';
 import '../../ui/widgets/shell_inset.dart';
 import '../../util/labels/common_he.dart';
+import '../../util/money.dart' show formatMoney;
 import '../../util/labels/inbox_he.dart';
 import '../people/customer_crm_agenda_screen.dart';
 import '../business/sheets/editor_configs.dart' show openTypeChangeSheet;
@@ -198,6 +199,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: Space.s),
+                    ],
+                    // B1: the cashier's Home is one fast "קיבלתי תשלום".
+                    if (caps.homeIsCashier) ...[
+                      _CashierPaid(caps: caps),
+                      const SizedBox(height: Space.l),
                     ],
                     if (caps.showIntentButtons ||
                         caps.can(Cap.docView) ||
@@ -666,6 +672,40 @@ class _Header extends StatelessWidget {
   }
 }
 
+/// B1: the cashier's primary action — a receipt for money taken now, no
+/// amounts dashboard. The line under it says up to where no approval is needed.
+class _CashierPaid extends StatelessWidget {
+  const _CashierPaid({required this.caps});
+
+  final Caps caps;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      PrimaryButton(
+        key: const Key('cashier-paid'),
+        label: CommonHe.paid,
+        icon: Iconsax.money_recive,
+        offline: businessContext.offline,
+        onPressed: () => unawaited(openCompose(context, intent: 'PAID')),
+      ),
+      const SizedBox(height: Space.s),
+      Text(
+        InboxHe.cashierPaidHint(
+          formatMoney(
+            caps.approvalPolicy.cashierCapMinor,
+            trimZeroAgorot: true,
+          ),
+        ),
+        key: const Key('cashier-paid-hint'),
+        style: AppText.secondary,
+        textAlign: TextAlign.center,
+      ),
+    ],
+  );
+}
+
 /// קיבלתי תשלום (lime) · בקש תשלום — half width, 72pt. "קיבלתי" needs
 /// payment.record (§19 q7: hidden for an employee without finalize).
 class _IntentButtons extends StatelessWidget {
@@ -687,7 +727,7 @@ class _IntentButtons extends StatelessWidget {
           color: DesignTokens.coral,
           onPressed: () => unawaited(openActivity(context)),
         ),
-      if (caps.can(Cap.paymentRecord))
+      if (caps.can(Cap.paymentIssue) && !caps.homeIsCashier)
         ActionOrb(
           key: const Key('intent-paid'),
           label: CommonHe.paid,
