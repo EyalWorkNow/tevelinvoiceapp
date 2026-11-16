@@ -10,6 +10,7 @@ import 'api/settings_api.dart' show hideAmounts, loadHideAmounts;
 import 'router.dart';
 import 'screens/auth/app_lock.dart';
 import 'screens/auth/splash_screen.dart';
+import 'screens/calendar/calendar_sync.dart';
 import 'screens/people/sheets/s2_customer.dart';
 import 'state/session.dart';
 import 'state/system_notices.dart';
@@ -86,6 +87,8 @@ class _TevelAppState extends State<TevelApp> {
     session.addListener(_onSession);
     systemNotices.install();
     CustomerCrmStore.instance.install();
+    // "יומן": busy-time sync + booking notices (iOS: EventKit + notch).
+    if (calendarSync.device.supported) calendarSync.install();
   }
 
   @override
