@@ -258,7 +258,7 @@ Widget? screenFor(AppRoute route) {
       id: p['id']!,
       isSupplier: q['kind'] == 'supplier',
     ),
-    '/debts' => const DebtsScreen(),
+    '/debts' => DebtsScreen(openBatch: q['batch'] == '1'),
     '/expenses' => ExpensesScreen(expenseId: q['id']),
     '/expenses/overview' => const ExpenseOverviewScreen(),
     '/reports' => ReportsScreen(period: q['period']),
