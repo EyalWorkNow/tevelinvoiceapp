@@ -177,7 +177,7 @@ Future<void> runCompose(
     final id = result.document.id;
     if (result.outcome == IssueOutcome.issued) {
       await rememberDescription(s.customer?.id, s.mainDescription);
-      if (s.config.paid) await rememberPaymentMethod(s.method);
+      if (s.config.paid) await rememberPaymentMethod(s.customer?.id, s.method);
     }
     // From here the document exists: nothing below may look like a failed
     // issue. A failed send says so, and D opens with S6 to share by hand.

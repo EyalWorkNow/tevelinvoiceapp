@@ -137,8 +137,7 @@ Future<ComposeLoad?> loadComposer({
   }
 
   final vat = await fetchVatRate();
-  final s = ComposeState(kind: kind, businessType: bt, vatBasisPoints: vat)
-    ..method = await lastPaymentMethod();
+  final s = ComposeState(kind: kind, businessType: bt, vatBasisPoints: vat);
   final load = ComposeLoad(
     s,
     switchKinds: kind == DocKind.quote
@@ -215,6 +214,7 @@ Future<ComposeLoad?> loadComposer({
   if (customerId != null) {
     s.customer = await findCustomer(customerId) ?? s.customer;
   }
+  if (s.method.isEmpty) s.method = await lastPaymentMethod(s.customer?.id);
   if (s.customer != null && s.description.isEmpty) {
     s.description = await defaultDescription(
       s.customer!.id,

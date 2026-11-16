@@ -79,7 +79,11 @@ class ComposeState extends ChangeNotifier {
 
   /// The user edited the description: choosing another customer keeps it.
   bool descriptionTouched = false;
-  String method = 'CASH';
+  /// The payment chip ('' = not chosen yet: a paid kind cannot issue).
+  String method = '';
+
+  /// The user picked the chip: choosing another customer keeps it.
+  bool methodTouched = false;
   String bankNumber = '';
   String branchNumber = '';
   String accountNumber = '';
@@ -225,7 +229,7 @@ class ComposeState extends ChangeNotifier {
       mainDescription.isNotEmpty &&
       usedExtraLines.every((l) => l.isValid) &&
       discountValid &&
-      (!config.paid || checkValid) &&
+      (!config.paid || (method.isNotEmpty && checkValid)) &&
       donorValid;
 
   bool get hasPhone => (customer?.phone ?? '').trim().isNotEmpty;
@@ -361,7 +365,7 @@ class ComposeState extends ChangeNotifier {
     amountText = j['amountText'] as String? ?? '';
     inclusive = j['inclusive'] != false;
     description = j['description'] as String? ?? '';
-    method = j['method'] as String? ?? 'CASH';
+    method = j['method'] as String? ?? '';
     bankNumber = j['bankNumber'] as String? ?? '';
     branchNumber = j['branchNumber'] as String? ?? '';
     accountNumber = j['accountNumber'] as String? ?? '';

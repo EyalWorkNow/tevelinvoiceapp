@@ -122,6 +122,9 @@ void main() {
     String? fromQuoteId,
     double textScale = 1,
     Size size = const Size(1170, 2532),
+    // C2: the method this customer paid with last time (a returning customer,
+    // as in the journeys); null = first time, so the method must be chosen.
+    String? rememberedMethod = 'CASH',
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 3;
@@ -134,6 +137,13 @@ void main() {
         approvalPolicy: approvalPolicy,
       ),
     );
+    if (customer != null && rememberedMethod != null) {
+      await tester.runAsync(
+        () => AppCache.write('nd_method_by_customer_b1', {
+          customer.id: rememberedMethod,
+        }),
+      );
+    }
     session.offline = offline;
     pickCustomer = (_) async {
       taps++; // the S2 circle
@@ -290,19 +300,51 @@ void main() {
   });
 
   testWidgets(
-    'AT-15 defaults: last description for the customer, last payment method',
+    'AT-15 defaults: last description and last payment method FOR THE CUSTOMER (C2)',
     (tester) async {
       await tester.runAsync(() async {
         await AppCache.write('nd_desc_by_customer_b1', {'c1': 'תיקון דוד'});
-        await AppCache.write('nd_last_method_b1', 'BANK_TRANSFER');
       });
-      await open(tester, intent: 'PAID');
+      await open(tester, intent: 'PAID', rememberedMethod: 'PAYBOX');
       await type(tester, '100');
       expect(find.text('תיקון דוד'), findsOneWidget);
       final chips = tester.widget<ChipRow<String>>(
         find.byKey(const Key('compose-methods')),
       );
-      expect(chips.selected, 'BANK_TRANSFER');
+      expect(chips.selected, 'PAYBOX');
+      expect(find.text(PaymentHe.paidWith('פייבוקס')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'C2: a first-time customer has NO method — ask, no primary; "ביט" → BANK_TRANSFER + "ביט", remembered for her',
+    (tester) async {
+      // Another customer paid cash last: that must not leak to this one.
+      await tester.runAsync(
+        () => AppCache.write('nd_method_by_customer_b1', {'other': 'CASH'}),
+      );
+      await open(tester, intent: 'PAID', rememberedMethod: null);
+      await type(tester, '200');
+      expect(find.text(PaymentHe.pickMethod), findsOneWidget);
+      expect(primary(), findsNothing);
+      final chips = tester.widget<ChipRow<String>>(
+        find.byKey(const Key('compose-methods')),
+      );
+      expect(chips.selected, '');
+      // The chips sit under the keypad on a small screen: scroll to them.
+      await tester.ensureVisible(find.text('ביט'));
+      await tester.pumpAndSettle();
+      await tap(tester, find.text('ביט'));
+      expect(find.text(PaymentHe.paidWith('ביט')), findsOneWidget);
+      await tap(tester, primary());
+      final pay = backend.last('POST', '/payments')!.body;
+      expect(pay['method'], 'BANK_TRANSFER');
+      expect(pay['reference'], 'ביט');
+      final memory = await tester.runAsync(
+        () => AppCache.read('nd_method_by_customer_b1'),
+      );
+      expect((memory as Map)['c1'], 'BIT');
+      expect(memory['other'], 'CASH');
     },
   );
 

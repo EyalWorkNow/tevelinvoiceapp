@@ -1,5 +1,6 @@
 // "מה יופק" card (SPEC-v2 §6.C step 3): description (tap = edit) · payment
-// method (paid kinds only; default = last used) · cheque details · donor ID
+// method (paid kinds only; C2: the customer's last method, else none — it is
+// chosen, never assumed, and the choice is spelled out) · cheque details · donor ID
 // (405) · "פרטים נוספים" (S3). No type name here (F1).
 
 import 'package:flutter/material.dart';
@@ -10,14 +11,10 @@ import '../../../util/labels/labels.dart';
 import '../compose_state.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
-/// Payment chips (§9.1): the four common ones + "עוד" (DIRECT_DEBIT, OTHER).
-const List<String> mainMethods = [
-  'CASH',
-  'BANK_TRANSFER',
-  'CREDIT_CARD',
-  'CHECK',
-];
-const List<String> moreMethods = ['DIRECT_DEBIT', 'OTHER'];
+/// Payment chips (§9.1, C2): cash · card · bit · PayBox · transfer · cheque +
+/// "עוד" (DIRECT_DEBIT, OTHER).
+const List<String> mainMethods = primaryPaymentMethods;
+const List<String> moreMethods = morePaymentMethods;
 
 class SummarySection extends StatefulWidget {
   const SummarySection({
@@ -91,6 +88,7 @@ class _SummarySectionState extends State<SummarySection> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                _methodCaption(context),
                 ChipRow<String>(
                   key: const Key('compose-methods'),
                   padding: EdgeInsets.zero,
@@ -106,8 +104,10 @@ class _SummarySectionState extends State<SummarySection> {
                       setState(() => _showMoreMethods = true);
                       return;
                     }
-                    s.method = m;
-                    s.changed();
+                    s
+                      ..method = m
+                      ..methodTouched = true
+                      ..changed();
                     if (m == 'CHECK') _revealCheckFields();
                   },
                 ),
@@ -151,6 +151,24 @@ class _SummarySectionState extends State<SummarySection> {
           ),
         ),
       ],
+    );
+  }
+
+  /// C2: the chosen method in words above the chips, or the ask to choose
+  /// (the issue button waits for it).
+  Widget _methodCaption(BuildContext context) {
+    final p = context.palette;
+    final chosen = s.method.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Space.s),
+      child: Text(
+        chosen
+            ? PaymentHe.paidWith(paymentMethodLabel(s.method))
+            : PaymentHe.pickMethod,
+        key: const Key('compose-method-caption'),
+        textAlign: TextAlign.center,
+        style: AppText.headline.copyWith(color: chosen ? p.ink : p.danger),
+      ),
     );
   }
 
