@@ -6,7 +6,8 @@
 // * Customers (GET /customers; the Composer only resolves an id → Customer).
 // * Description: last one for the customer (device, then BE-09 server) →
 //   business default (BE-25) → "שירותים".
-// * Payment method: the last one used (CASH the first time).
+// * Payment method: the last one used FOR THIS CUSTOMER (C2), else none —
+//   a business-wide "last" saved bit after cash as cash.
 // * "first issue ever" flag (the one-time commitment toast, §6.C step 5).
 // * The unsent Composer state ("יציאה עם נתונים → טיוטה מקומית ללא דיאלוג").
 
@@ -18,6 +19,7 @@ import '../../api/issue_api.dart' show cacheWrite, currentBusinessId;
 import '../../api/models/models.dart';
 import '../../state/cache.dart';
 import '../../util/labels/compose_he.dart';
+import '../../util/labels/payment_he.dart' show paymentMethodLabels;
 
 final ApiClient _api = ApiClient.instance;
 String get _bid => currentBusinessId;
@@ -122,14 +124,21 @@ Future<void> rememberDescription(String? customerId, String description) async {
   await cacheWrite(key, {if (map is Map) ...map, customerId: text});
 }
 
-/// F8: the payment method used last ('CASH' the first time).
-Future<String> lastPaymentMethod() async {
-  final v = await _read('nd_last_method_$_bid');
-  return v is String ? v : 'CASH';
+/// C2: the payment method [customerId] paid with last time; '' = none
+/// (choose it: no business-wide default).
+Future<String> lastPaymentMethod(String? customerId) async {
+  if (customerId == null) return '';
+  final map = await _read('nd_method_by_customer_$_bid');
+  final v = map is Map ? map[customerId] : null;
+  return v is String && paymentMethodLabels.containsKey(v) ? v : '';
 }
 
-Future<void> rememberPaymentMethod(String method) =>
-    cacheWrite('nd_last_method_$_bid', method);
+Future<void> rememberPaymentMethod(String? customerId, String method) async {
+  if (customerId == null || method.isEmpty) return;
+  final key = 'nd_method_by_customer_$_bid';
+  final map = await _read(key);
+  await cacheWrite(key, {if (map is Map) ...map, customerId: method});
+}
 
 /// True exactly once per device: the first successful issue (§6.C step 5).
 Future<bool> takeFirstIssueFlag() async {

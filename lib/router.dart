@@ -30,6 +30,7 @@ import 'screens/expense/expense_capture_screen.dart';
 import 'screens/expense/expenses_screen.dart';
 import 'screens/expense/expense_overview_screen.dart';
 import 'screens/people/person_screen.dart';
+import 'api/reports_api.dart' show dailySummaryKind;
 import 'screens/reports/reports_screen.dart';
 import 'state/business_context.dart';
 import 'state/caps.dart';
@@ -196,6 +197,8 @@ class AppRoute {
     '/compose' => Cap.docDraft,
     '/debts' => Cap.moneyView,
     '/activity' || '/doc/:id' || '/quote/:id' || '/people' => Cap.docView,
+    // C2: the daily summary also answers employees / cashiers (own count only).
+    '/reports/:kind' when params['kind'] == dailySummaryKind => Cap.docView,
     '/reports' || '/reports/:kind' => Cap.reportView,
     '/expenses/overview' => Cap.expenseApprove,
     '/business/:section' =>

@@ -1,22 +1,60 @@
 // Payment labels — the ONE source for payment-method wording (squad C, §9.1).
 //
-// P0: "העברה / ביט" is BANK_TRANSFER (no `reference` written; §9.1). Gate
-// before the P0 release: compliance sign-off on that mapping (§19 q25); if it
-// is refused, set [bitOnTransferChip] to false and the chip reads "העברה".
+// Stage C2 (CD-WALLET-01, server compliance/decision-register.md): bit and
+// PayBox get their own chips, but on the wire they are BANK_TRANSFER with the
+// wallet in `reference` ("ביט" / "פייבוקס"). The Uniform Format (1.31 §4.5,
+// field 1306) has no wallet code, so the separate BIT / PAYBOX methods stay
+// behind PAYMENT_METHODS_EXTENDED until an accountant signs the mapping
+// (§19 q25). The tax file keeps code 4; reports, the daily summary and the
+// receipt line show the wallet.
 
-/// §19 q25: show "ביט" on the bank-transfer chip.
-const bool bitOnTransferChip = !extendedPaymentMethodsEnabled;
-
-/// BE-14 (P1, 🛂): BIT / PAYBOX / WITHHOLDING_TAX / APPLE_PAY / GOOGLE_PAY.
-/// The server accepts them only with PAYMENT_METHODS_EXTENDED=1, after the
-/// compliance sign-off on the Uniform Format / printout mapping. Turn this on
-/// together with that flag; until then S5 keeps the P0 chips.
+/// BE-14 (P1, 🛂): BIT / PAYBOX / WITHHOLDING_TAX / APPLE_PAY / GOOGLE_PAY as
+/// their own server methods. Accepted only with PAYMENT_METHODS_EXTENDED=1,
+/// after the compliance sign-off on the Uniform Format / printout mapping.
 const bool extendedPaymentMethodsEnabled = false;
+
+/// The wallet chips and the reference that marks them on a BANK_TRANSFER.
+const Map<String, String> walletReferences = {
+  'BIT': 'ביט',
+  'PAYBOX': 'פייבוקס',
+};
+
+/// A chip that is sent as BANK_TRANSFER + wallet reference.
+bool isWalletChip(String method) =>
+    !extendedPaymentMethodsEnabled && walletReferences.containsKey(method);
+
+/// The `method` POST /payments receives for a chip.
+String wireMethod(String method) =>
+    isWalletChip(method) ? 'BANK_TRANSFER' : method;
+
+/// The `reference` a wallet chip writes (null for every other chip).
+String? walletReference(String method) =>
+    isWalletChip(method) ? walletReferences[method] : null;
+
+/// The wallet of a stored payment: BIT / PAYBOX, or a BANK_TRANSFER whose
+/// reference is "ביט" / "פייבוקס" (optionally + " " + the wallet's tx id).
+String? walletOf(String method, String? reference) {
+  if (walletReferences.containsKey(method)) return method;
+  if (method != 'BANK_TRANSFER' || reference == null) return null;
+  final ref = reference.trim();
+  for (final e in walletReferences.entries) {
+    if (ref == e.value || ref.startsWith('${e.value} ')) return e.key;
+  }
+  return null;
+}
+
+/// The chip a stored payment belongs to (wallet chip for a wallet transfer).
+String chipOf(String method, String? reference) =>
+    walletOf(method, reference) ?? method;
+
+/// Label of a stored payment: "ביט" for a wallet transfer, else the method.
+String paymentLabelOf(String method, String? reference) =>
+    paymentMethodLabel(chipOf(method, reference));
 
 /// Payment methods accepted by POST /payments, in chip order (§9.1).
 const Map<String, String> paymentMethodLabels = {
   'CASH': 'מזומן',
-  'BANK_TRANSFER': bitOnTransferChip ? 'העברה / ביט' : 'העברה',
+  'BANK_TRANSFER': 'העברה',
   'CREDIT_CARD': 'כרטיס אשראי',
   'CHECK': "צ'ק",
   'DIRECT_DEBIT': 'הוראת קבע',
@@ -28,17 +66,18 @@ const Map<String, String> paymentMethodLabels = {
   'GOOGLE_PAY': 'Google Pay',
 };
 
-/// Chips shown first; the rest sit behind "עוד".
+/// Chips shown first (bit / PayBox next to cash: persona 04); the rest sit
+/// behind "עוד".
 const List<String> primaryPaymentMethods = [
   'CASH',
-  'BANK_TRANSFER',
   'CREDIT_CARD',
+  'BIT',
+  'PAYBOX',
+  'BANK_TRANSFER',
   'CHECK',
 ];
 const List<String> morePaymentMethods = [
   if (extendedPaymentMethodsEnabled) ...[
-    'BIT',
-    'PAYBOX',
     'WITHHOLDING_TAX',
     'APPLE_PAY',
     'GOOGLE_PAY',
@@ -79,4 +118,8 @@ abstract final class PaymentHe {
   static const receiptIssued = 'הקבלה הופקה ✓';
   static const paymentRecorded = 'התשלום נרשם ✓';
   static const sendReceipt = 'שלח קבלה בווטסאפ';
+
+  /// C2: the method is chosen, never assumed (bit after cash was saved as cash).
+  static const pickMethod = 'איך שילמו? בחרו אמצעי תשלום';
+  static String paidWith(String label) => 'אמצעי התשלום: $label';
 }

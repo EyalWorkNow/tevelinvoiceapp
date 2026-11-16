@@ -27,6 +27,7 @@ import '../state/business_context.dart';
 import '../state/cache.dart';
 import '../state/session.dart';
 import '../util/composer_config.dart' show isPaidServerType;
+import '../util/labels/payment_he.dart' show walletReference, wireMethod;
 import 'client.dart';
 import 'documents_api.dart' show fetchDocument, notifyDocumentsChanged;
 import 'models/models.dart';
@@ -564,7 +565,11 @@ Future<void> updatePendingPayment(
 }) async {
   await _api.patch('/documents/$documentId/pending-payments/$pendingId', {
     if (amountMinor != null) 'amountMinor': amountMinor.toString(),
-    'method': ?method,
+    // A chip change sets the wallet reference too (null clears "ביט").
+    if (method != null) ...{
+      'method': wireMethod(method),
+      'reference': walletReference(method),
+    },
   });
   notifyDocumentsChanged();
 }
@@ -842,7 +847,8 @@ class PaymentInput {
     checkNumber: j['checkNumber'] as String?,
   );
 
-  /// CASH | BANK_TRANSFER | CREDIT_CARD | CHECK | DIRECT_DEBIT | OTHER
+  /// The chip: CASH | BANK_TRANSFER | CREDIT_CARD | CHECK | DIRECT_DEBIT |
+  /// OTHER, or BIT / PAYBOX (sent as BANK_TRANSFER + reference, [wireMethod]).
   final String method;
   final String? bankNumber;
   final String? branchNumber;
@@ -860,9 +866,10 @@ class PaymentInput {
   /// SA2 pending payment (finalize.pendingPayments / POST pending-payments).
   /// No amount: the server takes what is open on the document (its total).
   Map<String, dynamic> pendingBody(String paymentDate) => {
-    'method': method,
+    'method': wireMethod(method),
     'currency': 'ILS',
     'paymentDate': paymentDate,
+    'reference': ?walletReference(method),
     if (method == 'CHECK') ...{
       'bankNumber': bankNumber,
       'branchNumber': branchNumber,
@@ -871,10 +878,12 @@ class PaymentInput {
     },
   };
 
-  /// POST /payments body. Only CHECK writes `reference` (it is part of the
-  /// idempotency hash; "העברה / ביט" never writes it, §9.1).
+  /// POST /payments body. Only CHECK (the cheque number) and the wallet chips
+  /// bit / PayBox (BANK_TRANSFER + "ביט" / "פייבוקס", CD-WALLET-01) write
+  /// `reference`; it is part of the idempotency hash, so it is fixed per chip.
   Map<String, dynamic> requestBody(BigInt amountMinor, String paymentDate) => {
-    'method': method,
+    'method': wireMethod(method),
+    'reference': ?walletReference(method),
     'amountMinor': amountMinor.toString(),
     'currency': 'ILS',
     'paymentDate': paymentDate,

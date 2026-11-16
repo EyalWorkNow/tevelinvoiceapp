@@ -606,9 +606,7 @@ void main() {
       expect(find.byKey(const Key('doc-waiting-allocation')), findsOneWidget);
       expect(find.text('המסמך ממתין למספר הקצאה'), findsOneWidget);
       expect(
-        find.text(
-          'תשלום ממתין: ₪1,180.00 העברה / ביט, יירשם כשיתקבל מספר ההקצאה',
-        ),
+        find.text('תשלום ממתין: ₪1,180.00 העברה, יירשם כשיתקבל מספר ההקצאה'),
         findsOneWidget,
       );
       expect(find.text('מה אפשר לעשות:'), findsOneWidget);

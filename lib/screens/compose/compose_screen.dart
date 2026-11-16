@@ -265,6 +265,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
       return null;
     }
     s.customer = c;
+    if (!s.methodTouched) s.method = await lastPaymentMethod(c.id);
     if (!s.descriptionTouched) {
       s.description = await defaultDescription(
         c.id,

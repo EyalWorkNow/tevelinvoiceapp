@@ -17,7 +17,17 @@ void main() {
     expect(s.requestLines.single['taxRateBasisPoints'], 1800);
     expect(s.totals.taxMinor, BigInt.from(18000));
     expect(s.totalMinor, BigInt.from(118000));
+    // C2: a paid kind waits for the method (no assumed "last one").
+    expect(s.ready, isFalse);
+    s.method = 'BIT';
     expect(s.ready, isTrue);
+    expect(s.payment!.requestBody(s.totalMinor, '2026-11-16'), {
+      'method': 'BANK_TRANSFER',
+      'reference': 'ביט',
+      'amountMinor': '118000',
+      'currency': 'ILS',
+      'paymentDate': '2026-11-16',
+    });
   });
 
   test('tap on the VAT line → before VAT: 1,000 + 180 = 1,180', () {
@@ -71,7 +81,8 @@ void main() {
 
   test('405 needs the donor ID when the customer has none', () {
     final s = st(DocKind.donationReceipt, type: 'NONPROFIT')
-      ..amountText = '100';
+      ..amountText = '100'
+      ..method = 'CASH';
     expect(s.ready, isFalse);
     s.donorTaxId = '123456782';
     expect(s.ready, isTrue);
