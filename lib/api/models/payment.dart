@@ -1,6 +1,7 @@
 // Payments (squad C · §6 S5, §9). POST /payments bodies; BE-11 adds the
 // GET /payments history (P1) — [PaymentRow] reads it when present.
 
+import '../../util/labels/payment_he.dart' show walletReference, wireMethod;
 import 'json.dart';
 
 /// One payment typed in S5. Money is BigInt agorot.
@@ -22,8 +23,8 @@ class PaymentEntry {
   /// YYYY-MM-DD. For a cheque: the date on the cheque (§9.1).
   final String paymentDate;
 
-  /// CHECK only: the cheque number (digits). Never written for
-  /// "העברה / ביט" (§9.1: it is part of the idempotency hash).
+  /// CHECK only: the cheque number (digits). The wallet chips (BIT / PAYBOX)
+  /// write their fixed label instead (CD-WALLET-01, [walletReference]).
   final String? reference;
   final String? bankNumber;
   final String? branchNumber;
@@ -33,10 +34,11 @@ class PaymentEntry {
 
   /// POST /payments body.
   Map<String, Object> toJson() => {
-    'method': method,
+    'method': wireMethod(method),
     'amountMinor': amountMinor.toString(),
     'currency': 'ILS',
     'paymentDate': paymentDate,
+    'reference': ?walletReference(method),
     if (isCheck && reference != null && reference!.isNotEmpty)
       'reference': reference!,
     if (isCheck && bankNumber != null && bankNumber!.isNotEmpty)

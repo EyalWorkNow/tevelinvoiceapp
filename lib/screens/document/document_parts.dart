@@ -226,7 +226,7 @@ class DocPaymentsList extends StatelessWidget {
                 Expanded(
                   child: Text(
                     [
-                      paymentMethodLabel(pay.method),
+                      paymentLabelOf(pay.method, pay.reference),
                       if (pay.paymentDate != null)
                         formatDateHe(pay.paymentDate),
                       if (pay.voidedAt != null) DocumentHe.voidedPayment,
