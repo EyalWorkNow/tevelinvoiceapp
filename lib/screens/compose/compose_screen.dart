@@ -24,6 +24,7 @@ import '../../util/money.dart';
 import '../people/sheets/s2_customer.dart';
 import 'compose_dialogs.dart';
 import 'compose_loader.dart';
+import 'compose_state.dart';
 import 'compose_memory.dart';
 import 'compose_submit.dart';
 import '../../router.dart' show BusinessSection, openBusinessSection;
@@ -58,6 +59,9 @@ class ComposeScreen extends StatefulWidget {
     this.fromDocId,
     this.fromQuoteId,
     this.draftId,
+    this.prefillAmountMinor,
+    this.prefillDescription,
+    this.onIssued,
   });
 
   final String intent;
@@ -65,6 +69,12 @@ class ComposeScreen extends StatefulWidget {
   final String? fromDocId;
   final String? fromQuoteId;
   final String? draftId;
+
+  /// C1 "הפק קבלה" from a debt-book entry: the amount and the note to start
+  /// with, and the issued document's id once it is issued (closes the entry).
+  final BigInt? prefillAmountMinor;
+  final String? prefillDescription;
+  final ValueChanged<String>? onIssued;
 
   @override
   State<ComposeScreen> createState() => _ComposeScreenState();
@@ -119,6 +129,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
       );
       if (!mounted) return;
       if (load == null) return setState(() => _unavailable = true);
+      _applyPrefill(load.state);
       load.state.addListener(_changed);
       _lastMethod = load.state.method;
       setState(() {
@@ -150,6 +161,18 @@ class _ComposeScreenState extends State<ComposeScreen> {
       }
     } on Object catch (e) {
       if (mounted) setState(() => _error = e);
+    }
+  }
+
+  void _applyPrefill(ComposeState s) {
+    final amount = widget.prefillAmountMinor;
+    if (amount != null && amount > BigInt.zero) {
+      s.amountText = agorotToKeypadText(amount);
+    }
+    final description = widget.prefillDescription?.trim() ?? '';
+    if (description.isNotEmpty) {
+      s.description = description;
+      s.descriptionTouched = true;
     }
   }
 
@@ -293,6 +316,9 @@ class _ComposeScreenState extends State<ComposeScreen> {
         stage.index >= IssueStage.submitted.index &&
         stage != IssueStage.done) {
       _issuedOrLeft = true;
+    }
+    if (stage == IssueStage.done && run.pending?.draftId != null) {
+      widget.onIssued?.call(run.pending!.draftId!);
     }
     if (mounted && stage == IssueStage.done) {
       _issuedOrLeft = true;
