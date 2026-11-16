@@ -1409,7 +1409,8 @@ void main() {
         final cid = await createCustomer(
           owner,
           phone: randomPhone(),
-          vatDealerStatus: 'AUTHORIZED_DEALER',
+          vatDealerStatus:
+              'PRIVATE', // not required: the source issues FINALIZED
         );
         final src = await tester.runAsync(
           () => createDocument(
