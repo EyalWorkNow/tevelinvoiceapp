@@ -34,6 +34,7 @@ import 'sheets/s13_editor.dart';
 import 'sheets/s14_switch.dart';
 import 'shaam_page.dart';
 import 'team_page.dart';
+import '../audit/audit_log_screen.dart' show canViewAuditLog, openAuditLog;
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../people/sheets/s2_customer.dart' show showCustomerSheet;
 import '../retainers/retainers_month_screen.dart';
@@ -73,6 +74,8 @@ const Set<String> moreSettingsKeys = {
   'subscription',
   'notifications',
   'desktop',
+  // C5: the activity log (owner, partner, accountants).
+  'audit',
 };
 
 /// The "עוד הגדרות" row of B.
@@ -191,6 +194,8 @@ List<BusinessRowSpec> allBusinessRows(
   const BusinessRowSpec('account', BusinessHe.account, Iconsax.user),
   if (caps.can(Cap.settingsBusiness) || caps.can(Cap.reportView))
     const BusinessRowSpec('desktop', BusinessHe.desktop, Iconsax.monitor),
+  if (canViewAuditLog(caps))
+    const BusinessRowSpec('audit', AuditHe.row, Iconsax.note_2),
 ];
 
 class BusinessRowSpec {
@@ -675,6 +680,8 @@ void openBusinessRow(BuildContext context, String key) {
       showEditorSheet(context, instance: '13.3');
     case 'desktop':
       showEditorSheet(context, instance: '13.9');
+    case 'audit':
+      unawaited(openAuditLog(context));
   }
 }
 

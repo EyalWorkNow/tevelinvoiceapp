@@ -72,6 +72,7 @@ void main() {
           'subscription',
           'notifications',
           'desktop',
+          'audit', // C5
         ]);
         expect(
           await rowsFor(Preset.owner, members: 1),
@@ -128,6 +129,7 @@ void main() {
         expect(await moreFor(Preset.accountantRep), [
           'notifications',
           'desktop',
+          'audit', // C5
         ]);
         // A single rarely used row stays in B (no one-row sub-page).
         expect(await rowsFor(Preset.viewer), ['notifications', 'account']);
