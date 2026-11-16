@@ -124,20 +124,35 @@ Future<void> rememberDescription(String? customerId, String description) async {
   await cacheWrite(key, {if (map is Map) ...map, customerId: text});
 }
 
+/// The one per-customer memory of the last issue (C2 × C3): what was typed
+/// for the customer — lines, amount and the payment method (or split). Both
+/// the remembered method (C2) and "כמו בפעם הקודמת" (C3) read it; written by
+/// `rememberRepeat` (compose_repeat.dart) after every issue.
+String get repeatMemoryKey => 'nd_repeat_by_customer_$_bid';
+
 /// C2: the payment method [customerId] paid with last time; '' = none
-/// (choose it: no business-wide default).
+/// (choose it: no business-wide default). A split remembers its first line.
+/// Before the integration the method had its own map; it is still read as a
+/// fallback (never written).
 Future<String> lastPaymentMethod(String? customerId) async {
   if (customerId == null) return '';
-  final map = await _read('nd_method_by_customer_$_bid');
-  final v = map is Map ? map[customerId] : null;
-  return v is String && paymentMethodLabels.containsKey(v) ? v : '';
-}
-
-Future<void> rememberPaymentMethod(String? customerId, String method) async {
-  if (customerId == null || method.isEmpty) return;
-  final key = 'nd_method_by_customer_$_bid';
-  final map = await _read(key);
-  await cacheWrite(key, {if (map is Map) ...map, customerId: method});
+  String ok(Object? v) =>
+      v is String && paymentMethodLabels.containsKey(v) ? v : '';
+  final memory = await _read(repeatMemoryKey);
+  final entry = memory is Map ? memory[customerId] : null;
+  final form = entry is Map ? entry['form'] : null;
+  if (form is Map) {
+    final splits = form['splits'];
+    if (form['split'] == true && splits is List && splits.isNotEmpty) {
+      final first = splits.first;
+      final m = ok(first is Map ? first['method'] : null);
+      if (m.isNotEmpty) return m;
+    }
+    final m = ok(form['method']);
+    if (m.isNotEmpty) return m;
+  }
+  final legacy = await _read('nd_method_by_customer_$_bid');
+  return ok(legacy is Map ? legacy[customerId] : null);
 }
 
 /// True exactly once per device: the first successful issue (§6.C step 5).

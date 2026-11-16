@@ -2,17 +2,19 @@
 // method (paid kinds only; C2: the customer's last method, else none — it is
 // chosen, never assumed, and the choice is spelled out) · cheque details · donor ID
 // (405) · "פרטים נוספים" (S3). No type name here (F1).
+// C3 "פיצול תשלום" (opt-in): 2–10 lines of method + amount, "נותר: ₪X".
 
 import 'package:flutter/material.dart';
 
 import '../../../ui/ds.dart';
 import '../../../util/composer_config.dart';
 import '../../../util/labels/labels.dart';
+import '../../../api/issue_api.dart' show todayIso;
 import '../compose_state.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 /// Payment chips (§9.1, C2): cash · card · bit · PayBox · transfer · cheque +
-/// "עוד" (DIRECT_DEBIT, OTHER).
+/// "עוד" (DIRECT_DEBIT, OTHER). The split lines (C3) offer the same set.
 const List<String> mainMethods = primaryPaymentMethods;
 const List<String> moreMethods = morePaymentMethods;
 
@@ -21,10 +23,14 @@ class SummarySection extends StatefulWidget {
     super.key,
     required this.state,
     required this.onMoreDetails,
+    this.allowSplit = true,
   });
 
   final ComposeState state;
   final VoidCallback onMoreDetails;
+
+  /// "פיצול תשלום" is offered (not to a cashier: one payment per issue, B1).
+  final bool allowSplit;
 
   @override
   State<SummarySection> createState() => _SummarySectionState();
@@ -82,7 +88,8 @@ class _SummarySectionState extends State<SummarySection> {
             value: s.mainDescription,
             onTap: _editDescription,
           ),
-        if (c.paid)
+        if (c.paid && s.split) _splitSection(),
+        if (c.paid && !s.split)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: Space.m),
             child: Column(
@@ -112,6 +119,13 @@ class _SummarySectionState extends State<SummarySection> {
                   },
                 ),
                 if (s.method == 'CHECK') _checkFields(),
+                if (widget.allowSplit)
+                  TextButton.icon(
+                    key: const Key('compose-split'),
+                    onPressed: s.totalMinor > BigInt.zero ? s.startSplit : null,
+                    icon: const Icon(Iconsax.money_send, size: 18),
+                    label: const Text(ComposeHe.splitPayment),
+                  ),
               ],
             ),
           ),
@@ -170,6 +184,178 @@ class _SummarySectionState extends State<SummarySection> {
         style: AppText.headline.copyWith(color: chosen ? p.ink : p.danger),
       ),
     );
+  }
+
+  Widget _splitSection() {
+    final left = s.splitRemainingMinor;
+    final p = context.palette;
+    final lastIsCheck = s.splits.isNotEmpty && s.splits.last.method == 'CHECK';
+    return Padding(
+      key: const Key('compose-splits'),
+      padding: const EdgeInsets.symmetric(vertical: Space.s),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < s.splits.length; i++)
+            KeyedSubtree(key: ObjectKey(s.splits[i]), child: _splitLine(i)),
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              TextButton(
+                key: const Key('split-add'),
+                onPressed: s.splits.length < maxSplitLines
+                    ? s.addSplitLine
+                    : null,
+                child: Text(
+                  lastIsCheck ? PaymentHe.addCheck : PaymentHe.addPayment,
+                ),
+              ),
+              TextButton(
+                key: const Key('split-off'),
+                onPressed: s.endSplit,
+                child: const Text(ComposeHe.splitOff),
+              ),
+            ],
+          ),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              left == BigInt.zero
+                  ? ComposeHe.splitFull
+                  : left > BigInt.zero
+                  ? ComposeHe.splitRemaining(left)
+                  : ComposeHe.splitOver(-left),
+              key: const Key('split-remaining'),
+              textAlign: TextAlign.center,
+              style: AppText.body.copyWith(
+                color: left == BigInt.zero ? p.ink : p.danger,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _splitLine(int i) {
+    final l = s.splits[i];
+    final methods = [...mainMethods, ...moreMethods];
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.card,
+        vertical: Space.s,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ChipRow<String>(
+            key: Key('split-methods-$i'),
+            padding: EdgeInsets.zero,
+            options: [
+              for (final m in methods)
+                ChipOption(m, paymentMethodLabels[m] ?? m),
+            ],
+            selected: l.method,
+            onSelected: (m) {
+              l.method = m;
+              s.changed();
+            },
+          ),
+          const SizedBox(height: Space.xs),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  key: Key('split-amount-$i'),
+                  initialValue: l.amountText,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  textDirection: TextDirection.ltr,
+                  decoration: const InputDecoration(
+                    labelText: ComposeHe.splitAmount,
+                    prefixText: '₪ ',
+                  ),
+                  onChanged: (v) {
+                    l.amountText = v;
+                    s.changed();
+                  },
+                ),
+              ),
+              IconButton(
+                key: Key('split-remove-$i'),
+                tooltip: ComposeHe.splitRemove,
+                onPressed: () => s.removeSplitLine(i),
+                icon: const Icon(Iconsax.trash, size: 20),
+              ),
+            ],
+          ),
+          if (l.method == 'CHECK') ...[
+            for (final (key, label, value, set) in [
+              (
+                'bank',
+                ComposeHe.checkBank,
+                l.bankNumber,
+                (String v) => l.bankNumber = v,
+              ),
+              (
+                'branch',
+                ComposeHe.checkBranch,
+                l.branchNumber,
+                (String v) => l.branchNumber = v,
+              ),
+              (
+                'account',
+                ComposeHe.checkAccount,
+                l.accountNumber,
+                (String v) => l.accountNumber = v,
+              ),
+              (
+                'number',
+                ComposeHe.checkNumber,
+                l.checkNumber,
+                (String v) => l.checkNumber = v,
+              ),
+            ])
+              Padding(
+                padding: const EdgeInsets.only(top: Space.xs),
+                child: TextFormField(
+                  key: Key('split-check-$key-$i'),
+                  initialValue: value,
+                  keyboardType: TextInputType.number,
+                  textDirection: TextDirection.ltr,
+                  decoration: InputDecoration(labelText: label),
+                  onChanged: (v) {
+                    set(v);
+                    s.changed();
+                  },
+                ),
+              ),
+            TextButton.icon(
+              key: Key('split-check-date-$i'),
+              onPressed: () => _pickCheckDate(l),
+              icon: const Icon(Iconsax.calendar_1, size: 18),
+              label: Text('${ComposeHe.checkDate}: ${formatDateHe(l.date)}'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickCheckDate(SplitLine l) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.tryParse(l.date) ?? now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 2), // a post-dated cheque (§9.1)
+    );
+    if (picked == null) return;
+    l.date = todayIso(picked);
+    s.changed();
   }
 
   /// owner/040: the four cheque fields opened under the keypad. The

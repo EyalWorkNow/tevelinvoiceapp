@@ -45,6 +45,7 @@ import 'sheets/s5_payment.dart';
 import 'sheets/s6_share.dart';
 import 'sheets/s8_cancel.dart';
 import 'waiting_allocation_card.dart';
+import '../compose/sheets/quote_paid_choice.dart';
 
 class DocumentScreen extends StatefulWidget {
   const DocumentScreen({
@@ -619,6 +620,18 @@ class _DocumentScreenState extends State<DocumentScreen> {
       case DocAction.sendQuote:
         return _sendQuote(label);
       case DocAction.convertQuote:
+        // C3: pay later (305 / 300) or "שילם עכשיו" (320 / receipt + payment).
+        final exemptBusiness = businessContext.isVatExempt;
+        final choice = await askQuotePaid(context, exempt: exemptBusiness);
+        if (choice == null || !mounted) return;
+        if (choice == QuotePaidChoice.paidNow) {
+          await openCompose(
+            context,
+            intent: paidNowIntent(exempt: exemptBusiness),
+            fromQuoteId: quote!.id,
+          );
+          return;
+        }
         String? draftId;
         await _guard(label, () async {
           final exempt = businessContext.isVatExempt;
