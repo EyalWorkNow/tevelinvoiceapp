@@ -106,6 +106,56 @@ AuditEvent e(Map<String, dynamic> j) => AuditEvent.fromJson(j);
 
 void main() {
   group('sentences', () {
+    test(
+      'Stage C events (debt book, retainers, correction) read as sentences',
+      () {
+        expect(
+          auditSentence(
+            e(
+              ev(
+                's1',
+                'debt_entry.created',
+                category: 'payments',
+                detail: {'amountMinor': '24000'},
+              ),
+            ),
+            money: money,
+          ),
+          startsWith('אורי רשם/ה חוב בפנקס של '),
+        );
+        expect(
+          auditSentence(e(ev('s2', 'payment_reminder.sent')), money: money),
+          'אורי שלח/ה תזכורת תשלום',
+        );
+        expect(
+          auditSentence(
+            e(ev('s3', 'recurring.drafts_created', kind: 'SYSTEM')),
+            money: money,
+          ),
+          'נוצרו טיוטות חודשיות לאישור',
+        );
+        expect(
+          auditSentence(
+            e(
+              ev(
+                's4',
+                'document.correction_requested',
+                entity: {
+                  'type': 'document',
+                  'id': 'd1044',
+                  'documentId': 'd1044',
+                  'documentType': 'TAX_INVOICE',
+                  'documentNumber': '1044',
+                  'customerName': 'סטודיו כחול',
+                },
+              ),
+            ),
+            money: money,
+          ),
+          contains('ביקש/ה תיקון של חשבונית מס 1044'),
+        );
+      },
+    );
     test('a document: who, what, number and customer', () {
       expect(
         auditSentence(e(finalized), money: money),

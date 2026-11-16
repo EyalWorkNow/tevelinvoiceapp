@@ -165,6 +165,22 @@ String auditSentence(AuditEvent e, {required MoneyFormat money}) {
     'export.downloaded' => '$n הוריד/ה קובץ ייצוא',
     'report.sent' => '$n שלח/ה דוח',
     'customer.statement_sent' => '$n שלח/ה כרטסת ל${e.customerName ?? 'לקוח'}',
+    // Stage C: debt book (C1), retainers (C4), correction requests (C6).
+    'debt_entry.created' =>
+      '$n רשם/ה חוב בפנקס${amount == null ? '' : ' של $amount'}',
+    'debt_entry.updated' => '$n עדכן/ה חוב בפנקס',
+    'debt_entry.paid' =>
+      '$n סגר/ה בקבלה חוב בפנקס${amount == null ? '' : ' של $amount'}',
+    'debt_entry.deleted' => '$n מחק/ה חוב מהפנקס',
+    'payment_reminder.sent' => '$n שלח/ה תזכורת תשלום',
+    'document.correction_requested' => '$n ביקש/ה תיקון של ${_doc(e)}',
+    'document.correction_dismissed' =>
+      '$n סגר/ה בלי תיקון את הבקשה על ${_doc(e)}',
+    'recurring.template_created' => '$n הגדיר/ה חשבונית חודשית',
+    'recurring.template_updated' => '$n עדכן/ה חשבונית חודשית',
+    'recurring.drafts_created' => 'נוצרו טיוטות חודשיות לאישור',
+    'recurring.run_skipped' => '$n דילג/ה החודש על חשבונית חודשית',
+    'recurring.run_removed' => '$n הסיר/ה חשבונית מהחבילה החודשית',
     _ => '$n ביצע/ה פעולה',
   };
 }
