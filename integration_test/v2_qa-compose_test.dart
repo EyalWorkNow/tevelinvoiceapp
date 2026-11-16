@@ -51,7 +51,7 @@ const Key docPrimary = Key('doc-primary');
 /// The 305 entry. Owner 2026-11-16: "בקש תשלום" (REQUEST) is a "בקרוב"
 /// placeholder until payment requests ship; the invoice itself is issued
 /// through ＋ (TYPE:305 for a VAT business) — same kind, same taps.
-final invoiceEntry = find.byKey(const Key('tab-create'));
+Finder get invoiceEntry => find.byKey(const Key('tab-create'));
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
