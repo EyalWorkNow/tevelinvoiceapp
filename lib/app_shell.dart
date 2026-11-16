@@ -302,6 +302,9 @@ class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Row(
+              // AT-29: when לקוחות comes or goes (a business switch) the bar
+              // starts at its new scale instead of resizing in place.
+              key: ValueKey(widget.showPeople),
               mainAxisAlignment: MainAxisAlignment.center,
               textDirection: TextDirection.rtl,
               children: [
