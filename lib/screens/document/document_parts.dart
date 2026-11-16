@@ -346,7 +346,9 @@ class QuoteStatusLine extends StatelessWidget {
     crossAxisAlignment: WrapCrossAlignment.center,
     children: [
       StatusPill.quote(quoteListStatus(quote.status, expired: quote.expired)),
-      if (quote.validUntil != null)
+      // Validity matters only while the quote is open.
+      if (quote.validUntil != null &&
+          const ['DRAFT', 'SENT', 'ACCEPTED'].contains(quote.status))
         Text(
           quoteValidityText(quote),
           style: AppText.secondary.copyWith(color: context.palette.muted),
