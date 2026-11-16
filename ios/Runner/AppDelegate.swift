@@ -74,6 +74,7 @@ final class ContactsPermission: NSObject {
   static func register(with registrar: FlutterPluginRegistrar) {
     FlutterMethodChannel(name: "tevel/contacts_permission", binaryMessenger: registrar.messenger())
       .setMethodCallHandler { call, result in
+        if call.method == "fetchAll" { return fetchAll(result) }
         guard call.method == "requestAccess" else { return result(FlutterMethodNotImplemented) }
         let status = CNContactStore.authorizationStatus(for: .contacts)
         if status == .authorized {
@@ -99,6 +100,40 @@ final class ContactsPermission: NSObject {
         }
       }
   }
+
+  /// Customer import (ייבוא לקוחות): every contact the user allowed (iOS 18 limited
+  /// access returns only the shared ones) as plain maps; the app's own list lets the user
+  /// pick several. Called only after requestAccess answered true.
+  private static func fetchAll(_ result: @escaping FlutterResult) {
+    DispatchQueue.global(qos: .userInitiated).async {
+      let keys: [CNKeyDescriptor] = [
+        CNContactGivenNameKey, CNContactFamilyNameKey, CNContactOrganizationNameKey,
+        CNContactPhoneNumbersKey, CNContactEmailAddressesKey, CNContactPostalAddressesKey,
+      ] as [CNKeyDescriptor]
+      var contacts: [[String: Any]] = []
+      do {
+        try CNContactStore().enumerateContacts(with: CNContactFetchRequest(keysToFetch: keys)) { c, _ in
+          let name = [c.givenName, c.familyName].filter { !$0.isEmpty }.joined(separator: " ")
+          let address = c.postalAddresses.first?.value
+          contacts.append([
+            "id": c.identifier,
+            "name": name,
+            "organization": c.organizationName,
+            "phones": c.phoneNumbers.map { $0.value.stringValue },
+            "emails": c.emailAddresses.map { $0.value as String },
+            "street": address?.street ?? "",
+            "city": address?.city ?? "",
+            "postalCode": address?.postalCode ?? "",
+          ])
+        }
+        DispatchQueue.main.async { result(contacts) }
+      } catch {
+        DispatchQueue.main.async {
+          result(FlutterError(code: "CONTACTS_READ", message: error.localizedDescription, details: nil))
+        }
+      }
+    }
+  }
 }
 
 /// S10 "קובץ PDF" (lib/screens/expense/expense_capture_screen.dart): the system
@@ -113,17 +148,29 @@ final class PdfPicker: NSObject, UIDocumentPickerDelegate {
     shared.registrar = registrar
     FlutterMethodChannel(name: "tevel/pdf_picker", binaryMessenger: registrar.messenger())
       .setMethodCallHandler { call, result in
-        guard call.method == "pickPdf" else { return result(FlutterMethodNotImplemented) }
-        shared.pick(result)
+        switch call.method {
+        case "pickPdf": shared.pick(result, types: [.pdf])
+        case "pickSpreadsheet":
+          // Customer import: CSV / xlsx (and .xls, so the server can explain it is too old).
+          let types: [UTType] = [.commaSeparatedText, .tabSeparatedText, .plainText, .spreadsheet]
+            + ["org.openxmlformats.spreadsheetml.sheet", "com.microsoft.excel.xls"]
+              .compactMap { UTType($0) }
+          shared.pick(result, types: types, named: true)
+        default: result(FlutterMethodNotImplemented)
+        }
       }
   }
 
-  private func pick(_ result: @escaping FlutterResult) {
+  /// pickSpreadsheet answers {name, bytes} (the server needs the extension); pickPdf the bytes.
+  private var named = false
+
+  private func pick(_ result: @escaping FlutterResult, types: [UTType], named: Bool = false) {
     guard pending == nil, let presenter = registrar?.viewController else {
       return result(FlutterError(code: "UNAVAILABLE", message: nil, details: nil))
     }
     pending = result
-    let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.pdf], asCopy: true)
+    self.named = named
+    let picker = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: true)
     picker.delegate = self
     presenter.present(picker, animated: true)
   }
@@ -132,7 +179,8 @@ final class PdfPicker: NSObject, UIDocumentPickerDelegate {
     guard let url = urls.first else { return finish(nil) }
     defer { try? FileManager.default.removeItem(at: url) } // our private copy
     if let data = try? Data(contentsOf: url) {
-      finish(FlutterStandardTypedData(bytes: data))
+      let bytes = FlutterStandardTypedData(bytes: data)
+      finish(named ? ["name": url.lastPathComponent, "bytes": bytes] : bytes)
     } else {
       finish(FlutterError(code: "READ_FAILED", message: nil, details: nil))
     }
