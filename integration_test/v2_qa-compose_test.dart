@@ -678,6 +678,9 @@ void main() {
         tester
             .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger).first)
             .clearSnackBars();
+        // Above the allocation threshold the first document waits for a number
+        // (0094) and D stays open: go back to H for the second one.
+        popToRootForTest();
         await pumpFor(tester, const Duration(seconds: 2));
         await t.tap(find.byKey(const Key('intent-request')));
         await pickRecent(tester, t, at);
@@ -1336,7 +1339,14 @@ void main() {
           await pumpFor(tester, const Duration(seconds: 1));
           after = await docDetail(owner, doc['id'] as String);
         }
-        expect(['FINALIZED', 'ARCHIVED', 'SENT'], contains(after['status']));
+        // Approved → issued. ₪6,000 incl. VAT is above the allocation
+        // threshold, so with SHAAM off it waits for a number (rule 0094).
+        expect([
+          'FINALIZED',
+          'ARCHIVED',
+          'SENT',
+          'WAITING_FOR_ALLOCATION',
+        ], contains(after['status']));
       },
     );
 
