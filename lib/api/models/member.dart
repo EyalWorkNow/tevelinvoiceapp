@@ -7,10 +7,13 @@ import 'json.dart';
 import 'me.dart';
 
 /// The 4 presets an owner can pick in an invitation (§4.3), in display order.
+/// B1: + קופאי/ת (after עובד) and מנהל/ת משרד (under "עוד").
 const List<Preset> invitablePresets = [
   Preset.employee,
+  Preset.cashier,
   Preset.partner,
   Preset.accountantRep,
+  Preset.officeManager,
   Preset.viewer,
 ];
 
@@ -28,6 +31,11 @@ const List<Preset> invitablePresets = [
         ? const ['document:finalize', 'payment:record', 'allocation:request']
         : const [],
   ),
+  // B1: the cashier's rights are its role's (no grants, no MFA).
+  Preset.cashier => ('CASHIER', const []),
+  // B1: records payments on existing documents (and sees their balances to do
+  // so), issues no invoices.
+  Preset.officeManager => ('EMPLOYEE', const ['payment:record', 'money:read']),
   Preset.accountantRep => (
     'READ_ONLY',
     const ['expense:record', 'expense:approve'],

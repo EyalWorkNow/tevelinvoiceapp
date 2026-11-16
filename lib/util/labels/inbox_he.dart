@@ -4,6 +4,10 @@
 import '../../state/caps.dart';
 
 abstract final class InboxHe {
+  /// B1: under the cashier's "קיבלתי תשלום".
+  static String cashierPaidHint(String cap) =>
+      'קבלה על תשלום שקיבלת עכשיו · עד $cap בלי אישור';
+
   // Action labels shared by the application screens.
   static const dismissSummary = 'הסרה מהרשימה';
   static const allInvoicesAction = 'לכל המסמכים  ←';
@@ -195,6 +199,8 @@ const Map<Preset, String> presetTagLabels = {
   Preset.partner: 'שותף',
   Preset.employee: 'עובד',
   Preset.employeeIssuer: 'עובד',
+  Preset.cashier: 'קופאי/ת',
+  Preset.officeManager: 'מנהל/ת משרד',
   Preset.accountantRep: 'רואה חשבון',
   Preset.accountantFull: 'רו״ח – מלא',
   Preset.viewer: 'צפייה בלבד',

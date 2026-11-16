@@ -26,8 +26,16 @@ enum Cap {
   /// Credit / void. `document:cancel` (BE-03a; NOT canFinalize).
   docCancel,
 
-  /// Record a payment + receipt. `payment:record && document:finalize`.
+  /// Record a payment on an EXISTING document (S5) + its receipt.
+  /// `payment:record` (B1: no longer needs `document:finalize` — the office
+  /// manager records transfers without issuing tax invoices).
   paymentRecord,
+
+  /// "קיבלתי תשלום": a NEW paid document (320 / 400) with its payment.
+  /// `document:finalize && payment:record`, or the cashier's
+  /// `document:finalize_with_payment` (B1, capped by
+  /// [ApprovalPolicy.cashierCapMinor]).
+  paymentIssue,
 
   /// Refund. `payment:refund` (BE-03; false before).
   paymentRefund,
@@ -87,6 +95,12 @@ enum Preset {
   partner,
   employee,
   employeeIssuer,
+
+  /// B1 "קופאי/ת": server role CASHIER.
+  cashier,
+
+  /// B1 "מנהל/ת משרד": EMPLOYEE + `payment:record`, without finalize.
+  officeManager,
   accountantRep,
   accountantFull,
   viewer,
@@ -116,6 +130,12 @@ const Map<String, List<String>> rolePermissionsFallback = {
     'expense:record',
   ],
   'READ_ONLY': ['document:read'],
+  'CASHIER': [
+    'document:read',
+    'document:draft:write',
+    'document:send',
+    'document:finalize_with_payment',
+  ],
   'ACCOUNTANT_REP': [
     'document:read',
     'expense:record',
@@ -174,9 +194,13 @@ class Caps {
     } else if (role == 'ACCOUNTANT_REP' ||
         (role == 'READ_ONLY' && has('expense:approve'))) {
       preset = Preset.accountantRep;
+    } else if (role == 'CASHIER') {
+      preset = Preset.cashier;
     } else if (role == 'EMPLOYEE') {
       preset = has('document:finalize') && has('payment:record')
           ? Preset.employeeIssuer
+          : has('payment:record') && !has('document:finalize')
+          ? Preset.officeManager
           : Preset.employee;
     } else {
       preset = Preset.viewer;
@@ -195,12 +219,17 @@ class Caps {
       if (docDraft) Cap.docSubmit,
       if (has('document:send')) Cap.docSend,
       if (has('document:cancel')) Cap.docCancel,
-      if (has('payment:record') && has('document:finalize')) Cap.paymentRecord,
+      if (has('payment:record')) Cap.paymentRecord,
+      if ((has('payment:record') && has('document:finalize')) ||
+          has('document:finalize_with_payment'))
+        Cap.paymentIssue,
       if (has('payment:refund')) Cap.paymentRefund,
       if (has('approval:decide')) Cap.approvalDecide,
       if (gated ? has('allocation:request') : has('document:finalize'))
         Cap.allocationRequest,
-      if (gated ? has('money:read') : role != 'EMPLOYEE') Cap.moneyView,
+      // B1: the cashier never sees money, before BE-03 as after.
+      if (gated ? has('money:read') : role != 'EMPLOYEE' && role != 'CASHIER')
+        Cap.moneyView,
       if (gated ? has('customer:manage') : managerRole) Cap.customerManage,
       if (has('customer:accountKey')) Cap.customerAccountKey,
       if (gated ? has('supplier:manage') : has('expense:record'))
@@ -233,8 +262,17 @@ class Caps {
 
   /// §4.8: a document of [totalMinor] (INCLUDING VAT) goes to "שלח לאישור"
   /// instead of "הפק". Same comparison as the server: `>=`.
-  bool approvalNeeded(BigInt totalMinor) {
+  /// B1: for the cashier a [paid] document (320 / 400 with the payment taken
+  /// now) needs approval only above the cashier cap (`>`) or the business
+  /// threshold (`>=`); anything else always goes to approval.
+  bool approvalNeeded(BigInt totalMinor, {bool paid = false}) {
     if (!can(Cap.docDraft)) return false;
+    if (isCashier) {
+      if (!paid) return true;
+      final p = approvalPolicy;
+      return totalMinor > p.cashierCapMinor ||
+          (p.isThreshold && totalMinor >= p.thresholdMinor);
+    }
     if (!can(Cap.docIssue)) return true;
     final p = approvalPolicy;
     return p.isThreshold &&
@@ -256,8 +294,17 @@ class Caps {
   /// reading the business's documents, so it follows `doc.view`.
   bool get showPeopleTab => can(Cap.docView);
 
+  /// B1: issue authority only through `document:finalize_with_payment`
+  /// (the cashier): capped, payment in the same request, no money views.
+  bool get isCashier => can(Cap.paymentIssue) && !can(Cap.docIssue);
+
+  /// B1: the cashier's Home is one big "קיבלתי תשלום" (no amounts, no
+  /// "בקש תשלום").
+  bool get homeIsCashier => preset == Preset.cashier && isCashier;
+
   /// "קיבלתי תשלום" / "בקש תשלום" on H.
-  bool get showIntentButtons => can(Cap.docDraft) && !homeIsReports;
+  bool get showIntentButtons =>
+      can(Cap.docDraft) && !homeIsReports && !homeIsCashier;
 
   /// Role tag on H for non-owners ("עובד"); null for the owner.
   Preset? get roleTag => preset == Preset.owner ? null : preset;

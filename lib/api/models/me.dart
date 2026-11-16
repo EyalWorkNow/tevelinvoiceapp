@@ -13,7 +13,9 @@ class ApprovalPolicy {
     this.includesVat = true,
     this.selfApprovalAllowed = true,
     this.otherApproverExists = false,
-  }) : _threshold = thresholdMinor;
+    BigInt? cashierCapMinor,
+  }) : _threshold = thresholdMinor,
+       _cashierCap = cashierCapMinor;
 
   factory ApprovalPolicy.fromJson(Map<String, dynamic> json) => ApprovalPolicy(
     mode: jStr(json['mode']) ?? 'NONE',
@@ -21,6 +23,7 @@ class ApprovalPolicy {
     includesVat: json['includesVat'] != false,
     selfApprovalAllowed: json['selfApprovalAllowed'] != false,
     otherApproverExists: jBool(json['otherApproverExists']),
+    cashierCapMinor: jBigOrNull(json['cashierCapMinor']),
   );
 
   static const none = ApprovalPolicy(mode: 'NONE');
@@ -36,6 +39,12 @@ class ApprovalPolicy {
   final bool otherApproverExists;
 
   bool get isThreshold => mode == 'THRESHOLD';
+
+  /// B1: the most a cashier issues without approval (INCLUDING VAT, "up to").
+  /// Server default ₪2,000 when absent (an older server).
+  final BigInt? _cashierCap;
+  BigInt get cashierCapMinor => _cashierCap ?? defaultCashierCapMinor;
+  static final BigInt defaultCashierCapMinor = BigInt.from(200000);
 }
 
 /// `/me.shaam` — same field names as GET /shaam/status (BE-02).
