@@ -71,7 +71,7 @@ Future<InviteResult?> showInviteEditor(
           kind: FieldKind.choice,
           initial: preset.name,
           options: _presetOptions(),
-          collapsedAfter: 3,
+          collapsedAfter: 4,
           hint: TeamHe.more,
         ),
         _issuerField(),
@@ -136,6 +136,9 @@ EditorConfig memberEditor(
             ? Preset.employee.name
             : current.name,
         options: _presetOptions(includeFull: full),
+        // B1: 6 presets — the rarer ones under "עוד ▾" keep "מפיק בעצמו" in view.
+        collapsedAfter: full ? 5 : 4,
+        hint: TeamHe.more,
       ),
       _issuerField(initial: current == Preset.employeeIssuer),
     ],
