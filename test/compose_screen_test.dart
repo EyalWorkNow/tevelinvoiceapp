@@ -805,6 +805,24 @@ void main() {
     expect(primary(), findsNothing);
   });
 
+  testWidgets(
+    'SA6: a document parked WAITING_FOR_ALLOCATION leaves no local draft behind',
+    (tester) async {
+      fake.finalizeStatus = 'WAITING_FOR_ALLOCATION';
+      await open(tester, intent: 'REQUEST');
+      await type(tester, '7080');
+      await tap(tester, primary());
+      expect(backend.calls('POST', '/documents/:id/finalize'), hasLength(1));
+      expect(find.byType(ComposeScreen), findsNothing, reason: 'D replaced C');
+      final draft = await tester.runAsync(() => loadLocalDraft('REQUEST'));
+      expect(
+        draft,
+        isNull,
+        reason: 'the document exists; "המשך טיוטה" would issue it again',
+      );
+    },
+  );
+
   group('QA 2026-11-12', () {
     testWidgets(
       'U0: ✕ with an amount → "לשמור טיוטה?" → מחק closes, no draft kept',

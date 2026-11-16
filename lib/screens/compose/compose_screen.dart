@@ -12,6 +12,7 @@ import 'package:flutter/rendering.dart' show ScrollDirection;
 import '../../ui/widgets/notch_notice.dart';
 import '../../api/customers_api.dart'
     show rememberRecentPaymentCustomer, updateCustomer;
+import '../../api/issue_api.dart' show IssueStage;
 import '../../api/models/models.dart';
 import '../../state/business_context.dart';
 import '../../state/caps.dart';
@@ -283,7 +284,17 @@ class _ComposeScreenState extends State<ComposeScreen> {
         setState(() => _step = step);
       },
     );
-    if (mounted && run.pending?.stage.name == 'done') {
+    final stage = run.pending?.stage;
+    // The document exists on the server once it was submitted for approval
+    // or parked waiting for its allocation number: leaving C then must not
+    // keep a local draft of it ("המשך טיוטה" would offer to issue it again).
+    if (mounted &&
+        stage != null &&
+        stage.index >= IssueStage.submitted.index &&
+        stage != IssueStage.done) {
+      _issuedOrLeft = true;
+    }
+    if (mounted && stage == IssueStage.done) {
       _issuedOrLeft = true;
       if (load.state.kind == DocKind.receipt ||
           load.state.kind == DocKind.taxInvoiceReceipt) {
