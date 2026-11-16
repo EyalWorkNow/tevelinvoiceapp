@@ -1332,7 +1332,13 @@ void main() {
       (tester) async {
         final owner = await devUser(ownerEmail);
         final partner = await devUser(partnerEmail);
-        final cid = await createCustomer(owner, phone: randomPhone());
+        // Allocation rule v2 (0099, on main): ≥ ₪5,900 needs the recipient's
+        // dealer status — an unknown one stops the issue to ask (not this test).
+        final cid = await createCustomer(
+          owner,
+          phone: randomPhone(),
+          vatDealerStatus: 'AUTHORIZED_DEALER',
+        );
         final set = await setApproval(
           owner,
           mode: 'THRESHOLD',
@@ -1398,7 +1404,13 @@ void main() {
       (tester) async {
         final owner = await devUser(ownerEmail);
         final partner = await devUser(partnerEmail);
-        final cid = await createCustomer(owner, phone: randomPhone());
+        // Allocation rule v2 (0099, on main): ≥ ₪5,900 needs the recipient's
+        // dealer status — an unknown one stops the issue to ask (not this test).
+        final cid = await createCustomer(
+          owner,
+          phone: randomPhone(),
+          vatDealerStatus: 'AUTHORIZED_DEALER',
+        );
         final src = await tester.runAsync(
           () => createDocument(
             owner,
