@@ -29,6 +29,8 @@ import '../business/sheets/s14_switch.dart';
 import '../home/inbox_cards.dart' show inboxCardFor;
 import '../../util/allocation_meter.dart' show AllocationHe;
 import 'allocation_scan_view.dart';
+import '../../api/readiness_api.dart';
+import 'readiness_card.dart';
 import 'report_view.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
@@ -140,6 +142,9 @@ class _ReportsState extends State<_Reports> {
   BigInt? _periodIncome;
   bool _cards = false;
   List<InboxItem> _todo = const [];
+
+  /// C6 "מוכן לרו״ח" of the selected period (null = not served / no access).
+  Readiness? _readiness;
   bool _loading = true;
   Object? _error;
   String? _exporting;
@@ -180,6 +185,9 @@ class _ReportsState extends State<_Reports> {
         widget.embedded
             ? _optionalInbox()
             : Future<Object?>.value(const <InboxItem>[]),
+        caps.can(Cap.reportView)
+            ? _optionalReadiness()
+            : Future<Object?>.value(),
       ]);
       final cards = results[1] as bool;
       // The headline follows the chip: income of the selected period (BE-18).
@@ -201,6 +209,7 @@ class _ReportsState extends State<_Reports> {
         _periodIncome = periodIncome;
         _cards = cards;
         _todo = results[2] as List<InboxItem>;
+        _readiness = results[3] as Readiness?;
         _loading = false;
       });
     } on Object catch (e) {
@@ -220,6 +229,21 @@ class _ReportsState extends State<_Reports> {
     } on Object {
       return const [];
     }
+  }
+
+  /// C6: the readiness card never blocks R either.
+  Future<Readiness?> _optionalReadiness() async {
+    try {
+      return await fetchReadiness(_period);
+    } on Object {
+      return null;
+    }
+  }
+
+  /// "שלח לרו״ח": below the readiness threshold only after an explicit confirm.
+  Future<void> _sendToAccountant() async {
+    if (!await confirmSendBelowThreshold(context, _readiness)) return;
+    await _export('accountant');
   }
 
   Future<void> _uniformFormat() async {
@@ -281,6 +305,14 @@ class _ReportsState extends State<_Reports> {
           style: AppText.secondary,
         ),
         const SizedBox(height: Space.s),
+        if (_readiness != null) ...[
+          ReadinessCard(
+            readiness: _readiness!,
+            period: _key.name,
+            onChanged: () => unawaited(_load()),
+          ),
+          const SizedBox(height: Space.m),
+        ],
         if (_periodIncome != null)
           MoneyCard(
             key: const Key('period-income'),
@@ -440,7 +472,7 @@ class _ReportsState extends State<_Reports> {
                   ? ReportsHe.preparing
                   : null,
               offline: session.offline,
-              onPressed: () => _export('accountant'),
+              onPressed: _sendToAccountant,
             ),
           )
         : null;
