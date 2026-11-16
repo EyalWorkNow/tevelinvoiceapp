@@ -66,6 +66,8 @@ const allBusinessRows = {
   // PM 2026-11-12: integrations / subscription / notifications / desktop sit
   // under one "עוד הגדרות" row when two or more of them exist.
   'more',
+  // C5: "יומן פעולות" (audit:read), under "עוד הגדרות".
+  'audit',
 };
 
 late QaUser owner, staff, viewer, accountant, cpaRep, roleUser, switchUser;
@@ -678,9 +680,11 @@ void main() {
           'report:read',
         );
         if (reportRead) {
+          // C6: the "מוכן לרו״ח" card sits above the income card (which can
+          // be below the fold in the lazy list): wait for the period line.
           await waitFor(
             tester,
-            find.byKey(const Key('report-card-income')),
+            find.byKey(const Key('report-period')),
             seconds: 20,
           );
           expect(
