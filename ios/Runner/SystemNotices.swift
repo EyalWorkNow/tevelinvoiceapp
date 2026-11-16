@@ -203,7 +203,7 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
     guard let kind = userInfo["tevelKind"] as? String,
           let route = userInfo["route"] as? String,
           let businessID = userInfo["businessId"] as? String,
-          route.range(of: "^(/(home|activity|expenses)|/(quote|doc|person)/[A-Za-z0-9_-]{1,64})$", options: .regularExpression) != nil else { return false }
+          route.range(of: "^(/(home|activity|expenses|calendar)|/(quote|doc|person)/[A-Za-z0-9_-]{1,64})$", options: .regularExpression) != nil else { return false }
     emit(["type": opened ? "opened" : "notice", "kind": kind, "route": route,
           "businessId": businessID, "eventID": userInfo["eventID"] as? String ?? ""])
     return true
