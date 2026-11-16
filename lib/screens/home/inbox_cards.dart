@@ -5,6 +5,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../compose/sheets/quote_paid_choice.dart'
+    show QuotePaidChoice, askQuotePaid, paidNowIntent;
+
 import '../../ui/widgets/notch_notice.dart';
 import '../../api/client.dart';
 import '../../api/inbox_api.dart';
@@ -228,7 +231,19 @@ Future<void> runInboxAction(
     case InboxKind.overdue:
       return runReminders(context, onChanged: onChanged);
     case InboxKind.quoteAccepted:
-      return openCompose(context, intent: 'TYPE:305', fromQuoteId: first);
+      // C3: the same choice as "הפוך לחשבונית" in the quote — pays later
+      // (305 / 300) or paid now (320 with the payment step; פטור: a receipt).
+      // Either way the quote converts only when "הפק" is pressed.
+      final exempt = businessContext.isVatExempt;
+      final choice = await askQuotePaid(context, exempt: exempt);
+      if (choice == null || !context.mounted) return;
+      return openCompose(
+        context,
+        intent: choice == QuotePaidChoice.paidNow
+            ? paidNowIntent(exempt: exempt)
+            : 'TYPE:305',
+        fromQuoteId: first,
+      );
     case InboxKind.expenseReview:
       return openExpenses(
         context,
