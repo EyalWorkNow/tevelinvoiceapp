@@ -830,6 +830,9 @@ void qaMoneySuite() {
         primaryButton(),
         settle: const Duration(seconds: 4),
       );
+      // C3: "ישלם אחר כך" (305) or "שילם עכשיו" (320).
+      await pumpUntil(tester, find.byKey(const Key('quote-choice-later')));
+      await tester.tap(find.byKey(const Key('quote-choice-later')));
       await pumpUntil(tester, find.byType(ComposeScreen));
       final draftId = tester
           .widget<ComposeScreen>(find.byType(ComposeScreen))
@@ -852,6 +855,9 @@ void qaMoneySuite() {
     await openDocAs(tester, QaPreset.owner, q, quote: true);
     expect(primaryLabel(tester), DocumentHe.sendQuote); // row 11
     await pickMenu(tester, TapCounter(), DocumentHe.convertToInvoice);
+    // C3: "ישלם אחר כך" (305) or "שילם עכשיו" (320).
+    await pumpUntil(tester, find.byKey(const Key('quote-choice-later')));
+    await tester.tap(find.byKey(const Key('quote-choice-later')));
     await pumpUntil(tester, find.byType(ComposeScreen));
     final draftId = tester
         .widget<ComposeScreen>(find.byType(ComposeScreen))
