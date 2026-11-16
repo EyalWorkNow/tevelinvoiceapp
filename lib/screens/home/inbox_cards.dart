@@ -375,7 +375,7 @@ Future<void> runReminders(
   final chosen = await showReminderPreview(
     context,
     overdue,
-    reminded: ReminderLog.all(),
+    reminded: ReminderLog.forIds([for (final d in overdue) d.id]),
     total: page.total,
   );
   if (chosen == null || chosen.isEmpty || !context.mounted) return;
@@ -412,8 +412,9 @@ Future<void> runReminders(
 /// The "באיחור" preview: every overdue invoice, checked by default. Returns
 /// the ids to remind, or null when the user cancels. R1: each row the viewer
 /// may remind also gets "הזכר בווטסאפ" (one tap, nothing automatic) and the
-/// "נשלחה תזכורת לפני X ימים" hint from [reminded] (device-local; the rows
-/// show at once and the hints join when the read completes).
+/// "נשלחה תזכורת לפני X ימים" hint from [reminded] (C1: the server's log
+/// merged with this device's copy; the rows show at once and the hints join
+/// when the read completes).
 Future<Set<String>?> showReminderPreview(
   BuildContext context,
   List<DocumentSummary> overdue, {

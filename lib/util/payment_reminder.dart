@@ -79,11 +79,36 @@ abstract final class ReminderLog {
     return server.isAfter(local) ? server : local;
   }
 
-  /// Every known reminder time (the overdue list reads them at once).
+  /// Every reminder time this device knows (the offline fallback).
   static Future<Map<String, DateTime>> all() async => {
     for (final e in (await _all()).entries)
       if (DateTime.tryParse(e.value) case final t?) e.key: t.toLocal(),
   };
+
+  /// "Last reminded at" for [ids] at once (the "באיחור" list): the server's
+  /// record (C1: any device / member, 100 ids per read) merged with this
+  /// device's copy, the later wins. Offline or an older server: device only.
+  static Future<Map<String, DateTime>> forIds(List<String> ids) async {
+    final merged = <String, DateTime>{
+      for (final e in (await all()).entries)
+        if (ids.contains(e.key)) e.key: e.value,
+    };
+    try {
+      for (var i = 0; i < ids.length; i += 100) {
+        final chunk = ids.sublist(
+          i,
+          i + 100 > ids.length ? ids.length : i + 100,
+        );
+        for (final e in (await fetchLastReminded(chunk)).entries) {
+          final local = merged[e.key];
+          if (local == null || e.value.isAfter(local)) merged[e.key] = e.value;
+        }
+      }
+    } on Object {
+      // Offline / no such route: this device's copy only.
+    }
+    return merged;
+  }
 
   /// Records a reminder for a document ([documentId]) or, with [debtEntry],
   /// a debt-book entry: on this device and on the server ([channel] WHATSAPP
