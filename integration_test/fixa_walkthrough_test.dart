@@ -24,7 +24,11 @@ import 'package:invoice/router.dart';
 import 'crash_sweep_test.dart' show t, pumpMs, waitFor;
 import 'persona_screens_test.dart' as persona show startPlansGuard;
 import 'persona_screens_test.dart' show plansGuardOn;
-import 'v2_qa_gate_helpers.dart' show launchSignedInAs, DevSession;
+import 'package:invoice/api/documents_api.dart' show notifyDocumentsChanged;
+import 'package:invoice/main.dart' as app;
+
+import 'v2_qa_gate_helpers.dart'
+    show DevSession, devSignIn, keychain, resetDevice;
 
 const _base = String.fromEnvironment('API_BASE');
 int _n = 0;
@@ -75,12 +79,23 @@ void main() {
   testWidgets('FIXA walkthrough items 1–7', (tester) async {
     t = tester;
     plansGuardOn = true;
-    final api = await launchSignedInAs(
-      tester,
+    // Like launchSignedInAs, plus: the push switch already chosen, so the iOS
+    // permission prompt (asked once on a fresh sign-in — screenshot
+    // fixa-00 from the first run) does not cover every screenshot.
+    await resetDevice();
+    const business = String.fromEnvironment('FIXA_BUSINESS');
+    final api = await devSignIn(
       const String.fromEnvironment('FIXA_EMAIL'),
       password: const String.fromEnvironment('FIXA_PASSWORD'),
-      businessId: const String.fromEnvironment('FIXA_BUSINESS'),
+      businessId: business,
     );
+    final me = await api.get('/me');
+    final uid = (me['userId'] ?? (me['user'] as Map?)?['id']) as String?;
+    print('SETUP user $uid');
+    await keychain.write(key: 'device_token', value: api.token);
+    await keychain.write(key: 'business_id', value: business);
+    await keychain.write(key: 'system_notices_${uid}_$business', value: '1');
+    app.main();
     expect(await waitFor(find.byKey(const Key('tab-home')), ms: 40000), isTrue);
     await pumpMs(2000);
 
@@ -108,11 +123,8 @@ void main() {
 
     // ---- 1. Home: bell badge, search field, "יתרה לגבייה", recent event --
     await backToHome();
-    await tester.drag(
-      find.byKey(const Key('home-list')),
-      const Offset(0, 400),
-    ); // pull to refresh
-    await pumpMs(4000);
+    notifyDocumentsChanged(); // Home reloads (as after a push)
+    await pumpMs(5000);
     expect(await waitFor(find.byKey(const Key('home-bell')), ms: 15000), isTrue);
     await shot('home-bell-search-money');
     final recent = find.byKey(Key('recent-event-${quote['id']}'));
