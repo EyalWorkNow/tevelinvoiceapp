@@ -140,7 +140,8 @@ Future<ComposeLoad?> loadComposer({
 
   final vat = await fetchVatRate();
   final s = ComposeState(kind: kind, businessType: bt, vatBasisPoints: vat)
-    ..agreedTotals = bc.me?.lineAgreedTotal ?? false;
+    ..agreedTotals = bc.me?.lineAgreedTotal ?? false
+    ..quoteAgreedTotals = bc.me?.quoteLineAgreedTotal ?? false;
   final load = ComposeLoad(
     s,
     switchKinds: kind == DocKind.quote
