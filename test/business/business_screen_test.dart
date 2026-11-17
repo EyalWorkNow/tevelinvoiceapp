@@ -436,7 +436,13 @@ void main() {
     tester,
   ) async {
     await pumpAs(tester, backend, Preset.owner, const AccountPage());
-    await tester.ensureVisible(find.byKey(const Key('account-signout')));
+    // "החתימה שלי" (quote signatures) moved it past the lazy list.
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('account-signout')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('account-signout')));
     await settle(tester);
     expect(find.text(BusinessHe.signOutConfirm), findsOneWidget);

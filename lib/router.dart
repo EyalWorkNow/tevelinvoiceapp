@@ -646,6 +646,10 @@ Future<void> openSetup(BuildContext context) =>
 
 String? _pendingDeepLink;
 
+/// The link waiting for sign-in (tests).
+@visibleForTesting
+String? get debugPendingDeepLink => _pendingDeepLink;
+
 /// An invitation link waiting for the first sign-in screen or home.
 String? _pendingInvite;
 

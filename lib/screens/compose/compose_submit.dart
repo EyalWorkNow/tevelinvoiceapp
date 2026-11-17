@@ -32,6 +32,7 @@ import 'compose_memory.dart';
 import 'compose_repeat.dart';
 import 'compose_state.dart';
 import 'signing_unlock.dart';
+import '../signature/signature_screen.dart' show ensureSignatureBeforeSend;
 
 /// System share sheet for text (quote to a customer without a phone). Tests
 /// replace it. Throws [ShareDismissed] when the user closed the sheet.
@@ -157,6 +158,13 @@ Future<void> runCompose(
       !await confirmBigAmount(context, s.totalMinor)) {
     return;
   }
+  if (s.config.isQuote &&
+      run.action != ComposerAction.saveQuote &&
+      context.mounted &&
+      !await ensureSignatureBeforeSend(context)) {
+    return;
+  }
+  if (!context.mounted) return;
   onStep(ComposeHe.stepIssuing);
   try {
     if (s.config.isQuote) {

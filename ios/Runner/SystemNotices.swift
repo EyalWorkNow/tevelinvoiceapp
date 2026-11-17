@@ -198,12 +198,29 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
     emit(["type": "registrationError", "code": "APNS_REGISTRATION_FAILED"])
   }
 
+  /// packages/shared/src/push-catalogue.ts PUSH_KINDS (PUSH-001, /mobile/push/devices).
+  static let catalogueKinds: Set<String> = [
+    "ITA_ALLOCATION_APPROVED", "ITA_ALLOCATION_REJECTED", "DOCUMENT_SEND_FAILED",
+    "PAYMENT_RECEIVED", "PAYMENTS_OVERDUE", "COLLECTION_REMINDERS_READY",
+    "QUOTE_SIGNED", "QUOTE_VIEWED", "TEAM_MEMBER_JOINED", "SUBSCRIPTION_RENEWS_SOON",
+    "SUBSCRIPTION_PAYMENT_FAILED", "SUBSCRIPTION_EXPIRED", "EXPORT_READY",
+    "EXPORT_FAILED", "NEW_DEVICE_LOGIN", "UPLOAD_BLOCKED",
+  ]
+  /// App routes a push may open (Dart re-checks with AppRoute.parse).
+  static let allowedRoute =
+    "^(/(home|activity|expenses|calendar|debts|reports|people)(\\?[A-Za-z0-9=&_-]{1,64})?|/(quote|doc|person)/[A-Za-z0-9_-]{1,64}|/business/[a-z]{2,20})$"
+
   /// Foreground handling never tries to start a Live Activity in the background.
   func receive(_ userInfo: [AnyHashable: Any], opened: Bool) -> Bool {
-    guard let kind = userInfo["tevelKind"] as? String,
-          let route = userInfo["route"] as? String,
-          let businessID = userInfo["businessId"] as? String,
-          route.range(of: "^(/(home|activity|expenses|calendar)|/(quote|doc|person)/[A-Za-z0-9_-]{1,64})$", options: .regularExpression) != nil else { return false }
+    // `tevelKind`/`route` (/mobile/push-tokens) or the push catalogue's `kind`/`link` (QUOTE_SIGNED …).
+    // Only catalogue kinds the Dart side presents are taken (others keep the system banner).
+    let catalogueKind = (userInfo["kind"] as? String).flatMap { Self.catalogueKinds.contains($0) ? $0 : nil }
+    let tevelKind = userInfo["tevelKind"] as? String
+    guard let kind = tevelKind ?? catalogueKind,
+          let route = (userInfo["route"] as? String) ?? (userInfo["link"] as? String),
+          // Account-level catalogue pushes (subscription, new device) have no business.
+          let businessID = (userInfo["businessId"] as? String) ?? (tevelKind == nil ? "" : nil),
+          route.range(of: Self.allowedRoute, options: .regularExpression) != nil else { return false }
     emit(["type": opened ? "opened" : "notice", "kind": kind, "route": route,
           "businessId": businessID, "eventID": userInfo["eventID"] as? String ?? ""])
     return true
