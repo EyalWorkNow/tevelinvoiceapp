@@ -19,6 +19,7 @@ class DocRow extends StatelessWidget {
     required this.status,
     this.attributes = const [],
     this.onTap,
+    this.onLongPress,
     this.swipeLabel,
     this.onSwipe,
     this.meta,
@@ -35,6 +36,9 @@ class DocRow extends StatelessWidget {
   final StatusPill status;
   final List<String> attributes;
   final VoidCallback? onTap;
+
+  /// Long press (documents list: the "שלח" sheet, same as [onSwipe]).
+  final VoidCallback? onLongPress;
   final String? swipeLabel;
   final VoidCallback? onSwipe;
 
@@ -67,6 +71,7 @@ class DocRow extends StatelessWidget {
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: Hit.row),
           child: Padding(
@@ -173,6 +178,7 @@ class DocRow extends StatelessWidget {
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: 48),
           child: Padding(

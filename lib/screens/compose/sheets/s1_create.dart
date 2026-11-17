@@ -56,6 +56,13 @@ class _CreateSheetState extends State<CreateSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SheetTitle(ComposeHe.s1Title),
+        if (kindAllowedForCaps(DocKind.transactionInvoice, caps))
+          _tile(
+            const Key('s1-request'),
+            Iconsax.money_send,
+            ComposeHe.requestChoice,
+            () => close((c) => openCompose(c, intent: intentRequest)),
+          ),
         if (caps.can(Cap.docDraft))
           _tile(
             const Key('s1-quote'),

@@ -31,7 +31,6 @@ import 'compose_repeat.dart';
 import 'compose_submit.dart';
 import '../../router.dart' show BusinessSection, openBusinessSection;
 import 'fields/allocation_hint_line.dart';
-import 'payment_coming_soon_screen.dart';
 import 'fields/amount_field.dart';
 import 'fields/customer_chip.dart';
 import 'fields/summary_section.dart';
@@ -89,15 +88,6 @@ class _ComposeScreenState extends State<ComposeScreen> {
   bool _unavailable = false;
   String? _step;
   bool _issuedOrLeft = false;
-  bool _showingPaymentComingSoon = false;
-
-  // Only the unfinished payment-request flow is a placeholder. Explicit
-  // invoice creation and existing document/quote workflows still issue normally.
-  bool get _isPaymentRequest =>
-      widget.intent == intentRequest &&
-      widget.fromDocId == null &&
-      widget.fromQuoteId == null &&
-      widget.draftId == null;
 
   bool _pickingInitialCustomer = false;
 
@@ -355,21 +345,6 @@ class _ComposeScreenState extends State<ComposeScreen> {
   }
 
   Future<void> _press(ComposerAction action, bool needsApproval) async {
-    if (_isPaymentRequest) {
-      if (_showingPaymentComingSoon) return;
-      _showingPaymentComingSoon = true;
-      try {
-        await Navigator.of(context).push<void>(
-          MaterialPageRoute<void>(
-            settings: const RouteSettings(name: '/payment/coming-soon'),
-            builder: (_) => PaymentComingSoonScreen(onReturnHome: _returnHome),
-          ),
-        );
-      } finally {
-        _showingPaymentComingSoon = false;
-      }
-      return;
-    }
     final load = _load!;
     final run = load.run(action: action, needsApproval: needsApproval);
     await runCompose(
@@ -472,7 +447,11 @@ class _ComposeScreenState extends State<ComposeScreen> {
 
   Widget _kindActions(ComposeLoad load) {
     final s = load.state;
-    final invoice = load.switchKinds.contains(DocKind.taxInvoice)
+    // בקשת תשלום (REQUEST) is a 300 for every business type: its orb is the
+    // 300 even where the business also issues a 305.
+    final invoice =
+        widget.intent != intentRequest &&
+            load.switchKinds.contains(DocKind.taxInvoice)
         ? DocKind.taxInvoice
         : DocKind.transactionInvoice;
     final paid = load.switchKinds.contains(DocKind.taxInvoiceReceipt)
@@ -554,8 +533,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
     );
     final policy = bc.caps.approvalPolicy;
     final note =
-        !_isPaymentRequest &&
-            action == ComposerAction.submit &&
+        action == ComposerAction.submit &&
             policy.isThreshold &&
             bc.can(Cap.docIssue)
         ? approvalNote(policy.thresholdMinor)
@@ -733,9 +711,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
                   children: [
                     PrimaryButton(
                       key: const Key('compose-primary'),
-                      label: _isPaymentRequest
-                          ? CommonHe.cont
-                          : composerActionLabel(action, s.kind),
+                      label: composerActionLabel(action, s.kind),
                       offline: bc.offline,
                       loadingText: _step,
                       onPressed: () {
