@@ -52,6 +52,10 @@ enum Cap {
   /// Edit / archive customers, statement. P0: OWNER/ADMIN/ACCOUNTANT; BE-03: `customer:manage`.
   customerManage,
 
+  /// ייבוא / ייצוא לקוחות: owner and partner only (`customer:manage` +
+  /// `business:configure`, the server's rule for /customers/import*).
+  customerImport,
+
   /// Customer account key. `customer:accountKey` (BE-04).
   customerAccountKey,
 
@@ -235,6 +239,9 @@ class Caps {
       if (gated ? has('money:read') : role != 'EMPLOYEE' && role != 'CASHIER')
         Cap.moneyView,
       if (gated ? has('customer:manage') : managerRole) Cap.customerManage,
+      if ((gated ? has('customer:manage') : managerRole) &&
+          has('business:configure'))
+        Cap.customerImport,
       if (has('customer:accountKey')) Cap.customerAccountKey,
       if (gated ? has('supplier:manage') : has('expense:record'))
         Cap.supplierManage,

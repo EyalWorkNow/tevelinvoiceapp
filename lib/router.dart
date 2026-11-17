@@ -30,6 +30,7 @@ import 'screens/document/document_screen.dart';
 import 'screens/expense/expense_capture_screen.dart';
 import 'screens/expense/expenses_screen.dart';
 import 'screens/expense/expense_overview_screen.dart';
+import 'screens/people/import/customer_import_screen.dart';
 import 'screens/people/person_screen.dart';
 import 'api/reports_api.dart' show dailySummaryKind;
 import 'screens/reports/reports_screen.dart';
@@ -561,6 +562,16 @@ Future<void> openPerson(
   PersonScreen(id: id, isSupplier: supplier),
   location('/person/$id', {'kind': supplier ? 'supplier' : null}),
 );
+
+/// ייבוא לקוחות (from P). True when something was imported (P reloads).
+Future<bool> openCustomerImport(BuildContext context) async =>
+    await _push<bool>(
+      context,
+      const CustomerImportScreen(),
+      '/customers/import',
+      fullscreen: true,
+    ) ??
+    false;
 
 /// E (review / list). [expenseId] opens on one expense. [replace] swaps the
 /// current route (capture → review card).

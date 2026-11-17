@@ -1,0 +1,29 @@
+BEGIN:VCARD
+VERSION:3.0
+N:לוי;מיכל;;;
+FN:מיכל לוי
+TEL;TYPE=CELL:+972 52-444-5566
+EMAIL:michal.levi@example.co.il
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+N:כהן;יוסי;;;
+FN:יוסי כהן
+ORG:כהן אינסטלציה
+TEL;TYPE=CELL:054-3332211
+TEL;TYPE=WORK:03-6001122
+ADR;TYPE=WORK:;;הברזל 10;תל אביב;;6971005;Israel
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+N:אלון;רונית;;;
+FN:רונית אלון
+TEL;TYPE=CELL:0501119988
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+N:;;;;
+FN:מוסך הלל
+ORG:מוסך הלל
+TEL;TYPE=WORK:08-9334455
+END:VCARD
