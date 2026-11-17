@@ -24,6 +24,9 @@ import 'screens/auth/onboarding_screen.dart';
 import 'screens/business/business_screen.dart';
 import 'screens/business/delete_account_screen.dart';
 import 'screens/compose/compose_screen.dart';
+import 'screens/compose/payment_request_screen.dart';
+import 'screens/home/global_search_screen.dart';
+import 'screens/home/notifications_screen.dart';
 import 'screens/debts/debts_screen.dart';
 import 'screens/calendar/calendar_screen.dart';
 import 'screens/document/document_screen.dart';
@@ -68,6 +71,8 @@ const Map<String, ScreenId> routeTable = {
   '/home': ScreenId.h,
   '/activity': ScreenId.l,
   '/compose': ScreenId.c,
+  // Owner 2026-11-18: בקשת תשלום — a short form of its own (issues a 300).
+  '/payment-request': ScreenId.c,
   '/doc/:id': ScreenId.d,
   '/quote/:id': ScreenId.d,
   '/people': ScreenId.p,
@@ -205,7 +210,7 @@ class AppRoute {
 
   /// Capability the route needs; null = any signed-in member.
   Cap? get requiredCap => switch (pattern) {
-    '/compose' => Cap.docDraft,
+    '/compose' || '/payment-request' => Cap.docDraft,
     '/debts' => Cap.moneyView,
     '/calendar' => Cap.settingsBusiness,
     '/activity' ||
@@ -268,6 +273,7 @@ Widget? screenFor(AppRoute route) {
       fromQuoteId: q['fromQuoteId'],
       draftId: q['draftId'],
     ),
+    '/payment-request' => PaymentRequestScreen(customerId: q['customerId']),
     '/doc/:id' => DocumentScreen(id: p['id']!),
     '/quote/:id' => DocumentScreen(id: p['id']!, isQuote: true),
     '/sign-request/:id' => SignRequestScreen(id: p['id']!),
@@ -352,7 +358,12 @@ Future<bool> go(String locationString, {BuildContext? context}) async {
   if (!local) dismissTransientRoutes(nav);
   unawaited(
     nav.push(
-      _page(screen, locationString, fullscreen: route.pattern == '/compose'),
+      _page(
+        screen,
+        locationString,
+        fullscreen:
+            route.pattern == '/compose' || route.pattern == '/payment-request',
+      ),
     ),
   );
   return true;
@@ -532,6 +543,24 @@ Future<void> openCompose(
   }),
   fullscreen: true,
 );
+
+/// Home bell → "עדכונים" (tester 2026-11-18).
+Future<void> openNotifications(BuildContext context) =>
+    _push(context, const NotificationsScreen(), '/notifications');
+
+/// Home search over customers, documents, quotes, sign requests.
+Future<void> openGlobalSearch(BuildContext context) =>
+    _push(context, const GlobalSearchScreen(), '/search');
+
+/// בקשת תשלום: the short payment-request form (a 300; owner 2026-11-18).
+/// Its "עריכה מתקדמת" opens [openCompose] with intent REQUEST.
+Future<void> openPaymentRequest(BuildContext context, {String? customerId}) =>
+    _push(
+      context,
+      PaymentRequestScreen(customerId: customerId),
+      location('/payment-request', {'customerId': customerId}),
+      fullscreen: true,
+    );
 
 /// D (document). [replace] swaps the current route (Composer → D after issue).
 /// [banner] / [openShare] / [justIssued] are D's after-issue options (§6.C).

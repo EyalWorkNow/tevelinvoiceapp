@@ -166,3 +166,87 @@ String quoteSubtitle(QuoteRow q) {
   }
   return n == null ? '' : InboxHe.quoteNumber(ltrIsolate(n));
 }
+
+/// "מסמכים אחרונים": what the customer did (tester 2026-11-18) — a quote
+/// accepted on its link, a document signed — in the same list as the
+/// documents, newest first. Tap → the quote / the signed document.
+class RecentEventRow extends StatelessWidget {
+  const RecentEventRow({super.key, required this.event, required this.onTap});
+
+  final RecentEvent event;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final quote = event.kind == RecentEvent.quoteAccepted;
+    final who = (event.customerName ?? '').trim();
+    final label = (event.label ?? '').trim();
+    final title = who.isEmpty ? InboxHe.noCustomer : who;
+    final subtitle = quote
+        ? (label.isEmpty
+              ? InboxHe.recentQuoteAccepted
+              : '${InboxHe.recentQuoteAccepted} · ${ltrIsolate(label)}')
+        : (label.isEmpty
+              ? InboxHe.recentSigned
+              : '${InboxHe.recentSigned} · $label');
+    final local = event.at.toLocal();
+    final when =
+        '${local.day.toString().padLeft(2, '0')}.${local.month.toString().padLeft(2, '0')}';
+    return Semantics(
+      button: true,
+      label: '$title, $subtitle',
+      excludeSemantics: true,
+      child: InkWell(
+        key: Key('recent-event-${event.id}'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(Radii.card),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: Hit.min + 12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: p.ok.withValues(alpha: .14),
+                  child: Icon(
+                    quote ? Icons.task_alt_rounded : Icons.draw_rounded,
+                    size: 19,
+                    color: p.ok,
+                  ),
+                ),
+                const SizedBox(width: Space.m),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: AppText.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        subtitle,
+                        style: AppText.secondary.copyWith(color: p.ok),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  ltrIsolate(when),
+                  style: AppText.secondary.copyWith(color: p.muted),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -13,11 +13,17 @@ abstract final class InboxHe {
   static const allInvoicesAction = 'לכל המסמכים  ←';
 
   // H
-  static const moneyLabel = 'מגיע לך';
+  /// Σ open balances of issued 300/305 (VAT incl.) — what customers still
+  /// have to pay. Tester 2026-11-18: "מגיע לך" did not say what it counts.
+  static const moneyLabel = 'יתרה לגבייה';
   static const moneyOverdue = 'מתוכם באיחור';
   static const todo = 'לטיפול';
   static const inboxListTitle = 'משימות לטיפול';
   static const recent = 'מסמכים אחרונים';
+
+  /// "מסמכים אחרונים" rows for what the customer did (tester 2026-11-18).
+  static const recentQuoteAccepted = 'אישר/ה הצעת מחיר';
+  static const recentSigned = 'חתם/ה על מסמך';
   static const documentsAction = 'מסמכים';
   static const expensesAction = 'הוצאות';
   static const allActivity = 'כל הפעילות ›';

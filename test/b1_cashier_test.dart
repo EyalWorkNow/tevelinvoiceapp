@@ -268,7 +268,7 @@ void main() {
           findsOneWidget,
         );
         // No money card (moneyView is off even though the fake sends sums).
-        expect(find.text('מגיע לך'), findsNothing);
+        expect(find.text('יתרה לגבייה'), findsNothing);
         expect(find.textContaining('12,400'), findsNothing);
         expect(find.byKey(const Key('intent-request')), findsNothing);
         expect(find.byKey(const Key('intent-paid')), findsNothing);

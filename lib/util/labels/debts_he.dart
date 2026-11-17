@@ -2,13 +2,26 @@
 // internal note — never a document, never revenue or VAT — and every label
 // that shows one says so.
 
+import 'document_he.dart' show docTypeLabel;
+
 abstract final class DebtsHe {
   static const title = 'מי חייב לי';
   static const homeRow = 'מי חייב לי';
   static String homeRowA11y(int customers) =>
       customers == 1 ? 'מי חייב לי, לקוח אחד' : 'מי חייב לי, $customers לקוחות';
 
-  static const headerLabel = 'מגיע לך';
+  /// Same figure as Home (open 300/305 balances) — named for what it is
+  /// (tester 2026-11-18: "מגיע לך" did not say what the number is).
+  static const headerLabel = 'יתרה לגבייה';
+
+  /// An open document in the list. A 300 is what the owner sent as
+  /// "בקשת תשלום" (tester 2026-11-18: payment requests belong here too).
+  static String documentLine(String documentType, String? number) {
+    final type = documentType == 'TRANSACTION_INVOICE'
+        ? 'בקשת תשלום'
+        : docTypeLabel(documentType);
+    return number == null || number.isEmpty ? type : '$type מס׳ $number';
+  }
   static const headerOverdue = 'באיחור';
 
   /// Under the header: the debt book is added on top of Home's figure, never into it.

@@ -508,6 +508,7 @@ HomeData mergeLocalUnfinished(
     cards: cards,
     recent: data.recent,
     hasDocuments: data.hasDocuments,
+    recentEvents: data.recentEvents,
   );
 }
 
@@ -558,6 +559,7 @@ HomeData filterHome(
     cards: cards,
     recent: data.recent,
     hasDocuments: data.hasDocuments,
+    recentEvents: data.recentEvents,
   );
 }
 

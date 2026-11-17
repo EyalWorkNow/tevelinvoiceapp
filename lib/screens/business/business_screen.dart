@@ -22,8 +22,7 @@ import '../../ui/widgets/design_controls.dart' show ActionOrb;
 import '../../ui/widgets/sheet.dart' show SheetTitle, showAppSheet;
 import '../../util/composer_config.dart'
     show DocKind, configFor, kindAllowedForCaps, moreKinds;
-import '../../util/intent_resolver.dart'
-    show intentQuote, intentRequest, typeIntent;
+import '../../util/intent_resolver.dart' show intentQuote, typeIntent;
 import '../../util/labels/labels.dart';
 import 'account_page.dart';
 import 'system_notice_settings.dart';
@@ -432,7 +431,7 @@ class _BusinessListState extends State<_BusinessList> {
             size: 28,
           ),
           color: const Color(0xFFCFF5DE),
-          onTap: () => unawaited(openCompose(context, intent: intentRequest)),
+          onTap: () => unawaited(openPaymentRequest(context)),
         ),
       if (currentBusinessId != null)
         _ManagementAction(

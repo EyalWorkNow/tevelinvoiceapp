@@ -11,8 +11,8 @@ abstract final class PeopleHe {
 
   // P · לקוחות
   static const title = 'לקוחות';
-  static const addCustomer = '+ לקוח';
-  static const addSupplier = '+ ספק';
+  static const addCustomer = '+ לקוח חדש';
+  static const addSupplier = '+ ספק חדש';
   static const search = 'חיפוש';
   static const chipAll = 'הכל';
   static const chipDebtors = 'חייבים';
@@ -21,7 +21,7 @@ abstract final class PeopleHe {
   static const archivedBadge = 'בארכיון';
   static const supplierBadge = 'ספק';
   static const emptyCustomers = 'עוד אין לקוחות. הוסף מאנשי הקשר →';
-  static const emptyCustomersAction = 'הוסף לקוח';
+  static const emptyCustomersAction = '+ הוסף לקוח ראשון';
   static const emptySuppliers = 'עוד אין ספקים. ספק נוצר גם מצילום הוצאה.';
   static const emptyDebtors = 'אף לקוח לא חייב לך כרגע ✓';
   static const noMatches = 'לא נמצא. אפשר להוסיף לקוח חדש.';

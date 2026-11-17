@@ -924,7 +924,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
         title: InboxHe.emptyAll,
         actionLabel: canDraft ? CommonHe.requestPayment : null,
         onAction: canDraft
-            ? () => unawaited(openCompose(context, intent: 'REQUEST'))
+            ? () => unawaited(openPaymentRequest(context))
             : null,
       ),
     };

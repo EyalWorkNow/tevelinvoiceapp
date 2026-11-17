@@ -252,6 +252,58 @@ Map<String, dynamic> _recentRow(Map<String, dynamic> r) =>
     ? {...r, 'voidedAt': 'cancelled'}
     : r;
 
+/// What the customer did, shown in "מסמכים אחרונים" next to the documents
+/// (tester 2026-11-18): a quote accepted on /q/:token, a document signed on
+/// /s/:token. GET /mobile/inbox `recentEvents`.
+class RecentEvent {
+  const RecentEvent({
+    required this.kind,
+    required this.id,
+    required this.at,
+    this.customerName,
+    this.label,
+  });
+
+  static RecentEvent? fromJson(Map<String, dynamic> j) {
+    final kind = jStr(j['kind']);
+    final id = j['id'];
+    final at = DateTime.tryParse(jStr(j['at']) ?? '');
+    if (id is! String ||
+        at == null ||
+        (kind != quoteAccepted && kind != signCompleted)) {
+      return null;
+    }
+    return RecentEvent(
+      kind: kind!,
+      id: id,
+      at: at,
+      customerName: jStr(j['customerName']),
+      label: jStr(j['label']),
+    );
+  }
+
+  static const quoteAccepted = 'QUOTE_ACCEPTED';
+  static const signCompleted = 'SIGN_REQUEST_COMPLETED';
+
+  final String kind;
+
+  /// Quote id / sign request id.
+  final String id;
+  final DateTime at;
+  final String? customerName;
+
+  /// Quote number, or the signed document's title.
+  final String? label;
+
+  Map<String, dynamic> toJson() => {
+    'kind': kind,
+    'id': id,
+    'at': at.toUtc().toIso8601String(),
+    'customerName': customerName,
+    'label': label,
+  };
+}
+
 /// What H shows: money card numbers, sorted cards, recent rows.
 /// Cached per business so H paints before the network (F9).
 class HomeData {
@@ -261,6 +313,7 @@ class HomeData {
     this.cards = const [],
     this.recent = const [],
     this.hasDocuments = true,
+    this.recentEvents = const [],
   });
 
   /// GET /mobile/inbox (BE-05) and the client cache use the same shape.
@@ -287,8 +340,15 @@ class HomeData {
       hasDocuments: json['hasDocuments'] is bool
           ? json['hasDocuments'] as bool
           : recent.isNotEmpty,
+      recentEvents: [
+        for (final e in (json['recentEvents'] as List? ?? const []))
+          if (e is Map<String, dynamic>) ?RecentEvent.fromJson(e),
+      ],
     );
   }
+
+  /// Quote accepted / document signed (newest first, ≤5).
+  final List<RecentEvent> recentEvents;
 
   /// "מגיע לך" (null = no money card: no `money.view`, or unknown).
   final BigInt? openMinor;
@@ -315,6 +375,7 @@ class HomeData {
     'cards': [for (final c in cards) c.toJson()],
     'recent': [for (final r in recent) r.toJson()],
     'hasDocuments': hasDocuments,
+    'recentEvents': [for (final e in recentEvents) e.toJson()],
   };
 }
 

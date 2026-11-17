@@ -627,7 +627,7 @@ class _CustomerCrmReminderPreviewState
                     child: Text(
                       overdue
                           ? 'יש משימות שממתינות לך'
-                          : 'העבודה או המעקב הקרובים',
+                          : CustomerCrmHe.upcomingTitle,
                       style: AppText.headline,
                     ),
                   ),

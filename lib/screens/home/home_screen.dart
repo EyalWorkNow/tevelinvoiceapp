@@ -14,6 +14,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../api/documents_api.dart' show deleteDraft, documentsVersion;
 import '../../api/inbox_api.dart' show dismissSetup;
+import '../../api/notifications_api.dart'
+    show notificationsUnread, notificationsVersion, refreshNotificationsUnread;
+import '../../util/labels/notifications_he.dart';
 import '../../api/models/models.dart';
 import '../../router.dart';
 import '../../state/business_context.dart';
@@ -64,7 +67,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _c.addListener(_changed);
     businessContext.addListener(_onBusiness);
     documentsVersion.addListener(_reload);
+    notificationsVersion.addListener(_refreshBell);
     if (_owned) unawaited(_c.load());
+    _refreshBell();
     unawaited(_loadProfileAvatar());
   }
 
@@ -73,6 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _c.removeListener(_changed);
     businessContext.removeListener(_onBusiness);
     documentsVersion.removeListener(_reload);
+    notificationsVersion.removeListener(_refreshBell);
     _recentSearch.dispose();
     if (_owned) _c.dispose();
     super.dispose();
@@ -93,7 +99,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _reload() => unawaited(_c.load());
+  void _reload() {
+    unawaited(_c.load());
+    _refreshBell();
+  }
+
+  /// The bell badge (tester 2026-11-18): Home load, business switch, a push.
+  void _refreshBell() => unawaited(refreshNotificationsUnread());
 
   String? get _profileAvatarKey {
     final userId = session.account?.userId;
@@ -171,10 +183,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   children: [
                     OfflineBanner(visible: _c.offline, onRetry: _reload),
-                    _Header(
-                      onOpenProfile: widget.onOpenProfile,
-                      onEditAvatar: _pickProfileAvatar,
-                      avatarBytes: _profileAvatar,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _Header(
+                            onOpenProfile: widget.onOpenProfile,
+                            onEditAvatar: _pickProfileAvatar,
+                            avatarBytes: _profileAvatar,
+                          ),
+                        ),
+                        // Tester 2026-11-18: an in-app inbox of updates
+                        // (quote accepted, document signed, payment …).
+                        const _Bell(),
+                      ],
                     ),
                     SizedBox(height: context.isDark ? 10 : 36),
                     if (data != null && (data.openMinor != null)) ...[
@@ -228,6 +249,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       _IntentButtons(caps: caps),
                       SizedBox(height: context.isDark ? 12 : Space.section),
                     ],
+                    // Tester 2026-11-18: search everything from Home, above
+                    // "משימות קרובות" ("הצעת מחיר של כהן").
+                    if (caps.can(Cap.docView)) ...[
+                      const _HomeSearchField(),
+                      const SizedBox(height: Space.l),
+                    ],
                     ContentReveal(
                       key: ValueKey(data != null),
                       child: Column(children: _body(context, caps, data)),
@@ -259,7 +286,8 @@ class _HomeScreenState extends State<HomeScreen> {
           onOpenCustomer: (id) => unawaited(openPerson(context, id)),
         ),
       if (inboxVisible(caps) && data.cards.isNotEmpty) ..._todo(context, data),
-      if (data.recent.isNotEmpty) ..._recent(context, data),
+      if (data.recent.isNotEmpty || data.recentEvents.isNotEmpty)
+        ..._recent(context, data),
       if (inboxVisible(caps) && data.cards.isEmpty) ...[
         const SizedBox(height: Space.section),
         ..._todo(context, data),
@@ -430,13 +458,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: AppText.body.copyWith(color: context.palette.muted),
                 ),
               ),
-            for (final d in recent)
-              docRowFor(
-                d,
-                today: _c.now?.call(),
-                onTap: () => unawaited(openDocument(context, d.id)),
-                onDelete: () => unawaited(_deleteRecentDraft(d)),
-              ),
+            for (final row in _mergedRecent(recent, data.recentEvents, query))
+              if (row is RecentEvent)
+                RecentEventRow(
+                  event: row,
+                  onTap: () => unawaited(
+                    row.kind == RecentEvent.quoteAccepted
+                        ? openQuote(context, row.id)
+                        : openSignRequest(context, row.id),
+                  ),
+                )
+              else if (row is DocumentSummary)
+                docRowFor(
+                  row,
+                  today: _c.now?.call(),
+                  onTap: () => unawaited(openDocument(context, row.id)),
+                  onDelete: () => unawaited(_deleteRecentDraft(row)),
+                ),
             if (!_recentSearchOpen)
               Align(
                 alignment: AlignmentDirectional.centerStart,
@@ -451,6 +489,113 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     ];
+  }
+}
+
+/// "מסמכים אחרונים" = recent documents + what customers did (quote accepted,
+/// document signed — tester 2026-11-18), newest first, at most 5. Documents
+/// without a creation time (older server / cache) keep their order after the
+/// events. A local search filters the events by name / label too.
+List<Object> _mergedRecent(
+  List<DocumentSummary> docs,
+  List<RecentEvent> events,
+  String query,
+) {
+  final shown = query.isEmpty
+      ? events
+      : events.where(
+          (e) => [
+            e.customerName,
+            e.label,
+          ].whereType<String>().join(' ').toLowerCase().contains(query),
+        );
+  DateTime? timeOf(Object o) => o is RecentEvent
+      ? o.at
+      : DateTime.tryParse((o as DocumentSummary).createdAt ?? '');
+  final all = <Object>[...shown, ...docs];
+  final indexed = [for (var i = 0; i < all.length; i++) (i, all[i])];
+  indexed.sort((a, b) {
+    final ta = timeOf(a.$2);
+    final tb = timeOf(b.$2);
+    if (ta != null && tb != null) return tb.compareTo(ta);
+    return a.$1.compareTo(b.$1);
+  });
+  return [for (final (_, o) in indexed.take(5)) o];
+}
+
+/// Home bell with the unread badge (not in the navbar — its design is frozen).
+class _Bell extends StatelessWidget {
+  const _Bell();
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+    valueListenable: notificationsUnread,
+    builder: (context, unread, _) => Semantics(
+      button: true,
+      label: NotificationsHe.bellA11y(unread),
+      excludeSemantics: true,
+      child: IconButton(
+        key: const Key('home-bell'),
+        tooltip: NotificationsHe.bellTooltip,
+        style: IconButton.styleFrom(
+          minimumSize: const Size(Hit.min, Hit.min),
+        ),
+        onPressed: () => unawaited(openNotifications(context)),
+        icon: Badge(
+          key: const Key('home-bell-badge'),
+          isLabelVisible: unread > 0,
+          label: Text(unread > 99 ? '99+' : '$unread'),
+          child: Icon(
+            unread > 0 ? Iconsax.notification_bing : Iconsax.notification,
+            size: 26,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Looks like a field; opens the search screen (keyboard up there).
+class _HomeSearchField extends StatelessWidget {
+  const _HomeSearchField();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Semantics(
+      button: true,
+      label: SearchHe.fieldHint,
+      excludeSemantics: true,
+      child: Material(
+        color: p.surface,
+        shape: StadiumBorder(side: BorderSide(color: p.line)),
+        child: InkWell(
+          key: const Key('home-search'),
+          customBorder: const StadiumBorder(),
+          onTap: () => unawaited(openGlobalSearch(context)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Space.l),
+              child: Row(
+                children: [
+                  Icon(Iconsax.search_normal_1, color: p.muted, size: 20),
+                  const SizedBox(width: Space.m),
+                  Expanded(
+                    child: Text(
+                      SearchHe.fieldHint,
+                      style: AppText.body.copyWith(color: p.muted),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -775,7 +920,7 @@ class _IntentButtons extends StatelessWidget {
           label: CommonHe.requestPayment,
           icon: const DesignIcon('request'),
           color: DesignTokens.green,
-          onPressed: () => unawaited(openCompose(context, intent: 'REQUEST')),
+          onPressed: () => unawaited(openPaymentRequest(context)),
         ),
     ];
     return Row(

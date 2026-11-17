@@ -61,6 +61,7 @@ class DocumentSummary {
     this.notes,
     this.overdue,
     this.amountHidden = false,
+    this.createdAt,
   });
 
   factory DocumentSummary.fromJson(
@@ -87,9 +88,14 @@ class DocumentSummary {
     rejection: Rejection.fromJsonOrNull(json['rejection']),
     notes: jStr(json['notes']),
     overdue: json['overdue'] is bool ? json['overdue'] as bool : null,
+    createdAt: jStr(jPick(json, ['createdAt', 'created_at'])),
   );
 
   final String id;
+
+  /// ISO time the document was created (GET /mobile/inbox recent rows); lets
+  /// Home merge customer events into "מסמכים אחרונים" in order.
+  final String? createdAt;
   final String documentType;
   final String status;
   final String? documentNumber;
@@ -152,6 +158,7 @@ class DocumentSummary {
         'by': rejection!.by,
         'at': rejection!.at,
       },
+    'createdAt': ?createdAt,
   };
 }
 
