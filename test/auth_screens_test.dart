@@ -644,7 +644,13 @@ void main() {
         ),
         'POST /mobile/logout': (200, {'ok': true}),
       });
-      await tester.pumpWidget(app(const NoBusinessScreen()));
+      // With the app-wide gate that also reacts to MFA_REQUIRED (as in main).
+      await tester.pumpWidget(
+        app(
+          const NoBusinessScreen(),
+          builder: (context, child) => AppLockGate(child: child!),
+        ),
+      );
       await tester.tap(find.byKey(const Key('no-business-recheck')));
       for (var i = 0; i < 10; i++) {
         await tester.runAsync(
@@ -658,6 +664,44 @@ void main() {
       expect(find.textContaining('פג תוקף'), findsNothing);
       expect(find.text('new.owner@tevel.test'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    '#14: any MFA_REQUIRED on a device token → login with the reason and the e-mail',
+    (tester) async {
+      phone(tester);
+      ApiClient.instance.deviceToken = 'tok';
+      session
+        ..status = SessionStatus.signedIn
+        ..account = MobileAccount.fromJson({
+          'userId': 'u',
+          'email': 'owner2@tevel.test',
+          'displayName': null,
+          'businesses': <Object>[],
+        });
+      serve({
+        'GET /dashboard': (403, {'error': 'MFA_REQUIRED'}),
+        'POST /mobile/logout': (200, {'ok': true}),
+      });
+      await tester.pumpWidget(
+        app(
+          const Scaffold(body: Text('בית')),
+          builder: (context, child) => AppLockGate(child: child!),
+        ),
+      );
+      await tester.runAsync(() async {
+        try {
+          await ApiClient.instance.get('/dashboard');
+        } on ApiException {
+          // expected
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('login-mfa-notice')), findsOneWidget);
+      expect(find.text('owner2@tevel.test'), findsOneWidget);
+      expect(find.textContaining('פג תוקף'), findsNothing);
     },
   );
 
