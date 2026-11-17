@@ -15,6 +15,7 @@ import '../../ui/ds.dart';
 import '../../util/labels/labels.dart';
 import '../../util/money.dart';
 import '../../util/still_here.dart';
+import '../../util/money_input.dart';
 
 /// The menu item shows for the accountant presets on an issued, not
 /// cancelled document that is not itself a credit note.
@@ -143,9 +144,8 @@ class _CorrectionRequestSheetState extends State<CorrectionRequestSheet> {
             TextField(
               key: const Key('correction-amount'),
               controller: _amount,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
+              keyboardType: moneyKeyboard,
+              inputFormatters: moneyFormatters,
               textDirection: TextDirection.ltr,
               decoration: const InputDecoration(
                 labelText: ReadinessHe.amountLabel,

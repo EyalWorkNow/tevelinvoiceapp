@@ -15,6 +15,7 @@ import '../../../util/money.dart';
 import '../../../util/still_here.dart';
 import '../dialogs.dart';
 import '../../../api/readiness_api.dart' show dismissCorrection;
+import '../../../util/money_input.dart';
 
 /// What S8 did (D shows the toast and reloads; a credit opens its own D).
 class CancelResult {
@@ -322,7 +323,8 @@ class _CancelSheetState extends State<CancelSheet> {
         key: const Key('s8-amount'),
         controller: _amount,
         focusNode: _focus,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        keyboardType: moneyKeyboard,
+        inputFormatters: moneyFormatters,
         textDirection: TextDirection.ltr,
         style: AppText.amountCard,
         decoration: const InputDecoration(

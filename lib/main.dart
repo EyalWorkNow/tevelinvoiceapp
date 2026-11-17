@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'ui/widgets/dismiss_keyboard.dart';
 import 'ui/widgets/notch_notice.dart';
 import 'api/settings_api.dart' show hideAmounts, loadHideAmounts;
 import 'router.dart';
@@ -125,7 +126,9 @@ class _TevelAppState extends State<TevelApp> {
             hidden: hidden,
             child: NotchNoticeHost(
               key: notchNoticeKey,
-              child: AppLockGate(child: child!),
+              child: DismissKeyboardOnTapOutside(
+                child: AppLockGate(child: child!),
+              ),
             ),
           ),
         ),

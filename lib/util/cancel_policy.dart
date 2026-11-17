@@ -10,6 +10,8 @@
 // | 330 credit          | none                                                                               |
 // | quote               | none ("הלקוח דחה" in §6.D row 12)                                                 |
 
+import 'vat.dart' show calculateLine, netOfGross, totalForNet;
+
 enum CancelAction {
   /// 330 credit note (305/320).
   credit,
@@ -141,6 +143,7 @@ List<Map<String, Object>> creditLines({
   required BigInt alreadyCreditedMinor,
   required BigInt amountMinor,
   required String partialDescription,
+  bool agreedTotals = false,
 }) {
   if (amountMinor <= BigInt.zero) {
     throw ArgumentError.value(amountMinor, 'amountMinor');
@@ -155,6 +158,10 @@ List<Map<String, Object>> creditLines({
           'discountMinor': l.discountMinor.toString(),
           'taxRateBasisPoints': l.taxRateBasisPoints,
           'itemId': ?l.itemId,
+          // Owner Q1: a line that kept its typed VAT-included total is
+          // credited at that total, not the standard recalculation.
+          if (_standardTotal(l) != l.totalMinor && l.totalMinor > BigInt.zero)
+            'agreedTotalMinor': l.totalMinor.toString(),
         },
     ];
   }
@@ -187,12 +194,28 @@ List<Map<String, Object>> creditLines({
         {
           'description': partialDescription,
           'quantityMicros': '1000000',
-          'unitPriceMinor': netOfVat(e.value, e.key).toString(),
+          'unitPriceMinor':
+              (agreedTotals && e.key > 0
+                      ? netOfGross(e.value, e.key)
+                      : netOfVat(e.value, e.key))
+                  .toString(),
           'discountMinor': '0',
           'taxRateBasisPoints': e.key,
+          // Owner Q1: ₪2.00 credits ₪2.00 (net 1.69 + VAT 0.31), not ₪1.99.
+          if (agreedTotals &&
+              e.key > 0 &&
+              totalForNet(netOfGross(e.value, e.key), e.key) != e.value)
+            'agreedTotalMinor': e.value.toString(),
         },
   ];
 }
+
+BigInt _standardTotal(CreditSourceLine l) => calculateLine(
+  quantityMicros: l.quantityMicros,
+  unitPriceMinor: l.unitPriceMinor,
+  discountMinor: l.discountMinor,
+  taxRateBasisPoints: l.taxRateBasisPoints,
+).totalMinor;
 
 /// round(gross / (1 + rate)), half up, in agorot. 20000 @ 1800bp → 16949.
 BigInt netOfVat(BigInt grossMinor, int rateBasisPoints) {

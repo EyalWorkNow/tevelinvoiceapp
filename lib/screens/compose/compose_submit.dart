@@ -424,6 +424,9 @@ Future<void> _sendQuote(
                     l['discountMinor'] as String? ?? '',
                   ),
                   taxRateBasisPoints: l['taxRateBasisPoints'] as int,
+                  agreedTotalMinor: BigInt.tryParse(
+                    l['agreedTotalMinor'] as String? ?? '',
+                  ),
                 ).totalMinor,
               ),
           ],

@@ -12,6 +12,7 @@ import '../../../util/labels/labels.dart';
 import '../../../api/issue_api.dart' show todayIso;
 import '../compose_state.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+import '../../../util/money_input.dart';
 
 /// Payment chips (§9.1, C2): cash · card · bit · PayBox · transfer · cheque +
 /// "עוד" (DIRECT_DEBIT, OTHER). The split lines (C3) offer the same set.
@@ -270,9 +271,8 @@ class _SummarySectionState extends State<SummarySection> {
                 child: TextFormField(
                   key: Key('split-amount-$i'),
                   initialValue: l.amountText,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
+                  keyboardType: moneyKeyboard,
+                  inputFormatters: moneyFormatters,
                   textDirection: TextDirection.ltr,
                   decoration: const InputDecoration(
                     labelText: ComposeHe.splitAmount,

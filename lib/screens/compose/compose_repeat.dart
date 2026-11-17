@@ -116,7 +116,7 @@ Future<RepeatTemplate?> findRepeat(
     kind: kind,
     businessType: businessType,
     vatBasisPoints: vatBasisPoints,
-  );
+  )..agreedTotals = businessContext.me?.lineAgreedTotal ?? false;
   RepeatTemplate? from(DocKind kind, Map<String, dynamic> form) {
     final s = fresh(kind)..restore({...form, 'kind': kind.name});
     if (s.totalMinor <= BigInt.zero) return null;

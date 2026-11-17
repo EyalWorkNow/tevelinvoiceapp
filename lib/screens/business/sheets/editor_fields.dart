@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import '../../../ui/ds.dart';
 import '../../../util/labels/labels.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+import '../../../util/money.dart' show agorotToKeypadText, parseAmount;
+import '../../../util/money_input.dart';
 
 enum FieldKind {
   text,
@@ -129,7 +131,7 @@ class _EditorFieldViewState extends State<EditorFieldView> {
   String _initialText() {
     final v = widget.values[widget.field.key];
     if (v is BigInt) {
-      return v == BigInt.zero ? '' : (v ~/ BigInt.from(100)).toString();
+      return agorotToKeypadText(v);
     }
     return v?.toString() ?? '';
   }
@@ -196,18 +198,19 @@ class _EditorFieldViewState extends State<EditorFieldView> {
       keyboardType: switch (f.kind) {
         FieldKind.email => TextInputType.emailAddress,
         FieldKind.phone => TextInputType.phone,
-        FieldKind.number || FieldKind.money => TextInputType.number,
+        FieldKind.number => TextInputType.number,
+        FieldKind.money => moneyKeyboard,
         FieldKind.url => TextInputType.url,
         FieldKind.multiline => TextInputType.multiline,
         _ => TextInputType.text,
       },
-      inputFormatters: f.kind == FieldKind.number || f.kind == FieldKind.money
-          ? [FilteringTextInputFormatter.digitsOnly]
-          : null,
+      inputFormatters: switch (f.kind) {
+        FieldKind.number => [FilteringTextInputFormatter.digitsOnly],
+        FieldKind.money => moneyFormatters,
+        _ => null,
+      },
       onChanged: (v) => widget.onChanged(
-        f.kind == FieldKind.money
-            ? BigInt.from(int.tryParse(v) ?? 0) * BigInt.from(100)
-            : v,
+        f.kind == FieldKind.money ? parseAmount(v) ?? BigInt.zero : v,
       ),
       decoration: InputDecoration(
         labelText: f.label,
