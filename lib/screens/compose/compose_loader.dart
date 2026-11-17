@@ -20,6 +20,7 @@ import '../../state/caps.dart';
 import '../../util/composer_config.dart';
 import '../../util/intent_resolver.dart';
 import '../../util/money.dart' show agorotToKeypadText;
+import '../../util/labels/payment_he.dart' show paymentMethodLabels;
 import 'compose_memory.dart';
 import 'compose_repeat.dart';
 import 'compose_state.dart';
@@ -227,6 +228,9 @@ Future<ComposeLoad?> loadComposer({
     // C3: the customer card's "כמו בפעם הקודמת".
     if (sourceId == null && fromQuoteId == null) takeRepeatFor(s);
   }
+  // 0110: a method nobody chose yet (empty, or only this device's memory)
+  // may take the customer's preferred one below.
+  final methodFree = s.method.isEmpty;
   if (s.method.isEmpty) s.method = await lastPaymentMethod(s.customer?.id);
   if (s.customer != null && s.description.isEmpty) {
     s.description = await defaultDescription(
@@ -235,7 +239,7 @@ Future<ComposeLoad?> loadComposer({
       businessDefault: bc.profile?.defaultLineDescription,
     );
   }
-  await applyCustomerTerms(s);
+  await applyCustomerTerms(s, preferMethod: methodFree);
   return load;
 }
 
@@ -248,22 +252,37 @@ bool _linkedConversion(DocumentDetail source, DocKind target) =>
     !source.isDraft &&
     source.documentNumber != null;
 
-/// F8 / BE-07: the customer's payment terms (GET /customers/:id, BE-09) for
-/// the due date of a collect kind; unknown → שוטף+30. Best effort: never
-/// fails the Composer; a date the user picked still wins ([pickedDueDate]).
-Future<void> applyCustomerTerms(ComposeState s) async {
+/// F8 / BE-07: the customer's payment terms (GET /customers/:id, BE-09) —
+/// else the business default (0110 effectivePaymentTerms) — for the due date
+/// of a collect kind; unknown → שוטף+30. Best effort: never fails the
+/// Composer; a date the user picked still wins ([pickedDueDate]).
+/// [preferMethod]: the payment chip was not chosen by the user or copied from
+/// a source document, so the customer's preferred method (0110) prefills it.
+Future<void> applyCustomerTerms(
+  ComposeState s, {
+  bool preferMethod = false,
+}) async {
   final c = s.customer;
-  String? terms;
+  CustomerDetail? detail;
   if (c != null && s.config.counterparty != Counterparty.supplier) {
     try {
-      terms = (await fetchCustomerDetail(c.id)).paymentTerms;
+      detail = await fetchCustomerDetail(c.id);
     } on Object {
-      terms = null;
+      detail = null;
     }
   }
   if (s.customer?.id != c?.id) return; // another customer was chosen meanwhile
+  final method = detail?.effectiveMethod;
+  if (preferMethod &&
+      !s.methodTouched &&
+      !s.split &&
+      method != null &&
+      paymentMethodLabels.containsKey(method)) {
+    s.method = method;
+  }
   s
-    ..customerTerms = terms
+    ..customerTerms = detail?.effectiveTerms
+    ..customerTermsDays = detail?.effectiveTermsDays
     ..changed();
 }
 

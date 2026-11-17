@@ -68,6 +68,7 @@ void main() {
         ]);
         // Nothing deleted: the rarely used rows are one tap further (§6.B).
         expect(await moreFor(Preset.owner), [
+          'paymentTerms', // 0110 default payment terms
           'integrations',
           'subscription',
           'notifications',

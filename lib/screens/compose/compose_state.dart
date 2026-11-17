@@ -10,6 +10,7 @@ import '../../api/models/models.dart';
 import '../../util/composer_config.dart';
 import '../../util/money.dart';
 import '../../util/vat.dart';
+import '../../util/israel_date.dart' show israelToday, israelTodayDate;
 
 /// One extra line (S3): description, quantity, unit price (as typed), the
 /// catalog item it came from (BE-15) and its own "ללא מע״מ" (per-line VAT).
@@ -202,17 +203,25 @@ class ComposeState extends ChangeNotifier {
   /// BE-07 note printed on the document / quote (≤500).
   String notes = '';
 
-  /// BE-09 payment terms of the customer (IMMEDIATE | EOM | EOM_30…; null =
-  /// unknown → שוטף+30).
+  /// BE-09 payment terms of the customer — else the business default (0110,
+  /// GET /customers/:id effectivePaymentTerms): IMMEDIATE | EOM | EOM_30… |
+  /// EOM_DAYS / NET_DAYS + [customerTermsDays]; null = unknown → שוטף+30.
   String? customerTerms;
+  int? customerTermsDays;
 
   /// A due date the user picked in S3 (or the draft's): wins over the terms
   /// and survives a customer change.
   String? pickedDueDate;
 
   /// BE-07 due date sent with collect kinds (305 / 300), 'YYYY-MM-DD'.
+  /// From the Israel civil date of today (the issue date sent).
   String get dueDate =>
-      pickedDueDate ?? dueDateForTerms(customerTerms, DateTime.now());
+      pickedDueDate ??
+      dueDateForTerms(
+        customerTerms,
+        israelTodayDate(),
+        days: customerTermsDays,
+      );
   bool requestAllocation = false;
 
   /// Quote "בתוקף עד" (+14 days).
@@ -462,7 +471,7 @@ class ComposeState extends ChangeNotifier {
       'customerId': customer?.id,
     'currency': 'ILS',
     'fiscalContext': 'default',
-    'issueDate': todayIso(),
+    'issueDate': israelToday(),
     'lines': requestLines,
     // BE-07: absent keeps the stored value, null clears it.
     if (hasNotes) 'notes': notes.trim().isEmpty ? null : notes.trim(),
@@ -621,6 +630,7 @@ class ComposeState extends ChangeNotifier {
     'vatPerLine': vatPerLine,
     'notes': notes,
     'customerTerms': customerTerms,
+    'customerTermsDays': customerTermsDays,
     'pickedDueDate': pickedDueDate,
     'requestAllocation': requestAllocation,
     'validUntil': validUntil,
@@ -662,6 +672,7 @@ class ComposeState extends ChangeNotifier {
     vatPerLine = j['vatPerLine'] == true;
     notes = j['notes'] as String? ?? '';
     customerTerms = j['customerTerms'] as String?;
+    customerTermsDays = j['customerTermsDays'] as int?;
     pickedDueDate = j['pickedDueDate'] as String?;
     requestAllocation = j['requestAllocation'] == true;
     validUntil = j['validUntil'] as String? ?? validUntil;

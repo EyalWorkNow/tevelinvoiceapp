@@ -45,6 +45,11 @@ import '../../util/labels/compose_he.dart';
 import 'sheets/s2_customer.dart';
 import 'customer_crm_agenda_screen.dart';
 import 'customer_crm_panel.dart';
+import 'customer_timeline_screen.dart';
+import 'sheets/payment_terms_sheet.dart';
+import '../../api/customer_timeline_api.dart' show PaymentTermsValue;
+import '../../util/labels/timeline_he.dart';
+import '../../util/payment_terms.dart' show paymentTermsLabel;
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 class PersonScreen extends StatefulWidget {
@@ -162,6 +167,38 @@ class _PersonScreenState extends State<PersonScreen> {
     if (d == null) return;
     final saved = await showCustomerSheet(context, edit: d.customer, detail: d);
     if (saved != null && mounted) _load();
+  }
+
+  /// 0110 "תנאי תשלום": the customer's own terms (managers edit them).
+  Future<void> _editTerms() async {
+    final d = _detail;
+    if (d == null) return;
+    final saved = await showPaymentTermsSheet(
+      context,
+      customerId: widget.id,
+      initial: PaymentTermsValue(
+        code: d.paymentTerms,
+        days: d.paymentTermsDays,
+        method: d.preferredPaymentMethod,
+      ),
+    );
+    if (saved == null || !mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showNotchNotice(const SnackBar(content: Text(TimelineHe.termsSaved)));
+    unawaited(_load());
+  }
+
+  /// "שוטף+30 · העברה" — the customer's, else the business default (marked).
+  String _termsLine(CustomerDetail d) {
+    final line = termsSummary(
+      paymentTermsLabel(d.effectiveTerms, days: d.effectiveTermsDays),
+      d.effectiveMethod,
+    );
+    if (line == null) return TimelineHe.termsNone;
+    return d.effectiveSource == 'BUSINESS'
+        ? '$line (${TimelineHe.termsFromBusiness})'
+        : line;
   }
 
   /// §4.4: statement for managers and the accountant (P2).
@@ -583,6 +620,23 @@ class _PersonScreenState extends State<PersonScreen> {
             onTap: _edit,
           ),
         ],
+        // 0110 תנאי תשלום (the customer's, else the business default).
+        if (!widget.isSupplier && _detail != null) ...[
+          if (!manage) const SizedBox(height: Space.l),
+          ListTile(
+            key: const Key('person-terms'),
+            minTileHeight: Hit.row,
+            leading: const Icon(Iconsax.calendar_2),
+            title: const Text(TimelineHe.terms, style: AppText.body),
+            subtitle: Text(
+              _termsLine(_detail!),
+              key: const Key('person-terms-value'),
+              style: AppText.secondary.copyWith(color: p.muted),
+            ),
+            trailing: manage ? const Icon(Iconsax.arrow_left_2) : null,
+            onTap: manage ? _editTerms : null,
+          ),
+        ],
         if (!widget.isSupplier && _statement && !_archived)
           ListTile(
             key: const Key('person-statement'),
@@ -599,9 +653,29 @@ class _PersonScreenState extends State<PersonScreen> {
           const SizedBox(height: Space.l),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.page),
-            child: Text(
-              PeopleHe.documents,
-              style: AppText.headline.copyWith(color: p.muted),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    PeopleHe.documents,
+                    style: AppText.headline.copyWith(color: p.muted),
+                  ),
+                ),
+                // 0110: the full history (documents, quotes, payments,
+                // reminders, notes…) of this customer.
+                TextButton.icon(
+                  key: const Key('person-timeline'),
+                  onPressed: () => unawaited(
+                    openCustomerTimeline(
+                      context,
+                      customerId: widget.id,
+                      customerName: _name,
+                    ),
+                  ),
+                  icon: const Icon(Iconsax.clock, size: 18),
+                  label: const Text(TimelineHe.title),
+                ),
+              ],
             ),
           ),
           if (docs == null) const SkeletonList(rows: 3),
