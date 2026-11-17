@@ -89,6 +89,27 @@ class _SummarySectionState extends State<SummarySection> {
             value: s.mainDescription,
             onTap: _editDescription,
           ),
+        if (s.showDescriptionSuggestion)
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Padding(
+              padding: const EdgeInsetsDirectional.only(
+                start: Space.card,
+                end: Space.card,
+                bottom: Space.s,
+              ),
+              child: ActionChip(
+                key: const Key('compose-description-suggestion'),
+                avatar: const Icon(Iconsax.clock, size: 16),
+                label: Text(
+                  ComposeHe.lastDescription(s.suggestedDescription!.trim()),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onPressed: s.takeDescriptionSuggestion,
+              ),
+            ),
+          ),
         if (c.paid && s.split) _splitSection(),
         if (c.paid && !s.split)
           Padding(

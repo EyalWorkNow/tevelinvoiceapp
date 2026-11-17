@@ -129,6 +129,7 @@ class InboxItem {
     this.documentIds = const [],
     this.expenseIds = const [],
     this.paymentIds = const [],
+    this.quoteIds = const [],
     this.customerName,
     this.documentNumber,
     this.documentType,
@@ -152,6 +153,10 @@ class InboxItem {
       documentIds: jStrings(json['documentIds']),
       expenseIds: jStrings(json['expenseIds']),
       paymentIds: jStrings(json['paymentIds']),
+      // BE-21 QUOTE_ACCEPTED: `quoteIds`, else the one in `detail.quoteId`.
+      quoteIds: jStrings(json['quoteIds']).isNotEmpty
+          ? jStrings(json['quoteIds'])
+          : [?jStr(d['quoteId'])],
       customerName: pick('customerName'),
       documentNumber: pick('documentNumber'),
       documentType: pick('documentType'),
@@ -181,6 +186,9 @@ class InboxItem {
   /// PAYMENT_WITHOUT_RECEIPT (A8): payments no receipt covers, oldest first.
   final List<String> paymentIds;
 
+  /// QUOTE_ACCEPTED (BE-21): the accepted quotes, newest acceptance first.
+  final List<String> quoteIds;
+
   /// Single-document cards: who / which (title words).
   final String? customerName;
   final String? documentNumber;
@@ -208,6 +216,7 @@ class InboxItem {
     'documentIds': documentIds,
     if (expenseIds.isNotEmpty) 'expenseIds': expenseIds,
     if (paymentIds.isNotEmpty) 'paymentIds': paymentIds,
+    if (quoteIds.isNotEmpty) 'quoteIds': quoteIds,
     'customerName': ?customerName,
     'documentNumber': ?documentNumber,
     'documentType': ?documentType,

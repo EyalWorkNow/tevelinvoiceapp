@@ -175,7 +175,7 @@ Future<void> runCompose(
     await clearLocalDraft();
     final id = result.document.id;
     if (result.outcome == IssueOutcome.issued) {
-      await rememberDescription(s.customer?.id, s.mainDescription);
+      await rememberDescription(s.customer, s.mainDescription);
     }
     if (result.outcome != IssueOutcome.submittedForApproval) {
       // C2 × C3: one per-customer memory of this issue — the remembered
@@ -185,6 +185,7 @@ Future<void> runCompose(
     // From here the document exists: nothing below may look like a failed
     // issue. A failed send says so, and D opens with S6 to share by hand.
     var sentByWhatsApp = false;
+    var sentChannel = '';
     var needsRecipient = false;
     var shareFailed = false;
     String? deliveryMessage;
@@ -194,6 +195,7 @@ Future<void> runCompose(
       try {
         final dispatch = await dispatchDocument(id);
         sentByWhatsApp = dispatch.delivered;
+        if (dispatch.delivered) sentChannel = dispatch.channel;
         needsRecipient = dispatch.needsRecipient;
         deliveryMessage = dispatch.message;
       } on ApiException catch (e) {
@@ -205,9 +207,15 @@ Future<void> runCompose(
         shareFailed = true;
       }
     }
+    // Walkthrough #6: "הפק ושלח בווטסאפ" opens WhatsApp as it says — also
+    // when the server e-mailed the document (consent) or could not send it;
+    // only a WhatsApp message the server sent itself spares it.
     if (result.outcome == IssueOutcome.issued &&
         run.action == ComposerAction.issueAndWhatsApp &&
-        deliveryMessage == null) {
+        sentChannel != 'WHATSAPP') {
+      final emailed = sentChannel == 'EMAIL';
+      deliveryMessage = null;
+      shareFailed = false;
       onStep(ComposeHe.stepSending);
       try {
         final link = await createIssueShareLink(id);
@@ -226,7 +234,10 @@ Future<void> runCompose(
           whatsAppUri(phone: waPhone(s.customer!.phone), text: text),
         );
         if (opened) {
-          deliveryMessage = ComposeHe.issuedWhatsAppOpened;
+          deliveryMessage = emailed
+              ? ComposeHe.issuedEmailedWhatsAppOpened
+              : ComposeHe.issuedWhatsAppOpened;
+          needsRecipient = false; // WhatsApp is the recipient
         } else {
           deliveryMessage = ComposeHe.issuedShareFailed;
           shareFailed = true;

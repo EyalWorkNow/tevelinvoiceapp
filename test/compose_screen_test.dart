@@ -10,18 +10,22 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:invoice/api/issue_api.dart' show todayIso;
+import 'package:invoice/api/issue_api.dart'
+    show PendingIssue, loadPendingIssue, savePendingIssue, todayIso;
 import 'package:invoice/api/models/models.dart';
 import 'package:invoice/api/signing_api.dart' as signing;
 import 'package:invoice/router.dart';
 import 'package:invoice/screens/compose/compose_screen.dart';
 import 'package:invoice/screens/compose/compose_memory.dart';
 import 'package:invoice/screens/compose/compose_submit.dart';
+import 'package:invoice/screens/compose/sheets/s3_more.dart'
+    show MoreDetailsSheet;
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/ds.dart';
-import 'package:invoice/util/composer_config.dart' show dueDateForTerms;
+import 'package:invoice/util/composer_config.dart'
+    show DocKind, dueDateForTerms;
 import 'package:invoice/util/intent_resolver.dart' show invoiceIntentFor;
 import 'package:invoice/util/labels/labels.dart';
 
@@ -197,11 +201,8 @@ void main() {
       await open(tester, intent: 'PAID');
       await type(tester, '1180');
       expect(find.byKey(const Key('vat-breakdown')), findsOneWidget);
-      expect(
-        find.text('חשבונית מס-קבלה'),
-        findsNothing,
-        reason: 'F1: no type name before issuing',
-      );
+      // Walkthrough #5: the type is on screen (was F1 "no type name").
+      expect(find.text('יופק: חשבונית מס-קבלה'), findsOneWidget);
       expect(primaryLabel(tester), ComposeHe.issueAndWhatsApp);
       await tap(tester, primary());
       expect(taps, 3);
@@ -235,14 +236,14 @@ void main() {
   );
 
   testWidgets(
-    'missing delivery channel opens recipient options without requiring WhatsApp',
+    'missing delivery channel, no phone ("הפק") → recipient options, no WhatsApp',
     (tester) async {
       backend.json('POST', '/documents/:id/dispatch', {
         'status': 'MANUAL_REQUIRED',
         'channel': 'MANUAL',
         'transport': 'manual',
       });
-      await open(tester, intent: 'PAID');
+      await open(tester, intent: 'PAID', customer: walkIn);
       await type(tester, '1180');
       await tap(tester, primary());
       expect(routes, containsAll(['/doc/d1', 'S6 d1']));
@@ -251,6 +252,118 @@ void main() {
         find.text('המסמך מוכן לקבלה בסריקה, בטלפון או במייל'),
         findsOneWidget,
       );
+    },
+  );
+
+  for (final (status, channel, transport) in [
+    ('MANUAL_REQUIRED', 'MANUAL', 'manual'),
+    ('SENT', 'EMAIL', 'smtp'),
+  ]) {
+    testWidgets(
+      'walkthrough #6: "הפק ושלח בווטסאפ" opens WhatsApp also after dispatch $channel',
+      (tester) async {
+        backend.json('POST', '/documents/:id/dispatch', {
+          'status': status,
+          'channel': channel,
+          'transport': transport,
+        });
+        await open(tester, intent: 'PAID');
+        await type(tester, '1180');
+        expect(primaryLabel(tester), ComposeHe.issueAndWhatsApp);
+        await tap(tester, primary());
+        expect(
+          launcher.last.toString(),
+          startsWith('https://wa.me/972501234567'),
+        );
+        expect(routes, contains('/doc/d1'));
+        expect(routes, isNot(contains('S6 d1')), reason: 'WhatsApp opened');
+        expect(
+          find.text(
+            channel == 'EMAIL'
+                ? ComposeHe.issuedEmailedWhatsAppOpened
+                : ComposeHe.issuedWhatsAppOpened,
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+  }
+
+  testWidgets(
+    'walkthrough #6: a WhatsApp the server sent itself is not opened again',
+    (tester) async {
+      backend.json('POST', '/documents/:id/dispatch', {
+        'status': 'SENT',
+        'channel': 'WHATSAPP',
+        'transport': 'whatsapp',
+      });
+      await open(tester, intent: 'PAID');
+      await type(tester, '1180');
+      await tap(tester, primary());
+      expect(launcher.opened, isEmpty);
+    },
+  );
+
+  for (final size in [const Size(1170, 2532), const Size(1125, 2001)]) {
+    testWidgets(
+      'walkthrough #7 (${size.width ~/ 3}pt): "הסתר מקלדת" uncovers the payment chips and "פרטים נוספים"; the keys never move',
+      (tester) async {
+        await open(tester, intent: 'PAID', rememberedMethod: null, size: size);
+        final one = find
+            .descendant(of: find.byType(Keypad), matching: find.text('1'))
+            .first;
+        final before = tester.getTopLeft(one);
+        expect(find.byKey(const Key('keypad-done')), findsNothing);
+        await type(tester, '1180');
+        expect(tester.getTopLeft(one), before, reason: 'U1: no jump');
+        await tap(tester, find.byKey(const Key('keypad-done')));
+        await tester.pumpAndSettle();
+        expect(find.byType(Keypad), findsNothing);
+        expect(
+          find.byKey(const Key('compose-methods')).hitTestable(),
+          findsOneWidget,
+        );
+        await tester.ensureVisible(
+          find.byKey(const Key('compose-more-details')),
+        );
+        expect(
+          find.byKey(const Key('compose-more-details')).hitTestable(),
+          findsOneWidget,
+        );
+        // The type chip opens S3 (type + more details) with the keypad up too.
+        await tap(tester, find.byKey(const Key('compose-show-keypad')));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byKey(const Key('compose-kind-chip')));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('compose-kind-chip')).hitTestable(),
+          findsOneWidget,
+        );
+        await tap(tester, find.byKey(const Key('compose-kind-chip')));
+        await tester.pumpAndSettle();
+        expect(find.byType(MoreDetailsSheet), findsOneWidget);
+      },
+    );
+  }
+
+  testWidgets(
+    'walkthrough #5: the chip names the type; S3 "חשבון עסקה" → chip + "הפק" follow',
+    (tester) async {
+      await open(tester, intent: 'TYPE:305', customer: walkIn);
+      await type(tester, '1180');
+      expect(find.text('יופק: חשבונית מס'), findsOneWidget);
+      expect(primaryLabel(tester), 'הפק חשבונית מס');
+      await tester.tap(find.byKey(const Key('compose-kind-chip')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(kindLabels[DocKind.transactionInvoice]!).last);
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(10, 10)); // close S3
+      await tester.pumpAndSettle();
+      expect(
+        find.text('יופק: ${kindLabels[DocKind.transactionInvoice]}'),
+        findsOneWidget,
+      );
+      expect(primaryLabel(tester), 'הפק חשבון עסקה');
     },
   );
 
@@ -327,14 +440,24 @@ void main() {
   });
 
   testWidgets(
-    'AT-15 defaults: last description and last payment method FOR THE CUSTOMER (C2)',
+    'AT-15 defaults: last description SUGGESTED (walkthrough #2) and last payment method FOR THE CUSTOMER (C2)',
     (tester) async {
       await tester.runAsync(() async {
         await AppCache.write('nd_desc_by_customer_b1', {'c1': 'תיקון דוד'});
       });
       await open(tester, intent: 'PAID', rememberedMethod: 'PAYBOX');
       await type(tester, '100');
+      // Not prefilled: the default is printed until the user takes it.
+      expect(find.text(ComposeHe.defaultDescription), findsOneWidget);
+      final suggestion = find.byKey(
+        const Key('compose-description-suggestion'),
+      );
+      expect(find.text(ComposeHe.lastDescription('תיקון דוד')), findsOneWidget);
+      await tester.ensureVisible(suggestion);
+      await tester.tap(suggestion);
+      await tester.pump();
       expect(find.text('תיקון דוד'), findsOneWidget);
+      expect(suggestion, findsNothing);
       final chips = tester.widget<ChipRow<String>>(
         find.byKey(const Key('compose-methods')),
       );
@@ -389,7 +512,11 @@ void main() {
     (tester) async {
       await open(tester, intent: 'PAID', customer: walkIn);
       await type(tester, '7080');
-      expect(primaryLabel(tester), ComposeHe.issue, reason: 'no phone → "הפק"');
+      expect(
+        primaryLabel(tester),
+        'הפק חשבונית מס-קבלה',
+        reason: 'no phone → "הפק" + what it issues (walkthrough #5)',
+      );
       await tap(tester, primary());
       final finalize = backend.last('POST', '/documents/:id/finalize')!.body;
       expect(finalize['scopeKey'], 'default');
@@ -789,6 +916,7 @@ void main() {
         fake.paymentTerms['c1'] = 'EOM';
         await open(tester, intent: 'TYPE:305');
         await type(tester, '1180');
+        await tap(tester, find.byKey(const Key('keypad-done')));
         await tap(tester, find.byKey(const Key('compose-more-details')));
         expect(find.byKey(const Key('s3-due-date')), findsOneWidget);
         expect(find.byKey(const Key('s3-notes')), findsOneWidget);
@@ -806,7 +934,7 @@ void main() {
     );
 
     testWidgets(
-      'BE-09: no description on this device → the customer\'s last line on the server',
+      'BE-09: no description on this device → the customer\'s last line on the server, as a one-tap suggestion',
       (tester) async {
         await open(
           tester,
@@ -819,11 +947,78 @@ void main() {
           ),
         );
         await type(tester, '100');
+        final suggestion = find.byKey(
+          const Key('compose-description-suggestion'),
+        );
+        await tester.ensureVisible(suggestion);
+        await tester.tap(suggestion);
+        await tester.pump();
         await tap(tester, primary());
         expect(
           backend.last('POST', '/documents')!.body['lines'][0]['description'],
           'ניקוי מזגן',
         );
+      },
+    );
+
+    testWidgets(
+      'walkthrough #2: a credit\'s "זיכוי חלקי לחשבונית 1468" is never printed on a new invoice nor suggested',
+      (tester) async {
+        await tester.runAsync(
+          () => AppCache.write('nd_desc_by_customer_b1', {
+            'c1': 'זיכוי חלקי לחשבונית 1468',
+          }),
+        );
+        await open(
+          tester,
+          intent: 'PAID',
+          customer: const Customer(
+            id: 'c1',
+            name: 'דנה',
+            phone: '050-1234567',
+            lastLineDescription: 'זיכוי חלקי לחשבונית 1468',
+          ),
+        );
+        await type(tester, '100');
+        expect(
+          find.byKey(const Key('compose-description-suggestion')),
+          findsNothing,
+        );
+        await tap(tester, primary());
+        expect(
+          backend.last('POST', '/documents')!.body['lines'][0]['description'],
+          ComposeHe.defaultDescription,
+        );
+        // …and issuing does not teach it either.
+        final saved = await tester.runAsync(
+          () => AppCache.read('nd_desc_by_customer_b1'),
+        );
+        expect((saved as Map)['c1'], isNot(contains('זיכוי')));
+      },
+    );
+
+    testWidgets(
+      'walkthrough #2: the walk-in customer gets no remembered description',
+      (tester) async {
+        await tester.runAsync(
+          () => AppCache.write('nd_desc_by_customer_b1', {'w1': 'תיקון דוד'}),
+        );
+        await open(
+          tester,
+          intent: 'PAID',
+          customer: const Customer(
+            id: 'w1',
+            name: 'לקוח מזדמן',
+            isWalkIn: true,
+            lastLineDescription: 'ניקוי מזגן',
+          ),
+        );
+        await type(tester, '100');
+        expect(
+          find.byKey(const Key('compose-description-suggestion')),
+          findsNothing,
+        );
+        expect(find.text(ComposeHe.defaultDescription), findsOneWidget);
       },
     );
 
@@ -836,7 +1031,7 @@ void main() {
           customer: const Customer(id: 's9', name: 'ספק הברגים'),
         );
         await type(tester, '500');
-        expect(primaryLabel(tester), ComposeHe.issue);
+        expect(primaryLabel(tester), 'הפק הזמנת רכש');
         await tap(tester, primary());
         final body = backend.last('POST', '/documents')!.body;
         expect(
@@ -961,6 +1156,106 @@ void main() {
         );
         final draft = await tester.runAsync(() => loadLocalDraft('PAID'));
         expect(draft, isNull);
+      },
+    );
+
+    testWidgets(
+      'walkthrough #4: an issue that failed offline → ✕ → מחק deletes the server draft it left and the journal',
+      (tester) async {
+        await open(tester, intent: 'PAID');
+        // The POST reached the server but its answer was lost (network).
+        backend
+          ..on('POST', '/documents', (_) => throw const SocketException('down'))
+          ..on('GET', '/documents', (r) {
+            final draft = r.query['status'] == 'DRAFT';
+            return FakeResponse(200, {
+              'total': draft ? 1 : 0,
+              'documents': [
+                if (draft)
+                  {
+                    'id': 'd-lost',
+                    'status': 'DRAFT',
+                    'documentType': 'TAX_INVOICE_RECEIPT',
+                    'customerId': dana.id,
+                    'totalMinor': '118000',
+                  },
+              ],
+            });
+          })
+          ..json('DELETE', '/documents/:id', {'deleted': true});
+        await type(tester, '1180');
+        await tap(tester, primary());
+        expect(
+          await tester.runAsync(loadPendingIssue),
+          isNotNull,
+          reason: 'the failed issue keeps its journal',
+        );
+        await tester.tap(find.byKey(const Key('compose-close')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('save-draft-discard')));
+        await flush(tester);
+        await tester.pumpAndSettle();
+        expect(find.byType(ComposeScreen), findsNothing);
+        expect(
+          backend.last('DELETE', '/documents/:id')!.path,
+          '/documents/d-lost',
+        );
+        expect(await tester.runAsync(loadPendingIssue), isNull);
+        expect(await tester.runAsync(() => loadLocalDraft('PAID')), isNull);
+      },
+    );
+
+    testWidgets(
+      'walkthrough #4: "יש טיוטה שלא הסתיימה" → התחל חדש deletes it for good (no dialog next time)',
+      (tester) async {
+        await tester.runAsync(() => signInAs(backend, Preset.owner));
+        await tester.runAsync(
+          () => savePendingIssue(
+            PendingIssue(
+              businessId: 'b1',
+              body: {
+                'documentType': 'TAX_INVOICE_RECEIPT',
+                'customerId': dana.id,
+              },
+              form: {
+                'kind': 'taxInvoiceReceipt',
+                'customer': dana.toJson(),
+                'amountText': '777',
+                'description': 'ייעוץ',
+              },
+              totalMinor: BigInt.from(77700),
+              needsApproval: false,
+              createAttemptTotal: '77700',
+            ),
+          ),
+        );
+        backend
+          ..on('GET', '/documents', (r) {
+            final draft = r.query['status'] == 'DRAFT';
+            return FakeResponse(200, {
+              'total': draft ? 1 : 0,
+              'documents': [
+                if (draft)
+                  {
+                    'id': 'd-lost',
+                    'status': 'DRAFT',
+                    'documentType': 'TAX_INVOICE_RECEIPT',
+                    'customerId': dana.id,
+                    'totalMinor': '77700',
+                  },
+              ],
+            });
+          })
+          ..json('DELETE', '/documents/:id', {'deleted': true});
+        await open(tester, intent: 'PAID', customer: null);
+        expect(find.byKey(const Key('resume-draft-dialog')), findsOneWidget);
+        await tester.tap(find.byKey(const Key('resume-draft-new')));
+        await flush(tester);
+        expect(
+          backend.last('DELETE', '/documents/:id')!.path,
+          '/documents/d-lost',
+        );
+        expect(await tester.runAsync(loadPendingIssue), isNull);
       },
     );
 

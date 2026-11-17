@@ -10,6 +10,14 @@ import 'package:invoice/util/vat.dart';
 BigInt b(int v) => BigInt.from(v);
 final unit = oneQuantity;
 
+LineAmounts sent2(GrossLine g, BigInt qty, int rate) => calculateLine(
+  quantityMicros: qty,
+  unitPriceMinor: g.unitPriceMinor,
+  discountMinor: g.discountMinor,
+  taxRateBasisPoints: rate,
+  agreedTotalMinor: g.agreedTotalMinor,
+);
+
 LineAmounts sent(GrossLine g, BigInt qty) => calculateLine(
   quantityMicros: qty,
   unitPriceMinor: g.unitPriceMinor,
@@ -85,8 +93,8 @@ void main() {
     expect(g.discountMinor >= BigInt.zero, isTrue);
   });
 
-  test('several units: exact when a net unit price fits, else nearest', () {
-    // 5 × ₪11.80 → net 10.00 × 5: exact.
+  test('several units: exact when a net unit price fits', () {
+    // 5 × ₪11.80 → net 10.00 × 5: exact, no agreed total needed.
     final five = b(5) * unit;
     final g5 = grossLine(
       quantityMicros: five,
@@ -95,8 +103,12 @@ void main() {
       agreed: true,
     );
     expect(sent(g5, five).totalMinor, b(5900));
-    // 3 × ₪2.00: the subtotal moves in steps of 3 agorot and no step has a
-    // VAT within the agora of ₪6.00 → the nearest standard line (open item).
+    expect(g5.agreedTotalMinor, isNull);
+    expect(g5.discountMinor, BigInt.zero);
+  });
+
+  // Walkthrough 2026-11-17 #1 (doc 1466): ₪2 + 3 × ₪2.00 printed ₪7.98.
+  test('3 × ₪2.00 incl. VAT totals ₪6.00 (1.70 × 3 − 0.01 + VAT 0.91)', () {
     final three = b(3) * unit;
     final g3 = grossLine(
       quantityMicros: three,
@@ -104,7 +116,96 @@ void main() {
       basisPoints: 1800,
       agreed: true,
     );
-    expect((sent(g3, three).totalMinor - b(600)).abs() <= b(3), isTrue);
+    final r = sent(g3, three);
+    expect(r.totalMinor, b(600));
+    expect(g3.unitPriceMinor, b(170));
+    expect(g3.discountMinor, b(1));
+    expect(r.subtotalMinor, b(509));
+    expect(r.taxMinor, b(91));
+    expect(g3.agreedTotalMinor, b(600));
+    expect(agreedTaxAllowed(r.subtotalMinor, r.taxMinor, 1800), isTrue);
+  });
+
+  /// The server's checks on a sent line: discount within the gross, VAT the
+  /// floor/ceiling of the exact VAT, D110 1267 = 1264 × 1265 + 1266.
+  void expectLegal(GrossLine g, BigInt qty, int rate, String why) {
+    final lineGross = roundHalfAwayFromZeroDiv(
+      qty * g.unitPriceMinor,
+      oneQuantity,
+    );
+    expect(g.unitPriceMinor > BigInt.zero, isTrue, reason: why);
+    expect(g.discountMinor >= BigInt.zero, isTrue, reason: why);
+    expect(g.discountMinor <= lineGross, isTrue, reason: why);
+    final r = calculateLine(
+      quantityMicros: qty,
+      unitPriceMinor: g.unitPriceMinor,
+      discountMinor: g.discountMinor,
+      taxRateBasisPoints: rate,
+      agreedTotalMinor: g.agreedTotalMinor,
+    );
+    expect(r.subtotalMinor, lineGross - g.discountMinor, reason: why);
+    expect(
+      agreedTaxAllowed(r.subtotalMinor, r.taxMinor, rate),
+      isTrue,
+      reason: why,
+    );
+  }
+
+  test('quantity 1–12 × every gross price ₪0.01–₪100.00 is exact', () {
+    for (final rate in [1800, 1700]) {
+      for (var q = 1; q <= 12; q++) {
+        final qty = b(q) * unit;
+        for (var g = 1; g <= 10000; g++) {
+          final l = grossLine(
+            quantityMicros: qty,
+            grossUnitMinor: b(g),
+            basisPoints: rate,
+            agreed: true,
+          );
+          final why = '$q × $g @ $rate';
+          expect(sent2(l, qty, rate).totalMinor, b(q * g), reason: why);
+          expectLegal(l, qty, rate, why);
+          // The leftover is a rounding remainder, never a real discount.
+          expect(l.discountMinor < b(q), isTrue, reason: why);
+        }
+      }
+    }
+  });
+
+  test('with a discount incl. VAT: q × price − discount is exact', () {
+    for (var q = 1; q <= 12; q++) {
+      final qty = b(q) * unit;
+      for (var g = 50; g <= 10000; g += 37) {
+        for (final d in [1, 10, 33, 100, g ~/ 2]) {
+          if (d >= q * g) continue;
+          final l = grossLine(
+            quantityMicros: qty,
+            grossUnitMinor: b(g),
+            grossDiscountMinor: b(d),
+            basisPoints: 1800,
+            agreed: true,
+          );
+          final why = '$q × $g − $d';
+          expect(sent2(l, qty, 1800).totalMinor, b(q * g - d), reason: why);
+          expectLegal(l, qty, 1800, why);
+        }
+      }
+    }
+  });
+
+  test('fractional quantities (1.5, 0.25, 2.333) are exact', () {
+    for (final (qText, g) in [('1.5', 200), ('0.25', 1000), ('2.333', 777)]) {
+      final qty = parseQuantityMicros(qText)!;
+      final l = grossLine(
+        quantityMicros: qty,
+        grossUnitMinor: b(g),
+        basisPoints: 1800,
+        agreed: true,
+      );
+      final target = roundHalfAwayFromZeroDiv(qty * b(g), oneQuantity);
+      expect(sent2(l, qty, 1800).totalMinor, target, reason: qText);
+      expectLegal(l, qty, 1800, qText);
+    }
   });
 
   test(
@@ -200,6 +301,67 @@ void main() {
           ComposeLine(description: 'x', quantityText: '1', priceText: '2'),
         );
       expect(s.totalMinor, b(1200));
+    });
+
+    test('walkthrough 1466: ₪2 + 3 × ₪2.00 → ₪8.00 (preview = sent)', () {
+      final s = compose()
+        ..amountText = '2'
+        ..extraLines.add(
+          ComposeLine(description: 'x', quantityText: '3', priceText: '2'),
+        );
+      expect(s.totalMinor, b(800));
+      final extra = s.requestLines[1];
+      expect(extra['quantityMicros'], '3000000');
+      expect(extra['agreedTotalMinor'], '600');
+    });
+
+    test('several lines, several quantities, a discount: exact sum', () {
+      final s = compose()
+        ..amountText = '99.9'
+        ..discountText = '9.9'
+        ..extraLines.addAll([
+          ComposeLine(description: 'a', quantityText: '7', priceText: '3.33'),
+          ComposeLine(description: 'b', quantityText: '12', priceText: '0.1'),
+          ComposeLine(
+            description: 'c',
+            quantityText: '2.5',
+            priceText: '19.99',
+          ),
+        ]);
+      // 90.00 + 23.31 + 1.20 + round(49.975) 49.98
+      expect(s.totalMinor, b(9000 + 2331 + 120 + 4998));
+    });
+
+    test('a duplicate of a 3 × ₪2.00 agreed line comes back as 3 × ₪2.00', () {
+      final s = compose()
+        ..loadLines([
+          DocumentLine(
+            position: 1,
+            description: 'שירות',
+            quantityMicros: unit,
+            unitPriceMinor: b(169),
+            discountMinor: BigInt.zero,
+            subtotalMinor: b(169),
+            taxRateBasisPoints: 1800,
+            taxAmountMinor: b(31),
+            totalMinor: b(200),
+          ),
+          DocumentLine(
+            position: 2,
+            description: 'x',
+            quantityMicros: b(3) * unit,
+            unitPriceMinor: b(170),
+            discountMinor: b(1),
+            subtotalMinor: b(509),
+            taxRateBasisPoints: 1800,
+            taxAmountMinor: b(91),
+            totalMinor: b(600),
+          ),
+        ]);
+      expect(s.inclusive, isTrue);
+      expect(s.extraLines.single.priceText, '2');
+      expect(s.extraLines.single.quantityText, '3');
+      expect(s.totalMinor, b(800));
     });
 
     test('typed before VAT is untouched (net 2.00 → 2.36)', () {

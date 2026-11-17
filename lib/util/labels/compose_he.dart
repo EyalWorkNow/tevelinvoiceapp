@@ -47,6 +47,7 @@ abstract final class ComposeHe {
   }
 
   static const showKeypad = 'הצג מקלדת';
+  static const hideKeypad = 'הסתר מקלדת';
 
   // Screen.
   static const titleNew = 'מסמך חדש';
@@ -66,6 +67,9 @@ abstract final class ComposeHe {
   static const moreDetails = 'פרטים נוספים';
   static const vatIncludedHint = 'נגיעה מחליפה כולל ↔ לפני מע״מ';
   static const defaultDescription = 'שירותים';
+
+  /// Walkthrough #2: the customer's last description, one tap away.
+  static String lastDescription(String text) => 'בפעם הקודמת: $text';
   static const descriptionLabel = 'תיאור';
   static const editDescription = 'על מה?';
   static const methodMore = 'עוד';
@@ -119,6 +123,8 @@ abstract final class ComposeHe {
   static const issuedShareFailed =
       'המסמך הופק. השיתוף נכשל – אפשר לשתף מהמסמך.';
   static const issuedWhatsAppOpened = 'המסמך הופק. WhatsApp נפתח לשיתוף.';
+  static const issuedEmailedWhatsAppOpened =
+      'המסמך הופק ונשלח במייל. WhatsApp נפתח לשיתוף.';
   static String issuedDeliveryFailed(String reason) =>
       'המסמך הופק. המשלוח לא הושלם: $reason';
 
@@ -195,6 +201,24 @@ const Map<DocKind, String> kindLabels = {
   DocKind.salesOrder: 'הזמנה',
   DocKind.purchaseOrder: 'הזמנת רכש',
 };
+
+/// Walkthrough 2026-11-17 #5: the document the Composer issues, on screen
+/// at all times ("יופק: חשבון עסקה / פרופורמה"; a quote is a quote).
+String kindChipLabel(DocKind k) =>
+    k == DocKind.quote ? kindLabels[k]! : 'יופק: ${kindLabels[k]}';
+
+/// The short name in the primary button ("הפק חשבון עסקה").
+String kindShortLabel(DocKind k) => switch (k) {
+  DocKind.transactionInvoice => 'חשבון עסקה',
+  _ => kindLabels[k]!,
+};
+
+/// The primary button of the Composer: "הפק" names what it issues; the
+/// longer actions keep their words (the chip above names the type).
+String composerActionLabel(ComposerAction a, DocKind k) =>
+    a == ComposerAction.issue && k != DocKind.quote
+    ? '${ComposeHe.issue} ${kindShortLabel(k)}'
+    : actionLabel(a);
 
 String actionLabel(ComposerAction a) => switch (a) {
   ComposerAction.submit => ComposeHe.submit,
