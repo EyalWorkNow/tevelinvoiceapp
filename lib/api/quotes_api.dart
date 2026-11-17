@@ -153,3 +153,29 @@ Future<String> convertQuoteToInvoice(
     taxRateBasisPoints: taxRateBasisPoints,
   );
 }
+
+/// DELETE /quotes/:id (owner feedback 2026-11-16): a DRAFT that was never
+/// shared. A quote already gone (lost response, double tap) is fine.
+Future<void> deleteQuote(String id) async {
+  try {
+    await _api.delete('/quotes/$id');
+  } on ApiException catch (e) {
+    if (e.status != 404) rethrow;
+  }
+  notifyDocumentsChanged();
+}
+
+/// POST /quotes/:id/send-email → the customer's address (PDF + /q/ link).
+/// DRAFT → SENT on the server. CUSTOMER_EMAIL_MISSING when the card has none.
+Future<String> emailQuote(String id) async {
+  final json = await _api.post('/quotes/$id/send-email', const {});
+  notifyDocumentsChanged();
+  return json['to'] as String? ?? '';
+}
+
+/// POST /quotes/:id/cancel (owner decision 2026-11-17): DRAFT/SENT → CANCELLED
+/// ("בוטלה"). Idempotent on the server.
+Future<void> cancelQuote(String id) async {
+  await _api.post('/quotes/$id/cancel', const {});
+  notifyDocumentsChanged();
+}

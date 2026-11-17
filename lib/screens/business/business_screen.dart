@@ -30,6 +30,7 @@ import 'branding_screen.dart';
 import 'integrations_screen.dart';
 import '../billing/billing_screen.dart';
 import 'business_template.dart';
+import 'collection_settings_screen.dart';
 import 'sheets/s13_editor.dart';
 import 'sheets/s14_switch.dart';
 import 'shaam_page.dart';
@@ -38,6 +39,10 @@ import '../audit/audit_log_screen.dart' show canViewAuditLog, openAuditLog;
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../people/sheets/s2_customer.dart' show showCustomerSheet;
 import '../retainers/retainers_month_screen.dart';
+import '../calendar/calendar_screen.dart';
+import '../people/sheets/payment_terms_sheet.dart';
+import '../../api/customer_timeline_api.dart' show fetchBusinessPaymentTerms;
+import '../../util/labels/timeline_he.dart';
 
 class BusinessScreen extends StatelessWidget {
   const BusinessScreen({super.key, this.section});
@@ -70,6 +75,8 @@ class BusinessScreen extends StatelessWidget {
 
 /// Rarely used rows grouped under "עוד הגדרות" (SPEC §6.B: B ≤ 10 rows).
 const Set<String> moreSettingsKeys = {
+  // 0110: the business-default payment terms.
+  'paymentTerms',
   'integrations',
   'subscription',
   'notifications',
@@ -178,6 +185,12 @@ List<BusinessRowSpec> allBusinessRows(
       BusinessHe.reminders,
       Iconsax.notification_bing,
     ),
+  if (caps.can(Cap.settingsBusiness))
+    const BusinessRowSpec(
+      'paymentTerms',
+      TimelineHe.businessTermsTitle,
+      Iconsax.calendar_2,
+    ),
   if (caps.can(Cap.settingsBusiness) || caps.can(Cap.reportView))
     const BusinessRowSpec('shaam', BusinessHe.shaam, Iconsax.verify),
   if (caps.can(Cap.settingsNumbering))
@@ -274,6 +287,18 @@ class _BusinessListState extends State<_BusinessList> {
     return ok ?? false;
   }
 
+  /// The ladder settings; the switch above reflects what was saved there.
+  Future<void> _openCollectionSettings() async {
+    await openCollectionSettings(context);
+    if (!mounted) return;
+    try {
+      final on = await fetchRemindersEnabled();
+      if (mounted) setState(() => _reminders = on);
+    } on Object {
+      // Keep the last known state.
+    }
+  }
+
   Future<void> _setReminders(bool on) async {
     if (on && !await _confirmRemindersOn()) return;
     if (!mounted) return;
@@ -363,8 +388,9 @@ class _BusinessListState extends State<_BusinessList> {
                 label: r.label,
                 value: BusinessHe.remindersHint,
                 icon: r.icon,
-                // Only the switch toggles: tapping the label to read it must not
-                // start e-mailing customers.
+                // Only the switch toggles: tapping the label opens the ladder
+                // (0111: days, wording, channels) — it never starts e-mailing.
+                onTap: () => unawaited(_openCollectionSettings()),
                 trailing: Switch.adaptive(
                   key: const Key('reminders-switch'),
                   value: _reminders ?? false,
@@ -402,6 +428,20 @@ class _BusinessListState extends State<_BusinessList> {
           onTap: () => unawaited(
             openCustomerCrmAgenda(context, businessId: currentBusinessId),
           ),
+        ),
+      // 0106 "יומן": bookings from the public link + the phone's busy times.
+      if (mayUseCalendar(caps))
+        _ManagementAction(
+          id: 'calendar',
+          label: CalendarHe.title,
+          icon: Iconsax.calendar_2,
+          orb: const Icon(
+            Iconsax.calendar_2,
+            color: Color(0xFF2F5B47),
+            size: 27,
+          ),
+          color: const Color(0xFFCFF5DE),
+          onTap: () => unawaited(openCalendar(context)),
         ),
       // C4 "חבילת ריטיינר": the month's recurring drafts, reviewed and issued at once.
       if (mayUseRetainers(caps))
@@ -682,6 +722,24 @@ void openBusinessRow(BuildContext context, String key) {
       showEditorSheet(context, instance: '13.9');
     case 'audit':
       unawaited(openAuditLog(context));
+    case 'paymentTerms':
+      unawaited(_openBusinessTerms(context));
+  }
+}
+
+/// 0110: the default terms for customers without their own.
+Future<void> _openBusinessTerms(BuildContext context) async {
+  try {
+    final current = await fetchBusinessPaymentTerms();
+    if (!context.mounted) return;
+    final saved = await showPaymentTermsSheet(context, initial: current);
+    if (saved != null && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showNotchNotice(const SnackBar(content: Text(TimelineHe.termsSaved)));
+    }
+  } on Object catch (e) {
+    if (context.mounted) showErrorSnack(context, e);
   }
 }
 

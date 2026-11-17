@@ -16,6 +16,8 @@
 // 200/210/310/340/345/205/410/420/600/610/700/710/800–910: not in the app (W).
 
 import '../state/caps.dart';
+import 'israel_date.dart' show isoDate;
+import 'payment_terms.dart' show dueDateFor;
 
 /// Document kinds the Composer (and S8 for 330) can produce.
 enum DocKind {
@@ -306,21 +308,9 @@ List<DocKind> moreKinds(
   ];
 }
 
-/// F8 / §7: the due date from the customer's payment terms (BE-09 codes),
-/// 'YYYY-MM-DD'. שוטף = the end of the issue month; שוטף+N = that + N days;
-/// מיידי = the issue date. Unknown / none → שוטף+30 (§7 default).
-String dueDateForTerms(String? terms, DateTime issueDate) {
-  // Calendar arithmetic (DateTime(y, m, d + n)), never Duration: DST-safe.
-  final eom = DateTime(issueDate.year, issueDate.month + 1, 0);
-  DateTime plus(int days) => DateTime(eom.year, eom.month, eom.day + days);
-  final due = switch (terms) {
-    'IMMEDIATE' => DateTime(issueDate.year, issueDate.month, issueDate.day),
-    'EOM' => eom,
-    'EOM_45' => plus(45),
-    'EOM_60' => plus(60),
-    'EOM_90' => plus(90),
-    _ => plus(30),
-  };
-  return '${due.year.toString().padLeft(4, '0')}-${due.month.toString().padLeft(2, '0')}-'
-      '${due.day.toString().padLeft(2, '0')}';
-}
+/// F8 / §7: the due date from the customer's payment terms (BE-09 codes +
+/// the custom EOM_DAYS / NET_DAYS with [days], 0110), 'YYYY-MM-DD'. שוטף =
+/// the end of the issue month; שוטף+N = that + N days; מיידי = the issue
+/// date. Unknown / none → שוטף+30 (§7 default). See util/payment_terms.dart.
+String dueDateForTerms(String? terms, DateTime issueDate, {int? days}) =>
+    isoDate(dueDateFor(terms, issueDate, days: days));

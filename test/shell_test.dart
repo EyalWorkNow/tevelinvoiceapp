@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -99,6 +101,137 @@ void main() {
       expect(tabBody.viewInsets.bottom, 0);
     },
   );
+
+  // Walkthrough 2026-11-17 #15 (FROZEN navbar design, memory rule): the bar
+  // must fit every phone width without a single pixel changing at normal
+  // widths. Geometry of every navbar part, measured on the design before the
+  // fix (commit 5931520), per width.
+  final navbarGeometry = <double, Map<String, Rect>>{
+    320.0: {
+      'navigation-capsule': Rect.fromLTRB(
+        12.0000,
+        767.3484,
+        235.7139,
+        826.4916,
+      ),
+      'home-create-glass': Rect.fromLTRB(
+        242.2854,
+        764.0627,
+        308.0000,
+        829.7773,
+      ),
+      'tab-home': Rect.fromLTRB(179.8089, 770.7607, 231.4014, 822.3532),
+      'tab-people': Rect.fromLTRB(125.3101, 770.7607, 176.9026, 822.3532),
+      'tab-business': Rect.fromLTRB(70.8113, 770.7607, 122.4038, 822.3532),
+      'tab-profile': Rect.fromLTRB(16.3125, 770.7607, 67.9051, 822.3532),
+    },
+    375.0: {
+      'navigation-capsule': Rect.fromLTRB(
+        12.0000,
+        761.8537,
+        277.2824,
+        831.9863,
+      ),
+      'home-create-glass': Rect.fromLTRB(
+        285.0749,
+        757.9574,
+        363.0000,
+        835.8826,
+      ),
+      'tab-home': Rect.fromLTRB(210.9895, 765.9000, 272.1685, 827.0790),
+      'tab-people': Rect.fromLTRB(146.3643, 765.9000, 207.5433, 827.0790),
+      'tab-business': Rect.fromLTRB(81.7391, 765.9000, 142.9181, 827.0790),
+      'tab-profile': Rect.fromLTRB(17.1138, 765.9000, 78.2928, 827.0790),
+    },
+    393.0: {
+      'navigation-capsule': Rect.fromLTRB(
+        12.0000,
+        760.0554,
+        290.8866,
+        833.7846,
+      ),
+      'home-create-glass': Rect.fromLTRB(
+        299.0787,
+        755.9594,
+        381.0000,
+        837.8806,
+      ),
+      'tab-home': Rect.fromLTRB(221.1941, 764.3092, 285.5105, 828.6256),
+      'tab-people': Rect.fromLTRB(153.2548, 764.3092, 217.5712, 828.6256),
+      'tab-business': Rect.fromLTRB(85.3154, 764.3092, 149.6318, 828.6256),
+      'tab-profile': Rect.fromLTRB(17.3761, 764.3092, 81.6925, 828.6256),
+    },
+  };
+  const navbarKeys = [
+    'navigation-capsule',
+    'home-create-glass',
+    'tab-home',
+    'tab-people',
+    'tab-business',
+    'tab-profile',
+  ];
+
+  Future<void> saveNavbarShot(WidgetTester tester, String name) async {
+    const dir = String.fromEnvironment('NAVBAR_SHOT_DIR');
+    if (dir.isEmpty) return;
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find
+          .ancestor(
+            of: find.byType(AppShell),
+            matching: find.byType(RepaintBoundary),
+          )
+          .first,
+    );
+    await tester.runAsync(() async {
+      final image = await boundary.toImage(pixelRatio: 2);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      await File('$dir/$name.png').writeAsBytes(bytes!.buffer.asUint8List());
+    });
+  }
+
+  for (final width in [320.0, 375.0, 393.0]) {
+    testWidgets('#15 navbar fits ${width.toInt()}pt, unchanged geometry', (
+      tester,
+    ) async {
+      await pumpShell(tester, Preset.owner, width: width);
+      expect(tester.takeException(), isNull);
+      final rects = {
+        for (final k in navbarKeys) k: tester.getRect(find.byKey(Key(k))),
+      };
+      final expected = navbarGeometry[width]!;
+      {
+        for (final k in navbarKeys) {
+          final a = rects[k]!, b = expected[k]!;
+          for (final pair in [
+            [a.left, b.left],
+            [a.top, b.top],
+            [a.width, b.width],
+            [a.height, b.height],
+          ]) {
+            expect(pair[0], closeTo(pair[1], 0.001), reason: '$k at $width');
+          }
+        }
+      }
+      await saveNavbarShot(tester, 'navbar-${width.toInt()}');
+    });
+  }
+
+  testWidgets('#15 a width change never overflows the bar (6.6px before)', (
+    tester,
+  ) async {
+    await pumpShell(tester, Preset.owner, width: 402);
+    tester.view.physicalSize = const Size(375 * 3, 2532);
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      if (i == 0) await saveNavbarShot(tester, 'navbar-resize-402-to-375');
+      expect(tester.takeException(), isNull, reason: 'frame $i');
+    }
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byKey(const Key('navigation-capsule'))).width,
+      closeTo(265.3, 0.1),
+    );
+  });
 
   testWidgets('large reserved glass navigation; create action on Home only', (
     tester,

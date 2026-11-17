@@ -16,6 +16,7 @@ import '../../../ui/ds.dart';
 import '../../../util/labels/compose_he.dart';
 import '../../../util/money.dart';
 import '../compose_state.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 /// The headline as plain text ('₪460.89'): what [AmountField] shows.
 String headlineText(ComposeState s) =>
@@ -40,9 +41,12 @@ String? headlineCaption(ComposeState s) {
 }
 
 class AmountField extends StatelessWidget {
-  const AmountField({super.key, required this.state, this.onTap});
+  const AmountField({super.key, required this.state, this.onTap, this.header});
 
   final ComposeState state;
+
+  /// Replaces "מה הסכום?" (walkthrough #5: the document type, [KindPill]).
+  final Widget? header;
 
   /// A tap on the card (brings the keypad back when it was put away).
   final VoidCallback? onTap;
@@ -112,7 +116,7 @@ class AmountField extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Text(ComposeHe.amountQuestion, style: AppText.body),
+          header ?? const Text(ComposeHe.amountQuestion, style: AppText.body),
           SizedBox(height: compact ? 0 : 24),
           Padding(
             padding: EdgeInsets.symmetric(vertical: compact ? 0 : Space.m),
@@ -186,5 +190,58 @@ class AmountField extends StatelessWidget {
             onTap: onTap,
             child: card,
           );
+  }
+}
+
+/// Walkthrough 2026-11-17 #5: "יופק: חשבון עסקה ⌄" on top of the amount — the
+/// document the Composer issues; [onTap] (S3) switches it.
+class KindPill extends StatelessWidget {
+  const KindPill({super.key, required this.label, this.onTap});
+
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.3,
+      child: Semantics(
+        button: onTap != null,
+        child: InkWell(
+          key: const Key('compose-kind-chip'),
+          borderRadius: BorderRadius.circular(Radii.button),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(Radii.button),
+              border: Border.all(color: p.line),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Iconsax.document_text, size: 16, color: p.ink),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    key: const Key('compose-kind-label'),
+                    style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (onTap != null)
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 18,
+                    color: p.ink,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -265,6 +265,28 @@ class _ShellBottomNavigation extends StatefulWidget {
   State<_ShellBottomNavigation> createState() => _ShellBottomNavigationState();
 }
 
+/// The ＋ slot's open fraction (0 hidden … 1 shown), animated only when
+/// [shown] changes; [builder] multiplies its current sizes by it.
+class _CreateSlot extends StatelessWidget {
+  const _CreateSlot({
+    required this.shown,
+    required this.duration,
+    required this.builder,
+  });
+
+  final bool shown;
+  final Duration duration;
+  final Widget Function(double factor) builder;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+    tween: Tween(end: shown ? 1 : 0),
+    duration: duration,
+    curve: Curves.easeInOutCubic,
+    builder: (context, factor, _) => builder(factor),
+  );
+}
+
 class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
   bool _pressed = false;
   AppTab? _pressedTab;
@@ -308,34 +330,40 @@ class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
               mainAxisAlignment: MainAxisAlignment.center,
               textDirection: TextDirection.rtl,
               children: [
-                ClipRect(
-                  child: AnimatedContainer(
-                    duration: motionDuration,
-                    curve: Curves.easeInOutCubic,
-                    width: widget.showCreate ? actionSize : 0,
-                    height: actionSize,
-                    child: ClipRect(
-                      child: OverflowBox(
-                        alignment: Alignment.centerRight,
-                        minWidth: actionSize,
-                        maxWidth: actionSize,
-                        minHeight: actionSize,
-                        maxHeight: actionSize,
-                        child: AnimatedSlide(
-                          duration: motionDuration,
-                          curve: Curves.easeInOutCubic,
-                          offset: widget.showCreate
-                              ? Offset.zero
-                              : const Offset(1.15, 0),
-                          child: AnimatedOpacity(
+                // Walkthrough 2026-11-17 #15: only showing / hiding ＋ animates the
+                // orb's slot. Its size follows the screen width at once — animating a
+                // width change (rotation, split view, a resize) overflowed the row by
+                // 6.6px for a few frames. Same sizes and motion as before otherwise.
+                _CreateSlot(
+                  shown: widget.showCreate,
+                  duration: motionDuration,
+                  builder: (factor) => ClipRect(
+                    child: SizedBox(
+                      width: actionSize * factor,
+                      height: actionSize,
+                      child: ClipRect(
+                        child: OverflowBox(
+                          alignment: Alignment.centerRight,
+                          minWidth: actionSize,
+                          maxWidth: actionSize,
+                          minHeight: actionSize,
+                          maxHeight: actionSize,
+                          child: AnimatedSlide(
                             duration: motionDuration,
-                            curve: Curves.easeOutCubic,
-                            opacity: widget.showCreate ? 1 : 0,
-                            child: IgnorePointer(
-                              ignoring: !widget.showCreate,
-                              child: ExcludeSemantics(
-                                excluding: !widget.showCreate,
-                                child: _createButton(actionSize, scale),
+                            curve: Curves.easeInOutCubic,
+                            offset: widget.showCreate
+                                ? Offset.zero
+                                : const Offset(1.15, 0),
+                            child: AnimatedOpacity(
+                              duration: motionDuration,
+                              curve: Curves.easeOutCubic,
+                              opacity: widget.showCreate ? 1 : 0,
+                              child: IgnorePointer(
+                                ignoring: !widget.showCreate,
+                                child: ExcludeSemantics(
+                                  excluding: !widget.showCreate,
+                                  child: _createButton(actionSize, scale),
+                                ),
                               ),
                             ),
                           ),
@@ -344,10 +372,11 @@ class _ShellBottomNavigationState extends State<_ShellBottomNavigation> {
                     ),
                   ),
                 ),
-                AnimatedContainer(
+                _CreateSlot(
+                  shown: widget.showCreate,
                   duration: motionDuration,
-                  curve: Curves.easeInOutCubic,
-                  width: widget.showCreate ? _navigationGap * scale : 0,
+                  builder: (factor) =>
+                      SizedBox(width: _navigationGap * scale * factor),
                 ),
                 SizedBox(
                   width: navWidth,

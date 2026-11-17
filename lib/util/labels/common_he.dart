@@ -32,6 +32,9 @@ abstract final class CommonHe {
   static const offlineButton = 'אין חיבור';
   static const offlineBanner = 'אין חיבור – מציג נתונים אחרונים';
   static const permissionsUpdated = 'ההרשאות שלך עודכנו';
+
+  /// A 403 although the permissions did not change (walkthrough #8).
+  static const actionNotAllowed = 'אין לך הרשאה לפעולה הזו';
   static const continueOnComputer = 'המשך במחשב';
   static const allHandled = 'הכל מטופל ✓';
 }

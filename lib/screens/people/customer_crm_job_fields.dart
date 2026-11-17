@@ -6,6 +6,7 @@ import '../../state/customer_crm_store.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/customer_crm_he.dart';
 import '../../util/money.dart';
+import '../../util/money_input.dart';
 
 const crmRepeatLabels = {
   0: CustomerCrmHe.repeatNone,
@@ -125,7 +126,8 @@ class _CustomerCrmJobFieldsState extends State<CustomerCrmJobFields> {
       key: Key(key),
       controller: controller,
       textDirection: TextDirection.ltr,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      keyboardType: moneyKeyboard,
+      inputFormatters: moneyFormatters,
       decoration: InputDecoration(
         labelText: label,
         helperText: null,

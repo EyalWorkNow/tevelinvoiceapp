@@ -1,3 +1,5 @@
+import 'dart:async';
+
 // C6 · "מוכן לרו״ח" + accountant board + "בקש תיקון/זיכוי" (QA 2026-11-16).
 
 import 'package:flutter/material.dart';
@@ -308,6 +310,46 @@ void main() {
         );
         await signInAs(backend, Preset.owner);
         expect(canRequestCorrection(doc), isFalse);
+        // Walkthrough #8: the full accountant too; never a plain viewer.
+        await signInAs(backend, Preset.accountantFull);
+        expect(canRequestCorrection(doc), isTrue);
+        await signInAs(backend, Preset.viewer);
+        expect(canRequestCorrection(doc), isFalse);
+      },
+    );
+
+    testWidgets(
+      'walkthrough #8: a refusal says "no permission", not "permissions updated"',
+      (tester) async {
+        backend.error(
+          'POST',
+          '/documents/:id/correction-requests',
+          403,
+          'DOCUMENT_ACTION_FORBIDDEN',
+        );
+        await pumpAs(
+          tester,
+          backend,
+          Preset.accountantRep,
+          const Scaffold(body: SizedBox()),
+        );
+        unawaited(
+          showCorrectionRequestSheet(
+            navigatorKey.currentContext!,
+            DocumentDetail.fromJson(docDetailJson()),
+          ),
+        );
+        await settle(tester);
+        await tester.enterText(
+          find.byKey(const Key('correction-reason')),
+          'סכום שגוי',
+        );
+        await tester.tap(find.byKey(const Key('correction-send')));
+        await settle(tester);
+        expect(
+          tester.widget<Text>(find.byKey(const Key('correction-error'))).data,
+          'אין לך הרשאה לפעולה הזו',
+        );
       },
     );
 

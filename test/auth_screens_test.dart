@@ -116,6 +116,7 @@ void main() {
   });
 
   setUp(() {
+    resetSignInRouting();
     sent.clear();
     ApiClient.instance.clearCredentials();
     FlutterSecureStorage.setMockInitialValues({});
@@ -604,6 +605,103 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('תבל נעולה'), findsNothing);
       expect(find.text('₪1,180.00'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'walkthrough #14: "בדוק שוב" finds an owned business → sign in once more '
+    'for MFA, told why, e-mail kept — never "פג תוקף ההתחברות"',
+    (tester) async {
+      phone(tester);
+      ApiClient.instance.deviceToken = 'tok';
+      session
+        ..status = SessionStatus.signedIn
+        ..account = MobileAccount.fromJson({
+          'userId': 'u',
+          'email': 'new.owner@tevel.test',
+          'displayName': null,
+          'businesses': <Object>[],
+        });
+      serve({
+        'GET /mobile/session': (
+          200,
+          {
+            'userId': 'u',
+            'email': 'new.owner@tevel.test',
+            'displayName': null,
+            'businesses': [
+              {'businessId': 'b1', 'legalName': 'העסק החדש', 'role': 'OWNER'},
+            ],
+          },
+        ),
+        'GET /me': (
+          403,
+          {
+            'error': 'MFA_REQUIRED',
+            'message':
+                'this device was signed in without multi-factor authentication; sign in again',
+          },
+        ),
+        'POST /mobile/logout': (200, {'ok': true}),
+      });
+      // With the app-wide gate that also reacts to MFA_REQUIRED (as in main).
+      await tester.pumpWidget(
+        app(
+          const NoBusinessScreen(),
+          builder: (context, child) => AppLockGate(child: child!),
+        ),
+      );
+      await tester.tap(find.byKey(const Key('no-business-recheck')));
+      for (var i = 0; i < 10; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(find.byKey(const Key('login-mfa-notice')), findsOneWidget);
+      expect(find.textContaining('פג תוקף'), findsNothing);
+      expect(find.text('new.owner@tevel.test'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    '#14: any MFA_REQUIRED on a device token → login with the reason and the e-mail',
+    (tester) async {
+      phone(tester);
+      ApiClient.instance.deviceToken = 'tok';
+      session
+        ..status = SessionStatus.signedIn
+        ..account = MobileAccount.fromJson({
+          'userId': 'u',
+          'email': 'owner2@tevel.test',
+          'displayName': null,
+          'businesses': <Object>[],
+        });
+      serve({
+        'GET /dashboard': (403, {'error': 'MFA_REQUIRED'}),
+        'POST /mobile/logout': (200, {'ok': true}),
+      });
+      await tester.pumpWidget(
+        app(
+          const Scaffold(body: Text('בית')),
+          builder: (context, child) => AppLockGate(child: child!),
+        ),
+      );
+      await tester.runAsync(() async {
+        try {
+          await ApiClient.instance.get('/dashboard');
+        } on ApiException {
+          // expected
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('login-mfa-notice')), findsOneWidget);
+      expect(find.text('owner2@tevel.test'), findsOneWidget);
+      expect(find.textContaining('פג תוקף'), findsNothing);
     },
   );
 

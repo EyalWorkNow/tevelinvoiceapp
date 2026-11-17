@@ -1,0 +1,15 @@
+{
+  "id": "1794873850020-9344",
+  "receivedAt": "2026-11-17T00:04:10.021Z",
+  "from": "noreply@staging.tevel.test",
+  "to": "noa.qa@example.test",
+  "subject": "תזכורת: חשבונית מס 1468 מאת סטודיו תבל לדוגמה",
+  "bodyText": "שלום ⁨נועה ברק (QA מייל 2)⁩,\nתזכורת ידידותית מ⁨סטודיו תבל לדוגמה⁩: חשבונית מס ⁦1468⁩ על סך ⁦₪413.00⁩ ממתינה לתשלום עד ⁦20.11.2026⁩.\nלצפייה ולתשלום: http://127.0.0.1:3047/d/_XEEgmfEYd63yzHd2cmyZjWEnf3M_gEr1x0V-GOn5AU\nאם כבר שילמת – תודה, ואפשר להתעלם מההודעה.\n\nלתשלום מאובטח בכרטיס אשראי (דף התשלום של חברת הסליקה):\nhttps://example.com/pay/tevel-demo",
+  "ics": [],
+  "attachments": [
+    {
+      "filename": "76559e34-2c7e-450c-8271-c4d09306e39a.pdf",
+      "type": "application/pdf"
+    }
+  ]
+}

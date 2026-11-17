@@ -12,6 +12,7 @@ import '../../../util/labels/labels.dart';
 import '../../../api/issue_api.dart' show todayIso;
 import '../compose_state.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+import '../../../util/money_input.dart';
 
 /// Payment chips (§9.1, C2): cash · card · bit · PayBox · transfer · cheque +
 /// "עוד" (DIRECT_DEBIT, OTHER). The split lines (C3) offer the same set.
@@ -87,6 +88,27 @@ class _SummarySectionState extends State<SummarySection> {
             icon: Iconsax.note_text,
             value: s.mainDescription,
             onTap: _editDescription,
+          ),
+        if (s.showDescriptionSuggestion)
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Padding(
+              padding: const EdgeInsetsDirectional.only(
+                start: Space.card,
+                end: Space.card,
+                bottom: Space.s,
+              ),
+              child: ActionChip(
+                key: const Key('compose-description-suggestion'),
+                avatar: const Icon(Iconsax.clock, size: 16),
+                label: Text(
+                  ComposeHe.lastDescription(s.suggestedDescription!.trim()),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onPressed: s.takeDescriptionSuggestion,
+              ),
+            ),
           ),
         if (c.paid && s.split) _splitSection(),
         if (c.paid && !s.split)
@@ -270,9 +292,8 @@ class _SummarySectionState extends State<SummarySection> {
                 child: TextFormField(
                   key: Key('split-amount-$i'),
                   initialValue: l.amountText,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
+                  keyboardType: moneyKeyboard,
+                  inputFormatters: moneyFormatters,
                   textDirection: TextDirection.ltr,
                   decoration: const InputDecoration(
                     labelText: ComposeHe.splitAmount,

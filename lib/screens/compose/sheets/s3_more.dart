@@ -21,6 +21,7 @@ import '../../../util/money.dart';
 import '../../../util/vat.dart';
 import '../compose_state.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+import '../../../util/money_input.dart';
 
 /// S3 VAT chips.
 enum _VatMode { regular, none, perLine }
@@ -224,14 +225,13 @@ class _MoreDetailsSheetState extends State<MoreDetailsSheet> {
     final net = item.defaultUnitPriceMinor;
     if (net == null || net <= BigInt.zero) return l.priceText;
     final rate = s.lineRate(l);
-    final shown = s.inclusive && rate > 0
-        ? calculateLine(
-            quantityMicros: oneQuantity,
-            unitPriceMinor: net,
-            discountMinor: null,
-            taxRateBasisPoints: rate,
-          ).totalMinor
-        : net;
+    // Owner Q1: with agreed totals the roundest gross of this net (₪2.00,
+    // not ₪1.99) — it issues exactly as shown.
+    final shown = !s.inclusive || rate == 0
+        ? net
+        : s.agreedTotals
+        ? grossForNet(net, rate)
+        : totalForNet(net, rate);
     return agorotToKeypadText(shown);
   }
 
@@ -289,6 +289,7 @@ class _MoreDetailsSheetState extends State<MoreDetailsSheet> {
                 l.quantityText,
                 (v) => l.quantityText = v,
                 fieldKey: Key('s3-line-$i-quantity'),
+                quantity: true,
               ),
             ),
             const SizedBox(width: Space.s),
@@ -383,11 +384,13 @@ class _MoreDetailsSheetState extends State<MoreDetailsSheet> {
     void Function(String) set, {
     Key? fieldKey,
     String? error,
+    bool quantity = false,
   }) {
     final field = TextFormField(
       key: fieldKey ?? key,
       initialValue: value,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      keyboardType: moneyKeyboard,
+      inputFormatters: quantity ? quantityFormatters : moneyFormatters,
       textDirection: TextDirection.ltr,
       decoration: InputDecoration(labelText: label, errorText: error),
       onChanged: (v) {

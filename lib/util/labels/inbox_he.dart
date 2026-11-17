@@ -173,6 +173,13 @@ abstract final class InboxHe {
   static const quoteNoCustomer = 'הצעת מחיר';
   static String quoteValidUntil(String date) => 'בתוקף עד $date';
   static String quoteCreated(String date) => 'נוצרה $date';
+  static String quoteExpiredOn(String date) => 'פג תוקף ב-$date';
+  static String quoteNumber(String n) => 'מס׳ $n';
+  static String quoteNumberedUntil(
+    String n,
+    String date, {
+    required bool expired,
+  }) => expired ? 'מס׳ $n · פג ב-$date' : 'מס׳ $n · עד $date';
   static const noCustomer = 'ללא לקוח';
 
   static const months = [

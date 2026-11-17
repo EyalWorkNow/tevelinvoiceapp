@@ -25,10 +25,12 @@ import 'screens/business/business_screen.dart';
 import 'screens/business/delete_account_screen.dart';
 import 'screens/compose/compose_screen.dart';
 import 'screens/debts/debts_screen.dart';
+import 'screens/calendar/calendar_screen.dart';
 import 'screens/document/document_screen.dart';
 import 'screens/expense/expense_capture_screen.dart';
 import 'screens/expense/expenses_screen.dart';
 import 'screens/expense/expense_overview_screen.dart';
+import 'screens/people/import/customer_import_screen.dart';
 import 'screens/people/person_screen.dart';
 import 'api/reports_api.dart' show dailySummaryKind;
 import 'screens/reports/reports_screen.dart';
@@ -73,6 +75,8 @@ const Map<String, ScreenId> routeTable = {
   '/reports/:kind': ScreenId.r,
   '/business': ScreenId.b,
   '/business/:section': ScreenId.b,
+  // 0106 "יומן": the owner's calendar + self-booking (a ניהול view, not a tab).
+  '/calendar': ScreenId.b,
 };
 
 /// The 8 sheets of §5 → file that owns the show*() function (AT-93).
@@ -196,6 +200,7 @@ class AppRoute {
   Cap? get requiredCap => switch (pattern) {
     '/compose' => Cap.docDraft,
     '/debts' => Cap.moneyView,
+    '/calendar' => Cap.settingsBusiness,
     '/activity' || '/doc/:id' || '/quote/:id' || '/people' => Cap.docView,
     // C2: the daily summary also answers employees / cashiers (own count only).
     '/reports/:kind' when params['kind'] == dailySummaryKind => Cap.docView,
@@ -258,7 +263,8 @@ Widget? screenFor(AppRoute route) {
       id: p['id']!,
       isSupplier: q['kind'] == 'supplier',
     ),
-    '/debts' => const DebtsScreen(),
+    '/debts' => DebtsScreen(openBatch: q['batch'] == '1'),
+    '/calendar' => const CalendarScreen(),
     '/expenses' => ExpensesScreen(expenseId: q['id']),
     '/expenses/overview' => const ExpenseOverviewScreen(),
     '/reports' => ReportsScreen(period: q['period']),
@@ -448,8 +454,19 @@ void resetToHome({AppTab tab = AppTab.home}) {
 }
 
 /// A (sign-in). [expired] shows "פג תוקף ההתחברות".
-void resetToLogin({bool expired = false}) {
-  _resetTo(LoginScreen(sessionExpired: expired), '/gate');
+void resetToLogin({
+  bool expired = false,
+  bool mfaRequired = false,
+  String? email,
+}) {
+  _resetTo(
+    LoginScreen(
+      sessionExpired: expired,
+      mfaRequired: mfaRequired,
+      email: email,
+    ),
+    '/gate',
+  );
   _openPendingInvite();
 }
 
@@ -556,6 +573,16 @@ Future<void> openPerson(
   PersonScreen(id: id, isSupplier: supplier),
   location('/person/$id', {'kind': supplier ? 'supplier' : null}),
 );
+
+/// ייבוא לקוחות (from P). True when something was imported (P reloads).
+Future<bool> openCustomerImport(BuildContext context) async =>
+    await _push<bool>(
+      context,
+      const CustomerImportScreen(),
+      '/customers/import',
+      fullscreen: true,
+    ) ??
+    false;
 
 /// E (review / list). [expenseId] opens on one expense. [replace] swaps the
 /// current route (capture → review card).
@@ -730,8 +757,13 @@ class AppRouter with WidgetsBindingObserver {
     // After the reset, so the toast lands on the visible Scaffold.
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => messengerKey.currentState?.showNotchNotice(
-        const SnackBar(
-          content: Text(CommonHe.permissionsUpdated),
+        SnackBar(
+          // #8: "updated" only when the refresh really changed something.
+          content: Text(
+            businessContext.lastForbiddenChangedCaps
+                ? CommonHe.permissionsUpdated
+                : CommonHe.actionNotAllowed,
+          ),
           behavior: SnackBarBehavior.fixed,
         ),
       ),

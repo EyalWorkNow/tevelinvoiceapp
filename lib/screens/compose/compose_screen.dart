@@ -289,14 +289,13 @@ class _ComposeScreenState extends State<ComposeScreen> {
     s.customer = c;
     if (!s.methodTouched) s.method = await lastPaymentMethod(c.id);
     if (!s.descriptionTouched) {
-      s.description = await defaultDescription(
-        c.id,
-        lastOnServer: c.lastLineDescription,
+      s.description = defaultDescription(
         businessDefault: businessContext.profile?.defaultLineDescription,
       );
     }
+    s.suggestedDescription = await suggestedDescription(c);
     s.changed();
-    await applyCustomerTerms(s);
+    await applyCustomerTerms(s, preferMethod: !s.methodTouched);
     unawaited(_findRepeat());
     return c;
   }
@@ -417,7 +416,8 @@ class _ComposeScreenState extends State<ComposeScreen> {
       if (save == null || !mounted) return;
       if (!save) {
         _issuedOrLeft = true; // nothing to keep
-        await clearLocalDraft();
+        // Walkthrough #4: also an issue attempt's journal + server draft.
+        await _load!.discardUnfinished();
         if (!mounted) return;
       }
     }
@@ -604,6 +604,23 @@ class _ComposeScreenState extends State<ComposeScreen> {
                   const SizedBox(height: 12),
                   AmountField(
                     state: s,
+                    // Walkthrough #5: which document this is, at all times
+                    // (at ₪0 the two big choices below say it); a tap
+                    // switches it (S3) when there is a choice.
+                    header:
+                        s.totalMinor > BigInt.zero ||
+                            load.switchKinds.length < 2
+                        ? KindPill(
+                            label: kindChipLabel(s.kind),
+                            onTap: load.switchKinds.length > 1
+                                ? () => showMoreDetailsSheet(
+                                    context,
+                                    state: s,
+                                    kinds: load.switchKinds,
+                                  )
+                                : null,
+                          )
+                        : null,
                     onTap: _keypadAway
                         ? () => setState(() => _keypadAway = false)
                         : null,
@@ -696,6 +713,13 @@ class _ComposeScreenState extends State<ComposeScreen> {
                 s.amountText = keypadApply(s.amountText, k);
                 s.changed();
               },
+              // Walkthrough #7: what is under the keys (payment chips,
+              // "פרטים נוספים") is one visible tap away once there is an
+              // amount; the row is always there so the keys never move.
+              onDone: () => setState(() => _keypadAway = true),
+              doneLabel: s.amountMinor > BigInt.zero
+                  ? ComposeHe.hideKeypad
+                  : null,
             ),
           ),
         // U1: the area is always there (empty until ready), so the keypad
@@ -703,16 +727,39 @@ class _ComposeScreenState extends State<ComposeScreen> {
         BottomActionArea(
           note: note,
           child: s.ready || bc.offline
-              ? PrimaryButton(
-                  key: const Key('compose-primary'),
-                  label: _isPaymentRequest
-                      ? CommonHe.cont
-                      : actionLabel(action),
-                  offline: bc.offline,
-                  loadingText: _step,
-                  onPressed: () {
-                    if (_armed) _press(action, needsApproval);
-                  },
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    PrimaryButton(
+                      key: const Key('compose-primary'),
+                      label: _isPaymentRequest
+                          ? CommonHe.cont
+                          : composerActionLabel(action, s.kind),
+                      offline: bc.offline,
+                      loadingText: _step,
+                      onPressed: () {
+                        if (_armed) _press(action, needsApproval);
+                      },
+                    ),
+                    // Owner feedback 2026-11-16: a quote can be saved (and
+                    // previewed / edited in D) before it goes to the customer.
+                    if (s.config.isQuote && action != ComposerAction.saveQuote)
+                      TextButton(
+                        key: const Key('compose-save-quote'),
+                        onPressed: bc.offline || _step != null
+                            ? null
+                            : () {
+                                if (_armed) {
+                                  _press(
+                                    ComposerAction.saveQuote,
+                                    needsApproval,
+                                  );
+                                }
+                              },
+                        child: Text(actionLabel(ComposerAction.saveQuote)),
+                      ),
+                  ],
                 )
               : const _ButtonSpace(),
         ),

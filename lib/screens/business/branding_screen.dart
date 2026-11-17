@@ -13,12 +13,8 @@ import '../../ui/ds.dart';
 import '../document/document_parts.dart' show pdfPreviewBuilder;
 import 'sheets/editor_configs.dart' show logoPicker;
 import 'sheets/s13_editor.dart' show UnsavedChangesGuard;
+import 'template_gallery.dart';
 
-const _templates = {
-  'classic': 'קלאסית',
-  'modern': 'מודרנית',
-  'minimal': 'נקייה',
-};
 const _fonts = {'sans': 'נקי', 'serif': 'מסורתי', 'rounded': 'מעוגל'};
 const _logoSizes = {'small': 'קטן', 'medium': 'בינוני', 'large': 'גדול'};
 
@@ -38,6 +34,7 @@ class _BrandingScreenState extends State<BrandingScreen> {
   final _hex = TextEditingController(),
       _header = TextEditingController(),
       _footer = TextEditingController();
+  final _scroll = ScrollController();
   String? _businessId;
   @override
   void initState() {
@@ -65,6 +62,7 @@ class _BrandingScreenState extends State<BrandingScreen> {
     _hex.dispose();
     _header.dispose();
     _footer.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -319,36 +317,36 @@ class _BrandingScreenState extends State<BrandingScreen> {
                   : ErrorView(error: _error!, onRetry: _load),
             )
           else
+            // Owner Q1: ONE tree for every height. The keyboard shrinks the
+            // body; switching to another tree there recreated the scroll view
+            // (jump to the top) and the text field (focus + keyboard lost).
             Expanded(
               child: LayoutBuilder(
-                builder: (context, box) => box.maxHeight < 400
-                    ? SingleChildScrollView(
-                        key: const Key('branding-controls'),
-                        child: Column(
-                          children: [
-                            SizedBox(height: 240, child: _previewPanel()),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                              child: _controls(_draft!),
-                            ),
-                          ],
-                        ),
-                      )
-                    : Column(
-                        children: [
-                          SizedBox(
-                            height: (box.maxHeight * .43).clamp(160.0, 330.0),
-                            child: _previewPanel(),
-                          ),
-                          Expanded(
-                            child: SingleChildScrollView(
-                              key: const Key('branding-controls'),
-                              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                              child: _controls(_draft!),
-                            ),
-                          ),
-                        ],
+                builder: (context, box) {
+                  // Keyboard up: the preview steps aside for the fields.
+                  final preview = box.maxHeight < 400
+                      ? 0.0
+                      : (box.maxHeight * .43).clamp(160.0, 330.0);
+                  return Column(
+                    children: [
+                      SizedBox(
+                        height: preview,
+                        child: preview > 0 ? _previewPanel() : null,
                       ),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          key: const Key('branding-controls'),
+                          controller: _scroll,
+                          primary: false,
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.manual,
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                          child: _controls(_draft!),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           if (_draft != null)
@@ -370,29 +368,12 @@ class _BrandingScreenState extends State<BrandingScreen> {
       _controlHeading(
         'תבנית החשבונית',
         Iconsax.document_text,
-        'בחרו סגנון נקי ותקני למסמכים שלכם',
+        'בחרו עיצוב — כל התבניות תקניות ומציגות את אותם פרטים',
       ),
       const SizedBox(height: 12),
-      Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: [
-          for (final e in _templates.entries)
-            ChoiceChip(
-              key: Key('branding-template-${e.key}'),
-              avatar: Icon(
-                e.key == 'classic'
-                    ? Icons.table_rows_outlined
-                    : e.key == 'modern'
-                    ? Icons.view_agenda_outlined
-                    : Icons.notes_rounded,
-                size: 20,
-              ),
-              label: Text(e.value),
-              selected: draft.template == e.key,
-              onSelected: _saving ? null : (_) => _change({'template': e.key}),
-            ),
-        ],
+      TemplateGallery(
+        draft: draft,
+        onSelected: _saving ? null : (t) => _change({'template': t}),
       ),
       const SizedBox(height: 22),
       _controlHeading(

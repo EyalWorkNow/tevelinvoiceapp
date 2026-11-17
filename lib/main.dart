@@ -5,11 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'ui/widgets/dismiss_keyboard.dart';
 import 'ui/widgets/notch_notice.dart';
 import 'api/settings_api.dart' show hideAmounts, loadHideAmounts;
 import 'router.dart';
 import 'screens/auth/app_lock.dart';
 import 'screens/auth/splash_screen.dart';
+import 'screens/billing/plan_gate.dart';
+import 'screens/calendar/calendar_sync.dart';
 import 'screens/people/sheets/s2_customer.dart';
 import 'state/session.dart';
 import 'state/system_notices.dart';
@@ -29,6 +32,8 @@ void main() {
   ErrorLog.instance.install();
   if (kReleaseMode) ErrorWidget.builder = safeErrorWidget;
   AppRouter.instance.install();
+  // #10a: a 402 "plan required" at the moment of issuing opens the plans sheet.
+  PlanGate.install();
   loadHideAmounts();
   if (kDebugMode) {
     _startDevServer();
@@ -86,6 +91,8 @@ class _TevelAppState extends State<TevelApp> {
     session.addListener(_onSession);
     systemNotices.install();
     CustomerCrmStore.instance.install();
+    // "יומן": busy-time sync + booking notices (iOS: EventKit + notch).
+    if (calendarSync.device.supported) calendarSync.install();
   }
 
   @override
@@ -125,7 +132,9 @@ class _TevelAppState extends State<TevelApp> {
             hidden: hidden,
             child: NotchNoticeHost(
               key: notchNoticeKey,
-              child: AppLockGate(child: child!),
+              child: DismissKeyboardOnTapOutside(
+                child: AppLockGate(child: child!),
+              ),
             ),
           ),
         ),

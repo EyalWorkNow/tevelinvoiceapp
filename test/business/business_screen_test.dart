@@ -68,6 +68,7 @@ void main() {
         ]);
         // Nothing deleted: the rarely used rows are one tap further (§6.B).
         expect(await moreFor(Preset.owner), [
+          'paymentTerms', // 0110 default payment terms
           'integrations',
           'subscription',
           'notifications',
@@ -387,6 +388,9 @@ void main() {
       await tester.tap(find.byKey(const Key('brow-branding')));
       await settle(tester);
       expect(find.byType(BrandingScreen), findsOneWidget);
+      // Below the template gallery: scroll to it first.
+      await tester.ensureVisible(find.byKey(const Key('color-#0b6e4f')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('color-#0b6e4f')));
       await tester.ensureVisible(find.byKey(const Key('logo-pick')));
       await tester.pumpAndSettle();

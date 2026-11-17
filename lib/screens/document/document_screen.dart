@@ -22,12 +22,15 @@ import '../../api/issue_api.dart'
         pendingPaymentsOf,
         updatePendingPayment;
 import '../../api/models/models.dart';
+import '../../api/quotes_api.dart'
+    show cancelQuote, deleteQuote, emailQuote, setQuoteStatus;
 import '../../api/signing_api.dart';
 import '../../router.dart';
 import '../../state/business_context.dart';
 import '../../state/cache.dart';
 import '../../state/caps.dart';
 import '../../ui/ds.dart';
+import '../debts/reminder_hold_tile.dart';
 import '../../util/allocation_meter.dart';
 import '../../util/allowed_urls.dart';
 import '../../util/errors_he.dart';
@@ -47,7 +50,7 @@ import 'sheets/s5_payment.dart';
 import 'sheets/s6_share.dart';
 import 'sheets/s8_cancel.dart';
 import 'waiting_allocation_card.dart';
-import '../compose/sheets/quote_paid_choice.dart';
+import 'quote_conversion.dart';
 import '../reports/correction_request_sheet.dart';
 
 class DocumentScreen extends StatefulWidget {
@@ -427,6 +430,9 @@ class _DocumentScreenState extends State<DocumentScreen> {
         convertedDocumentId: q.convertedDocumentId,
         quoteFull: quoteHasLines(q),
         amountHidden: q.amountHidden,
+        quoteExpired: q.expired,
+        quoteDeletable: q.deletable,
+        customerHasEmail: (_customer?.email ?? '').trim().isNotEmpty,
       );
     }
     final d = _doc!;
@@ -627,36 +633,52 @@ class _DocumentScreenState extends State<DocumentScreen> {
       case DocAction.sendQuote:
         return _sendQuote(label);
       case DocAction.convertQuote:
-        // C3: pay later (305 / 300) or "שילם עכשיו" (320 / receipt + payment).
-        final exemptBusiness = businessContext.isVatExempt;
-        final choice = await askQuotePaid(context, exempt: exemptBusiness);
-        if (choice == null || !mounted || !_alive()) return;
-        if (choice == QuotePaidChoice.paidNow) {
-          await openCompose(
-            context,
-            intent: paidNowIntent(exempt: exemptBusiness),
-            fromQuoteId: quote!.id,
-          );
-          return;
-        }
-        String? draftId;
+        // C3: pay later (305 / 300) or "שילם עכשיו" (320 / receipt + payment)
+        // — the same path as the home card (walkthrough #3).
+        await convertAcceptedQuote(
+          context,
+          quote!,
+          vatRate: documentVatRate,
+          guard: (work) => _guard(label, () async {
+            await work();
+            return null;
+          }),
+        );
+      case DocAction.editQuote || DocAction.extendQuote:
+        await openCompose(context, intent: 'QUOTE', fromQuoteId: quote!.id);
+        if (mounted) await _load();
+      case DocAction.customerAccepted:
         await _guard(label, () async {
-          final exempt = businessContext.isVatExempt;
-          draftId = await quoteToInvoice(
-            quote!,
-            vatExempt: exempt,
-            vatRateBasisPoints: exempt ? 0 : await documentVatRate(),
-          );
-          return null;
+          await setQuoteStatus(quote!.id, 'ACCEPTED');
+          return DocumentHe.markedAccepted;
         });
-        if (draftId != null && mounted) {
-          await openCompose(
-            context,
-            intent: businessContext.isVatExempt ? 'TYPE:300' : 'TYPE:305',
-            draftId: draftId,
-            fromQuoteId: quote!.id,
-          );
+      case DocAction.emailQuote:
+        await _guard(label, () async {
+          final to = await emailQuote(quote!.id);
+          return DocumentHe.quoteEmailed(to);
+        });
+      case DocAction.deleteQuote:
+        if (!await confirmDeleteQuote(context) || !mounted) return;
+        var deleted = false;
+        setState(() => _busy = label);
+        try {
+          await deleteQuote(quote!.id);
+          deleted = true;
+        } on Object catch (e) {
+          if (mounted) showErrorSnack(context, e);
+        } finally {
+          if (mounted) setState(() => _busy = null);
         }
+        if (deleted && mounted) {
+          toast(context, DocumentHe.quoteDeleted);
+          Navigator.of(context).maybePop();
+        }
+      case DocAction.cancelQuote:
+        if (!await confirmCancelQuote(context) || !mounted) return;
+        await _guard(label, () async {
+          await cancelQuote(quote!.id);
+          return DocumentHe.quoteCancelled;
+        });
       case DocAction.customerRejected:
         await _guard(label, () async {
           await setQuoteStatus(quote!.id, 'REJECTED');
@@ -811,7 +833,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
     final doc = _doc;
     final quote = _quote;
     final title = quote != null
-        ? DocumentHe.quoteTitle
+        ? DocumentHe.quoteTitleNumbered(quote.quoteNumber)
         : doc == null
         ? (widget.isQuote ? DocumentHe.quoteTitle : '')
         : docTitle(doc.documentType, doc.documentNumber);
@@ -868,7 +890,10 @@ class _DocumentScreenState extends State<DocumentScreen> {
                           a,
                           hasPhone: _facts.customerHasPhone,
                         ),
-                        destructive: a == DocAction.cancelOrCredit,
+                        destructive:
+                            a == DocAction.cancelOrCredit ||
+                            a == DocAction.deleteQuote ||
+                            a == DocAction.cancelQuote,
                         onSelected: () => _do(a),
                       ),
                     ?_monthlyItem(),
@@ -906,7 +931,10 @@ class _DocumentScreenState extends State<DocumentScreen> {
                               a,
                               hasPhone: _facts.customerHasPhone,
                             ),
-                            destructive: a == DocAction.cancelOrCredit,
+                            destructive:
+                                a == DocAction.cancelOrCredit ||
+                                a == DocAction.deleteQuote ||
+                                a == DocAction.cancelQuote,
                             onSelected: () => _do(a),
                           ),
                         ?_monthlyItem(),
@@ -964,7 +992,32 @@ class _DocumentScreenState extends State<DocumentScreen> {
                       _waitingCard(doc!, next, offline),
                       const SizedBox(height: Space.m),
                     ],
-                    if (quote != null) _quotePreview(quote) else _preview(doc!),
+                    if (quote != null) ...[
+                      _quotePreview(quote),
+                      // The PDF hides the state: status + validity under it,
+                      // and the customer (owner feedback 2026-11-16).
+                      if (_pdf != null) ...[
+                        const SizedBox(height: Space.s),
+                        QuoteStatusLine(quote: quote),
+                      ],
+                      if (_customer != null)
+                        ListTile(
+                          key: const Key('quote-customer'),
+                          contentPadding: EdgeInsets.zero,
+                          minTileHeight: Hit.row,
+                          leading: const Icon(Iconsax.profile_circle),
+                          title: Text(_customer!.name, style: AppText.body),
+                          subtitle: Text(
+                            DocumentHe.goToCustomer,
+                            style: AppText.secondary.copyWith(
+                              color: context.palette.muted,
+                            ),
+                          ),
+                          trailing: const Icon(Iconsax.arrow_left_2),
+                          onTap: () => openPerson(context, _customer!.id),
+                        ),
+                    ] else
+                      _preview(doc!),
                     if (doc != null) ...[
                       const SizedBox(height: Space.s),
                       DocStatusLine(
@@ -995,6 +1048,18 @@ class _DocumentScreenState extends State<DocumentScreen> {
                           ),
                           trailing: const Icon(Iconsax.arrow_left_2),
                           onTap: () => openPerson(context, _customer!.id),
+                        ),
+                      // 0111: pause the automatic reminders of one open invoice.
+                      if (!widget.isQuote &&
+                          !doc.amountHidden &&
+                          (_openMinor ?? BigInt.zero) > BigInt.zero &&
+                          const {
+                            'TAX_INVOICE',
+                            'TRANSACTION_INVOICE',
+                          }.contains(doc.documentType))
+                        ReminderHoldTile(
+                          key: ValueKey('hold-${doc.id}'),
+                          documentId: doc.id,
                         ),
                       if (_timeline) ...[
                         DocTimeline(
@@ -1190,7 +1255,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
   /// BE-06 quote: its PDF (lines card while it loads or when it fails).
   Widget _quotePreview(Quote quote) {
     if (_pdf == null) return QuoteCard(quote: quote);
-    return _pdfBox(DocumentHe.quoteTitle);
+    return _pdfBox(DocumentHe.quoteTitleNumbered(quote.quoteNumber));
   }
 
   Widget _preview(DocumentDetail doc) {

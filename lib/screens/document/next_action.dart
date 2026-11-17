@@ -12,8 +12,9 @@
 // | 8  | 300/305 open, never sent + doc.send                     | שלח בווטסאפ / שלח           | קיבלתי תשלום (payment.record) |
 // | 9  | 300/305 open + payment.record                           | קיבלתי תשלום (+ שלח תזכורת) | שלח שוב (doc.send) |
 // | 10 | 300/305 open + doc.send                                 | שלח תזכורת                  | — |
-// | 11 | quote DRAFT + doc.send                                  | שלח הצעה                    | הפוך לחשבונית |
-// | 12 | quote SENT + doc.draft                                  | הפוך לחשבונית               | הלקוח דחה · שלח שוב |
+// | 11 | quote DRAFT + doc.send                                  | שלח הצעה                    | הפוך לחשבונית · ערוך · שלח במייל · מחק טיוטה |
+// | 12 | quote SENT + doc.draft                                  | הפוך לחשבונית               | הלקוח אישר · הלקוח דחה · שלח שוב · שלח במייל · ערוך |
+// | 15b| quote DRAFT/SENT past validity + doc.draft              | עדכן תוקף                   | הפוך לחשבונית · הלקוח דחה (SENT) |
 // | 13 | quote ACCEPTED + doc.draft                              | הפוך לחשבונית               | — |
 // | 14 | quote CONVERTED                                         | פתח חשבונית                 | — |
 // | 15 | quote REJECTED/EXPIRED                                  | — "לא רלוונטית"             | — |
@@ -50,6 +51,18 @@ enum DocAction {
   sendQuote,
   convertQuote,
   customerRejected,
+
+  /// Owner feedback 2026-11-16: the quote's ⋯ (edit in the Composer, mark
+  /// accepted by phone, e-mail it, delete an unshared draft) and, past its
+  /// validity, "עדכן תוקף" (the same Composer edit).
+  editQuote,
+  extendQuote,
+  customerAccepted,
+  emailQuote,
+  deleteQuote,
+
+  /// Owner decision 2026-11-17: "בטל הצעה" → CANCELLED (red, confirm).
+  cancelQuote,
   openInvoice,
   issueTaxInvoice,
   share,
@@ -79,7 +92,19 @@ class DocFacts {
     this.quoteFull = false,
     this.amountHidden = false,
     this.pdfMissing = false,
+    this.quoteExpired = false,
+    this.quoteDeletable = false,
+    this.customerHasEmail = false,
   }) : totalMinor = totalMinor ?? BigInt.zero;
+
+  /// Quote DRAFT/SENT past its validity date (server `expired`).
+  final bool quoteExpired;
+
+  /// Quote DRAFT never shared (DELETE /quotes/:id accepts it).
+  final bool quoteDeletable;
+
+  /// The customer card has an e-mail (POST /quotes/:id/send-email).
+  final bool customerHasEmail;
 
   /// Server status (document or quote).
   final String status;
@@ -233,6 +258,12 @@ String docActionLabel(
   DocAction.sendQuote => DocumentHe.sendQuote,
   DocAction.convertQuote => DocumentHe.convertToInvoice,
   DocAction.customerRejected => DocumentHe.customerRejected,
+  DocAction.editQuote => DocumentHe.editQuote,
+  DocAction.extendQuote => DocumentHe.extendQuote,
+  DocAction.customerAccepted => DocumentHe.customerAccepted,
+  DocAction.emailQuote => DocumentHe.emailQuote,
+  DocAction.deleteQuote => DocumentHe.deleteQuote,
+  DocAction.cancelQuote => DocumentHe.cancelQuote,
   DocAction.openInvoice => DocumentHe.openInvoice,
   DocAction.issueTaxInvoice => DocumentHe.issueTaxInvoice,
   DocAction.share => DocumentHe.share,
@@ -253,8 +284,13 @@ NextAction nextAction(DocFacts d, DocViewer v) {
     menu.add(DocAction.issueTaxInvoice);
   }
   if (d.isQuote && d.quoteFull) {
-    if (mayShare) menu.add(DocAction.share);
+    // A cancelled quote is not sent again; "שכפל" makes a new one.
+    if (mayShare && d.status != 'CANCELLED') menu.add(DocAction.share);
     if (v.can(Cap.docDraft)) menu.add(DocAction.duplicate);
+  }
+  // Destructive items go last (red), like בטל / זכה.
+  for (final red in const [DocAction.cancelQuote, DocAction.deleteQuote]) {
+    if (menu.remove(red)) menu.add(red);
   }
   if (!d.isQuote) {
     if (mayShare &&
@@ -369,30 +405,59 @@ bool _mayIssueTaxInvoice(DocFacts d, DocViewer v) {
 
 (int, DocAction?, String?, List<DocAction>) _quoteRow(DocFacts d, DocViewer v) {
   final send = v.can(Cap.docSend) && !d.amountHidden;
+  final draft = v.can(Cap.docDraft);
+  // Editing loads the prices: never for a quote whose amounts are hidden.
+  final edit = draft && !d.amountHidden;
+  final email = send && d.customerHasEmail;
+  final open = d.status == 'DRAFT' || d.status == 'SENT';
+  // An open quote that cannot just be deleted (it was shared) can be cancelled.
+  final cancel = draft && open && !d.quoteDeletable;
+  if (open && d.quoteExpired) {
+    final menu = [
+      if (draft) DocAction.convertQuote,
+      if (draft && d.status == 'SENT') DocAction.customerRejected,
+      if (draft && d.quoteDeletable) DocAction.deleteQuote,
+      if (cancel) DocAction.cancelQuote,
+    ];
+    if (edit) return (15, DocAction.extendQuote, null, menu);
+    return (15, null, DocumentHe.quoteExpiredWaiting, menu);
+  }
   switch (d.status) {
     case 'DRAFT':
-      if (send) {
+      final menu = [
+        if (send && draft) DocAction.convertQuote,
+        if (edit) DocAction.editQuote,
+        if (email) DocAction.emailQuote,
+        if (draft && d.quoteDeletable) DocAction.deleteQuote,
+        if (cancel) DocAction.cancelQuote,
+      ];
+      if (send) return (11, DocAction.sendQuote, null, menu);
+      if (draft) {
         return (
           11,
-          DocAction.sendQuote,
+          DocAction.convertQuote,
           null,
-          [if (v.can(Cap.docDraft)) DocAction.convertQuote],
+          menu.where((a) => a != DocAction.convertQuote).toList(),
         );
       }
-      if (v.can(Cap.docDraft)) {
-        return (11, DocAction.convertQuote, null, const []);
-      }
     case 'SENT':
-      if (v.can(Cap.docDraft)) {
+      if (draft) {
         return (
           12,
           DocAction.convertQuote,
           null,
-          [DocAction.customerRejected, if (send) DocAction.sendAgain],
+          [
+            DocAction.customerAccepted,
+            DocAction.customerRejected,
+            if (send) DocAction.sendAgain,
+            if (email) DocAction.emailQuote,
+            if (edit) DocAction.editQuote,
+            if (cancel) DocAction.cancelQuote,
+          ],
         );
       }
     case 'ACCEPTED':
-      if (v.can(Cap.docDraft)) {
+      if (draft) {
         return (13, DocAction.convertQuote, null, const []);
       }
     case 'CONVERTED':
@@ -401,6 +466,8 @@ bool _mayIssueTaxInvoice(DocFacts d, DocViewer v) {
       }
     case 'REJECTED' || 'EXPIRED':
       return (15, null, DocumentHe.notRelevant, const []);
+    case 'CANCELLED':
+      return (15, null, DocumentHe.quoteCancelledWaiting, const []);
   }
   return (0, null, null, const []);
 }

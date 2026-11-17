@@ -261,6 +261,34 @@ void main() {
     late FakeBackend b;
     setUp(() async => b = await eSetUp());
 
+    testWidgets('#13: a template without VAT (0%) shows its amount bare', (
+      t,
+    ) async {
+      b.json('GET', '/recurring/templates', {
+        'templates': [
+          {
+            'id': 'tp0',
+            'customerName': 'עמותה',
+            'dayOfMonth': 5,
+            'status': 'ACTIVE',
+            'subtotalMinor': '45000',
+            'lines': [
+              {
+                'description': 'שירות',
+                'quantityMicros': '1000000',
+                'unitPriceMinor': '45000',
+                'discountMinor': '0',
+                'taxRateBasisPoints': 0,
+              },
+            ],
+          },
+        ],
+      });
+      await pumpAs(t, b, Preset.owner, const RetainerTemplatesScreen());
+      expect(find.textContaining('₪450'), findsOneWidget);
+      expect(find.textContaining('מע״מ'), findsNothing);
+    });
+
     testWidgets('pause sends status PAUSED', (t) async {
       final template = {
         'id': 'tp1',
@@ -286,6 +314,8 @@ void main() {
       });
       await pumpAs(t, b, Preset.owner, const RetainerTemplatesScreen());
       expect(find.textContaining(RetainerHe.every(1)), findsOneWidget);
+      // Walkthrough #13: the net amount says it is before VAT.
+      expect(find.textContaining('₪6,000 + מע״מ'), findsOneWidget);
       await t.tap(find.byKey(const Key('template-tp1')));
       await settle(t);
       await t.tap(find.byKey(const Key('template-pause')));

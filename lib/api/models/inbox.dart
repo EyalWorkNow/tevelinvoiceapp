@@ -78,6 +78,10 @@ enum InboxKind {
   allocationProblem('ALLOCATION_PROBLEM'),
   signingLocked('SIGNING_LOCKED'),
   unfinished('UNFINISHED'),
+
+  /// 0111 + walkthrough 2026-11-17 #9c: automatic WhatsApp reminders wait
+  /// for the owner's tap — one card with the count (no push of its own).
+  collectionRemindersReady('COLLECTION_REMINDERS_READY'),
   overdue('OVERDUE'),
   quoteAccepted('QUOTE_ACCEPTED'),
   expenseReview('EXPENSE_REVIEW'),
@@ -129,6 +133,7 @@ class InboxItem {
     this.documentIds = const [],
     this.expenseIds = const [],
     this.paymentIds = const [],
+    this.quoteIds = const [],
     this.customerName,
     this.documentNumber,
     this.documentType,
@@ -152,6 +157,10 @@ class InboxItem {
       documentIds: jStrings(json['documentIds']),
       expenseIds: jStrings(json['expenseIds']),
       paymentIds: jStrings(json['paymentIds']),
+      // BE-21 QUOTE_ACCEPTED: `quoteIds`, else the one in `detail.quoteId`.
+      quoteIds: jStrings(json['quoteIds']).isNotEmpty
+          ? jStrings(json['quoteIds'])
+          : [?jStr(d['quoteId'])],
       customerName: pick('customerName'),
       documentNumber: pick('documentNumber'),
       documentType: pick('documentType'),
@@ -181,6 +190,9 @@ class InboxItem {
   /// PAYMENT_WITHOUT_RECEIPT (A8): payments no receipt covers, oldest first.
   final List<String> paymentIds;
 
+  /// QUOTE_ACCEPTED (BE-21): the accepted quotes, newest acceptance first.
+  final List<String> quoteIds;
+
   /// Single-document cards: who / which (title words).
   final String? customerName;
   final String? documentNumber;
@@ -208,6 +220,7 @@ class InboxItem {
     'documentIds': documentIds,
     if (expenseIds.isNotEmpty) 'expenseIds': expenseIds,
     if (paymentIds.isNotEmpty) 'paymentIds': paymentIds,
+    if (quoteIds.isNotEmpty) 'quoteIds': quoteIds,
     'customerName': ?customerName,
     'documentNumber': ?documentNumber,
     'documentType': ?documentType,
@@ -341,12 +354,26 @@ class QuoteRow {
     this.createdAt,
     this.convertedDocumentId,
     this.validUntil,
+    this.quoteNumber,
+    this.expired = false,
+    this.amountHidden = false,
   });
 
+  /// The list shows the total INCLUDING VAT, like the quote screen (server
+  /// `grossMinor`); an older server sends the net `totalMinor` only.
   factory QuoteRow.fromJson(Map<String, dynamic> json) => QuoteRow(
     id: json['id'] as String,
     status: jStr(json['status']) ?? 'DRAFT',
-    totalMinor: jBig(jPick(json, ['totalMinor', 'total_minor'])),
+    totalMinor: jBig(
+      json.containsKey('grossMinor')
+          ? json['grossMinor']
+          : jPick(json, ['totalMinor', 'total_minor']),
+    ),
+    amountHidden: json.containsKey('grossMinor')
+        ? json['grossMinor'] == null
+        : jPick(json, ['totalMinor', 'total_minor']) == null,
+    quoteNumber: jStr(jPick(json, ['quoteNumber', 'quote_number'])),
+    expired: json['expired'] == true,
     title: jStr(json['title']),
     customerName: jStr(jPick(json, ['customerName', 'customer_name'])),
     createdAt: jStr(jPick(json, ['createdAt', 'created_at'])),
@@ -369,10 +396,21 @@ class QuoteRow {
   /// 'YYYY-MM-DD' (GET /quotes `validUntil`).
   final String? validUntil;
 
+  /// Running number per business (server 0107).
+  final String? quoteNumber;
+
+  /// DRAFT/SENT past [validUntil] (server, Israel calendar).
+  final bool expired;
+
+  /// BE-03: another member's quote without money:read.
+  final bool amountHidden;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'status': status,
-    'totalMinor': totalMinor.toString(),
+    'grossMinor': amountHidden ? null : totalMinor.toString(),
+    'quoteNumber': quoteNumber,
+    'expired': expired,
     'title': title,
     'customerName': customerName,
     'createdAt': createdAt,

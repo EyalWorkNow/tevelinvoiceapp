@@ -14,6 +14,7 @@ class QuoteLine {
     this.discountMinor,
     this.taxRateBasisPoints,
     this.itemId,
+    this.agreedTotalMinor,
   });
 
   factory QuoteLine.fromJson(Map<String, dynamic> j) => QuoteLine(
@@ -27,6 +28,9 @@ class QuoteLine {
       jPick(j, ['taxRateBasisPoints', 'tax_rate_basis_points']),
     ),
     itemId: jStr(jPick(j, ['itemId', 'item_id'])),
+    agreedTotalMinor: jBigOrNull(
+      jPick(j, ['agreedTotalMinor', 'agreed_total_minor']),
+    ),
   );
 
   final String description;
@@ -38,6 +42,10 @@ class QuoteLine {
   final int? taxRateBasisPoints;
   final String? itemId;
 
+  /// Owner Q1: the VAT-included total the user typed (server
+  /// `agreedTotalMinor`); null = the standard calculation.
+  final BigInt? agreedTotalMinor;
+
   /// POST /quotes line body.
   Map<String, dynamic> toJson() => {
     'description': description,
@@ -47,6 +55,8 @@ class QuoteLine {
       'discountMinor': discountMinor.toString(),
     if (taxRateBasisPoints != null) 'taxRateBasisPoints': taxRateBasisPoints,
     if (itemId != null) 'itemId': itemId,
+    if (agreedTotalMinor != null)
+      'agreedTotalMinor': agreedTotalMinor.toString(),
   };
 }
 
@@ -80,6 +90,8 @@ class Quote {
     this.sentAt,
     this.detailed = false,
     this.amountHidden = false,
+    this.quoteNumber,
+    this.expired = false,
   }) : netMinor = netMinor ?? totalMinor;
 
   factory Quote.fromJson(Map<String, dynamic> json) {
@@ -106,6 +118,8 @@ class Quote {
         jPick(q, ['convertedDocumentId', 'converted_document_id']),
       ),
       createdAt: jStr(jPick(q, ['createdAt', 'created_at'])),
+      quoteNumber: jStr(jPick(q, ['quoteNumber', 'quote_number'])),
+      expired: q['expired'] == true,
       lines: [
         for (final l in (json['lines'] as List? ?? const []))
           if (l is Map<String, dynamic>) QuoteLine.fromJson(l),
@@ -144,8 +158,18 @@ class Quote {
   /// amount; the Composer never edits it in place or copies its prices.
   final bool amountHidden;
 
+  /// Running number per business (server 0107); null before it.
+  final String? quoteNumber;
+
+  /// DRAFT/SENT past [validUntil] (server, Israel calendar). The status stays.
+  final bool expired;
+
   /// Editable in the Composer (BE-06: PUT while DRAFT or SENT).
   bool get editable => status == 'DRAFT' || status == 'SENT';
+
+  /// Never shared: no link was ever made ([sentAt]) and still a draft —
+  /// the only quote DELETE /quotes/:id accepts.
+  bool get deletable => status == 'DRAFT' && sentAt == null;
   final String currency;
   final String? validUntil;
   final String? notes;

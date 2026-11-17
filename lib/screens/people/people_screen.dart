@@ -13,7 +13,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'dart:typed_data';
+
 import '../../api/client.dart';
+import '../../api/customer_import_api.dart';
 import '../../api/customers_api.dart';
 import '../../api/models/models.dart';
 import '../../api/suppliers_api.dart';
@@ -22,8 +25,10 @@ import '../../state/business_context.dart';
 import '../../state/caps.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/common_he.dart';
+import '../../util/labels/customer_import_he.dart';
 import '../../util/labels/people_he.dart';
 import '../../util/phone.dart';
+import 'import/customer_import_screen.dart';
 import 'sheets/s2_customer.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
@@ -191,6 +196,30 @@ class _PeopleScreenState extends State<PeopleScreen> {
     if (mounted) _load();
   }
 
+  bool get _canImport =>
+      _chip != PeopleChip.suppliers && _caps.can(Cap.customerImport);
+
+  Future<void> _import() async {
+    if (await openCustomerImport(context) && mounted) _load();
+  }
+
+  Future<void> _export() async {
+    try {
+      final Uint8List bytes = await exportCustomersXlsx();
+      await shareImportFile(
+        bytes,
+        'customers.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(
+          context,
+        )?.showSnackBar(const SnackBar(content: Text(ImportHe.exportFailed)));
+      }
+    }
+  }
+
   bool get _canAdd => _chip == PeopleChip.suppliers
       ? _caps.can(Cap.supplierManage)
       : _caps.can(Cap.docDraft);
@@ -241,6 +270,32 @@ class _PeopleScreenState extends State<PeopleScreen> {
                             ? PeopleHe.addSupplier
                             : PeopleHe.addCustomer,
                       ),
+                    ),
+                  if (_canImport)
+                    // Header-sized "⋯" (the shared MoreMenu button is 46pt and
+                    // would push P's list when the keyboard is up).
+                    IconButton(
+                      key: const Key('people-more'),
+                      tooltip: CommonHe.more,
+                      onPressed: () => MoreMenu.show(context, [
+                        MoreMenuItem(
+                          label: ImportHe.menuImport,
+                          icon: Iconsax.document_download,
+                          onSelected: _import,
+                        ),
+                        if ((_list?.active.length ?? 0) > 0)
+                          MoreMenuItem(
+                            label: ImportHe.menuExport,
+                            icon: Iconsax.document_upload,
+                            onSelected: _export,
+                          ),
+                      ]),
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(Hit.min, Hit.min),
+                        padding: EdgeInsets.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      icon: const Icon(Iconsax.more, size: 22),
                     ),
                   if (widget.onBack != null)
                     IconButton(
@@ -320,12 +375,15 @@ class _PeopleScreenState extends State<PeopleScreen> {
     final list = _list;
     if (list == null) {
       if (_error != null) {
-        return ErrorView(
-          error: _error!,
-          onRetry: () {
-            setState(() => _error = null);
-            _load();
-          },
+        // Scrollable: with the keyboard up the header leaves little room.
+        return _scrollable(
+          ErrorView(
+            error: _error!,
+            onRetry: () {
+              setState(() => _error = null);
+              _load();
+            },
+          ),
         );
       }
       return const SingleChildScrollView(child: SkeletonList());
@@ -341,6 +399,8 @@ class _PeopleScreenState extends State<PeopleScreen> {
               ? PeopleHe.emptyCustomersAction
               : null,
           onAction: _caps.can(Cap.docDraft) ? _add : null,
+          secondaryLabel: _canImport ? ImportHe.emptyImportAction : null,
+          onSecondary: _canImport ? _import : null,
         ),
       );
     }

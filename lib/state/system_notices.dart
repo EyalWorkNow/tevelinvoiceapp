@@ -30,10 +30,16 @@ const _events = EventChannel('tevel/system_notice_events');
   'sent' => ('המסמך נשלח', NoticeMotion.sent),
   'signed' => ('המסמך נחתם', NoticeMotion.signed),
   'recurringReady' => ('טיוטות חודשיות מוכנות לאישור', NoticeMotion.document),
+  'bookingNew' => ('נקבעה פגישה חדשה', NoticeMotion.calendar),
+  'bookingSoon' => ('הפגישה הבאה מתקרבת', NoticeMotion.calendar),
   _ => null,
 };
 
 final systemNotices = SystemNotices();
+
+/// A feature that shows its own, richer foreground notice for a kind (e.g.
+/// "יומן" re-syncs and names the client). Returns true when it handled it.
+typedef ForegroundNoticeHandler = bool Function(String kind);
 
 class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
   static const _storage = FlutterSecureStorage();
@@ -50,6 +56,9 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
   int _generation = 0;
   Future<void>? _registration;
   bool _registrationPending = false;
+
+  /// Per-kind foreground handlers (see [ForegroundNoticeHandler]).
+  final Map<String, ForegroundNoticeHandler> foregroundHandlers = {};
 
   bool get supported => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
   String get _preferenceKey =>
@@ -226,6 +235,7 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
       if (!_seen.add(id)) return;
       if (_seen.length > 100) _seen.remove(_seen.first);
     }
+    if (foregroundHandlers[kind]?.call(kind) ?? false) return;
     // 1.11: a notice that arrives in the foreground opens its screen on tap.
     notchNoticeKey.currentState?.show(
       SnackBar(

@@ -23,6 +23,7 @@ import '../../util/money.dart';
 import '../people/sheets/s2_customer.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'expense_capture_screen.dart' show captureSupplierHints;
+import '../../util/money_input.dart';
 
 class ExpenseReviewCard extends StatefulWidget {
   const ExpenseReviewCard({
@@ -492,7 +493,8 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
       TextField(
         key: const Key('expense-amount'),
         controller: _amount,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        keyboardType: moneyKeyboard,
+        inputFormatters: moneyFormatters,
         textDirection: TextDirection.ltr,
         textAlign: TextAlign.right,
         style: AppText.amountRow,
@@ -549,7 +551,8 @@ class _ExpenseReviewCardState extends State<ExpenseReviewCard> {
         TextField(
           key: const Key('expense-vat'),
           controller: _vat,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          keyboardType: moneyKeyboard,
+          inputFormatters: moneyFormatters,
           textDirection: TextDirection.ltr,
           textAlign: TextAlign.right,
           decoration: const InputDecoration(

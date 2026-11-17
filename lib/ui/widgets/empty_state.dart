@@ -13,6 +13,8 @@ class EmptyState extends StatelessWidget {
     this.message,
     this.actionLabel,
     this.onAction,
+    this.secondaryLabel,
+    this.onSecondary,
   });
 
   final IconData icon;
@@ -20,6 +22,10 @@ class EmptyState extends StatelessWidget {
   final String? message;
   final String? actionLabel;
   final VoidCallback? onAction;
+
+  /// A quieter second action under the first (e.g. "ייבא לקוחות").
+  final String? secondaryLabel;
+  final VoidCallback? onSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +65,17 @@ class EmptyState extends StatelessWidget {
                   textStyle: AppText.button,
                 ),
                 child: Text(actionLabel!, textAlign: TextAlign.center),
+              ),
+            ],
+            if (secondaryLabel != null && onSecondary != null) ...[
+              const SizedBox(height: Space.s),
+              TextButton(
+                onPressed: onSecondary,
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(Hit.min * 3, Hit.min),
+                  textStyle: AppText.button,
+                ),
+                child: Text(secondaryLabel!, textAlign: TextAlign.center),
               ),
             ],
           ],

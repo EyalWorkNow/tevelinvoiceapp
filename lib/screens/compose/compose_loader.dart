@@ -20,10 +20,14 @@ import '../../state/caps.dart';
 import '../../util/composer_config.dart';
 import '../../util/intent_resolver.dart';
 import '../../util/money.dart' show agorotToKeypadText;
+import '../../util/labels/payment_he.dart' show paymentMethodLabels;
 import 'compose_memory.dart';
 import 'compose_repeat.dart';
 import 'compose_state.dart';
 import 'compose_submit.dart';
+
+/// Test seam: [discardPendingIssue] (server draft + journal).
+Future<void> Function(PendingIssue) discardIssue = discardPendingIssue;
 
 class ComposeLoad {
   ComposeLoad(this.state, {required this.switchKinds});
@@ -69,16 +73,34 @@ class ComposeLoad {
     leftoverIssue = null;
   }
 
-  Future<void> dropLeftover() async {
-    final pending = leftoverIssue;
+  /// "התחל חדש" on "יש טיוטה שלא הסתיימה".
+  Future<void> dropLeftover() => discardUnfinished();
+
+  /// Walkthrough 2026-11-17 #4: "מחק" (✕ → "לשמור טיוטה?") and "התחל חדש"
+  /// really delete what was left: the local draft, the issue journal and the
+  /// server draft an issue attempt created — found even when the POST's
+  /// response was lost (offline), so the dialog does not come back. Never an
+  /// issued document; never a draft the user opened from the list (only its
+  /// journal goes). Offline: the journal goes; a draft the server may hold
+  /// stays under "טיוטות".
+  Future<void> discardUnfinished() async {
+    final pending = _run?.pending ?? leftoverIssue;
     leftoverForm = null;
     leftoverIssue = null;
-    if (pending == null) return clearLocalDraft();
-    // A POST that may have reached the server keeps its journal (the next
-    // issue adopts that draft instead of making a second one).
-    if (pending.createAttemptTotal == null) {
+    await clearLocalDraft();
+    if (pending == null || !pending.editable) return;
+    final opened =
+        existingDraftId != null && pending.draftId == existingDraftId;
+    try {
+      if (opened) {
+        await clearPendingIssue(pending.businessId);
+      } else {
+        await discardIssue(pending);
+      }
+    } on Object {
       await clearPendingIssue(pending.businessId);
     }
+    _run?.pending = null;
   }
 
   ComposeRun? _run;
@@ -139,7 +161,9 @@ Future<ComposeLoad?> loadComposer({
   }
 
   final vat = await fetchVatRate();
-  final s = ComposeState(kind: kind, businessType: bt, vatBasisPoints: vat);
+  final s = ComposeState(kind: kind, businessType: bt, vatBasisPoints: vat)
+    ..agreedTotals = bc.me?.lineAgreedTotal ?? false
+    ..quoteAgreedTotals = bc.me?.quoteLineAgreedTotal ?? false;
   final load = ComposeLoad(
     s,
     switchKinds: kind == DocKind.quote
@@ -225,15 +249,17 @@ Future<ComposeLoad?> loadComposer({
     // C3: the customer card's "כמו בפעם הקודמת".
     if (sourceId == null && fromQuoteId == null) takeRepeatFor(s);
   }
+  // 0110: a method nobody chose yet (empty, or only this device's memory)
+  // may take the customer's preferred one below.
+  final methodFree = s.method.isEmpty;
   if (s.method.isEmpty) s.method = await lastPaymentMethod(s.customer?.id);
   if (s.customer != null && s.description.isEmpty) {
-    s.description = await defaultDescription(
-      s.customer!.id,
-      lastOnServer: s.customer!.lastLineDescription,
+    s.description = defaultDescription(
       businessDefault: bc.profile?.defaultLineDescription,
     );
   }
-  await applyCustomerTerms(s);
+  s.suggestedDescription = await suggestedDescription(s.customer);
+  await applyCustomerTerms(s, preferMethod: methodFree);
   return load;
 }
 
@@ -246,22 +272,37 @@ bool _linkedConversion(DocumentDetail source, DocKind target) =>
     !source.isDraft &&
     source.documentNumber != null;
 
-/// F8 / BE-07: the customer's payment terms (GET /customers/:id, BE-09) for
-/// the due date of a collect kind; unknown → שוטף+30. Best effort: never
-/// fails the Composer; a date the user picked still wins ([pickedDueDate]).
-Future<void> applyCustomerTerms(ComposeState s) async {
+/// F8 / BE-07: the customer's payment terms (GET /customers/:id, BE-09) —
+/// else the business default (0110 effectivePaymentTerms) — for the due date
+/// of a collect kind; unknown → שוטף+30. Best effort: never fails the
+/// Composer; a date the user picked still wins ([pickedDueDate]).
+/// [preferMethod]: the payment chip was not chosen by the user or copied from
+/// a source document, so the customer's preferred method (0110) prefills it.
+Future<void> applyCustomerTerms(
+  ComposeState s, {
+  bool preferMethod = false,
+}) async {
   final c = s.customer;
-  String? terms;
+  CustomerDetail? detail;
   if (c != null && s.config.counterparty != Counterparty.supplier) {
     try {
-      terms = (await fetchCustomerDetail(c.id)).paymentTerms;
+      detail = await fetchCustomerDetail(c.id);
     } on Object {
-      terms = null;
+      detail = null;
     }
   }
   if (s.customer?.id != c?.id) return; // another customer was chosen meanwhile
+  final method = detail?.effectiveMethod;
+  if (preferMethod &&
+      !s.methodTouched &&
+      !s.split &&
+      method != null &&
+      paymentMethodLabels.containsKey(method)) {
+    s.method = method;
+  }
   s
-    ..customerTerms = terms
+    ..customerTerms = detail?.effectiveTerms
+    ..customerTermsDays = detail?.effectiveTermsDays
     ..changed();
 }
 
@@ -304,7 +345,10 @@ Future<void> _prefillQuote(ComposeLoad load, String quoteId) async {
   if (q.customerId != null) s.customer = await findCustomer(q.customerId!);
   if (q.editable && q.detailed && !q.amountHidden) {
     load.editQuoteId = q.id;
-    if (q.validUntil != null) s.validUntil = q.validUntil!;
+    // Past its validity ("עדכן תוקף"): the default +14 days stays.
+    if (q.validUntil != null && q.validUntil!.compareTo(todayIso()) >= 0) {
+      s.validUntil = q.validUntil!;
+    }
   }
 }
 

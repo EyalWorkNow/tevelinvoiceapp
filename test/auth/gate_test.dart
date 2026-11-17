@@ -249,7 +249,9 @@ void main() {
     await settle(tester);
     expect(session.status, SessionStatus.signedOut);
     expect(ApiClient.instance.hasDeviceToken, isFalse);
-    expect(find.text('פג תוקף ההתחברות — נא להיכנס שוב'), findsOneWidget);
+    // Walkthrough #14: said why (two-step verification), never "expired".
+    expect(find.byKey(const Key('login-mfa-notice')), findsOneWidget);
+    expect(find.textContaining('פג תוקף'), findsNothing);
   });
 
   testWidgets(

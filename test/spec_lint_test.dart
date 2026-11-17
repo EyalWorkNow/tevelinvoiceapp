@@ -118,13 +118,15 @@ void main() {
       }
     });
 
-    test('quote list statuses = F10 five', () {
+    test('quote list statuses = F10 five + "פג תוקף" (owner 2026-11-16)', () {
       expect(QuoteListStatus.values.map((s) => quoteStatusLabels[s]).toList(), [
         'טיוטה',
         'אצל הלקוח',
         'אושרה',
         'הפכה לחשבונית',
         'לא רלוונטית',
+        'פג תוקף',
+        'בוטלה',
       ]);
       for (final s in QuoteListStatus.values) {
         expect(quoteStatusTones[s], isNotNull, reason: '$s has a tone');

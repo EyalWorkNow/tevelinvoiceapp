@@ -69,17 +69,29 @@ Future<AppleCredential?> Function() appleCredential = requestAppleCredential;
 /// [sessionExpired] shows 'פג תוקף ההתחברות'. On success: MFA if needed →
 /// `session.completeSignIn()` → route (G2 / S2 / home).
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, this.sessionExpired = false});
+  const LoginScreen({
+    super.key,
+    this.sessionExpired = false,
+    this.mfaRequired = false,
+    this.email,
+  });
 
   /// Came here because the device token expired / was revoked.
   final bool sessionExpired;
+
+  /// Came here because the membership now needs two-step verification and
+  /// this device signed in without it (#14): says so instead of "expired".
+  final bool mfaRequired;
+
+  /// Prefilled e-mail (the account that was just signed in).
+  final String? email;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _email = TextEditingController();
+  late final _email = TextEditingController(text: widget.email);
   final _password = TextEditingController();
   final _passwordFocus = FocusNode();
   _Busy _busy = _Busy.none;
@@ -211,7 +223,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: AppText.body.copyWith(color: p.muted),
                     textAlign: TextAlign.center,
                   ),
-                  if (widget.sessionExpired) ...[
+                  if (widget.mfaRequired) ...[
+                    const SizedBox(height: Space.l),
+                    _Notice(
+                      key: const Key('login-mfa-notice'),
+                      icon: Iconsax.shield_tick,
+                      text: BusinessHe.signInAgainForMfa,
+                      color: p.warn,
+                    ),
+                  ] else if (widget.sessionExpired) ...[
                     const SizedBox(height: Space.l),
                     _Notice(
                       icon: Iconsax.security_time,
@@ -395,7 +415,12 @@ class _ProviderSpinner extends StatelessWidget {
 }
 
 class _Notice extends StatelessWidget {
-  const _Notice({required this.icon, required this.text, required this.color});
+  const _Notice({
+    super.key,
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
 
   final IconData icon;
   final String text;

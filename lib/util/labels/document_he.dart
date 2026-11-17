@@ -213,6 +213,32 @@ abstract final class DocumentHe {
   static const approved = 'אושר והופק ✓';
   static const rejected = 'נדחה – המגיש יראה את הסיבה';
   static const markedRejected = 'סומן "לא רלוונטית"';
+
+  // Quotes owner feedback 2026-11-16.
+  static const editQuote = 'ערוך הצעה';
+  static const extendQuote = 'עדכן תוקף';
+  static const customerAccepted = 'הלקוח אישר';
+  static const emailQuote = 'שלח במייל';
+  static const deleteQuote = 'מחק טיוטה';
+  static const cancelQuote = 'בטל הצעה';
+  static const quoteCancelledWaiting = 'ההצעה בוטלה';
+  static const quoteCancelled = 'ההצעה בוטלה';
+  static const cancelQuoteTitle = 'לבטל את ההצעה?';
+  static const cancelQuoteBody =
+      'הלקוח לא יוכל לאשר אותה, והקישור שקיבל יראה "ההצעה בוטלה". אפשר לשכפל אותה בהמשך.';
+  static const cancelQuoteConfirm = 'בטל הצעה';
+  static const quoteExpiredWaiting = 'פג תוקף ההצעה';
+  static const markedAccepted = 'סומן "אושרה" ✓';
+  static const quoteDeleted = 'הטיוטה נמחקה';
+  static const deleteQuoteTitle = 'למחוק את הטיוטה?';
+  static const deleteQuoteBody = 'ההצעה לא נשלחה ללקוח. אי אפשר לשחזר אותה.';
+  static const deleteQuoteConfirm = 'מחק';
+  static const keep = 'השאר';
+  static String quoteEmailed(String to) => 'ההצעה נשלחה במייל אל $to ✓';
+  static String quoteTitleNumbered(String? n) =>
+      n == null ? quoteTitle : '$quoteTitle $n';
+  static String quoteExpiredOn(String date) =>
+      'פג תוקף ב-$date. עדכנו תוקף כדי שהלקוח יוכל לאשר.';
   static const allocationRetried = 'נשלח שוב לרשות המסים';
   static const duplicated = 'נוצרה טיוטה חדשה';
   static const quoteDuplicated = 'נוצרה הצעה חדשה';

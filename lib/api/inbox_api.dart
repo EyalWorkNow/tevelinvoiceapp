@@ -575,7 +575,8 @@ bool cardAllowed(InboxItem c, Caps caps) => switch (c.kind) {
     caps.can(Cap.paymentRecord) || caps.can(Cap.reportView),
   InboxKind.signingLocked => caps.can(Cap.docIssue),
   InboxKind.allocationProblem => caps.can(Cap.allocationRequest),
-  InboxKind.overdue => caps.can(Cap.docSend) && caps.can(Cap.moneyView),
+  InboxKind.overdue || InboxKind.collectionRemindersReady =>
+    caps.can(Cap.docSend) && caps.can(Cap.moneyView),
   InboxKind.expenseReview => caps.can(Cap.expenseApprove),
   InboxKind.paymentReceived => caps.can(Cap.paymentRecord),
   InboxKind.shaamRenew => caps.can(Cap.settingsBusiness),
@@ -1031,11 +1032,19 @@ List<QuoteRow> searchQuotes(List<QuoteRow> quotes, String query) {
   if (q.isEmpty) return quotes;
   final lower = q.toLowerCase();
   final amount = parseAmountQuery(q);
-  return [
+  final digitsOnly = RegExp(r'^\d+$').hasMatch(q);
+  // Digits: the quote with that number first (owner feedback 2026-11-16).
+  final byNumber = [
     for (final x in quotes)
-      if ((amount != null && x.totalMinor == amount) ||
-          (x.customerName ?? '').toLowerCase().contains(lower) ||
-          (x.title ?? '').toLowerCase().contains(lower))
+      if (digitsOnly && x.quoteNumber == q) x,
+  ];
+  return [
+    ...byNumber,
+    for (final x in quotes)
+      if (!byNumber.contains(x) &&
+          ((amount != null && x.totalMinor == amount) ||
+              (x.customerName ?? '').toLowerCase().contains(lower) ||
+              (x.title ?? '').toLowerCase().contains(lower)))
         x,
   ];
 }

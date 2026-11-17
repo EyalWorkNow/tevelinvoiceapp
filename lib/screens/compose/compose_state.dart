@@ -10,6 +10,7 @@ import '../../api/models/models.dart';
 import '../../util/composer_config.dart';
 import '../../util/money.dart';
 import '../../util/vat.dart';
+import '../../util/israel_date.dart' show israelToday, israelTodayDate;
 
 /// One extra line (S3): description, quantity, unit price (as typed), the
 /// catalog item it came from (BE-15) and its own "ללא מע״מ" (per-line VAT).
@@ -177,6 +178,24 @@ class ComposeState extends ChangeNotifier {
   /// The user edited the description: choosing another customer keeps it.
   bool descriptionTouched = false;
 
+  /// The customer's last description, offered as one tap (walkthrough #2:
+  /// never prefilled). Not part of the draft.
+  String? suggestedDescription;
+
+  /// The suggestion chip shows: there is one and the text is not it already.
+  bool get showDescriptionSuggestion =>
+      !config.receiptOnly &&
+      (suggestedDescription?.trim().isNotEmpty ?? false) &&
+      suggestedDescription!.trim() != mainDescription;
+
+  void takeDescriptionSuggestion() {
+    final text = suggestedDescription?.trim() ?? '';
+    if (text.isEmpty) return;
+    description = text;
+    descriptionTouched = true;
+    notifyListeners();
+  }
+
   /// The payment chip ('' = not chosen yet: a paid kind cannot issue).
   String method = '';
 
@@ -202,17 +221,25 @@ class ComposeState extends ChangeNotifier {
   /// BE-07 note printed on the document / quote (≤500).
   String notes = '';
 
-  /// BE-09 payment terms of the customer (IMMEDIATE | EOM | EOM_30…; null =
-  /// unknown → שוטף+30).
+  /// BE-09 payment terms of the customer — else the business default (0110,
+  /// GET /customers/:id effectivePaymentTerms): IMMEDIATE | EOM | EOM_30… |
+  /// EOM_DAYS / NET_DAYS + [customerTermsDays]; null = unknown → שוטף+30.
   String? customerTerms;
+  int? customerTermsDays;
 
   /// A due date the user picked in S3 (or the draft's): wins over the terms
   /// and survives a customer change.
   String? pickedDueDate;
 
   /// BE-07 due date sent with collect kinds (305 / 300), 'YYYY-MM-DD'.
+  /// From the Israel civil date of today (the issue date sent).
   String get dueDate =>
-      pickedDueDate ?? dueDateForTerms(customerTerms, DateTime.now());
+      pickedDueDate ??
+      dueDateForTerms(
+        customerTerms,
+        israelTodayDate(),
+        days: customerTermsDays,
+      );
   bool requestAllocation = false;
 
   /// Quote "בתוקף עד" (+14 days).
@@ -250,28 +277,69 @@ class ComposeState extends ChangeNotifier {
   BigInt? lineNetPrice(ComposeLine l) =>
       l.priceMinor == null ? null : _net(l.priceMinor!, lineRate(l));
 
-  /// Lines exactly as sent to POST /documents (net unit prices).
+  /// The server keeps a typed VAT-included total exactly (`agreedTotalMinor`,
+  /// GET /me `lineAgreedTotal`). Off: the nearest net price (₪2 → ₪1.99).
+  /// Quotes only with [quoteAgreedTotals] (GET /me `quoteLineAgreedTotal`).
+  bool agreedTotals = false;
+
+  /// The server stores agreed totals on quote lines (0107).
+  bool quoteAgreedTotals = false;
+
+  /// Lines exactly as sent to POST /documents (net unit prices; with
+  /// amounts incl. VAT, `agreedTotalMinor` = the typed gross — owner Q1).
   List<Map<String, dynamic>> get requestLines {
     final rate = taxRate;
-    final discount = _net(discountInput);
+    Map<String, dynamic> line({
+      required String description,
+      required BigInt quantity,
+      required BigInt typedPrice,
+      BigInt? typedDiscount,
+      required int rate,
+      String? itemId,
+    }) {
+      final gross = _grossInput && rate > 0;
+      final g = gross
+          ? grossLine(
+              quantityMicros: quantity,
+              grossUnitMinor: typedPrice,
+              grossDiscountMinor: typedDiscount,
+              basisPoints: rate,
+              agreed:
+                  agreedTotals && (kind != DocKind.quote || quoteAgreedTotals),
+            )
+          : null;
+      final unit = g?.unitPriceMinor ?? typedPrice;
+      final discount = g?.discountMinor ?? typedDiscount ?? BigInt.zero;
+      return {
+        'description': description,
+        'quantityMicros': quantity.toString(),
+        'unitPriceMinor': unit.toString(),
+        if (discount > BigInt.zero) 'discountMinor': discount.toString(),
+        'taxRateBasisPoints': rate,
+        if (g?.agreedTotalMinor != null)
+          'agreedTotalMinor': g!.agreedTotalMinor.toString(),
+        'itemId': ?itemId,
+      };
+    }
+
     return [
       if (amountMinor > BigInt.zero)
-        {
-          'description': mainDescription,
-          'quantityMicros': oneQuantity.toString(),
-          'unitPriceMinor': _net(amountMinor).toString(),
-          if (discount > BigInt.zero) 'discountMinor': discount.toString(),
-          'taxRateBasisPoints': rate,
-        },
+        line(
+          description: mainDescription,
+          quantity: oneQuantity,
+          typedPrice: amountMinor,
+          typedDiscount: discountInput > BigInt.zero ? discountInput : null,
+          rate: rate,
+        ),
       for (final l in usedExtraLines)
         if (l.isValid)
-          {
-            'description': l.description.trim(),
-            'quantityMicros': l.quantityMicros!.toString(),
-            'unitPriceMinor': _net(l.priceMinor!, lineRate(l)).toString(),
-            'taxRateBasisPoints': lineRate(l),
-            if (l.itemId != null) 'itemId': l.itemId,
-          },
+          line(
+            description: l.description.trim(),
+            quantity: l.quantityMicros!,
+            typedPrice: l.priceMinor!,
+            rate: lineRate(l),
+            itemId: l.itemId,
+          ),
     ];
   }
 
@@ -289,6 +357,9 @@ class ComposeState extends ChangeNotifier {
             unitPriceMinor: BigInt.parse(l['unitPriceMinor'] as String),
             discountMinor: BigInt.tryParse(l['discountMinor'] as String? ?? ''),
             taxRateBasisPoints: l['taxRateBasisPoints'] as int,
+            agreedTotalMinor: BigInt.tryParse(
+              l['agreedTotalMinor'] as String? ?? '',
+            ),
           );
     }
     return sum;
@@ -418,7 +489,7 @@ class ComposeState extends ChangeNotifier {
       'customerId': customer?.id,
     'currency': 'ILS',
     'fiscalContext': 'default',
-    'issueDate': todayIso(),
+    'issueDate': israelToday(),
     'lines': requestLines,
     // BE-07: absent keeps the stored value, null clears it.
     if (hasNotes) 'notes': notes.trim().isEmpty ? null : notes.trim(),
@@ -435,6 +506,9 @@ class ComposeState extends ChangeNotifier {
         discountMinor: BigInt.tryParse(l['discountMinor'] as String? ?? ''),
         taxRateBasisPoints: l['taxRateBasisPoints'] as int, // BE-06
         itemId: l['itemId'] as String?,
+        agreedTotalMinor: BigInt.tryParse(
+          l['agreedTotalMinor'] as String? ?? '',
+        ),
       ),
   ];
 
@@ -453,6 +527,7 @@ class ComposeState extends ChangeNotifier {
   void loadLines(List<DocumentLine> lines) {
     extraLines.clear();
     if (lines.isEmpty) return;
+    if (_loadGross(lines)) return;
     inclusive = false;
     final first = lines.first;
     final firstIsUnit = first.quantityMicros == oneQuantity;
@@ -482,6 +557,60 @@ class ComposeState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Owner Q1: lines that kept a typed VAT-included total (stored total ≠
+  /// the standard calculation) come back as the gross that was typed, so a
+  /// copy totals the same. Only when every line has a whole gross unit price
+  /// and no discount (but the leftover agorot of a several-unit agreed line,
+  /// see [grossLine]); otherwise the net prefill.
+  bool _loadGross(List<DocumentLine> lines) {
+    if (!showVat || !agreedTotals) return false;
+    var any = false;
+    final gross = <BigInt>[];
+    for (final l in lines) {
+      if (l.totalMinor <= BigInt.zero) return false;
+      final standard = calculateLine(
+        quantityMicros: l.quantityMicros,
+        unitPriceMinor: l.unitPriceMinor,
+        discountMinor: l.discountMinor,
+        taxRateBasisPoints: l.taxRateBasisPoints,
+      ).totalMinor;
+      final leftover =
+          l.quantityMicros > oneQuantity &&
+          standard != l.totalMinor &&
+          l.discountMinor * oneQuantity < l.quantityMicros;
+      if (l.discountMinor > BigInt.zero && !leftover) return false;
+      if (standard != l.totalMinor) any = true;
+      final scaled = l.totalMinor * oneQuantity;
+      if (scaled % l.quantityMicros != BigInt.zero) return false;
+      gross.add(scaled ~/ l.quantityMicros);
+    }
+    if (!any) return false;
+    inclusive = true;
+    final first = lines.first;
+    final firstIsUnit = first.quantityMicros == oneQuantity;
+    description = first.description;
+    if (firstIsUnit) {
+      amountText = agorotToKeypadText(gross.first);
+      discountText = '';
+    }
+    for (var i = firstIsUnit ? 1 : 0; i < lines.length; i++) {
+      final l = lines[i];
+      extraLines.add(
+        ComposeLine(
+          description: l.description,
+          quantityText: formatQuantity(l.quantityMicros),
+          priceText: agorotToKeypadText(gross[i]),
+          itemId: l.itemId,
+          vatNone: l.taxRateBasisPoints == 0,
+        ),
+      );
+    }
+    vatNone = lines.every((l) => l.taxRateBasisPoints == 0);
+    vatPerLine = !vatNone && lines.any((l) => l.taxRateBasisPoints == 0);
+    notifyListeners();
+    return true;
+  }
+
   /// Quote lines (BE-06 GET /quotes/:id) → the same prefill as a document.
   void loadQuoteLines(List<QuoteLine> lines) => loadLines([
     for (var i = 0; i < lines.length; i++)
@@ -495,7 +624,7 @@ class ComposeState extends ChangeNotifier {
         subtotalMinor: BigInt.zero,
         taxRateBasisPoints: lines[i].taxRateBasisPoints ?? vatBasisPoints,
         taxAmountMinor: BigInt.zero,
-        totalMinor: BigInt.zero,
+        totalMinor: lines[i].agreedTotalMinor ?? BigInt.zero,
       ),
   ]);
 
@@ -524,6 +653,7 @@ class ComposeState extends ChangeNotifier {
     'vatPerLine': vatPerLine,
     'notes': notes,
     'customerTerms': customerTerms,
+    'customerTermsDays': customerTermsDays,
     'pickedDueDate': pickedDueDate,
     'requestAllocation': requestAllocation,
     'validUntil': validUntil,
@@ -565,6 +695,7 @@ class ComposeState extends ChangeNotifier {
     vatPerLine = j['vatPerLine'] == true;
     notes = j['notes'] as String? ?? '';
     customerTerms = j['customerTerms'] as String?;
+    customerTermsDays = j['customerTermsDays'] as int?;
     pickedDueDate = j['pickedDueDate'] as String?;
     requestAllocation = j['requestAllocation'] == true;
     validUntil = j['validUntil'] as String? ?? validUntil;

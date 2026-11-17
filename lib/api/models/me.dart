@@ -227,5 +227,14 @@ class Me {
 
   bool get hasEffectivePermissions => permissions != null;
 
+  /// Owner Q1: the server keeps a line's typed VAT-included total
+  /// (`agreedTotalMinor`). Older servers: absent → false.
+  bool get lineAgreedTotal => raw['lineAgreedTotal'] == true;
+
+  /// Quote lines keep a typed VAT-included total too (server 0107
+  /// quote_lines.agreed_total_minor, carried to the converted invoice).
+  /// Older servers: absent → false (quotes send the nearest net price).
+  bool get quoteLineAgreedTotal => raw['quoteLineAgreedTotal'] == true;
+
   Map<String, dynamic> toJson() => raw;
 }

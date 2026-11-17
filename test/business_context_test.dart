@@ -67,6 +67,36 @@ void main() {
     },
   );
 
+  test(
+    'walkthrough #8: a 403 that changed nothing is "not allowed", not "updated"',
+    () async {
+      await signInAs(backend, Preset.accountantRep);
+      expect(businessContext.lastForbiddenChangedCaps, isTrue);
+      backend.error(
+        'POST',
+        '/documents/:id/correction-requests',
+        403,
+        'DOCUMENT_ACTION_FORBIDDEN',
+      );
+      var changed = businessContext.permissionsChanged.first;
+      await expectLater(
+        ApiClient.instance.post('/documents/d1/correction-requests'),
+        throwsA(isA<ApiException>()),
+      );
+      await changed.timeout(const Duration(seconds: 2));
+      expect(businessContext.lastForbiddenChangedCaps, isFalse);
+      // A real change (demoted to viewer) is reported as one.
+      backend.json('GET', '/me', meJson(Preset.viewer));
+      changed = businessContext.permissionsChanged.first;
+      await expectLater(
+        ApiClient.instance.post('/documents/d1/correction-requests'),
+        throwsA(isA<ApiException>()),
+      );
+      await changed.timeout(const Duration(seconds: 2));
+      expect(businessContext.lastForbiddenChangedCaps, isTrue);
+    },
+  );
+
   test('other 403s (MFA, backdating) do not refresh capabilities', () async {
     await signInAs(backend, Preset.owner);
     backend.error('POST', '/documents', 403, 'BACKDATING_OWNER_ONLY');

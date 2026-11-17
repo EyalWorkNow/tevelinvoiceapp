@@ -180,7 +180,11 @@ class _RetainerTemplatesScreenState extends State<RetainerTemplatesScreen> {
                   : '${t.customerName} · ${t.title}',
               value: [
                 RetainerHe.every(t.dayOfMonth),
-                formatMoney(t.subtotalMinor, trimZeroAgorot: true),
+                t.lines.any((l) => l.taxRateBasisPoints > 0)
+                    ? RetainerHe.netPlusVat(
+                        formatMoney(t.subtotalMinor, trimZeroAgorot: true),
+                      )
+                    : formatMoney(t.subtotalMinor, trimZeroAgorot: true),
                 RetainerHe.templateStatus(t.status),
                 if (t.pendingFromPeriod != null)
                   RetainerHe.priceFrom(t.pendingFromPeriod!),
