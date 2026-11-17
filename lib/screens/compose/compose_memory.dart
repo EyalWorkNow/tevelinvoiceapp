@@ -4,8 +4,8 @@
 //
 // * VAT rate (GET /tax-rates, cache-first; 1800 if never loaded).
 // * Customers (GET /customers; the Composer only resolves an id → Customer).
-// * Description: last one for the customer (device, then BE-09 server) →
-//   business default (BE-25) → "שירותים".
+// * Description: business default (BE-25) → "שירותים"; the customer's last
+//   one (device, then BE-09 server) is a one-tap suggestion, never prefilled.
 // * Payment method: the last one used FOR THIS CUSTOMER (C2), else none —
 //   a business-wide "last" saved bit after cash as cash.
 // * "first issue ever" flag (the one-time commitment toast, §6.C step 5).
@@ -19,6 +19,7 @@ import '../../api/issue_api.dart' show cacheWrite, currentBusinessId;
 import '../../api/models/models.dart';
 import '../../state/cache.dart';
 import '../../util/labels/compose_he.dart';
+import '../../util/labels/document_he.dart' show DocumentHe;
 import '../../util/labels/payment_he.dart' show paymentMethodLabels;
 
 final ApiClient _api = ApiClient.instance;
@@ -96,32 +97,45 @@ Future<Customer?> findCustomer(String id) async {
   }
 }
 
-/// F8: last description for [customerId] on this device → the customer's
-/// last line on the server ([lastOnServer], BE-09 `lastLineDescription`) →
-/// [businessDefault] (BE-25) → "שירותים".
-Future<String> defaultDescription(
-  String? customerId, {
-  String? lastOnServer,
-  String? businessDefault,
-}) async {
-  final map = await _read('nd_desc_by_customer_$_bid');
-  final last = customerId != null && map is Map ? map[customerId] : null;
-  if (last is String && last.trim().isNotEmpty) return last;
-  if (lastOnServer != null && lastOnServer.trim().isNotEmpty) {
-    return lastOnServer.trim();
-  }
-  if (businessDefault != null && businessDefault.trim().isNotEmpty) {
-    return businessDefault;
-  }
-  return ComposeHe.defaultDescription;
+/// Walkthrough 2026-11-17 #2: text the system writes on a line ("זיכוי חלקי
+/// לחשבונית N" of a credit, "תקבול …" of a payment receipt) is never learned
+/// nor suggested for a new document.
+bool isLearnableDescription(String? text) {
+  final t = text?.trim() ?? '';
+  if (t.isEmpty) return false;
+  return !t.startsWith(DocumentHe.partialCredit) &&
+      !t.startsWith('זיכוי לחשבונית') &&
+      !t.startsWith('תקבול ');
 }
 
-Future<void> rememberDescription(String? customerId, String description) async {
+/// What a new document says until the user writes something: the business
+/// default (BE-25) → "שירותים". Never a customer's old text (walkthrough #2:
+/// it was silently printed on new invoices).
+String defaultDescription({String? businessDefault}) =>
+    businessDefault != null && businessDefault.trim().isNotEmpty
+    ? businessDefault.trim()
+    : ComposeHe.defaultDescription;
+
+/// F8, now a suggestion only (one tap in "מה יופק"): the last description
+/// for [customer] on this device → the customer's last line on the server
+/// (BE-09 `lastLineDescription`). Null for the walk-in customer (many
+/// different buyers), system text, or nothing remembered.
+Future<String?> suggestedDescription(Customer? customer) async {
+  if (customer == null || customer.isWalkIn) return null;
+  final map = await _read('nd_desc_by_customer_$_bid');
+  final last = map is Map ? map[customer.id] : null;
+  if (last is String && isLearnableDescription(last)) return last.trim();
+  final server = customer.lastLineDescription;
+  return isLearnableDescription(server) ? server!.trim() : null;
+}
+
+Future<void> rememberDescription(Customer? customer, String description) async {
   final text = description.trim();
-  if (customerId == null || text.isEmpty) return;
+  if (customer == null || customer.isWalkIn) return;
+  if (!isLearnableDescription(text)) return;
   final key = 'nd_desc_by_customer_$_bid';
   final map = await _read(key);
-  await cacheWrite(key, {if (map is Map) ...map, customerId: text});
+  await cacheWrite(key, {if (map is Map) ...map, customer.id: text});
 }
 
 /// The one per-customer memory of the last issue (C2 × C3): what was typed

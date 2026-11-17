@@ -175,7 +175,7 @@ Future<void> runCompose(
     await clearLocalDraft();
     final id = result.document.id;
     if (result.outcome == IssueOutcome.issued) {
-      await rememberDescription(s.customer?.id, s.mainDescription);
+      await rememberDescription(s.customer, s.mainDescription);
     }
     if (result.outcome != IssueOutcome.submittedForApproval) {
       // C2 × C3: one per-customer memory of this issue — the remembered

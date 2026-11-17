@@ -289,12 +289,11 @@ class _ComposeScreenState extends State<ComposeScreen> {
     s.customer = c;
     if (!s.methodTouched) s.method = await lastPaymentMethod(c.id);
     if (!s.descriptionTouched) {
-      s.description = await defaultDescription(
-        c.id,
-        lastOnServer: c.lastLineDescription,
+      s.description = defaultDescription(
         businessDefault: businessContext.profile?.defaultLineDescription,
       );
     }
+    s.suggestedDescription = await suggestedDescription(c);
     s.changed();
     await applyCustomerTerms(s, preferMethod: !s.methodTouched);
     unawaited(_findRepeat());

@@ -66,6 +66,9 @@ abstract final class ComposeHe {
   static const moreDetails = 'פרטים נוספים';
   static const vatIncludedHint = 'נגיעה מחליפה כולל ↔ לפני מע״מ';
   static const defaultDescription = 'שירותים';
+
+  /// Walkthrough #2: the customer's last description, one tap away.
+  static String lastDescription(String text) => 'בפעם הקודמת: $text';
   static const descriptionLabel = 'תיאור';
   static const editDescription = 'על מה?';
   static const methodMore = 'עוד';

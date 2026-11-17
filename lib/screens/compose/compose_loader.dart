@@ -233,12 +233,11 @@ Future<ComposeLoad?> loadComposer({
   final methodFree = s.method.isEmpty;
   if (s.method.isEmpty) s.method = await lastPaymentMethod(s.customer?.id);
   if (s.customer != null && s.description.isEmpty) {
-    s.description = await defaultDescription(
-      s.customer!.id,
-      lastOnServer: s.customer!.lastLineDescription,
+    s.description = defaultDescription(
       businessDefault: bc.profile?.defaultLineDescription,
     );
   }
+  s.suggestedDescription = await suggestedDescription(s.customer);
   await applyCustomerTerms(s, preferMethod: methodFree);
   return load;
 }

@@ -327,14 +327,24 @@ void main() {
   });
 
   testWidgets(
-    'AT-15 defaults: last description and last payment method FOR THE CUSTOMER (C2)',
+    'AT-15 defaults: last description SUGGESTED (walkthrough #2) and last payment method FOR THE CUSTOMER (C2)',
     (tester) async {
       await tester.runAsync(() async {
         await AppCache.write('nd_desc_by_customer_b1', {'c1': 'תיקון דוד'});
       });
       await open(tester, intent: 'PAID', rememberedMethod: 'PAYBOX');
       await type(tester, '100');
+      // Not prefilled: the default is printed until the user takes it.
+      expect(find.text(ComposeHe.defaultDescription), findsOneWidget);
+      final suggestion = find.byKey(
+        const Key('compose-description-suggestion'),
+      );
+      expect(find.text(ComposeHe.lastDescription('תיקון דוד')), findsOneWidget);
+      await tester.ensureVisible(suggestion);
+      await tester.tap(suggestion);
+      await tester.pump();
       expect(find.text('תיקון דוד'), findsOneWidget);
+      expect(suggestion, findsNothing);
       final chips = tester.widget<ChipRow<String>>(
         find.byKey(const Key('compose-methods')),
       );
@@ -806,7 +816,7 @@ void main() {
     );
 
     testWidgets(
-      'BE-09: no description on this device → the customer\'s last line on the server',
+      'BE-09: no description on this device → the customer\'s last line on the server, as a one-tap suggestion',
       (tester) async {
         await open(
           tester,
@@ -819,11 +829,78 @@ void main() {
           ),
         );
         await type(tester, '100');
+        final suggestion = find.byKey(
+          const Key('compose-description-suggestion'),
+        );
+        await tester.ensureVisible(suggestion);
+        await tester.tap(suggestion);
+        await tester.pump();
         await tap(tester, primary());
         expect(
           backend.last('POST', '/documents')!.body['lines'][0]['description'],
           'ניקוי מזגן',
         );
+      },
+    );
+
+    testWidgets(
+      'walkthrough #2: a credit\'s "זיכוי חלקי לחשבונית 1468" is never printed on a new invoice nor suggested',
+      (tester) async {
+        await tester.runAsync(
+          () => AppCache.write('nd_desc_by_customer_b1', {
+            'c1': 'זיכוי חלקי לחשבונית 1468',
+          }),
+        );
+        await open(
+          tester,
+          intent: 'PAID',
+          customer: const Customer(
+            id: 'c1',
+            name: 'דנה',
+            phone: '050-1234567',
+            lastLineDescription: 'זיכוי חלקי לחשבונית 1468',
+          ),
+        );
+        await type(tester, '100');
+        expect(
+          find.byKey(const Key('compose-description-suggestion')),
+          findsNothing,
+        );
+        await tap(tester, primary());
+        expect(
+          backend.last('POST', '/documents')!.body['lines'][0]['description'],
+          ComposeHe.defaultDescription,
+        );
+        // …and issuing does not teach it either.
+        final saved = await tester.runAsync(
+          () => AppCache.read('nd_desc_by_customer_b1'),
+        );
+        expect((saved as Map)['c1'], isNot(contains('זיכוי')));
+      },
+    );
+
+    testWidgets(
+      'walkthrough #2: the walk-in customer gets no remembered description',
+      (tester) async {
+        await tester.runAsync(
+          () => AppCache.write('nd_desc_by_customer_b1', {'w1': 'תיקון דוד'}),
+        );
+        await open(
+          tester,
+          intent: 'PAID',
+          customer: const Customer(
+            id: 'w1',
+            name: 'לקוח מזדמן',
+            isWalkIn: true,
+            lastLineDescription: 'ניקוי מזגן',
+          ),
+        );
+        await type(tester, '100');
+        expect(
+          find.byKey(const Key('compose-description-suggestion')),
+          findsNothing,
+        );
+        expect(find.text(ComposeHe.defaultDescription), findsOneWidget);
       },
     );
 

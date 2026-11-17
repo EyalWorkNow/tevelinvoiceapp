@@ -178,6 +178,24 @@ class ComposeState extends ChangeNotifier {
   /// The user edited the description: choosing another customer keeps it.
   bool descriptionTouched = false;
 
+  /// The customer's last description, offered as one tap (walkthrough #2:
+  /// never prefilled). Not part of the draft.
+  String? suggestedDescription;
+
+  /// The suggestion chip shows: there is one and the text is not it already.
+  bool get showDescriptionSuggestion =>
+      !config.receiptOnly &&
+      (suggestedDescription?.trim().isNotEmpty ?? false) &&
+      suggestedDescription!.trim() != mainDescription;
+
+  void takeDescriptionSuggestion() {
+    final text = suggestedDescription?.trim() ?? '';
+    if (text.isEmpty) return;
+    description = text;
+    descriptionTouched = true;
+    notifyListeners();
+  }
+
   /// The payment chip ('' = not chosen yet: a paid kind cannot issue).
   String method = '';
 
