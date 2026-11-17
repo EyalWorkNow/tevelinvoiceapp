@@ -93,6 +93,11 @@ enum Cap {
   /// Team. `membership:manage`.
   teamManage,
 
+  /// "המסמכים של העסק" (0119): view + share the business's own certificates.
+  /// `business_documents:read` (owner, partner, accountants, or a grant);
+  /// upload / edit / delete is [settingsBusiness].
+  vaultView,
+
   /// Delete business, sole-owner warning. `/me.isOwner`.
   owner,
 }
@@ -256,6 +261,7 @@ class Caps {
       if (has('settings:numbering')) Cap.settingsNumbering,
       if (has('business:configure')) Cap.settingsDesign,
       if (has('membership:manage')) Cap.teamManage,
+      if (has('business_documents:read')) Cap.vaultView,
       if (me.isOwner ?? role == 'OWNER') Cap.owner,
     };
     return Caps._(caps, preset, me.approvalPolicy, !me.hasEffectivePermissions);

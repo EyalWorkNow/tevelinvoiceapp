@@ -44,6 +44,7 @@ import '../calendar/calendar_screen.dart';
 import '../people/sheets/payment_terms_sheet.dart';
 import '../../api/customer_timeline_api.dart' show fetchBusinessPaymentTerms;
 import '../../util/labels/timeline_he.dart';
+import 'vault_screen.dart';
 
 class BusinessScreen extends StatelessWidget {
   const BusinessScreen({super.key, this.section});
@@ -70,6 +71,7 @@ class BusinessScreen extends StatelessWidget {
       title: BusinessHe.numbering,
     ),
     'more' => const _MoreSettingsPage(),
+    'vault' => const VaultScreen(),
     _ => const _BusinessList(),
   };
 }
@@ -171,6 +173,9 @@ List<BusinessRowSpec> allBusinessRows(
     const BusinessRowSpec('team', BusinessHe.team, Iconsax.profile_2user),
   if (caps.can(Cap.settingsBusiness))
     const BusinessRowSpec('profile', BusinessHe.profile, Iconsax.shop),
+  // 0119 (tester 2026-11-18): עוסק מורשה, ניהול ספרים, ניכוי במקור …
+  if (caps.can(Cap.vaultView))
+    const BusinessRowSpec('vault', VaultHe.title, Iconsax.folder_open),
   if (caps.can(Cap.settingsDesign))
     const BusinessRowSpec('branding', BusinessHe.branding, Iconsax.colorfilter),
   // §13.6: only when the business has another member.
@@ -727,6 +732,8 @@ void openBusinessRow(BuildContext context, String key) {
       showEditorSheet(context, instance: '13.1');
     case 'more':
       openBusinessSection(context, BusinessSection.more);
+    case 'vault':
+      openBusinessSection(context, BusinessSection.vault);
     case 'branding':
       openBusinessSection(context, BusinessSection.branding);
     case 'approvals':

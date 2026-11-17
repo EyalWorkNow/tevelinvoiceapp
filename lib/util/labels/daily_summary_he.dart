@@ -26,6 +26,14 @@ abstract final class DailySummaryHe {
   static const truncated = 'מוצגים 500 התקבולים הראשונים; הסכומים כוללים הכל.';
   static const timeZoneNote = 'לפי שעון ישראל, לפי מועד רישום התקבול.';
 
+  // FIXB: the day's issued documents next to its takings.
+  static const issuedToday = 'הופק היום';
+  static const issuedRange = 'הופק בתקופה';
+  static const issuedNone = 'לא הופקו מסמכים';
+  static String issuedCount(int n) =>
+      n == 1 ? 'מסמך אחד הופק' : '$n מסמכים הופקו';
+  static String issuedOwn(int n) => n == 1 ? 'הפקת מסמך אחד' : 'הפקת $n מסמכים';
+
   static String count(int n) => n == 1 ? 'תקבול אחד' : '$n תקבולים';
   static String ownCount(int n) => n == 1 ? 'הפקת קבלה אחת' : 'הפקת $n קבלות';
   static String methodLine(String label, int n, BigInt minor) =>

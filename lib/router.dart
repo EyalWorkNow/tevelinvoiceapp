@@ -117,6 +117,9 @@ enum BusinessSection {
   desktop,
   numbering,
 
+  /// 0119 "המסמכים של העסק" (also the expiry push's route /business/vault).
+  vault,
+
   /// "עוד הגדרות": the rarely used rows of B (≤ 10 rows, §6.B).
   more,
 }
@@ -132,6 +135,7 @@ Cap? sectionCap(BusinessSection s) => switch (s) {
   BusinessSection.account || BusinessSection.notifications => null,
   BusinessSection.desktop || BusinessSection.more => null,
   BusinessSection.numbering => Cap.settingsNumbering,
+  BusinessSection.vault => Cap.vaultView,
 };
 
 /// Query keys that carry an entity id into an API path.

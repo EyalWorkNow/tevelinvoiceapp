@@ -2,6 +2,7 @@
 // P0: KPIs from GET /dashboard + the accountant export. BE-18 (P2):
 // GET /reports/:kind?from=&to= → {kpis, rows, columns}.
 
+import '../../util/israel_date.dart' show israelTodayDate;
 import 'json.dart';
 
 /// The period chips of R (§6.R): current VAT period (exempt: the year),
@@ -195,15 +196,19 @@ class ReportData {
 class DailyRange {
   const DailyRange(this.from, this.to);
 
+  /// Today in Israel (the server's day boundaries), whatever the phone's zone.
+  factory DailyRange.today([DateTime? now]) =>
+      DailyRange.day(israelTodayDate(now));
+
   /// [day] alone (today by default).
   factory DailyRange.day(DateTime day) {
     final d = DateTime(day.year, day.month, day.day);
     return DailyRange(d, d);
   }
 
-  /// Sunday (the Israeli week start) up to [now]'s day.
+  /// Sunday (the Israeli week start) up to today in Israel at [now].
   factory DailyRange.week(DateTime now) {
-    final today = DateTime(now.year, now.month, now.day);
+    final today = israelTodayDate(now);
     // DateTime.weekday: Monday = 1 … Sunday = 7.
     final sunday = today.subtract(Duration(days: today.weekday % 7));
     return DailyRange(sunday, today);
@@ -309,8 +314,33 @@ class DailyReceipt {
   final String? customerName;
 }
 
+/// FIXB (tester 2026-11-18): one type of document issued in the range.
+class DailyIssuedType {
+  const DailyIssuedType({
+    required this.documentType,
+    required this.label,
+    required this.count,
+    required this.totalMinor,
+  });
+
+  factory DailyIssuedType.fromJson(Map<String, dynamic> j) => DailyIssuedType(
+    documentType: jStr(j['documentType']) ?? '',
+    label: jStr(j['label']) ?? '',
+    count: jIntOrNull(j['count']) ?? 0,
+    totalMinor: jBig(j['totalMinor']),
+  );
+
+  final String documentType;
+  final String label;
+  final int count;
+  final BigInt totalMinor;
+}
+
 class DailySummary {
   const DailySummary({
+    this.issued,
+    this.issuedCount = 0,
+    this.issuedOwnCount = 0,
     required this.from,
     required this.to,
     required this.restricted,
@@ -338,7 +368,25 @@ class DailySummary {
         DailyReceipt.fromJson(jMap(r)),
     ],
     truncated: jBool(j['truncated']),
+    issued: j['issued'] is Map
+        ? [
+            for (final t in (jMap(j['issued'])['byType'] as List? ?? const []))
+              DailyIssuedType.fromJson(jMap(t)),
+          ]
+        : null,
+    issuedCount: j['issued'] is Map
+        ? jIntOrNull(jMap(j['issued'])['count']) ?? 0
+        : 0,
+    issuedOwnCount: jIntOrNull(j['issuedOwnCount']) ?? 0,
   );
+
+  /// Documents issued in the range, by type (null: restricted, or a server
+  /// before FIXB).
+  final List<DailyIssuedType>? issued;
+  final int issuedCount;
+
+  /// Documents the caller issued in the range.
+  final int issuedOwnCount;
 
   final String from;
   final String to;

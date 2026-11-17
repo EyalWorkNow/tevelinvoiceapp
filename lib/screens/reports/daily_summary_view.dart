@@ -37,7 +37,8 @@ class DailySummaryView extends StatefulWidget {
 class _DailySummaryViewState extends State<DailySummaryView> {
   DateTime get _now => widget.now ?? DateTime.now();
   _RangeKind _kind = _RangeKind.today;
-  late DailyRange _range = DailyRange.day(_now);
+  // The Israel civil day (the server's boundaries), not the phone's zone.
+  late DailyRange _range = DailyRange.today(_now);
   DailySummary? _data;
   Object? _error;
   bool _loading = true;
@@ -74,7 +75,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
   Future<void> _select(_RangeKind kind) async {
     if (kind == _RangeKind.picked) {
-      final today = DateTime(_now.year, _now.month, _now.day);
+      final today = DailyRange.today(_now).to;
       final picked = await showDatePicker(
         context: context,
         firstDate: today.subtract(const Duration(days: 366 * 2)),
@@ -86,7 +87,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     } else {
       _range = kind == _RangeKind.week
           ? DailyRange.week(_now)
-          : DailyRange.day(_now);
+          : DailyRange.today(_now);
     }
     setState(() => _kind = kind);
     await _load();
@@ -234,12 +235,90 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       key: const Key('daily-own-count'),
       child: Text(DailySummaryHe.ownCount(d.ownCount), style: AppText.title),
     ),
+    if (d.issuedOwnCount > 0) ...[
+      const SizedBox(height: Space.s),
+      Text(
+        DailySummaryHe.issuedOwn(d.issuedOwnCount),
+        key: const Key('daily-issued-own'),
+        style: AppText.body,
+      ),
+    ],
     const SizedBox(height: Space.s),
     Text(
       DailySummaryHe.restrictedNote,
       style: AppText.secondary.copyWith(color: context.palette.muted),
     ),
   ];
+
+  /// FIXB: what was ISSUED in the range next to what came in (a day of unpaid
+  /// invoices used to read as "₪0 — the summary does not work").
+  List<Widget> _issued(
+    BuildContext context,
+    List<DailyIssuedType> types,
+    int count,
+  ) {
+    final p = context.palette;
+    return [
+      const SizedBox(height: Space.l),
+      Semantics(
+        header: true,
+        child: Text(
+          _range.isDay
+              ? DailySummaryHe.issuedToday
+              : DailySummaryHe.issuedRange,
+          style: AppText.headline,
+        ),
+      ),
+      const SizedBox(height: Space.s),
+      AppCard(
+        key: const Key('daily-issued'),
+        child: types.isEmpty
+            ? SizedBox(
+                height: Hit.row,
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    DailySummaryHe.issuedNone,
+                    style: AppText.body.copyWith(color: p.muted),
+                  ),
+                ),
+              )
+            : Column(
+                children: [
+                  for (final t in types)
+                    SizedBox(
+                      key: Key('daily-issued-${t.documentType}'),
+                      height: Hit.row,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${docTypeLabels[t.documentType] ?? t.label} (${t.count})',
+                              style: AppText.body,
+                            ),
+                          ),
+                          Text(
+                            ltrIsolate(formatMoney(t.totalMinor)),
+                            style: AppText.body.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+      ),
+      if (count > 0) ...[
+        const SizedBox(height: Space.xs),
+        Text(
+          DailySummaryHe.issuedCount(count),
+          key: const Key('daily-issued-count'),
+          style: AppText.secondary.copyWith(color: p.muted),
+        ),
+      ],
+    ];
+  }
 
   List<Widget> _full(BuildContext context, DailySummary d) {
     final p = context.palette;
@@ -257,6 +336,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         key: const Key('daily-count'),
         style: AppText.secondary,
       ),
+      if (d.issued != null) ..._issued(context, d.issued!, d.issuedCount),
       const SizedBox(height: Space.l),
       Semantics(
         header: true,
