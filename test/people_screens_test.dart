@@ -344,6 +344,17 @@ void main() {
         expect(find.byType(PrimaryButton), findsOneWidget);
         expect(find.text('בקש תשלום'), findsOneWidget);
         expect(find.byKey(const Key('person-owes')), findsOneWidget);
+        // 0110: the "תנאי תשלום" row sits above the documents.
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('person-doc-d1')),
+          200,
+          scrollable: find
+              .descendant(
+                of: find.byType(RefreshIndicator),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
         expect(find.byKey(const Key('person-doc-d1')), findsOneWidget);
         expect(
           find.descendant(
@@ -352,6 +363,16 @@ void main() {
           ),
           findsWidgets,
           reason: 'title = type · number, not the date',
+        );
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('person-whatsapp')),
+          -200,
+          scrollable: find
+              .descendant(
+                of: find.byType(RefreshIndicator),
+                matching: find.byType(Scrollable),
+              )
+              .first,
         );
 
         await tap(tester, find.byKey(const Key('person-whatsapp')));
