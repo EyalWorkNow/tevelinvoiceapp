@@ -29,6 +29,7 @@ import 'sheets/s13_editor.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'team_editors.dart' show confirmDanger;
 import '../signature/signature_screen.dart' show openSignatureScreen;
+import '../help/help_screen.dart' show openHelpScreen;
 
 /// GET /auth/mfa/methods. Tests replace it.
 Future<MfaMethods> Function() loadMfaMethods = fetchMfaMethods;
@@ -256,6 +257,13 @@ class _AccountPageState extends State<AccountPage> {
           label: BusinessHe.terms,
           icon: Iconsax.document_text,
           onTap: () => openSafari(Uri.parse(termsUrl)),
+        ),
+        BusinessRow(
+          key: const Key('account-help'),
+          label: HelpHe.rowLabel,
+          value: HelpHe.rowHint,
+          icon: Iconsax.message_question,
+          onTap: () => openHelpScreen(context),
         ),
         BusinessRow(
           label: BusinessHe.support,

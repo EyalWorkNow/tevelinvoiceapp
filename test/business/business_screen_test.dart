@@ -438,7 +438,13 @@ void main() {
     expect(hideAmounts.value, isTrue);
     await tester.runAsync(() => setHideAmounts(false));
 
-    await tester.ensureVisible(find.byKey(const Key('account-signout-all')));
+    // The help row (0120) moved it past the lazy list.
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('account-signout-all')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('account-signout-all')));
     await settle(tester);
     expect(find.text('לצאת מכל המכשירים?'), findsOneWidget);

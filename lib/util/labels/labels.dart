@@ -19,3 +19,4 @@ export 'calendar_he.dart';
 export 'signature_he.dart';
 export 'sign_he.dart';
 export 'vault_he.dart';
+export 'help_he.dart';
