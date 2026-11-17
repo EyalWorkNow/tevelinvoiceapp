@@ -412,6 +412,7 @@ class TimelineRow extends StatelessWidget {
     if (k.startsWith('reminder.')) return Iconsax.notification_bing;
     if (k.startsWith('recurring.')) return Iconsax.calendar_tick;
     if (k.startsWith('correction.')) return Iconsax.edit_2;
+    if (k.startsWith('calendar.')) return Iconsax.calendar_2;
     if (k == 'document.sent') return Iconsax.send_2;
     if (k == 'document.viewed') return Iconsax.eye;
     return Iconsax.document_text;

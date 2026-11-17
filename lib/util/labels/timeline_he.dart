@@ -22,6 +22,7 @@ abstract final class TimelineHe {
     'recurring': 'חיוב חודשי',
     'corrections': 'בקשות תיקון',
     'notes': 'הערות',
+    'calendar': 'פגישות',
   };
 
   // Notes.
@@ -100,6 +101,13 @@ String _with(String what, String? channel) {
   return c.isEmpty ? what : '$what $c';
 }
 
+/// "נקבעה פגישה · 01.12 09:00" (startsAtIsrael = "YYYY-MM-DD HH:MM").
+String _meeting(String what, Map<String, dynamic> d) {
+  final at = d['startsAtIsrael'];
+  if (at is! String || at.length < 16) return what;
+  return '$what · ${at.substring(8, 10)}.${at.substring(5, 7)} ${at.substring(11, 16)}';
+}
+
 /// The headline of one timeline row.
 String timelineSentence(String kind, Map<String, dynamic> d) {
   final note = d['note'] is String ? d['note'] as String : '';
@@ -138,6 +146,11 @@ String timelineSentence(String kind, Map<String, dynamic> d) {
       '${d['requestKind'] == 'CREDIT' ? 'בקשת זיכוי' : 'בקשת תיקון'}: ${_doc(d)}',
     'correction.closed' =>
       d['status'] == 'DISMISSED' ? 'בקשת התיקון נסגרה' : 'בקשת התיקון טופלה',
+    'calendar.booked' => _meeting('נקבעה פגישה', d),
+    'calendar.cancelled' =>
+      d['cancelledBy'] == 'CLIENT'
+          ? _meeting('הלקוח ביטל פגישה', d)
+          : _meeting('בוטלה פגישה', d),
     'note' => (d['body'] as String?) ?? '',
     _ => 'עדכון',
   };

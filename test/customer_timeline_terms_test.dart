@@ -123,7 +123,29 @@ void main() {
         'נרשם חוב: 2 שיעורים',
       );
       expect(timelineSentence('note', {'body': 'להתקשר'}), 'להתקשר');
-      expect(timelineSentence('calendar.booked', {}), 'עדכון');
+      expect(timelineSentence('mystery.kind', {}), 'עדכון');
+    });
+
+    test('integration 2026-11-17: calendar bookings + automatic reminders', () {
+      expect(timelineSentence('calendar.booked', {}), 'נקבעה פגישה');
+      expect(
+        timelineSentence('calendar.booked', {
+          'startsAtIsrael': '2026-12-01 09:30',
+        }),
+        'נקבעה פגישה · 01.12 09:30',
+      );
+      expect(
+        timelineSentence('calendar.cancelled', {
+          'startsAtIsrael': '2026-12-01 09:30',
+          'cancelledBy': 'CLIENT',
+        }),
+        'הלקוח ביטל פגישה · 01.12 09:30',
+      );
+      expect(
+        timelineSentence('reminder.sent', {'channel': 'EMAIL', 'auto': true}),
+        'נשלחה תזכורת אוטומטית במייל',
+      );
+      expect(TimelineHe.chips['calendar'], 'פגישות');
     });
   });
 

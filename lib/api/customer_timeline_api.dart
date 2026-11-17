@@ -23,6 +23,9 @@ enum TimelineSource {
   recurring,
   corrections,
   notes,
+
+  /// Integration 2026-11-17: client self-bookings (0106), owner / partner only.
+  calendar,
 }
 
 class TimelineItem {
