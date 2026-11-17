@@ -11,6 +11,7 @@ import 'package:invoice/api/models/models.dart';
 import 'package:invoice/api/customers_api.dart' show resetStatementProbe;
 import 'package:invoice/router.dart';
 import 'package:invoice/screens/compose/compose_screen.dart';
+import 'package:invoice/screens/compose/payment_request_screen.dart';
 import 'package:invoice/screens/document/sheets/s6_share.dart' show pdfSharer;
 import 'package:invoice/screens/people/people_screen.dart';
 import 'package:invoice/screens/people/person_screen.dart';
@@ -382,9 +383,11 @@ void main() {
         await tap(tester, find.byKey(const Key('person-mail')));
         expect(launcher.last.toString(), 'mailto:d@x.co');
 
+        // Owner 2026-11-18: the short payment-request form, for this customer.
         await tap(tester, find.text('בקש תשלום'));
-        final c = tester.widget<ComposeScreen>(find.byType(ComposeScreen));
-        expect(c.intent, 'REQUEST');
+        final c = tester.widget<PaymentRequestScreen>(
+          find.byType(PaymentRequestScreen),
+        );
         expect(c.customerId, 'c1');
       },
     );

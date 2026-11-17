@@ -775,7 +775,7 @@ class _IntentButtons extends StatelessWidget {
           label: CommonHe.requestPayment,
           icon: const DesignIcon('request'),
           color: DesignTokens.green,
-          onPressed: () => unawaited(openCompose(context, intent: 'REQUEST')),
+          onPressed: () => unawaited(openPaymentRequest(context)),
         ),
     ];
     return Row(

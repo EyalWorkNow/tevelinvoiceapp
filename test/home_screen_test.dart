@@ -13,6 +13,7 @@ import 'package:invoice/app_shell.dart';
 import 'package:invoice/router.dart';
 import 'package:invoice/screens/activity/activity_screen.dart';
 import 'package:invoice/screens/compose/compose_screen.dart';
+import 'package:invoice/screens/compose/payment_request_screen.dart';
 import 'package:invoice/screens/document/document_screen.dart';
 import 'package:invoice/screens/home/home_controller.dart';
 import 'package:invoice/screens/home/home_screen.dart';
@@ -251,12 +252,11 @@ void main() {
         'PAID',
       );
       await back();
+      // Owner 2026-11-18: בקשת תשלום is its own short form.
       await tester.tap(find.byKey(const Key('intent-request')));
       await tester.pumpAndSettle();
-      expect(
-        tester.widget<ComposeScreen>(find.byType(ComposeScreen)).intent,
-        'REQUEST',
-      );
+      expect(find.byType(PaymentRequestScreen), findsOneWidget);
+      expect(find.byType(ComposeScreen), findsNothing);
       await back();
 
       // J7 first tap: the single approval card opens D on that document.

@@ -43,6 +43,7 @@ void main() {
       '/home',
       '/activity',
       '/compose',
+      '/payment-request',
       '/doc/:id',
       '/quote/:id',
       '/people',

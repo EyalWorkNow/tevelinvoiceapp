@@ -343,13 +343,14 @@ class _PersonScreenState extends State<PersonScreen> {
       label: owes ? CommonHe.requestPayment : PeopleHe.newDocFor(_name),
       offline: offline,
       // A5: "חשבונית חדשה ל-X" follows the "+ חשבונית" default (פטור → קבלה).
-      onPressed: () => openCompose(
-        context,
-        intent: owes
-            ? 'REQUEST'
-            : invoiceIntentFor(businessContext.businessType),
-        customerId: widget.id,
-      ),
+      // Owner 2026-11-18: "בקש תשלום" opens the short payment-request form.
+      onPressed: () => owes
+          ? openPaymentRequest(context, customerId: widget.id)
+          : openCompose(
+              context,
+              intent: invoiceIntentFor(businessContext.businessType),
+              customerId: widget.id,
+            ),
     );
   }
 
