@@ -18,11 +18,14 @@ import 'package:invoice/router.dart';
 import 'package:invoice/screens/compose/compose_screen.dart';
 import 'package:invoice/screens/compose/compose_memory.dart';
 import 'package:invoice/screens/compose/compose_submit.dart';
+import 'package:invoice/screens/compose/sheets/s3_more.dart'
+    show MoreDetailsSheet;
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/ds.dart';
-import 'package:invoice/util/composer_config.dart' show dueDateForTerms;
+import 'package:invoice/util/composer_config.dart'
+    show DocKind, dueDateForTerms;
 import 'package:invoice/util/intent_resolver.dart' show invoiceIntentFor;
 import 'package:invoice/util/labels/labels.dart';
 
@@ -198,11 +201,8 @@ void main() {
       await open(tester, intent: 'PAID');
       await type(tester, '1180');
       expect(find.byKey(const Key('vat-breakdown')), findsOneWidget);
-      expect(
-        find.text('חשבונית מס-קבלה'),
-        findsNothing,
-        reason: 'F1: no type name before issuing',
-      );
+      // Walkthrough #5: the type is on screen (was F1 "no type name").
+      expect(find.text('יופק: חשבונית מס-קבלה'), findsOneWidget);
       expect(primaryLabel(tester), ComposeHe.issueAndWhatsApp);
       await tap(tester, primary());
       expect(taps, 3);
@@ -236,14 +236,14 @@ void main() {
   );
 
   testWidgets(
-    'missing delivery channel opens recipient options without requiring WhatsApp',
+    'missing delivery channel, no phone ("הפק") → recipient options, no WhatsApp',
     (tester) async {
       backend.json('POST', '/documents/:id/dispatch', {
         'status': 'MANUAL_REQUIRED',
         'channel': 'MANUAL',
         'transport': 'manual',
       });
-      await open(tester, intent: 'PAID');
+      await open(tester, intent: 'PAID', customer: walkIn);
       await type(tester, '1180');
       await tap(tester, primary());
       expect(routes, containsAll(['/doc/d1', 'S6 d1']));
@@ -252,6 +252,118 @@ void main() {
         find.text('המסמך מוכן לקבלה בסריקה, בטלפון או במייל'),
         findsOneWidget,
       );
+    },
+  );
+
+  for (final (status, channel, transport) in [
+    ('MANUAL_REQUIRED', 'MANUAL', 'manual'),
+    ('SENT', 'EMAIL', 'smtp'),
+  ]) {
+    testWidgets(
+      'walkthrough #6: "הפק ושלח בווטסאפ" opens WhatsApp also after dispatch $channel',
+      (tester) async {
+        backend.json('POST', '/documents/:id/dispatch', {
+          'status': status,
+          'channel': channel,
+          'transport': transport,
+        });
+        await open(tester, intent: 'PAID');
+        await type(tester, '1180');
+        expect(primaryLabel(tester), ComposeHe.issueAndWhatsApp);
+        await tap(tester, primary());
+        expect(
+          launcher.last.toString(),
+          startsWith('https://wa.me/972501234567'),
+        );
+        expect(routes, contains('/doc/d1'));
+        expect(routes, isNot(contains('S6 d1')), reason: 'WhatsApp opened');
+        expect(
+          find.text(
+            channel == 'EMAIL'
+                ? ComposeHe.issuedEmailedWhatsAppOpened
+                : ComposeHe.issuedWhatsAppOpened,
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+  }
+
+  testWidgets(
+    'walkthrough #6: a WhatsApp the server sent itself is not opened again',
+    (tester) async {
+      backend.json('POST', '/documents/:id/dispatch', {
+        'status': 'SENT',
+        'channel': 'WHATSAPP',
+        'transport': 'whatsapp',
+      });
+      await open(tester, intent: 'PAID');
+      await type(tester, '1180');
+      await tap(tester, primary());
+      expect(launcher.opened, isEmpty);
+    },
+  );
+
+  for (final size in [const Size(1170, 2532), const Size(1125, 2001)]) {
+    testWidgets(
+      'walkthrough #7 (${size.width ~/ 3}pt): "הסתר מקלדת" uncovers the payment chips and "פרטים נוספים"; the keys never move',
+      (tester) async {
+        await open(tester, intent: 'PAID', rememberedMethod: null, size: size);
+        final one = find
+            .descendant(of: find.byType(Keypad), matching: find.text('1'))
+            .first;
+        final before = tester.getTopLeft(one);
+        expect(find.byKey(const Key('keypad-done')), findsNothing);
+        await type(tester, '1180');
+        expect(tester.getTopLeft(one), before, reason: 'U1: no jump');
+        await tap(tester, find.byKey(const Key('keypad-done')));
+        await tester.pumpAndSettle();
+        expect(find.byType(Keypad), findsNothing);
+        expect(
+          find.byKey(const Key('compose-methods')).hitTestable(),
+          findsOneWidget,
+        );
+        await tester.ensureVisible(
+          find.byKey(const Key('compose-more-details')),
+        );
+        expect(
+          find.byKey(const Key('compose-more-details')).hitTestable(),
+          findsOneWidget,
+        );
+        // The type chip opens S3 (type + more details) with the keypad up too.
+        await tap(tester, find.byKey(const Key('compose-show-keypad')));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byKey(const Key('compose-kind-chip')));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('compose-kind-chip')).hitTestable(),
+          findsOneWidget,
+        );
+        await tap(tester, find.byKey(const Key('compose-kind-chip')));
+        await tester.pumpAndSettle();
+        expect(find.byType(MoreDetailsSheet), findsOneWidget);
+      },
+    );
+  }
+
+  testWidgets(
+    'walkthrough #5: the chip names the type; S3 "חשבון עסקה" → chip + "הפק" follow',
+    (tester) async {
+      await open(tester, intent: 'TYPE:305', customer: walkIn);
+      await type(tester, '1180');
+      expect(find.text('יופק: חשבונית מס'), findsOneWidget);
+      expect(primaryLabel(tester), 'הפק חשבונית מס');
+      await tester.tap(find.byKey(const Key('compose-kind-chip')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(kindLabels[DocKind.transactionInvoice]!).last);
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(10, 10)); // close S3
+      await tester.pumpAndSettle();
+      expect(
+        find.text('יופק: ${kindLabels[DocKind.transactionInvoice]}'),
+        findsOneWidget,
+      );
+      expect(primaryLabel(tester), 'הפק חשבון עסקה');
     },
   );
 
@@ -400,7 +512,11 @@ void main() {
     (tester) async {
       await open(tester, intent: 'PAID', customer: walkIn);
       await type(tester, '7080');
-      expect(primaryLabel(tester), ComposeHe.issue, reason: 'no phone → "הפק"');
+      expect(
+        primaryLabel(tester),
+        'הפק חשבונית מס-קבלה',
+        reason: 'no phone → "הפק" + what it issues (walkthrough #5)',
+      );
       await tap(tester, primary());
       final finalize = backend.last('POST', '/documents/:id/finalize')!.body;
       expect(finalize['scopeKey'], 'default');
@@ -800,6 +916,7 @@ void main() {
         fake.paymentTerms['c1'] = 'EOM';
         await open(tester, intent: 'TYPE:305');
         await type(tester, '1180');
+        await tap(tester, find.byKey(const Key('keypad-done')));
         await tap(tester, find.byKey(const Key('compose-more-details')));
         expect(find.byKey(const Key('s3-due-date')), findsOneWidget);
         expect(find.byKey(const Key('s3-notes')), findsOneWidget);
@@ -914,7 +1031,7 @@ void main() {
           customer: const Customer(id: 's9', name: 'ספק הברגים'),
         );
         await type(tester, '500');
-        expect(primaryLabel(tester), ComposeHe.issue);
+        expect(primaryLabel(tester), 'הפק הזמנת רכש');
         await tap(tester, primary());
         final body = backend.last('POST', '/documents')!.body;
         expect(

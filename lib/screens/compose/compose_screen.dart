@@ -604,6 +604,23 @@ class _ComposeScreenState extends State<ComposeScreen> {
                   const SizedBox(height: 12),
                   AmountField(
                     state: s,
+                    // Walkthrough #5: which document this is, at all times
+                    // (at ₪0 the two big choices below say it); a tap
+                    // switches it (S3) when there is a choice.
+                    header:
+                        s.totalMinor > BigInt.zero ||
+                            load.switchKinds.length < 2
+                        ? KindPill(
+                            label: kindChipLabel(s.kind),
+                            onTap: load.switchKinds.length > 1
+                                ? () => showMoreDetailsSheet(
+                                    context,
+                                    state: s,
+                                    kinds: load.switchKinds,
+                                  )
+                                : null,
+                          )
+                        : null,
                     onTap: _keypadAway
                         ? () => setState(() => _keypadAway = false)
                         : null,
@@ -696,6 +713,13 @@ class _ComposeScreenState extends State<ComposeScreen> {
                 s.amountText = keypadApply(s.amountText, k);
                 s.changed();
               },
+              // Walkthrough #7: what is under the keys (payment chips,
+              // "פרטים נוספים") is one visible tap away once there is an
+              // amount; the row is always there so the keys never move.
+              onDone: () => setState(() => _keypadAway = true),
+              doneLabel: s.amountMinor > BigInt.zero
+                  ? ComposeHe.hideKeypad
+                  : null,
             ),
           ),
         // U1: the area is always there (empty until ready), so the keypad
@@ -711,7 +735,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
                       key: const Key('compose-primary'),
                       label: _isPaymentRequest
                           ? CommonHe.cont
-                          : actionLabel(action),
+                          : composerActionLabel(action, s.kind),
                       offline: bc.offline,
                       loadingText: _step,
                       onPressed: () {
