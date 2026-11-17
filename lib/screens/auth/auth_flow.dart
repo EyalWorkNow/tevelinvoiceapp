@@ -90,9 +90,12 @@ Future<void> routeSignedIn(BuildContext context) async {
       } on ApiException catch (e) {
         if (e.code == 'MFA_REQUIRED') {
           // A token minted before this member needed MFA (e.g. just got
-          // "מפיק בעצמו"): sign in again through the MFA step.
+          // "מפיק בעצמו", or "בדוק שוב" found a business the user owns —
+          // walkthrough #14): the server never upgrades a device token, so
+          // sign in once more through the MFA step — said so, email kept.
+          final email = session.account?.email;
           await session.signOutLocally();
-          resetToLogin(expired: true);
+          resetToLogin(mfaRequired: true, email: email);
           return;
         }
         // 401 already signed us out; offline → home from cache.

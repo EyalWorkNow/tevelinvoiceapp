@@ -229,6 +229,13 @@ abstract final class BusinessHe {
       'החשבון $email לא משויך כרגע לאף עסק. בקש מבעל העסק להזמין אותך, '
       'או המשך במחשב כדי לפתוח עסק.';
   static const checkAgain = 'בדוק שוב';
+
+  /// Walkthrough 2026-11-17 #14: "בדוק שוב" found the business, but this
+  /// device signed in before it needed two-step verification (an owner /
+  /// accountant membership). The server refuses such a device token, so the
+  /// user signs in once more — told why, email filled in, never "פג תוקף".
+  static const signInAgainForMfa =
+      'נמצא עסק בחשבון. כדי להיכנס אליו צריך אימות דו-שלבי, ולכן צריך להתחבר שוב פעם אחת.';
 }
 
 /// "המשך במחשב" topics (§13.9) → BE-35 topic keys. Labels from the server list.

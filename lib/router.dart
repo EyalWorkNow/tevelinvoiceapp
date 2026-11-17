@@ -454,8 +454,19 @@ void resetToHome({AppTab tab = AppTab.home}) {
 }
 
 /// A (sign-in). [expired] shows "פג תוקף ההתחברות".
-void resetToLogin({bool expired = false}) {
-  _resetTo(LoginScreen(sessionExpired: expired), '/gate');
+void resetToLogin({
+  bool expired = false,
+  bool mfaRequired = false,
+  String? email,
+}) {
+  _resetTo(
+    LoginScreen(
+      sessionExpired: expired,
+      mfaRequired: mfaRequired,
+      email: email,
+    ),
+    '/gate',
+  );
   _openPendingInvite();
 }
 

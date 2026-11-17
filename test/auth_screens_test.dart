@@ -607,6 +607,59 @@ void main() {
     },
   );
 
+  testWidgets(
+    'walkthrough #14: "בדוק שוב" finds an owned business → sign in once more '
+    'for MFA, told why, e-mail kept — never "פג תוקף ההתחברות"',
+    (tester) async {
+      phone(tester);
+      ApiClient.instance.deviceToken = 'tok';
+      session
+        ..status = SessionStatus.signedIn
+        ..account = MobileAccount.fromJson({
+          'userId': 'u',
+          'email': 'new.owner@tevel.test',
+          'displayName': null,
+          'businesses': <Object>[],
+        });
+      serve({
+        'GET /mobile/session': (
+          200,
+          {
+            'userId': 'u',
+            'email': 'new.owner@tevel.test',
+            'displayName': null,
+            'businesses': [
+              {'businessId': 'b1', 'legalName': 'העסק החדש', 'role': 'OWNER'},
+            ],
+          },
+        ),
+        'GET /me': (
+          403,
+          {
+            'error': 'MFA_REQUIRED',
+            'message':
+                'this device was signed in without multi-factor authentication; sign in again',
+          },
+        ),
+        'POST /mobile/logout': (200, {'ok': true}),
+      });
+      await tester.pumpWidget(app(const NoBusinessScreen()));
+      await tester.tap(find.byKey(const Key('no-business-recheck')));
+      for (var i = 0; i < 10; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(find.byKey(const Key('login-mfa-notice')), findsOneWidget);
+      expect(find.textContaining('פג תוקף'), findsNothing);
+      expect(find.text('new.owner@tevel.test'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('no business: account deletion is reachable', (tester) async {
     phone(tester);
     session
