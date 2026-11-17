@@ -396,6 +396,15 @@ Future<void> _sendQuote(
       notes: s.notes,
     );
   }
+  if (run.action == ComposerAction.saveQuote) {
+    // Saved only: D opens with the PDF; sending is a separate step there.
+    run.editQuote = true; // a second tap updates the same quote
+    messenger.showNotchNotice(
+      const SnackBar(content: Text(ComposeHe.quoteSaved)),
+      motion: NoticeMotion.sent,
+    );
+    return;
+  }
   String? link;
   try {
     link = await createQuoteShareLink(run.quoteId!);

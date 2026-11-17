@@ -10,6 +10,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:invoice/api/issue_api.dart' show todayIso;
 import 'package:invoice/api/models/models.dart';
 import 'package:invoice/api/signing_api.dart' as signing;
 import 'package:invoice/router.dart';
@@ -621,6 +622,55 @@ void main() {
           1800,
         );
         expect(fake.quoteStatus['q1'], 'SENT');
+      },
+    );
+
+    testWidgets(
+      'owner 2026-11-16: "שמור בלי לשלוח" → POST /quotes only, D opens; nothing leaves',
+      (tester) async {
+        await open(tester, intent: 'QUOTE');
+        await type(tester, '1180');
+        final save = find.byKey(const Key('compose-save-quote'));
+        expect(save, findsOneWidget);
+        expect(find.text(ComposeHe.saveQuote), findsOneWidget);
+        await tester.tap(save);
+        await flush(tester);
+        expect(backend.calls('POST', '/quotes'), hasLength(1));
+        expect(backend.calls('POST', '/quotes/:id/share-link'), isEmpty);
+        expect(backend.calls('POST', '/quotes/:id/status'), isEmpty);
+        expect(launcher.opened, isEmpty);
+        expect(routes.last, '/quote/q1');
+      },
+    );
+
+    testWidgets(
+      'owner 2026-11-16: "עדכן תוקף" — a quote past its date opens with +14 days',
+      (tester) async {
+        fake
+          ..quotes['q9'] = {
+            'customerId': 'c1',
+            'validUntil': '2020-01-01',
+            'lines': [
+              {
+                'description': 'מזגן',
+                'quantityMicros': '1000000',
+                'unitPriceMinor': '200000',
+                'taxRateBasisPoints': 1800,
+              },
+            ],
+          }
+          ..quoteStatus['q9'] = 'SENT';
+        await open(tester, intent: 'QUOTE', fromQuoteId: 'q9');
+        await tap(tester, primary());
+        final put = backend.last('PUT', '/quotes/:id')!;
+        expect(
+          (put.body['validUntil'] as String).compareTo('2020-01-01'),
+          greaterThan(0),
+        );
+        expect(
+          put.body['validUntil'],
+          todayIso(DateTime.now().add(const Duration(days: 14))),
+        );
       },
     );
 

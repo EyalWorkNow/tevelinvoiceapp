@@ -22,6 +22,8 @@ import '../../api/issue_api.dart'
         pendingPaymentsOf,
         updatePendingPayment;
 import '../../api/models/models.dart';
+import '../../api/quotes_api.dart'
+    show cancelQuote, deleteQuote, emailQuote, setQuoteStatus;
 import '../../api/signing_api.dart';
 import '../../router.dart';
 import '../../state/business_context.dart';
@@ -427,6 +429,9 @@ class _DocumentScreenState extends State<DocumentScreen> {
         convertedDocumentId: q.convertedDocumentId,
         quoteFull: quoteHasLines(q),
         amountHidden: q.amountHidden,
+        quoteExpired: q.expired,
+        quoteDeletable: q.deletable,
+        customerHasEmail: (_customer?.email ?? '').trim().isNotEmpty,
       );
     }
     final d = _doc!;
@@ -657,6 +662,41 @@ class _DocumentScreenState extends State<DocumentScreen> {
             fromQuoteId: quote!.id,
           );
         }
+      case DocAction.editQuote || DocAction.extendQuote:
+        await openCompose(context, intent: 'QUOTE', fromQuoteId: quote!.id);
+        if (mounted) await _load();
+      case DocAction.customerAccepted:
+        await _guard(label, () async {
+          await setQuoteStatus(quote!.id, 'ACCEPTED');
+          return DocumentHe.markedAccepted;
+        });
+      case DocAction.emailQuote:
+        await _guard(label, () async {
+          final to = await emailQuote(quote!.id);
+          return DocumentHe.quoteEmailed(to);
+        });
+      case DocAction.deleteQuote:
+        if (!await confirmDeleteQuote(context) || !mounted) return;
+        var deleted = false;
+        setState(() => _busy = label);
+        try {
+          await deleteQuote(quote!.id);
+          deleted = true;
+        } on Object catch (e) {
+          if (mounted) showErrorSnack(context, e);
+        } finally {
+          if (mounted) setState(() => _busy = null);
+        }
+        if (deleted && mounted) {
+          toast(context, DocumentHe.quoteDeleted);
+          Navigator.of(context).maybePop();
+        }
+      case DocAction.cancelQuote:
+        if (!await confirmCancelQuote(context) || !mounted) return;
+        await _guard(label, () async {
+          await cancelQuote(quote!.id);
+          return DocumentHe.quoteCancelled;
+        });
       case DocAction.customerRejected:
         await _guard(label, () async {
           await setQuoteStatus(quote!.id, 'REJECTED');
@@ -811,7 +851,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
     final doc = _doc;
     final quote = _quote;
     final title = quote != null
-        ? DocumentHe.quoteTitle
+        ? DocumentHe.quoteTitleNumbered(quote.quoteNumber)
         : doc == null
         ? (widget.isQuote ? DocumentHe.quoteTitle : '')
         : docTitle(doc.documentType, doc.documentNumber);
@@ -868,7 +908,10 @@ class _DocumentScreenState extends State<DocumentScreen> {
                           a,
                           hasPhone: _facts.customerHasPhone,
                         ),
-                        destructive: a == DocAction.cancelOrCredit,
+                        destructive:
+                            a == DocAction.cancelOrCredit ||
+                            a == DocAction.deleteQuote ||
+                            a == DocAction.cancelQuote,
                         onSelected: () => _do(a),
                       ),
                     ?_monthlyItem(),
@@ -906,7 +949,10 @@ class _DocumentScreenState extends State<DocumentScreen> {
                               a,
                               hasPhone: _facts.customerHasPhone,
                             ),
-                            destructive: a == DocAction.cancelOrCredit,
+                            destructive:
+                                a == DocAction.cancelOrCredit ||
+                                a == DocAction.deleteQuote ||
+                                a == DocAction.cancelQuote,
                             onSelected: () => _do(a),
                           ),
                         ?_monthlyItem(),
@@ -964,7 +1010,32 @@ class _DocumentScreenState extends State<DocumentScreen> {
                       _waitingCard(doc!, next, offline),
                       const SizedBox(height: Space.m),
                     ],
-                    if (quote != null) _quotePreview(quote) else _preview(doc!),
+                    if (quote != null) ...[
+                      _quotePreview(quote),
+                      // The PDF hides the state: status + validity under it,
+                      // and the customer (owner feedback 2026-11-16).
+                      if (_pdf != null) ...[
+                        const SizedBox(height: Space.s),
+                        QuoteStatusLine(quote: quote),
+                      ],
+                      if (_customer != null)
+                        ListTile(
+                          key: const Key('quote-customer'),
+                          contentPadding: EdgeInsets.zero,
+                          minTileHeight: Hit.row,
+                          leading: const Icon(Iconsax.profile_circle),
+                          title: Text(_customer!.name, style: AppText.body),
+                          subtitle: Text(
+                            DocumentHe.goToCustomer,
+                            style: AppText.secondary.copyWith(
+                              color: context.palette.muted,
+                            ),
+                          ),
+                          trailing: const Icon(Iconsax.arrow_left_2),
+                          onTap: () => openPerson(context, _customer!.id),
+                        ),
+                    ] else
+                      _preview(doc!),
                     if (doc != null) ...[
                       const SizedBox(height: Space.s),
                       DocStatusLine(
@@ -1190,7 +1261,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
   /// BE-06 quote: its PDF (lines card while it loads or when it fails).
   Widget _quotePreview(Quote quote) {
     if (_pdf == null) return QuoteCard(quote: quote);
-    return _pdfBox(DocumentHe.quoteTitle);
+    return _pdfBox(DocumentHe.quoteTitleNumbered(quote.quoteNumber));
   }
 
   Widget _preview(DocumentDetail doc) {

@@ -11,6 +11,8 @@ abstract final class ComposeHe {
   static const submit = 'שלח לאישור';
   static const sendQuoteWhatsApp = 'שלח הצעה בווטסאפ';
   static const sendQuote = 'שלח הצעה';
+  static const saveQuote = 'שמור בלי לשלוח';
+  static const quoteSaved = 'ההצעה נשמרה ✓';
   static const issueAndWhatsApp = 'הפק ושלח בווטסאפ';
   static const issue = 'הפק';
 
@@ -198,6 +200,7 @@ String actionLabel(ComposerAction a) => switch (a) {
   ComposerAction.submit => ComposeHe.submit,
   ComposerAction.sendQuoteWhatsApp => ComposeHe.sendQuoteWhatsApp,
   ComposerAction.sendQuote => ComposeHe.sendQuote,
+  ComposerAction.saveQuote => ComposeHe.saveQuote,
   ComposerAction.issueAndWhatsApp => ComposeHe.issueAndWhatsApp,
   ComposerAction.issue => ComposeHe.issue,
 };

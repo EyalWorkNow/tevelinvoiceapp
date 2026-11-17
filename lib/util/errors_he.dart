@@ -275,6 +275,10 @@ const Map<String, String> _webMessages = {
   'DOCUMENT_NOT_FOUND': 'המסמך לא נמצא',
   'EXPENSE_NOT_FOUND': 'ההוצאה לא נמצאה',
   'QUOTE_NOT_FOUND': 'הצעת המחיר לא נמצאה',
+  'QUOTE_CANCELLED': 'ההצעה בוטלה',
+  'QUOTE_VALID_UNTIL_PAST': 'תאריך התוקף כבר עבר. בחרו תאריך מהיום והלאה.',
+  'QUOTE_NOT_DELETABLE':
+      'אפשר למחוק רק טיוטה שלא נשלחה ללקוח. אפשר לסמן אותה "הלקוח דחה" או לשכפל.',
   'EXPORT_NOT_FOUND': 'הייצוא לא נמצא',
   'PAYLOAD_TOO_LARGE': 'הקובץ או הבקשה גדולים מדי',
   'RATE_LIMITED': 'יותר מדי בקשות — המתינו רגע ונסו שוב',

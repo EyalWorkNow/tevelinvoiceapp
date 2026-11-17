@@ -69,6 +69,11 @@ enum ComposerAction {
   /// "שלח הצעה" → system share sheet (customer without a phone).
   sendQuote,
 
+  /// "שמור בלי לשלוח" (owner feedback 2026-11-16): POST / PUT the quote only,
+  /// then D (PDF preview, edit, send later). The primary for a member without
+  /// doc.send (the share link would be refused).
+  saveQuote,
+
   /// "הפק ושלח בווטסאפ".
   issueAndWhatsApp,
 
@@ -83,6 +88,7 @@ ComposerAction resolveAction({
   required bool canSend,
 }) {
   if (kind == DocKind.quote) {
+    if (!canSend) return ComposerAction.saveQuote;
     return hasPhone
         ? ComposerAction.sendQuoteWhatsApp
         : ComposerAction.sendQuote;
