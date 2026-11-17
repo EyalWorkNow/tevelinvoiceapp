@@ -13,12 +13,8 @@ import '../../ui/ds.dart';
 import '../document/document_parts.dart' show pdfPreviewBuilder;
 import 'sheets/editor_configs.dart' show logoPicker;
 import 'sheets/s13_editor.dart' show UnsavedChangesGuard;
+import 'template_gallery.dart';
 
-const _templates = {
-  'classic': 'קלאסית',
-  'modern': 'מודרנית',
-  'minimal': 'נקייה',
-};
 const _fonts = {'sans': 'נקי', 'serif': 'מסורתי', 'rounded': 'מעוגל'};
 const _logoSizes = {'small': 'קטן', 'medium': 'בינוני', 'large': 'גדול'};
 
@@ -372,29 +368,12 @@ class _BrandingScreenState extends State<BrandingScreen> {
       _controlHeading(
         'תבנית החשבונית',
         Iconsax.document_text,
-        'בחרו סגנון נקי ותקני למסמכים שלכם',
+        'בחרו עיצוב — כל התבניות תקניות ומציגות את אותם פרטים',
       ),
       const SizedBox(height: 12),
-      Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: [
-          for (final e in _templates.entries)
-            ChoiceChip(
-              key: Key('branding-template-${e.key}'),
-              avatar: Icon(
-                e.key == 'classic'
-                    ? Icons.table_rows_outlined
-                    : e.key == 'modern'
-                    ? Icons.view_agenda_outlined
-                    : Icons.notes_rounded,
-                size: 20,
-              ),
-              label: Text(e.value),
-              selected: draft.template == e.key,
-              onSelected: _saving ? null : (_) => _change({'template': e.key}),
-            ),
-        ],
+      TemplateGallery(
+        draft: draft,
+        onSelected: _saving ? null : (t) => _change({'template': t}),
       ),
       const SizedBox(height: 22),
       _controlHeading(
