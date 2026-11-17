@@ -14,6 +14,7 @@ import '../../state/session.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/business_he.dart';
 import '../../util/labels/collection_he.dart';
+import '../../util/labels/common_he.dart';
 import 'business_template.dart';
 
 /// Loads the settings (tests replace it).
@@ -76,7 +77,7 @@ class _CollectionSettingsScreenState extends State<CollectionSettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(c).pop(false),
-              child: const Text('ביטול'),
+              child: const Text(CommonHe.cancel),
             ),
             TextButton(
               key: const Key('collection-confirm'),
