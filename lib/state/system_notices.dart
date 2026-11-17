@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../api/client.dart';
+import '../api/documents_api.dart' show notifyDocumentsChanged;
+import '../api/settings_api.dart' show appVersion;
+import '../api/sign_requests_api.dart' show notifySignRequestsChanged;
 import '../router.dart';
 import '../util/errors_he.dart';
 import '../ui/widgets/notch_notice.dart';
@@ -18,6 +22,33 @@ const _events = EventChannel('tevel/system_notice_events');
 /// Fixed, amount-free text for OS and foreground events.
 (String, NoticeMotion)? systemNoticePresentation(String kind) => switch (kind) {
   'approved' => ('הלקוח אישר את הצעת המחיר!', NoticeMotion.approved),
+  // Push catalogue (PUSH-001, /mobile/push/devices; packages/shared
+  // push-catalogue.ts): `kind` + `link` instead of `tevelKind` + `route`.
+  'QUOTE_SIGNED' => ('הלקוח אישר את הצעת המחיר', NoticeMotion.approved),
+  'QUOTE_VIEWED' => ('הלקוח צפה בהצעת המחיר', NoticeMotion.sent),
+  'ITA_ALLOCATION_APPROVED' => (
+    'רשות המסים אישרה את המסמך',
+    NoticeMotion.approved,
+  ),
+  'ITA_ALLOCATION_REJECTED' => ('רשות המסים דחתה את המסמך', NoticeMotion.error),
+  'DOCUMENT_SEND_FAILED' => ('המסמך לא נשלח ללקוח', NoticeMotion.error),
+  'PAYMENT_RECEIVED' => ('התקבל תשלום', NoticeMotion.payment),
+  'PAYMENTS_OVERDUE' => (
+    'חשבוניות שעבר מועד התשלום שלהן',
+    NoticeMotion.reminder,
+  ),
+  'COLLECTION_REMINDERS_READY' => (
+    'תזכורות גבייה מוכנות לשליחה',
+    NoticeMotion.reminder,
+  ),
+  'TEAM_MEMBER_JOINED' => ('חבר צוות הצטרף', NoticeMotion.saved),
+  'SUBSCRIPTION_RENEWS_SOON' => ('המנוי מתחדש בקרוב', NoticeMotion.reminder),
+  'SUBSCRIPTION_PAYMENT_FAILED' => ('חידוש המנוי נכשל', NoticeMotion.error),
+  'SUBSCRIPTION_EXPIRED' => ('המנוי הסתיים', NoticeMotion.error),
+  'EXPORT_READY' => ('הקובץ מוכן', NoticeMotion.document),
+  'EXPORT_FAILED' => ('הפקת הדוח נכשלה', NoticeMotion.error),
+  'NEW_DEVICE_LOGIN' => ('כניסה מטלפון חדש', NoticeMotion.error),
+  'UPLOAD_BLOCKED' => ('קובץ נחסם', NoticeMotion.error),
   'payment' => ('התקבל תשלום חדש', NoticeMotion.payment),
   'approvalNeeded' => ('מסמך חדש ממתין לאישור', NoticeMotion.document),
   'rejected' => ('המסמך הוחזר לתיקון', NoticeMotion.error),
@@ -32,6 +63,9 @@ const _events = EventChannel('tevel/system_notice_events');
   'recurringReady' => ('טיוטות חודשיות מוכנות לאישור', NoticeMotion.document),
   'bookingNew' => ('נקבעה פגישה חדשה', NoticeMotion.calendar),
   'bookingSoon' => ('הפגישה הבאה מתקרבת', NoticeMotion.calendar),
+  // 0116 "מסמך לחתימה" (route /sign-request/:id).
+  'signRequestCompleted' => ('המסמך נחתם', NoticeMotion.signed),
+  'signRequestViewed' => ('המסמך לחתימה נצפה', NoticeMotion.sent),
   _ => null,
 };
 
@@ -130,6 +164,8 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
     _uploaded.clear();
+    // /mobile/logout also stops it (bound to the bearer); explicit anyway.
+    await _unregisterCatalogueDevice();
   }
 
   Future<void> refresh() async {
@@ -177,9 +213,21 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     await _storage.delete(key: _preferenceKey);
     enabled = false;
     _uploaded.clear();
+    // The catalogue device is per user: kept while another business is on.
+    if (!await _optedInAnywhere()) await _unregisterCatalogueDevice();
     await _channel.invokeMethod<void>('endAll');
     notifyListeners();
   }
+
+  /// Push kinds whose arrival means a quote/document changed on the server.
+  static bool refreshesDocuments(String kind, String route) =>
+      kind == 'approved' ||
+      kind == 'QUOTE_SIGNED' ||
+      route.startsWith('/quote/') ||
+      route.startsWith('/doc/');
+
+  @visibleForTesting
+  void debugEvent(Map<Object?, Object?> raw) => _onEvent(raw);
 
   void _onEvent(dynamic raw) {
     if (raw is! Map) return;
@@ -209,24 +257,37 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     final kind = raw['kind'];
     final route = raw['route'];
     final business = raw['businessId'];
+    // Account-level catalogue pushes (subscription, new device) carry no
+    // business: they open in the current one.
     if (kind is! String ||
         route is! String ||
         business is! String ||
         AppRoute.parse(route) == null ||
-        !isSafeId(business)) {
+        (business.isNotEmpty && !isSafeId(business))) {
       return;
     }
     final presentation = systemNoticePresentation(kind);
     if (presentation == null) return;
+    // A quote accepted / a document changed elsewhere: the open quote screen
+    // and the lists reload (ACCEPTED, the signed PDF).
+    if (refreshesDocuments(kind, route)) notifyDocumentsChanged();
+    // Open lists / the detail reload on any sign-request push.
+    if (kind.startsWith('signRequest')) notifySignRequestsChanged();
     if (raw['type'] == 'opened') {
+      final uri = Uri.parse(route);
+      final query = {
+        ...uri.queryParameters,
+        if (business.isNotEmpty) 'businessId': business,
+      };
       final link = Uri(
-        path: route,
-        queryParameters: {'businessId': business},
+        path: uri.path,
+        queryParameters: query.isEmpty ? null : query,
       ).toString();
       unawaited(AppRouter.instance.openDeepLink(link).catchError(_failure));
       return;
     }
-    if (session.status != SessionStatus.signedIn || business != _business) {
+    if (session.status != SessionStatus.signedIn ||
+        (business.isNotEmpty && business != _business)) {
       return;
     }
     if (raw['type'] != 'notice') return;
@@ -302,9 +363,88 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
       }
       _uploaded.add(key);
     }
+    if (generation == _generation && enabled) await _registerCatalogueDevice();
     syncError = null;
     notifyListeners();
   }
+
+  // ---- PUSH-001 catalogue device (/mobile/push/devices) ----------------------
+  // The server's audit fan-out (payments, ITA, export, subscription, security
+  // …) only reaches devices in push_devices: per user, bound to this bearer.
+
+  static const _deviceIdKey = 'push_catalogue_device_id';
+  String? _catalogueRegistered;
+
+  Future<String> _deviceId() async {
+    final existing = await _storage.read(key: _deviceIdKey);
+    if (existing != null &&
+        RegExp(r'^[A-Za-z0-9_-]{8,64}$').hasMatch(existing)) {
+      return existing;
+    }
+    final r = Random.secure();
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    final id = List.generate(32, (_) => chars[r.nextInt(chars.length)]).join();
+    await _storage.write(key: _deviceIdKey, value: id);
+    return id;
+  }
+
+  /// POST /mobile/push/devices with this device's alert token (best effort:
+  /// the business notices keep working without it).
+  Future<void> _registerCatalogueDevice() async {
+    final alert = _tokens.values
+        .where((t) => t['tokenType'] == 'alert')
+        .firstOrNull;
+    final token = alert?['token'] as String?;
+    if (token == null) return;
+    final key = '${session.account?.userId}:$token';
+    if (_catalogueRegistered == key) return;
+    try {
+      await ApiClient.instance.post('/mobile/push/devices', {
+        'deviceId': await _deviceId(),
+        'token': token,
+        'environment': alert!['environment'],
+        'locale': 'he',
+        'appVersion': appVersion,
+      });
+      _catalogueRegistered = key;
+    } on Object {
+      // Older server / offline: retried on the next resume.
+    }
+  }
+
+  Future<void> _unregisterCatalogueDevice() async {
+    _catalogueRegistered = null;
+    try {
+      final id = await _storage.read(key: _deviceIdKey);
+      if (id == null) return;
+      await ApiClient.instance.post('/mobile/push/devices/unregister', {
+        'deviceId': id,
+      });
+    } on Object {
+      // Best effort.
+    }
+  }
+
+  Future<bool> _optedInAnywhere() async {
+    final user = session.account?.userId;
+    for (final b in session.businesses) {
+      if (await _storage.read(key: 'system_notices_${user}_${b.businessId}') ==
+          '1') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @visibleForTesting
+  Future<void> debugRegisterCatalogue(Map<String, Object?> alertToken) {
+    _tokens['alert:'] = alertToken;
+    return _registerCatalogueDevice();
+  }
+
+  @visibleForTesting
+  Future<void> debugDisableCatalogue() => _unregisterCatalogueDevice();
 
   /// The server refuses push for a device token without MFA with a plain
   /// VALIDATION; that is not a connection problem and "retry" never helps.

@@ -253,10 +253,13 @@ String issueWhatsAppText({
   required BigInt totalMinor,
   required String link,
   required String businessName,
+  String? paymentUrl,
 }) =>
     'שלום $customerName, מצורפת ${docTypeLabel(documentType)}'
     '${number == null ? '' : ' מס\' $number'} על סך ${formatMoney(totalMinor)}. '
-    '${shareViewLabel(documentType)}: $link. תודה, $businessName';
+    '${shareViewLabel(documentType)}: $link. תודה, $businessName'
+    // בקשת תשלום / invoice with a payment page (owner 2026-11-17).
+    '${paymentUrl == null || paymentUrl.isEmpty ? '' : '\nלתשלום: $paymentUrl'}';
 
 /// P1 quote text (BE-06 link to the quote page + PDF), §13.5 wording.
 String quoteLinkWhatsAppText({

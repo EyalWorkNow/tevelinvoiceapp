@@ -742,4 +742,49 @@ void main() {
       });
     });
   });
+
+  group('בקשת תשלום paid → 320 (owner 2026-11-17)', () {
+    DocFacts open300({int paid = 0, String status = 'ARCHIVED'}) => DocFacts(
+      status: status,
+      documentType: 'TRANSACTION_INVOICE',
+      totalMinor: BigInt.from(59000),
+      openMinor: BigInt.from(59000 - paid),
+      paidMinor: BigInt.from(paid),
+    );
+
+    test('VAT business, unpaid 300, owner → a linked 320', () {
+      expect(paysByTaxInvoiceReceipt(open300(), viewer(Preset.owner)), isTrue);
+      // The row itself still says "קיבלתי תשלום" (row 8 ⋯ / row 9).
+      expect(
+        nextAction(open300(), viewer(Preset.owner)).menu,
+        contains(DocAction.recordPayment),
+      );
+    });
+
+    test('exempt business → S5 receipt (400), never a 320', () {
+      expect(
+        paysByTaxInvoiceReceipt(open300(), viewer(Preset.owner, exempt: true)),
+        isFalse,
+      );
+    });
+
+    test('partly paid 300 → S5 receipt, not a 320', () {
+      expect(
+        paysByTaxInvoiceReceipt(open300(paid: 10000), viewer(Preset.owner)),
+        isFalse,
+      );
+    });
+
+    test('a 305 / a draft 300 / a viewer → S5 (or nothing)', () {
+      expect(paysByTaxInvoiceReceipt(open305(), viewer(Preset.owner)), isFalse);
+      expect(
+        paysByTaxInvoiceReceipt(open300(status: 'DRAFT'), viewer(Preset.owner)),
+        isFalse,
+      );
+      expect(
+        paysByTaxInvoiceReceipt(open300(), viewer(Preset.viewer)),
+        isFalse,
+      );
+    });
+  });
 }

@@ -176,10 +176,26 @@ void main() {
       businessType: 'OSEK_PATUR',
     );
     expect(find.byKey(const Key('management-action-quote')), findsOneWidget);
+    // Owner 2026-11-17: "בקשת תשלום" for every business type.
+    expect(
+      find.byKey(const Key('management-action-payment-request')),
+      findsOneWidget,
+    );
     expect(find.text('הזמנת רכש'), findsNothing);
     expect(find.text('הזמנה'), findsNothing);
     expect(find.byKey(const Key('management-action-more')), findsNothing);
   });
+
+  testWidgets(
+    'VAT business: "בקשת תשלום" quick action opens a payment request',
+    (tester) async {
+      await pumpAs(tester, backend, Preset.owner, const BusinessScreen());
+      expect(
+        find.byKey(const Key('management-action-payment-request')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets(
     'owner list: business name header, rows, no PrimaryButton (read screen)',
@@ -436,7 +452,13 @@ void main() {
     tester,
   ) async {
     await pumpAs(tester, backend, Preset.owner, const AccountPage());
-    await tester.ensureVisible(find.byKey(const Key('account-signout')));
+    // "החתימה שלי" (quote signatures) moved it past the lazy list.
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('account-signout')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('account-signout')));
     await settle(tester);
     expect(find.text(BusinessHe.signOutConfirm), findsOneWidget);

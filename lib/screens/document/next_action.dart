@@ -471,3 +471,21 @@ bool _mayIssueTaxInvoice(DocFacts d, DocViewer v) {
   }
   return (0, null, null, const []);
 }
+
+/// "קיבלתי תשלום" on a בקשת תשלום (300) of a VAT business (owner 2026-11-17):
+/// the money is recorded by issuing the tax document itself — a 320
+/// חשבונית מס-קבלה linked to the 300 (BE-08 CONVERTED_FROM; the server closes
+/// the 300's balance) — instead of a 400 receipt followed by a 305. Only for
+/// a 300 nothing was paid on yet (a partly paid one keeps S5 → receipt, and
+/// the "הפק חשבונית מס" item), and only for a viewer who may issue the 320
+/// with its payment.
+bool paysByTaxInvoiceReceipt(DocFacts d, DocViewer v) =>
+    !d.isQuote &&
+    !v.vatExempt &&
+    d.documentType == 'TRANSACTION_INVOICE' &&
+    _issued.contains(d.status) &&
+    d.voidedAt == null &&
+    !d.convertedToInvoice &&
+    (d.paidMinor ?? BigInt.zero) == BigInt.zero &&
+    v.can(Cap.paymentRecord) &&
+    v.can(Cap.docDraft);

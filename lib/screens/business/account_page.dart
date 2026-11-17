@@ -27,6 +27,7 @@ import 'business_data_page.dart';
 import 'sheets/s13_editor.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'team_editors.dart' show confirmDanger;
+import '../signature/signature_screen.dart' show openSignatureScreen;
 
 class AccountPage extends StatefulWidget {
   const AccountPage({super.key, this.header});
@@ -179,6 +180,12 @@ class _AccountPageState extends State<AccountPage> {
                     ),
                   ),
           ),
+        BusinessRow(
+          key: const Key('account-signature'),
+          label: SignatureHe.title,
+          icon: Iconsax.edit_2,
+          onTap: session.offline ? null : () => openSignatureScreen(context),
+        ),
         const RowGroupGap(),
         if (_faceIdAvailable == true)
           SwitchListTile.adaptive(

@@ -34,6 +34,11 @@ import 'screens/people/import/customer_import_screen.dart';
 import 'screens/people/person_screen.dart';
 import 'api/reports_api.dart' show dailySummaryKind;
 import 'screens/reports/reports_screen.dart';
+import 'api/models/sign_request.dart';
+import 'screens/sign/sign_editor_screen.dart';
+import 'screens/sign/sign_request_screen.dart';
+import 'screens/sign/sign_requests_screen.dart';
+import 'screens/sign/sign_send_screen.dart';
 import 'state/business_context.dart';
 import 'state/caps.dart';
 import 'state/session.dart';
@@ -77,6 +82,8 @@ const Map<String, ScreenId> routeTable = {
   '/business/:section': ScreenId.b,
   // 0106 "יומן": the owner's calendar + self-booking (a ניהול view, not a tab).
   '/calendar': ScreenId.b,
+  // 0116 "מסמך לחתימה": one sign request (a D view; the push target).
+  '/sign-request/:id': ScreenId.d,
 };
 
 /// The 8 sheets of §5 → file that owns the show*() function (AT-93).
@@ -201,7 +208,11 @@ class AppRoute {
     '/compose' => Cap.docDraft,
     '/debts' => Cap.moneyView,
     '/calendar' => Cap.settingsBusiness,
-    '/activity' || '/doc/:id' || '/quote/:id' || '/people' => Cap.docView,
+    '/activity' ||
+    '/doc/:id' ||
+    '/quote/:id' ||
+    '/sign-request/:id' ||
+    '/people' => Cap.docView,
     // C2: the daily summary also answers employees / cashiers (own count only).
     '/reports/:kind' when params['kind'] == dailySummaryKind => Cap.docView,
     '/reports' || '/reports/:kind' => Cap.reportView,
@@ -259,6 +270,7 @@ Widget? screenFor(AppRoute route) {
     ),
     '/doc/:id' => DocumentScreen(id: p['id']!),
     '/quote/:id' => DocumentScreen(id: p['id']!, isQuote: true),
+    '/sign-request/:id' => SignRequestScreen(id: p['id']!),
     '/person/:id' => PersonScreen(
       id: p['id']!,
       isSupplier: q['kind'] == 'supplier',
@@ -553,6 +565,42 @@ Future<void> openQuote(
   return _pushPage(context, page, replace: replace);
 }
 
+/// "מסמכים לחתימה" (from מסמכים) — not a counted screen (§5).
+Future<void> openSignRequests(BuildContext context) =>
+    _push(context, const SignRequestsScreen(), '/sign-requests');
+
+/// One sign request (D view). [replace] swaps the current route (send → detail).
+Future<void> openSignRequest(
+  BuildContext context,
+  String id, {
+  bool replace = false,
+}) => _pushPage(
+  context,
+  _page<void>(SignRequestScreen(id: id), '/sign-request/$id'),
+  replace: replace,
+);
+
+/// Field placement of a DRAFT sign request.
+Future<void> openSignEditor(BuildContext context, SignRequest request) => _push(
+  context,
+  SignEditorScreen(request: request),
+  '/sign-requests/${request.id}/edit',
+);
+
+/// Send a DRAFT sign request. [replace] swaps the editor for it.
+Future<void> openSignSend(
+  BuildContext context,
+  SignRequest request, {
+  bool replace = false,
+}) => _pushPage(
+  context,
+  _page<void>(
+    SignSendScreen(request: request),
+    '/sign-requests/${request.id}/send',
+  ),
+  replace: replace,
+);
+
 /// C1 "מי חייב לי" (money viewers).
 Future<void> openDebts(BuildContext context) =>
     _push(context, const DebtsScreen(), '/debts');
@@ -645,6 +693,10 @@ Future<void> openSetup(BuildContext context) =>
 // ---- deep links + capability guard -----------------------------------------
 
 String? _pendingDeepLink;
+
+/// The link waiting for sign-in (tests).
+@visibleForTesting
+String? get debugPendingDeepLink => _pendingDeepLink;
 
 /// An invitation link waiting for the first sign-in screen or home.
 String? _pendingInvite;

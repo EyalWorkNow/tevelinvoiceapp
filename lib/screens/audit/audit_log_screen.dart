@@ -116,6 +116,8 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
       unawaited(openQuote(context, id));
     } else if (e.entityType == 'customer' && id != null) {
       unawaited(openPerson(context, id));
+    } else if (e.entityType == 'sign_request' && id != null) {
+      unawaited(openSignRequest(context, id));
     } else if (e.entityType == 'member' &&
         businessContext.can(Cap.teamManage)) {
       unawaited(openBusinessSection(context, BusinessSection.team));
@@ -124,7 +126,9 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
 
   bool _tappable(AuditEvent e) =>
       e.documentId != null ||
-      ((e.entityType == 'quote' || e.entityType == 'customer') &&
+      ((e.entityType == 'quote' ||
+              e.entityType == 'customer' ||
+              e.entityType == 'sign_request') &&
           e.entityId != null) ||
       (e.entityType == 'member' && businessContext.can(Cap.teamManage));
 

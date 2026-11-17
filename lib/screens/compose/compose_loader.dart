@@ -265,12 +265,18 @@ Future<ComposeLoad?> loadComposer({
 
 /// BE-08: an issued 300 / 100 turned into a 305 (TAX_INVOICE_DUE "הפק",
 /// §8.2.3) keeps the CONVERTED_FROM link.
+/// בקשת תשלום paid (owner 2026-11-17): an issued 300 of a VAT business →
+/// a linked 320 that records the money (the server closes the 300).
 bool _linkedConversion(DocumentDetail source, DocKind target) =>
-    target == DocKind.taxInvoice &&
-    (source.documentType == 'TRANSACTION_INVOICE' ||
-        source.documentType == 'SALES_ORDER') &&
     !source.isDraft &&
-    source.documentNumber != null;
+    source.documentNumber != null &&
+    switch (target) {
+      DocKind.taxInvoice =>
+        source.documentType == 'TRANSACTION_INVOICE' ||
+            source.documentType == 'SALES_ORDER',
+      DocKind.taxInvoiceReceipt => source.documentType == 'TRANSACTION_INVOICE',
+      _ => false,
+    };
 
 /// F8 / BE-07: the customer's payment terms (GET /customers/:id, BE-09) —
 /// else the business default (0110 effectivePaymentTerms) — for the due date

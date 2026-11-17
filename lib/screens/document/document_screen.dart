@@ -51,6 +51,8 @@ import 'sheets/s6_share.dart';
 import 'sheets/s8_cancel.dart';
 import 'waiting_allocation_card.dart';
 import 'quote_conversion.dart';
+import 'quote_signature_section.dart';
+import '../signature/signature_screen.dart' show ensureSignatureBeforeSend;
 import '../reports/correction_request_sheet.dart';
 
 class DocumentScreen extends StatefulWidget {
@@ -612,6 +614,10 @@ class _DocumentScreenState extends State<DocumentScreen> {
           return null;
         });
         await _loadLastReminded(d.id);
+      case DocAction.recordPayment
+          when paysByTaxInvoiceReceipt(_facts, _viewer):
+        await openCompose(context, intent: 'TYPE:320', fromDocId: doc!.id);
+        if (mounted) await _load();
       case DocAction.recordPayment:
         final out = await showPaymentSheet(
           context,
@@ -653,6 +659,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
           return DocumentHe.markedAccepted;
         });
       case DocAction.emailQuote:
+        if (!await ensureSignatureBeforeSend(context) || !mounted) return;
         await _guard(label, () async {
           final to = await emailQuote(quote!.id);
           return DocumentHe.quoteEmailed(to);
@@ -778,7 +785,13 @@ class _DocumentScreenState extends State<DocumentScreen> {
     String? text;
     if (businessContext.can(Cap.docSend)) text = await _quoteText(q);
     if (!_alive()) return null;
-    await pdfSharer(bytes, DocumentHe.quoteTitle, text: text);
+    await pdfSharer(
+      bytes,
+      quoteSignedApproved(q)
+          ? SignatureHe.signedApproved
+          : DocumentHe.quoteTitle,
+      text: text,
+    );
     return null;
   });
 
@@ -802,7 +815,12 @@ class _DocumentScreenState extends State<DocumentScreen> {
   }
 
   /// Send the quote by WhatsApp (link + text), then status SENT.
-  Future<void> _sendQuote(String label) => _guard(label, () async {
+  Future<void> _sendQuote(String label) async {
+    if (!await ensureSignatureBeforeSend(context) || !mounted) return;
+    return _sendQuoteNow(label);
+  }
+
+  Future<void> _sendQuoteNow(String label) => _guard(label, () async {
     final q = _quote!;
     final text = await _quoteText(q);
     if (!_alive()) return null;
@@ -1016,6 +1034,10 @@ class _DocumentScreenState extends State<DocumentScreen> {
                           trailing: const Icon(Iconsax.arrow_left_2),
                           onTap: () => openPerson(context, _customer!.id),
                         ),
+                      if (quote.signature != null) ...[
+                        const SizedBox(height: Space.s),
+                        QuoteSignatureSection(signature: quote.signature!),
+                      ],
                     ] else
                       _preview(doc!),
                     if (doc != null) ...[
@@ -1255,7 +1277,27 @@ class _DocumentScreenState extends State<DocumentScreen> {
   /// BE-06 quote: its PDF (lines card while it loads or when it fails).
   Widget _quotePreview(Quote quote) {
     if (_pdf == null) return QuoteCard(quote: quote);
-    return _pdfBox(DocumentHe.quoteTitleNumbered(quote.quoteNumber));
+    if (!quoteSignedApproved(quote)) {
+      return _pdfBox(DocumentHe.quoteTitleNumbered(quote.quoteNumber));
+    }
+    // Accepted: the server's PDF is the signed & approved copy.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          key: const Key('quote-signed-approved'),
+          padding: const EdgeInsets.only(bottom: Space.s),
+          child: Row(
+            children: [
+              Icon(Iconsax.verify, size: 20, color: context.palette.ok),
+              const SizedBox(width: Space.s),
+              const Text(SignatureHe.signedApproved, style: AppText.headline),
+            ],
+          ),
+        ),
+        _pdfBox(SignatureHe.signedApproved),
+      ],
+    );
   }
 
   Widget _preview(DocumentDetail doc) {

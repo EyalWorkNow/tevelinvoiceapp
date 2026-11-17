@@ -26,12 +26,14 @@ import '../../util/composer_config.dart';
 import '../../util/intent_resolver.dart';
 import '../../util/labels/labels.dart';
 import '../../util/phone.dart';
+import '../document/sheets/s6_share.dart' show paymentUrlForSend;
 import '../../util/vat.dart';
 import 'compose_dialogs.dart';
 import 'compose_memory.dart';
 import 'compose_repeat.dart';
 import 'compose_state.dart';
 import 'signing_unlock.dart';
+import '../signature/signature_screen.dart' show ensureSignatureBeforeSend;
 
 /// System share sheet for text (quote to a customer without a phone). Tests
 /// replace it. Throws [ShareDismissed] when the user closed the sheet.
@@ -157,6 +159,13 @@ Future<void> runCompose(
       !await confirmBigAmount(context, s.totalMinor)) {
     return;
   }
+  if (s.config.isQuote &&
+      run.action != ComposerAction.saveQuote &&
+      context.mounted &&
+      !await ensureSignatureBeforeSend(context)) {
+    return;
+  }
+  if (!context.mounted) return;
   onStep(ComposeHe.stepIssuing);
   try {
     if (s.config.isQuote) {
@@ -219,6 +228,7 @@ Future<void> runCompose(
       onStep(ComposeHe.stepSending);
       try {
         final link = await createIssueShareLink(id);
+        final payUrl = await paymentUrlForSend(result.document);
         // Late navigation: the Composer was closed while the link was made —
         // the document stays issued, WhatsApp does not open by itself.
         if (!context.mounted) return;
@@ -229,6 +239,7 @@ Future<void> runCompose(
           totalMinor: result.document.totalMinor,
           link: link,
           businessName: businessContext.displayName,
+          paymentUrl: payUrl,
         );
         final opened = await launchAllowed(
           whatsAppUri(phone: waPhone(s.customer!.phone), text: text),

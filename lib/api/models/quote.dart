@@ -3,6 +3,9 @@
 // VAT), hasLinesWithoutRate, sentAt}, lines:[…, taxRateBasisPoints, itemId]}.
 // §6.C, §8.2.4.
 
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'json.dart';
 
 /// One quote line (BE-06; P0 keeps the lines only in the Composer's memory).
@@ -92,6 +95,7 @@ class Quote {
     this.amountHidden = false,
     this.quoteNumber,
     this.expired = false,
+    this.signature,
   }) : netMinor = netMinor ?? totalMinor;
 
   factory Quote.fromJson(Map<String, dynamic> json) {
@@ -120,6 +124,7 @@ class Quote {
       createdAt: jStr(jPick(q, ['createdAt', 'created_at'])),
       quoteNumber: jStr(jPick(q, ['quoteNumber', 'quote_number'])),
       expired: q['expired'] == true,
+      signature: QuoteSignature.tryParse(json['signature'] ?? q['signature']),
       lines: [
         for (final l in (json['lines'] as List? ?? const []))
           if (l is Map<String, dynamic>) QuoteLine.fromJson(l),
@@ -178,4 +183,96 @@ class Quote {
 
   /// Empty on a list row.
   final List<QuoteLine> lines;
+
+  /// GET /quotes/:id "פרטי חתימה"; null on a list row or an older server.
+  final QuoteSignature? signature;
+}
+
+/// GET /quotes/:id `signature`: who sent it, the hand-drawn and the PAdES
+/// signatures, and the customer's acceptance.
+class QuoteSignature {
+  const QuoteSignature({
+    this.sentByName,
+    this.sentAt,
+    this.handwritten = false,
+    this.digital,
+    this.acceptance,
+  });
+
+  static QuoteSignature? tryParse(Object? raw) {
+    if (raw is! Map<String, dynamic>) return null;
+    final sentBy = raw['sentBy'];
+    final digital = raw['digital'];
+    final acceptance = raw['acceptance'];
+    return QuoteSignature(
+      sentByName: sentBy is Map<String, dynamic>
+          ? jStr(sentBy['fullName'])
+          : null,
+      sentAt: jStr(raw['sentAt']),
+      handwritten: raw['handwritten'] == true,
+      digital: digital is Map<String, dynamic>
+          ? QuoteDigitalSignature(
+              level: jStr(digital['level']) ?? 'SECURE',
+              certSubject: jStr(digital['certSubject']),
+              certSerial: jStr(digital['certSerial']),
+              signedAt: jStr(digital['signedAt']),
+            )
+          : null,
+      acceptance: acceptance is Map<String, dynamic>
+          ? QuoteAcceptance(
+              fullName: jStr(acceptance['fullName']) ?? '',
+              acceptedAt: jStr(acceptance['acceptedAt']),
+              drawnSignaturePng: _png(acceptance['drawnSignaturePngBase64']),
+            )
+          : null,
+    );
+  }
+
+  static Uint8List? _png(Object? b64) {
+    if (b64 is! String || b64.isEmpty) return null;
+    try {
+      final comma = b64.indexOf(',');
+      final bytes = base64Decode(comma >= 0 ? b64.substring(comma + 1) : b64);
+      return bytes.isEmpty ? null : bytes;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  final String? sentByName;
+  final String? sentAt;
+
+  /// The sender's hand-drawn signature is printed on the PDF.
+  final bool handwritten;
+  final QuoteDigitalSignature? digital;
+  final QuoteAcceptance? acceptance;
+}
+
+class QuoteDigitalSignature {
+  const QuoteDigitalSignature({
+    required this.level,
+    this.certSubject,
+    this.certSerial,
+    this.signedAt,
+  });
+
+  /// SECURE | CERTIFIED
+  final String level;
+  final String? certSubject;
+  final String? certSerial;
+  final String? signedAt;
+}
+
+class QuoteAcceptance {
+  const QuoteAcceptance({
+    required this.fullName,
+    this.acceptedAt,
+    this.drawnSignaturePng,
+  });
+
+  final String fullName;
+  final String? acceptedAt;
+
+  /// The signature the customer drew on the public page (PNG), if any.
+  final Uint8List? drawnSignaturePng;
 }
