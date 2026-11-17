@@ -26,6 +26,9 @@ import 'compose_repeat.dart';
 import 'compose_state.dart';
 import 'compose_submit.dart';
 
+/// Test seam: [discardPendingIssue] (server draft + journal).
+Future<void> Function(PendingIssue) discardIssue = discardPendingIssue;
+
 class ComposeLoad {
   ComposeLoad(this.state, {required this.switchKinds});
 
@@ -70,16 +73,34 @@ class ComposeLoad {
     leftoverIssue = null;
   }
 
-  Future<void> dropLeftover() async {
-    final pending = leftoverIssue;
+  /// "התחל חדש" on "יש טיוטה שלא הסתיימה".
+  Future<void> dropLeftover() => discardUnfinished();
+
+  /// Walkthrough 2026-11-17 #4: "מחק" (✕ → "לשמור טיוטה?") and "התחל חדש"
+  /// really delete what was left: the local draft, the issue journal and the
+  /// server draft an issue attempt created — found even when the POST's
+  /// response was lost (offline), so the dialog does not come back. Never an
+  /// issued document; never a draft the user opened from the list (only its
+  /// journal goes). Offline: the journal goes; a draft the server may hold
+  /// stays under "טיוטות".
+  Future<void> discardUnfinished() async {
+    final pending = _run?.pending ?? leftoverIssue;
     leftoverForm = null;
     leftoverIssue = null;
-    if (pending == null) return clearLocalDraft();
-    // A POST that may have reached the server keeps its journal (the next
-    // issue adopts that draft instead of making a second one).
-    if (pending.createAttemptTotal == null) {
+    await clearLocalDraft();
+    if (pending == null || !pending.editable) return;
+    final opened =
+        existingDraftId != null && pending.draftId == existingDraftId;
+    try {
+      if (opened) {
+        await clearPendingIssue(pending.businessId);
+      } else {
+        await discardIssue(pending);
+      }
+    } on Object {
       await clearPendingIssue(pending.businessId);
     }
+    _run?.pending = null;
   }
 
   ComposeRun? _run;

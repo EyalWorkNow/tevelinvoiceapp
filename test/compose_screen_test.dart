@@ -10,7 +10,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:invoice/api/issue_api.dart' show todayIso;
+import 'package:invoice/api/issue_api.dart'
+    show PendingIssue, loadPendingIssue, savePendingIssue, todayIso;
 import 'package:invoice/api/models/models.dart';
 import 'package:invoice/api/signing_api.dart' as signing;
 import 'package:invoice/router.dart';
@@ -1038,6 +1039,106 @@ void main() {
         );
         final draft = await tester.runAsync(() => loadLocalDraft('PAID'));
         expect(draft, isNull);
+      },
+    );
+
+    testWidgets(
+      'walkthrough #4: an issue that failed offline → ✕ → מחק deletes the server draft it left and the journal',
+      (tester) async {
+        await open(tester, intent: 'PAID');
+        // The POST reached the server but its answer was lost (network).
+        backend
+          ..on('POST', '/documents', (_) => throw const SocketException('down'))
+          ..on('GET', '/documents', (r) {
+            final draft = r.query['status'] == 'DRAFT';
+            return FakeResponse(200, {
+              'total': draft ? 1 : 0,
+              'documents': [
+                if (draft)
+                  {
+                    'id': 'd-lost',
+                    'status': 'DRAFT',
+                    'documentType': 'TAX_INVOICE_RECEIPT',
+                    'customerId': dana.id,
+                    'totalMinor': '118000',
+                  },
+              ],
+            });
+          })
+          ..json('DELETE', '/documents/:id', {'deleted': true});
+        await type(tester, '1180');
+        await tap(tester, primary());
+        expect(
+          await tester.runAsync(loadPendingIssue),
+          isNotNull,
+          reason: 'the failed issue keeps its journal',
+        );
+        await tester.tap(find.byKey(const Key('compose-close')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('save-draft-discard')));
+        await flush(tester);
+        await tester.pumpAndSettle();
+        expect(find.byType(ComposeScreen), findsNothing);
+        expect(
+          backend.last('DELETE', '/documents/:id')!.path,
+          '/documents/d-lost',
+        );
+        expect(await tester.runAsync(loadPendingIssue), isNull);
+        expect(await tester.runAsync(() => loadLocalDraft('PAID')), isNull);
+      },
+    );
+
+    testWidgets(
+      'walkthrough #4: "יש טיוטה שלא הסתיימה" → התחל חדש deletes it for good (no dialog next time)',
+      (tester) async {
+        await tester.runAsync(() => signInAs(backend, Preset.owner));
+        await tester.runAsync(
+          () => savePendingIssue(
+            PendingIssue(
+              businessId: 'b1',
+              body: {
+                'documentType': 'TAX_INVOICE_RECEIPT',
+                'customerId': dana.id,
+              },
+              form: {
+                'kind': 'taxInvoiceReceipt',
+                'customer': dana.toJson(),
+                'amountText': '777',
+                'description': 'ייעוץ',
+              },
+              totalMinor: BigInt.from(77700),
+              needsApproval: false,
+              createAttemptTotal: '77700',
+            ),
+          ),
+        );
+        backend
+          ..on('GET', '/documents', (r) {
+            final draft = r.query['status'] == 'DRAFT';
+            return FakeResponse(200, {
+              'total': draft ? 1 : 0,
+              'documents': [
+                if (draft)
+                  {
+                    'id': 'd-lost',
+                    'status': 'DRAFT',
+                    'documentType': 'TAX_INVOICE_RECEIPT',
+                    'customerId': dana.id,
+                    'totalMinor': '77700',
+                  },
+              ],
+            });
+          })
+          ..json('DELETE', '/documents/:id', {'deleted': true});
+        await open(tester, intent: 'PAID', customer: null);
+        expect(find.byKey(const Key('resume-draft-dialog')), findsOneWidget);
+        await tester.tap(find.byKey(const Key('resume-draft-new')));
+        await flush(tester);
+        expect(
+          backend.last('DELETE', '/documents/:id')!.path,
+          '/documents/d-lost',
+        );
+        expect(await tester.runAsync(loadPendingIssue), isNull);
       },
     );
 

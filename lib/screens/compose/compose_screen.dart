@@ -416,7 +416,8 @@ class _ComposeScreenState extends State<ComposeScreen> {
       if (save == null || !mounted) return;
       if (!save) {
         _issuedOrLeft = true; // nothing to keep
-        await clearLocalDraft();
+        // Walkthrough #4: also an issue attempt's journal + server draft.
+        await _load!.discardUnfinished();
         if (!mounted) return;
       }
     }
