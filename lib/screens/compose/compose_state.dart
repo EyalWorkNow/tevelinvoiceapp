@@ -542,20 +542,25 @@ class ComposeState extends ChangeNotifier {
   /// Owner Q1: lines that kept a typed VAT-included total (stored total ≠
   /// the standard calculation) come back as the gross that was typed, so a
   /// copy totals the same. Only when every line has a whole gross unit price
-  /// and no discount; otherwise the net prefill.
+  /// and no discount (but the leftover agorot of a several-unit agreed line,
+  /// see [grossLine]); otherwise the net prefill.
   bool _loadGross(List<DocumentLine> lines) {
     if (!showVat || !agreedTotals) return false;
     var any = false;
     final gross = <BigInt>[];
     for (final l in lines) {
-      if (l.totalMinor <= BigInt.zero || l.discountMinor > BigInt.zero) {
-        return false;
-      }
+      if (l.totalMinor <= BigInt.zero) return false;
       final standard = calculateLine(
         quantityMicros: l.quantityMicros,
         unitPriceMinor: l.unitPriceMinor,
+        discountMinor: l.discountMinor,
         taxRateBasisPoints: l.taxRateBasisPoints,
       ).totalMinor;
+      final leftover =
+          l.quantityMicros > oneQuantity &&
+          standard != l.totalMinor &&
+          l.discountMinor * oneQuantity < l.quantityMicros;
+      if (l.discountMinor > BigInt.zero && !leftover) return false;
       if (standard != l.totalMinor) any = true;
       final scaled = l.totalMinor * oneQuantity;
       if (scaled % l.quantityMicros != BigInt.zero) return false;

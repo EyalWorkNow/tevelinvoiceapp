@@ -106,14 +106,27 @@ class GrossLine {
   final BigInt? agreedTotalMinor;
 }
 
-/// Owner Q1 ("I type 2 and it writes 1.99"): the line whose document total
-/// is exactly the gross the user typed. One unit at 18% has no net price
-/// whose standard total is ₪2.00 (169 → 1.99, 170 → 2.01): the VAT included
-/// in ₪2.00 is round(200 × 18/118) = 31, net 169, and the server keeps the
-/// typed total through `agreedTotalMinor` (VAT within the agora of the exact
-/// VAT on the net). [quantityMicros] × [grossUnitMinor] − [grossDiscountMinor]
-/// is the target. Without server support ([agreed] false) or when no net
-/// unit price fits, the nearest standard line (the old behaviour).
+/// Owner Q1 ("I type 2 and it writes 1.99") + walkthrough 2026-11-17 #1
+/// ("3 × ₪2.00 came out ₪5.98"): the line whose document total is exactly
+/// the gross the user typed, for any quantity and discount.
+///
+/// [quantityMicros] × [grossUnitMinor] − [grossDiscountMinor] is the target.
+/// The server keeps it through `agreedTotalMinor`: the line VAT becomes
+/// target − net subtotal, accepted when it is the floor or the ceiling of the
+/// exact VAT on that subtotal ([agreedTaxAllowed]). So the net subtotal must
+/// be one of the (1–2) values S with |target − S × (1 + r)| < 1 agora.
+///
+/// The net subtotal is round(quantity × unit price) − discount, the unit
+/// price in whole agorot: the uniform format prints it with 2 decimals
+/// (D110 1265 X9V2) and checks 1267 = 1264 × 1265 + 1266 (validator.ts), so
+/// a sub-agora unit price cannot be printed. With one unit the net of the
+/// typed price fits; with several units (₪2.00 × 3: net 1.69 × 3 = 5.07,
+/// 1.70 × 3 = 5.10, accepted 5.08 / 5.09) the line carries the agorot left
+/// over as a line discount (D110 1266, §2.4(יב)): 3 × 1.70 − 0.01 = 5.09 +
+/// VAT 0.91 = ₪6.00. The discount is always below the quantity in agorot.
+///
+/// Without server support ([agreed] false), the nearest standard line (the
+/// old behaviour).
 GrossLine grossLine({
   required BigInt quantityMicros,
   required BigInt grossUnitMinor,
@@ -145,51 +158,82 @@ GrossLine grossLine({
     discountMinor: nearestDiscount,
     agreedTotalMinor: null,
   );
-  if (!agreed || target <= BigInt.zero) return nearest;
+  if (!agreed || target <= BigInt.zero || grossUnitMinor <= BigInt.zero) {
+    return nearest;
+  }
   BigInt total(GrossLine l) => calculateLine(
     quantityMicros: quantityMicros,
     unitPriceMinor: l.unitPriceMinor,
     discountMinor: l.discountMinor,
     taxRateBasisPoints: basisPoints,
   ).totalMinor;
-  if (total(nearest) == target) return nearest;
+  if (nearestDiscount <= _lineGross(quantityMicros, nearestUnit) &&
+      total(nearest) == target) {
+    return nearest;
+  }
 
+  // Net subtotals the server accepts with the target total, ascending.
   final wantNet = netOfGross(target, basisPoints);
-  if (quantityMicros == _quantityScale) {
-    // One unit: net unit price of the typed amount, the discount takes the
-    // rest down to the net of the target (monotone: never negative).
-    final unit = netOfGross(grossUnitMinor, basisPoints);
+  final accepted = [
+    for (var d = -2; d <= 2; d++)
+      if (wantNet + BigInt.from(d) > BigInt.zero &&
+          agreedTaxAllowed(
+            wantNet + BigInt.from(d),
+            target - wantNet - BigInt.from(d),
+            basisPoints,
+          ))
+        wantNet + BigInt.from(d),
+  ];
+  if (accepted.isEmpty) return nearest; // never at a sane rate
+
+  // The printed unit price: the net of the typed one ("₪2.00 → 1.69").
+  final typedUnit = netOfGross(grossUnitMinor, basisPoints);
+  GrossLine? at(BigInt unit, {required bool preferWantNet}) {
+    if (unit <= BigInt.zero) return null;
+    final lineGross = _lineGross(quantityMicros, unit);
+    final fits = accepted.where((s) => s <= lineGross).toList();
+    if (fits.isEmpty) return null;
+    // A typed discount: its net is target-net away (the VAT included in the
+    // price); otherwise the smallest leftover.
+    final subtotal = preferWantNet && fits.contains(wantNet)
+        ? wantNet
+        : fits.last;
     return GrossLine(
       unitPriceMinor: unit,
-      discountMinor: unit - wantNet,
+      discountMinor: lineGross - subtotal,
       agreedTotalMinor: target,
     );
   }
-  // Several units (no discount on extra lines): a net unit price whose
-  // subtotal the server accepts with the target total.
-  if (gDiscount == BigInt.zero) {
-    final estimate = roundHalfAwayFromZeroDiv(
-      wantNet * _quantityScale,
-      quantityMicros,
-    );
-    for (final d in [0, -1, 1, -2, 2]) {
-      final unit = estimate + BigInt.from(d);
-      if (unit <= BigInt.zero) continue;
-      final subtotal = roundHalfAwayFromZeroDiv(
-        quantityMicros * unit,
-        _quantityScale,
-      );
-      if (agreedTaxAllowed(subtotal, target - subtotal, basisPoints)) {
-        return GrossLine(
-          unitPriceMinor: unit,
-          discountMinor: BigInt.zero,
-          agreedTotalMinor: target,
-        );
-      }
+
+  if (gDiscount > BigInt.zero) {
+    // Keep the typed unit price; the discount takes the line to the target.
+    final keep = at(typedUnit, preferWantNet: true);
+    if (keep != null) return keep;
+  }
+  // The smallest unit price covering the lowest accepted subtotal, and the
+  // next ones (fractional quantities); the least leftover wins, then the
+  // unit price nearest the typed one.
+  final floorUnit = (accepted.first * _quantityScale) ~/ quantityMicros;
+  GrossLine? best;
+  for (final unit in [
+    typedUnit,
+    for (var d = -1; d <= 3; d++) floorUnit + BigInt.from(d),
+  ]) {
+    final candidate = at(unit, preferWantNet: false);
+    if (candidate == null) continue;
+    if (best == null ||
+        candidate.discountMinor < best.discountMinor ||
+        (candidate.discountMinor == best.discountMinor &&
+            (candidate.unitPriceMinor - typedUnit).abs() <
+                (best.unitPriceMinor - typedUnit).abs())) {
+      best = candidate;
     }
   }
-  return nearest;
+  return best ?? nearest;
 }
+
+BigInt _lineGross(BigInt quantityMicros, BigInt unitPriceMinor) =>
+    roundHalfAwayFromZeroDiv(quantityMicros * unitPriceMinor, _quantityScale);
 
 /// Net catalog price → the gross to show while amounts include VAT. Several
 /// gross prices share one net (₪1.99 and ₪2.00 are both net 169 at 18%):
