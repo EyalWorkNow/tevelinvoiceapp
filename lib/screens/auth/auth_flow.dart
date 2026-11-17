@@ -26,6 +26,14 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 bool _routingSignedIn = false;
 String? _subscriptionGateBusiness;
 
+/// Tests: a routing left waiting by an earlier test (e.g. on the required
+/// business picker) must not swallow the next one.
+@visibleForTesting
+void resetSignInRouting() {
+  _routingSignedIn = false;
+  _subscriptionGateBusiness = null;
+}
+
 /// After a provider answered (login / Apple / Google / invitation): MFA if
 /// needed, trade the cookie session for a device token, then route. Returns
 /// false when the user backed out of the MFA step. Throws [ApiException].

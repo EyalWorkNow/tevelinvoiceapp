@@ -116,6 +116,7 @@ void main() {
   });
 
   setUp(() {
+    resetSignInRouting();
     sent.clear();
     ApiClient.instance.clearCredentials();
     FlutterSecureStorage.setMockInitialValues({});
