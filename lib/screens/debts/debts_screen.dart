@@ -23,6 +23,8 @@ import '../../util/labels/debts_he.dart';
 import '../../util/labels/reminder_he.dart';
 import '../../util/payment_reminder.dart' show daysSince;
 import '../../util/still_here.dart';
+import '../../util/labels/collection_he.dart';
+import 'collection_batch_screen.dart';
 import 'debt_entry_sheet.dart';
 import 'debt_reminder.dart';
 
@@ -30,10 +32,13 @@ import 'debt_reminder.dart';
 Future<WhoOwesMe> Function() loadWhoOwesMe = fetchWhoOwesMe;
 
 class DebtsScreen extends StatefulWidget {
-  const DebtsScreen({super.key, this.now});
+  const DebtsScreen({super.key, this.now, this.openBatch = false});
 
   /// Injectable clock (tests).
   final DateTime Function()? now;
+
+  /// 0111: open "תזכורות מוכנות לשליחה" at once (the daily summary push).
+  final bool openBatch;
 
   @override
   State<DebtsScreen> createState() => _DebtsScreenState();
@@ -42,6 +47,9 @@ class DebtsScreen extends StatefulWidget {
 class _DebtsScreenState extends State<DebtsScreen> {
   WhoOwesMe? _data;
   Object? _error;
+
+  /// 0111: WhatsApp reminders waiting for a tap (0 = no banner).
+  int _ready = 0;
   final Set<String> _expanded = {};
 
   Caps get _caps => businessContext.caps;
@@ -51,6 +59,28 @@ class _DebtsScreenState extends State<DebtsScreen> {
   void initState() {
     super.initState();
     unawaited(_load());
+    if (widget.openBatch && _mayBatch) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_openBatch());
+      });
+    }
+  }
+
+  bool get _mayBatch => _caps.can(Cap.docSend) && _caps.can(Cap.moneyView);
+
+  Future<void> _loadReady() async {
+    if (!_mayBatch) return;
+    try {
+      final n = (await loadReadyReminders()).length;
+      if (mounted && n != _ready) setState(() => _ready = n);
+    } on Object {
+      // A hint only: the list works without it.
+    }
+  }
+
+  Future<void> _openBatch() async {
+    await openCollectionBatch(context);
+    await _load();
   }
 
   Future<void> _load() async {
@@ -60,6 +90,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
     try {
       final data = await loadWhoOwesMe();
       if (mounted) setState(() => _data = data);
+      unawaited(_loadReady());
     } on Object catch (e) {
       if (mounted) setState(() => _error = e);
     }
@@ -226,13 +257,45 @@ class _DebtsScreenState extends State<DebtsScreen> {
     );
   }
 
+  /// 0111: "N תזכורות מוכנות לשליחה" → the daily WhatsApp batch.
+  List<Widget> _readyBanner() => [
+    if (_ready > 0) ...[
+      AppCard(
+        key: const Key('debts-ready-banner'),
+        onTap: () => unawaited(_openBatch()),
+        child: Row(
+          children: [
+            const Icon(Iconsax.message_time),
+            const SizedBox(width: Space.m),
+            Expanded(
+              child: Text(
+                CollectionHe.batchBanner(_ready),
+                style: AppText.headline,
+              ),
+            ),
+            Text(
+              CollectionHe.batchBannerAction,
+              style: AppText.body.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: Space.m),
+    ],
+  ];
+
   Widget _list(WhoOwesMe data) {
     if (data.customers.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          SizedBox(height: Space.xxl),
-          EmptyState(
+        padding: const EdgeInsets.symmetric(horizontal: Space.page),
+        children: [
+          const SizedBox(height: Space.s),
+          ..._readyBanner(),
+          const SizedBox(height: Space.xxl),
+          const EmptyState(
             key: Key('debts-empty'),
             icon: Iconsax.happyemoji,
             title: DebtsHe.empty,
@@ -251,6 +314,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
         Space.xl,
       ),
       children: [
+        ..._readyBanner(),
         MoneyCard(
           key: const Key('debts-header'),
           label: DebtsHe.headerLabel,

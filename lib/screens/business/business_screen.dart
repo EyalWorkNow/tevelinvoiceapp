@@ -30,6 +30,7 @@ import 'branding_screen.dart';
 import 'integrations_screen.dart';
 import '../billing/billing_screen.dart';
 import 'business_template.dart';
+import 'collection_settings_screen.dart';
 import 'sheets/s13_editor.dart';
 import 'sheets/s14_switch.dart';
 import 'shaam_page.dart';
@@ -286,6 +287,18 @@ class _BusinessListState extends State<_BusinessList> {
     return ok ?? false;
   }
 
+  /// The ladder settings; the switch above reflects what was saved there.
+  Future<void> _openCollectionSettings() async {
+    await openCollectionSettings(context);
+    if (!mounted) return;
+    try {
+      final on = await fetchRemindersEnabled();
+      if (mounted) setState(() => _reminders = on);
+    } on Object {
+      // Keep the last known state.
+    }
+  }
+
   Future<void> _setReminders(bool on) async {
     if (on && !await _confirmRemindersOn()) return;
     if (!mounted) return;
@@ -375,8 +388,9 @@ class _BusinessListState extends State<_BusinessList> {
                 label: r.label,
                 value: BusinessHe.remindersHint,
                 icon: r.icon,
-                // Only the switch toggles: tapping the label to read it must not
-                // start e-mailing customers.
+                // Only the switch toggles: tapping the label opens the ladder
+                // (0111: days, wording, channels) — it never starts e-mailing.
+                onTap: () => unawaited(_openCollectionSettings()),
                 trailing: Switch.adaptive(
                   key: const Key('reminders-switch'),
                   value: _reminders ?? false,

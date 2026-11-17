@@ -11,6 +11,7 @@ import 'package:invoice/screens/auth/business_certificate_picker.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/models/models.dart';
 import 'package:invoice/screens/auth/onboarding_screen.dart';
+import 'package:invoice/screens/business/collection_settings_screen.dart';
 import 'package:invoice/screens/business/account_page.dart';
 import 'package:invoice/screens/business/business_screen.dart';
 import 'package:invoice/screens/business/sheets/editor_configs.dart';
@@ -231,11 +232,14 @@ void main() {
           250,
         );
         expect(find.byKey(const Key('brow-reminders')), findsOneWidget);
-        // Tapping the label (to read it) toggles nothing.
+        // Tapping the label opens the ladder (0111) and toggles nothing.
         await tester.tap(find.text('תזכורות אוטומטיות'));
         await settle(tester);
+        expect(find.byType(CollectionSettingsScreen), findsOneWidget);
         expect(find.byType(AlertDialog), findsNothing);
         expect(backend.last('PUT', '/settings/reminders'), isNull);
+        await tester.tap(find.byType(DesignBackButton));
+        await settle(tester);
         // Turning on says what will be sent; "ביטול" leaves it off.
         await tester.tap(find.byKey(const Key('reminders-switch')));
         await settle(tester);
