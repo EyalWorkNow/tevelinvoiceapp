@@ -84,6 +84,11 @@ abstract final class RetainerHe {
   static String every(int day) => day >= 29
       ? 'כל חודש ב-${ltrIsolate('$day')} (או ביום האחרון)'
       : 'כל חודש ב-${ltrIsolate('$day')}';
+
+  /// Walkthrough 2026-11-17 #13: a template's amount is its lines BEFORE VAT
+  /// (the server keeps net unit prices) — said so, never shown bare next to
+  /// the gross amounts everywhere else (₪381.36 for a ₪450 invoice).
+  static String netPlusVat(String amount) => '$amount + מע״מ';
   static String templateStatus(String s) => switch (s) {
     'ACTIVE' => 'פעילה',
     'PAUSED' => 'מושהית',
