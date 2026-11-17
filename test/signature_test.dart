@@ -409,11 +409,102 @@ void main() {
       // Unknown kinds are ignored.
       SystemNotices().debugEvent({
         'type': 'notice',
-        'kind': 'NEW_DEVICE_LOGIN',
+        'kind': 'SOMETHING_NEW',
         'route': '/quote/q1',
         'businessId': 'b1',
       });
       expect(documentsVersion.value, before + 1);
+    });
+  });
+
+  group('push catalogue (/mobile/push/devices)', () {
+    late FakeBackend backend;
+    setUp(() async => backend = await eSetUp());
+
+    test('every catalogue kind has an amount-free in-app notice', () {
+      for (final kind in const [
+        'ITA_ALLOCATION_APPROVED',
+        'ITA_ALLOCATION_REJECTED',
+        'DOCUMENT_SEND_FAILED',
+        'PAYMENT_RECEIVED',
+        'PAYMENTS_OVERDUE',
+        'COLLECTION_REMINDERS_READY',
+        'QUOTE_SIGNED',
+        'QUOTE_VIEWED',
+        'TEAM_MEMBER_JOINED',
+        'SUBSCRIPTION_RENEWS_SOON',
+        'SUBSCRIPTION_PAYMENT_FAILED',
+        'SUBSCRIPTION_EXPIRED',
+        'EXPORT_READY',
+        'EXPORT_FAILED',
+        'NEW_DEVICE_LOGIN',
+        'UPLOAD_BLOCKED',
+      ]) {
+        final p = systemNoticePresentation(kind);
+        expect(p, isNotNull, reason: kind);
+        expect(p!.$1, isNot(contains('₪')));
+      }
+    });
+
+    test('catalogue links are app routes', () {
+      for (final link in const [
+        '/doc/d1',
+        '/quote/q1',
+        '/activity?chip=unpaid',
+        '/debts?batch=1',
+        '/business/team',
+        '/business/account',
+        '/reports',
+        '/expenses',
+      ]) {
+        expect(AppRoute.parse(link), isNotNull, reason: link);
+      }
+    });
+
+    test('a tapped catalogue push opens its link in its business', () {
+      SystemNotices().debugEvent({
+        'type': 'opened',
+        'kind': 'PAYMENTS_OVERDUE',
+        'route': '/activity?chip=unpaid',
+        'businessId': 'b2',
+      });
+      expect(debugPendingDeepLink, '/activity?chip=unpaid&businessId=b2');
+      // Account-level (no business): the current business.
+      SystemNotices().debugEvent({
+        'type': 'opened',
+        'kind': 'NEW_DEVICE_LOGIN',
+        'route': '/business/account',
+        'businessId': '',
+      });
+      expect(debugPendingDeepLink, '/business/account');
+    });
+
+    test('registers the alert token once; unregisters by device id', () async {
+      backend.json('POST', '/mobile/push/devices', {'status': 'ok', 'id': 'x'});
+      backend.json('POST', '/mobile/push/devices/unregister', {
+        'status': 'ok',
+        'removed': true,
+      });
+      final notices = SystemNotices();
+      final token = {
+        'tokenType': 'alert',
+        'token': 'ab' * 32,
+        'environment': 'sandbox',
+      };
+      await notices.debugRegisterCatalogue(token);
+      await notices.debugRegisterCatalogue(token);
+      final calls = backend.calls('POST', '/mobile/push/devices');
+      expect(calls, hasLength(1));
+      final body = calls.single.body;
+      expect(body['token'], 'ab' * 32);
+      expect(body['environment'], 'sandbox');
+      expect(body['deviceId'], matches(RegExp(r'^[A-Za-z0-9_-]{8,64}$')));
+      // User-level route: no business header.
+      expect(calls.single.raw.headers['X-Business-Id'], isNull);
+      await notices.debugDisableCatalogue();
+      expect(backend.last('POST', '/mobile/push/devices/unregister')!.body, {
+        'deviceId': body['deviceId'],
+      });
     });
   });
 }
