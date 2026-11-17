@@ -78,8 +78,11 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
         !ApiClient.instance.hasDeviceToken) {
       return;
     }
+    // A device token minted without MFA, for a membership that now needs it
+    // (walkthrough #14): say so and keep the e-mail — not "expired".
+    final email = session.account?.email;
     await session.signOutLocally();
-    resetToLogin(expired: true);
+    resetToLogin(mfaRequired: true, email: email);
   }
 
   @override

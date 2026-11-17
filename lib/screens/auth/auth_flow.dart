@@ -93,6 +93,8 @@ Future<void> routeSignedIn(BuildContext context) async {
       if (picked == null) return; // the picker stays the only way forward
     }
     if (session.business != null && session.me == null && !session.offline) {
+      // Read before the call: an MFA_REQUIRED answer signs out (AppLockGate).
+      final email = session.account?.email;
       try {
         await session.refreshBusiness();
       } on ApiException catch (e) {
@@ -101,7 +103,6 @@ Future<void> routeSignedIn(BuildContext context) async {
           // "מפיק בעצמו", or "בדוק שוב" found a business the user owns —
           // walkthrough #14): the server never upgrades a device token, so
           // sign in once more through the MFA step — said so, email kept.
-          final email = session.account?.email;
           await session.signOutLocally();
           resetToLogin(mfaRequired: true, email: email);
           return;
