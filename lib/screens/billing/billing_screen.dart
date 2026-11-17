@@ -20,9 +20,10 @@ const _planColors = [
 
 /// Unasked plan prompts in this app launch: the required gate on launch and
 /// the owner's plans sheet on Home. Together they show a business at most
-/// once per launch, never both. Closing either never blocks issuing (the
-/// server decides that; BILLING_ENFORCE is off). Explicit "מסלול" taps are
-/// not prompts and always open.
+/// once per launch, never both. Closing either keeps the app usable (read,
+/// export, billing, account deletion); ISSUING is gated by the server (402,
+/// on in production) and [PlanGate] reopens the plans sheet at that moment
+/// (walkthrough 2026-11-17 #10a). Explicit "מסלול" taps always open.
 abstract final class PlanPrompts {
   static final Set<String> _shown = {};
   static final Set<String> _checking = {};

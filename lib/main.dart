@@ -11,6 +11,7 @@ import 'api/settings_api.dart' show hideAmounts, loadHideAmounts;
 import 'router.dart';
 import 'screens/auth/app_lock.dart';
 import 'screens/auth/splash_screen.dart';
+import 'screens/billing/plan_gate.dart';
 import 'screens/calendar/calendar_sync.dart';
 import 'screens/people/sheets/s2_customer.dart';
 import 'state/session.dart';
@@ -31,6 +32,8 @@ void main() {
   ErrorLog.instance.install();
   if (kReleaseMode) ErrorWidget.builder = safeErrorWidget;
   AppRouter.instance.install();
+  // #10a: a 402 "plan required" at the moment of issuing opens the plans sheet.
+  PlanGate.install();
   loadHideAmounts();
   if (kDebugMode) {
     _startDevServer();
