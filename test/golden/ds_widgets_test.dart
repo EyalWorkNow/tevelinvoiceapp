@@ -352,6 +352,50 @@ void main() {
     expect(find.text('דנה כהן'), findsOneWidget);
   });
 
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'walkthrough #11: a credit note row is a minus, never a green "+" '
+      '(${brightness.name})',
+      (tester) async {
+        Widget row(BigInt amount) => DocRow(
+          title: 'לקוח מזדמן',
+          subtitle: 'חשבונית זיכוי 1469',
+          amountMinor: amount,
+          status: const StatusPill.doc(DocStatus.issued),
+        );
+        await tester.pumpWidget(
+          dsApp(
+            Column(
+              children: [row(BigInt.from(-18000)), row(BigInt.from(18000))],
+            ),
+            brightness: brightness,
+          ),
+        );
+        final rows = find.byType(DocRow);
+        String texts(Finder f) => tester
+            .widgetList<Text>(
+              find.descendant(of: f, matching: find.byType(Text)),
+            )
+            .map((t) => t.data ?? '')
+            .join('|');
+        final credit = texts(rows.at(0));
+        final income = texts(rows.at(1));
+        expect(credit, isNot(contains('+')));
+        expect(credit, contains('-'));
+        expect(income, isNot(contains('-₪')));
+        if (brightness == Brightness.dark) {
+          // The badge carries the sign: "−" badge + "₪180", never "-₪180" twice.
+          expect(credit, contains('₪180'));
+          expect(credit, isNot(contains('-₪')));
+          expect(income, contains('+'));
+        } else {
+          expect(credit, contains('-₪180'));
+        }
+        expect(tester.getSemantics(rows.at(0)).label, contains('מינוס'));
+      },
+    );
+  }
+
   testWidgets('200% text on a 320pt phone: no overflow in any component', (
     tester,
   ) async {

@@ -56,7 +56,13 @@ Widget docRowFor(
         ? InboxHe.noCustomer
         : d.customerName!,
     subtitle: docSubtitle(d),
-    amountMinor: d.amountHidden ? null : d.totalMinor,
+    // #11: a credit note (330) gives money back — shown with a minus, never
+    // as a green "+" income line.
+    amountMinor: d.amountHidden
+        ? null
+        : (d.documentType == 'CREDIT_DOCUMENT'
+              ? -d.totalMinor.abs()
+              : d.totalMinor),
     status: StatusPill.doc(st.status),
     attributes: [
       if (dateStr.isNotEmpty) ltrIsolate(dateStr),
