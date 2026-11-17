@@ -66,6 +66,8 @@ const _events = EventChannel('tevel/system_notice_events');
   // 0116 "מסמך לחתימה" (route /sign-request/:id).
   'signRequestCompleted' => ('המסמך נחתם', NoticeMotion.signed),
   'signRequestViewed' => ('המסמך לחתימה נצפה', NoticeMotion.sent),
+  // 0119 "המסמכים של העסק" (route /business/vault).
+  'vaultExpiring' => ('מסמך של העסק עומד לפוג', NoticeMotion.reminder),
   _ => null,
 };
 

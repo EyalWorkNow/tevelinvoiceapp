@@ -1,6 +1,7 @@
 // Business / team / reports / sign-in wording (squad E). F11: imperative verbs.
 // Every Hebrew string that appears on a button in A, B, R, S13, S14 lives here.
 
+import '../../api/auth_api.dart' show MfaMethods;
 import '../../state/caps.dart' show Preset;
 
 const Map<String, String> businessTypeLabels = {
@@ -192,6 +193,17 @@ abstract final class BusinessHe {
   static const twoFactor = 'אימות דו-שלבי';
   static const twoFactorEmail = 'קוד במייל';
   static const twoFactorApp = 'אפליקציית אימות וקודי שחזור';
+
+  /// The enrolled second factors, as the server reports them.
+  static String twoFactorState(MfaMethods m) => m.totp && m.email
+      ? 'אפליקציה + קוד במייל'
+      : m.totp
+      ? 'אפליקציית אימות'
+      : m.email
+      ? 'קוד במייל'
+      : 'לא מוגדר';
+  static String twoFactorAppOn(int codes) =>
+      codes == 1 ? 'מחוברת · קוד שחזור אחד' : 'מחוברת · $codes קודי שחזור';
   static const signOut = 'צא מהמכשיר';
   static const signOutAll = 'צא מכל המכשירים';
   static const signOutConfirm = 'לצאת מהמכשיר?';

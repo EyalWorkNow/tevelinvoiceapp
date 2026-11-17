@@ -10,6 +10,7 @@ import 'package:invoice/screens/business/team_page.dart';
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/state/session.dart';
+import 'package:invoice/util/labels/labels.dart';
 import 'package:invoice/ui/ds.dart';
 
 import '../fakes/fake_api.dart';
@@ -350,14 +351,39 @@ void main() {
     },
   );
 
+  testWidgets('S13 "חבר צוות": 0119 "צפייה במסמכי העסק" adds the grant', (
+    tester,
+  ) async {
+    await pumpAs(tester, backend, Preset.owner, const TeamPage());
+    await tester.tap(find.byKey(const Key('member-u-emp')));
+    await settle(tester);
+    await tester.ensureVisible(find.byKey(const Key('switch-vault')));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('switch-vault')));
+    await settle(tester);
+    expect(
+      tester
+          .widget<SwitchListTile>(find.byKey(const Key("switch-vault")))
+          .value,
+      isTrue,
+    );
+    await tester.tap(find.byKey(const Key('editor-save')));
+    await settle(tester);
+    expect(backend.last('PUT', '/business/members/:userId/permissions')!.body, {
+      'permissions': ['business_documents:read'],
+    });
+  });
+
   testWidgets(
     'S13 "חבר צוות": only "מפיק בעצמו" (AT-50) → PUT role then permissions',
     (tester) async {
       await pumpAs(tester, backend, Preset.owner, const TeamPage());
       await tester.tap(find.byKey(const Key('member-u-emp')));
       await settle(tester);
-      expect(find.byType(Switch), findsOneWidget);
+      // "מפיק בעצמו" + 0119 "צפייה במסמכי העסק".
+      expect(find.byType(Switch), findsNWidgets(2));
       expect(find.text('מפיק בעצמו'), findsOneWidget);
+      expect(find.text(VaultHe.permission), findsOneWidget);
       expect(
         find.byType(PrimaryButton),
         findsNWidgets(2),

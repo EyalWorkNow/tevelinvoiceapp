@@ -8,6 +8,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 
+import '../../api/auth_api.dart' show MfaMethods, fetchMfaMethods;
 import '../../api/models/models.dart';
 import '../../api/settings_api.dart';
 import '../../api/team_api.dart';
@@ -29,6 +30,9 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'team_editors.dart' show confirmDanger;
 import '../signature/signature_screen.dart' show openSignatureScreen;
 
+/// GET /auth/mfa/methods. Tests replace it.
+Future<MfaMethods> Function() loadMfaMethods = fetchMfaMethods;
+
 class AccountPage extends StatefulWidget {
   const AccountPage({super.key, this.header});
 
@@ -43,10 +47,25 @@ class _AccountPageState extends State<AccountPage> {
   bool _faceId = true;
   bool _busy = false;
 
+  /// The member's real second factors (GET /auth/mfa/methods); null = not
+  /// loaded / unavailable (FIXB wiring audit: the row used to say "קוד במייל"
+  /// whatever was enrolled).
+  MfaMethods? _mfa;
+
   @override
   void initState() {
     super.initState();
     unawaited(_loadPrefs());
+    unawaited(_loadMfa());
+  }
+
+  Future<void> _loadMfa() async {
+    try {
+      final m = await loadMfaMethods();
+      if (mounted) setState(() => _mfa = m);
+    } on Object {
+      // Offline / older server: the row shows no value rather than a guess.
+    }
   }
 
   Future<void> _loadPrefs() async {
@@ -209,15 +228,19 @@ class _AccountPageState extends State<AccountPage> {
           ),
         ),
         BusinessRow(
+          key: const Key('account-2fa'),
           label: BusinessHe.twoFactor,
-          value: BusinessHe.twoFactorEmail,
+          value: _mfa == null ? null : BusinessHe.twoFactorState(_mfa!),
           icon: Iconsax.shield_tick,
         ),
         if (businessContext.caps.can(Cap.settingsBusiness) ||
             businessContext.caps.can(Cap.reportView))
           BusinessRow(
+            key: const Key('account-2fa-app'),
             label: BusinessHe.twoFactorApp,
-            value: CommonHe.continueOnComputer,
+            value: _mfa?.totp == true
+                ? BusinessHe.twoFactorAppOn(_mfa!.recoveryCodesRemaining)
+                : CommonHe.continueOnComputer,
             icon: Iconsax.mobile,
             onTap: open == null
                 ? null
