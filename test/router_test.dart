@@ -55,6 +55,7 @@ void main() {
       '/business',
       '/business/:section',
       '/calendar', // 0106 "יומן" (a B view)
+      '/sign-request/:id', // 0116 "מסמך לחתימה" (a D view)
     ]);
     expect(routeTable.values.toSet(), ScreenId.values.toSet());
     expect(ScreenId.values, hasLength(10));

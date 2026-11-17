@@ -208,6 +208,23 @@ class ApiClient {
     return await _decode(response);
   }
 
+  /// Raw body POST answered with JSON (sign-request PDF upload).
+  Future<Map<String, dynamic>> postRaw(
+    String path,
+    Uint8List bytes,
+    String contentType, {
+    Map<String, String>? query,
+  }) async {
+    final response = await _send(
+      'POST',
+      path,
+      bytes: bytes,
+      contentType: contentType,
+      query: query,
+    );
+    return await _decode(response);
+  }
+
   /// Fresh UUID v4 for Idempotency-Key. Callers persist it with the pending
   /// operation so a retry re-sends the SAME key.
   static String newIdempotencyKey() {

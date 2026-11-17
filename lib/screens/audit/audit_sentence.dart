@@ -107,6 +107,13 @@ String auditSentence(AuditEvent e, {required MoneyFormat money}) {
     'quote.emailed' => '$n שלח/ה במייל את ${_quote(e)}',
     'quote.accepted_by_customer' =>
       '${AuditHe.customerSide} אישר/ה ${_quote(e)}',
+    // 0116 "מסמך לחתימה".
+    'sign_request.created' => '$n יצר/ה מסמך לחתימה',
+    'sign_request.sent' => '$n שלח/ה מסמך לחתימה',
+    'sign_request.reminded' => '$n שלח/ה תזכורת לחתימה',
+    'sign_request.viewed' => '${AuditHe.customerSide} פתח/ה את המסמך לחתימה',
+    'sign_request.completed' => '${AuditHe.customerSide} חתם/ה על המסמך',
+    'sign_request.cancelled' => '$n ביטל/ה בקשת חתימה',
     'payment.recorded' =>
       '$n רשם/ה תשלום${amount == null ? '' : ' של $amount'}'
           '${e.documentId == null ? '' : ' על ${_doc(e)}'}',
