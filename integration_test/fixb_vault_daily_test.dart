@@ -63,10 +63,11 @@ Future<void> _upload(
   String? shot,
 }) async {
   pickVaultFile = (_) async => file;
-  await _tap(find.byKey(const Key('vault-bottom')).first);
-  if (find.byKey(const Key('vault-source-pdf')).evaluate().isEmpty) {
+  if (find.byKey(const Key('vault-bottom')).evaluate().isNotEmpty) {
+    await _tap(find.byKey(const Key('vault-bottom')));
+  } else {
     // Empty vault: the EmptyState's own button.
-    await _tap(find.text('הוספת מסמך').first);
+    await _tap(find.text('הוספת מסמך'));
   }
   await _tap(find.byKey(const Key('vault-source-pdf')));
   await pumpMs(1200);
@@ -142,14 +143,15 @@ void main() {
 
     // 3. Send both to a customer: select → send → the iOS share sheet.
     await _tap(find.byKey(const Key('vault-select')));
-    for (final row in find
-        .byWidgetPredicate(
-          (w) =>
-              w.key is ValueKey<String> &&
-              (w.key! as ValueKey<String>).value.startsWith('vault-row-'),
-        )
-        .evaluate()
-        .toList()) {
+    for (final row
+        in find
+            .byWidgetPredicate(
+              (w) =>
+                  w.key is ValueKey<String> &&
+                  (w.key! as ValueKey<String>).value.startsWith('vault-row-'),
+            )
+            .evaluate()
+            .toList()) {
       await tester.tap(find.byWidget(row.widget), warnIfMissed: false);
       await pumpMs(500);
     }
