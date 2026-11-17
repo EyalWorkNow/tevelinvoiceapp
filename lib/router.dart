@@ -746,8 +746,13 @@ class AppRouter with WidgetsBindingObserver {
     // After the reset, so the toast lands on the visible Scaffold.
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => messengerKey.currentState?.showNotchNotice(
-        const SnackBar(
-          content: Text(CommonHe.permissionsUpdated),
+        SnackBar(
+          // #8: "updated" only when the refresh really changed something.
+          content: Text(
+            businessContext.lastForbiddenChangedCaps
+                ? CommonHe.permissionsUpdated
+                : CommonHe.actionNotAllowed,
+          ),
           behavior: SnackBarBehavior.fixed,
         ),
       ),

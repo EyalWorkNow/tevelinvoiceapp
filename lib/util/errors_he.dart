@@ -168,8 +168,11 @@ const Map<String, String> _mobileMessages = {
       'סוג המסמך הזה אינו מותר לסוג העסק שלך',
   'SHARE_LINK_NOT_FOUND': 'הקישור למסמך לא נמצא או שפג תוקפו',
   // V2 (SPEC-v2-he.md §4, §8.3, §12, §14). 403s also refresh capabilities (§4.6).
-  'FORBIDDEN': 'ההרשאות שלך עודכנו',
-  'DOCUMENT_ACTION_FORBIDDEN': 'ההרשאות שלך עודכנו',
+  // Walkthrough 2026-11-17 #8: the inline error of a refused action says what
+  // happened. "ההרשאות שלך עודכנו" is the shell's toast, and only when /me
+  // really changed (BusinessContext.lastForbiddenChangedCaps).
+  'FORBIDDEN': 'אין לך הרשאה לפעולה הזו',
+  'DOCUMENT_ACTION_FORBIDDEN': 'אין לך הרשאה לפעולה הזו',
   'CREDIT_SOURCE_TYPE_INVALID':
       'אפשר להפיק זיכוי רק לחשבונית מס או לחשבונית מס-קבלה',
   'BACKDATING_OWNER_ONLY': 'רק בעל העסק יכול להפיק מסמך בתאריך עבר',
