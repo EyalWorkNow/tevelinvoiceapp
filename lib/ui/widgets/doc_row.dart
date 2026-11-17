@@ -28,6 +28,9 @@ class DocRow extends StatelessWidget {
   final String subtitle;
 
   /// Null = amount hidden (read gating): no amount drawn or spoken.
+  /// Negative = money going back to the customer (a credit note, 330): drawn
+  /// with the "−" badge and the expense colour, spoken "מינוס …" — never as
+  /// income (walkthrough 2026-11-17 #11).
   final BigInt? amountMinor;
   final StatusPill status;
   final List<String> attributes;
@@ -150,7 +153,9 @@ class DocRow extends StatelessWidget {
         : status.isCancelled
         ? p.muted
         : p.ink;
-    final isExpense = amountColor == p.danger || amountColor == p.muted;
+    final credit = amountMinor?.isNegative ?? false;
+    final isExpense =
+        credit || amountColor == p.danger || amountColor == p.muted;
     // 1.7: the customer's initials, never a stock face.
     final avatarWidget = _InitialsAvatar(name: title);
     final row = Semantics(
@@ -251,7 +256,8 @@ class DocRow extends StatelessWidget {
                           const SizedBox(width: 5),
                           Flexible(
                             child: AmountText(
-                              amountMinor!,
+                              // The badge carries the sign.
+                              amountMinor!.abs(),
                               style: AppText.body.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),

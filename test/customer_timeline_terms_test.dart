@@ -315,6 +315,60 @@ void main() {
       );
     });
 
+    testWidgets(
+      'walkthrough #12: the card\'s "פתק" shows; an empty chip says so',
+      (tester) async {
+        backend.on('GET', '/customers/:id/timeline', (r) {
+          final notesOnly = r.query['sources'] == 'notes';
+          final paymentsOnly = r.query['sources'] == 'payments';
+          return FakeResponse(200, {
+            'items': paymentsOnly
+                ? <Map<String, dynamic>>[]
+                : [
+                    item(
+                      'crm_note:7c9e6679-7425-40de-944b-e07fc1f90ae7',
+                      'note',
+                      actor: null,
+                      data: {
+                        'body': 'קוד לשער 1234',
+                        'edited': false,
+                        'pinned': true,
+                        'source': 'customerCard',
+                      },
+                    ),
+                    if (!notesOnly)
+                      item(
+                        'document.issued:d1',
+                        'document.issued',
+                        link: {'type': 'document', 'id': 'd1'},
+                        data: {'documentType': 'TAX_INVOICE'},
+                      ),
+                  ],
+            'nextCursor': null,
+            'sources': ['documents', 'payments', 'notes'],
+          });
+        });
+        await pump(
+          tester,
+          const CustomerTimelineScreen(customerId: 'c1', customerName: 'דנה'),
+        );
+        expect(find.text('קוד לשער 1234'), findsOneWidget);
+        expect(
+          find.textContaining(TimelineHe.fromCustomerCard),
+          findsOneWidget,
+        );
+        await tap(tester, find.text('הערות'));
+        expect(find.text('קוד לשער 1234'), findsOneWidget);
+        await tap(tester, find.text('תשלומים'));
+        expect(
+          find.byKey(const Key('timeline-empty-filtered')),
+          findsOneWidget,
+        );
+        expect(find.text('אין כאן תשלומים עדיין'), findsOneWidget);
+        expect(find.text(TimelineHe.empty), findsNothing);
+      },
+    );
+
     testWidgets('notes: add, edit own (author only), delete with confirm', (
       tester,
     ) async {

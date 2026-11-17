@@ -78,6 +78,10 @@ enum InboxKind {
   allocationProblem('ALLOCATION_PROBLEM'),
   signingLocked('SIGNING_LOCKED'),
   unfinished('UNFINISHED'),
+
+  /// 0111 + walkthrough 2026-11-17 #9c: automatic WhatsApp reminders wait
+  /// for the owner's tap — one card with the count (no push of its own).
+  collectionRemindersReady('COLLECTION_REMINDERS_READY'),
   overdue('OVERDUE'),
   quoteAccepted('QUOTE_ACCEPTED'),
   expenseReview('EXPENSE_REVIEW'),

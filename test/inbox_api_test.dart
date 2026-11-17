@@ -9,6 +9,7 @@ import 'package:invoice/api/inbox_api.dart';
 import 'package:invoice/api/models/models.dart';
 import 'package:invoice/screens/document/sheets/s6_share.dart'
     show sendPaymentReminder;
+import 'package:invoice/screens/home/inbox_cards.dart' show inboxTitle;
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/util/labels/inbox_he.dart';
@@ -432,6 +433,53 @@ void main() {
         expect(emp.cards, isEmpty);
         expect(emp.openMinor, isNull);
         expect(server.recent.single.id, 'r1');
+      },
+    );
+
+    test(
+      'walkthrough #9c: "N תזכורות מוכנות לשליחה" is one Home card, for who sends reminders',
+      () {
+        final server = HomeData.fromJson({
+          'money': {'openMinor': '1240000', 'overdueMinor': '320000'},
+          'cards': [
+            {
+              'kind': 'OVERDUE',
+              'count': 3,
+              'documentIds': ['a'],
+              'action': 'SEND_REMINDERS',
+            },
+            {
+              'kind': 'COLLECTION_REMINDERS_READY',
+              'priority': 52,
+              'count': 3,
+              'amountMinor': null,
+              'documentIds': <String>[],
+              'action': 'SEND_REMINDERS',
+            },
+          ],
+          'recent': <Object>[],
+        });
+        final owner = filterHome(server, caps: capsOf(Preset.owner));
+        expect(kinds(owner), [
+          InboxKind.collectionRemindersReady,
+          InboxKind.overdue,
+        ]);
+        expect(owner.cards.first.count, 3);
+        expect(inboxTitle(owner.cards.first), '3 תזכורות מוכנות לשליחה');
+        // No money view / no send: no card (the server sends none either).
+        expect(
+          kinds(filterHome(server, caps: capsOf(Preset.employee))),
+          isEmpty,
+        );
+        expect(
+          kinds(filterHome(server, caps: capsOf(Preset.accountantRep))),
+          isEmpty,
+        );
+        // The cache keeps it.
+        expect(
+          HomeData.fromJson(server.toJson()).cards.map((c) => c.kind),
+          contains(InboxKind.collectionRemindersReady),
+        );
       },
     );
 

@@ -54,7 +54,11 @@ void main() {
         reason: code,
       );
     }
-    expect(errorMessageHe('DOCUMENT_ACTION_FORBIDDEN'), 'ההרשאות שלך עודכנו');
+    // Walkthrough #8: the refused action's own error says what happened.
+    expect(
+      errorMessageHe('DOCUMENT_ACTION_FORBIDDEN'),
+      'אין לך הרשאה לפעולה הזו',
+    );
   });
 
   test(

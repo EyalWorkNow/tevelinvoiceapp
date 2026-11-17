@@ -22,6 +22,27 @@ abstract final class CollectionHe {
   static const quietHours =
       'לא נשלח בלילה (21:00–09:00), ביום שישי אחרי 13:00, בשבת ובחגים. '
       'תשלום, זיכוי או ביטול עוצרים את התזכורות מיד.';
+  // ---- old debts (#9b): never a blast on switch-on --------------------------
+  /// The switch-on dialog: only what is due from today gets the ladder.
+  static String enableBody(int backlog) =>
+      'תזכורות יישלחו רק על מסמכים שמועד התשלום שלהם היום או אחריו, לפי לוח הזמנים. '
+      '${backlog == 0
+          ? ''
+          : backlog == 1
+          ? 'לחוב ישן אחד לא תישלח תזכורת בלי שתאשר. '
+          : 'ל-$backlog חובות ישנים לא תישלח תזכורת בלי שתאשר. '}'
+      'אפשר לכבות בכל רגע.';
+  static String backlogTitle(int n) => n == 1
+      ? 'יש חוב ישן אחד. לשלוח לו תזכורת?'
+      : 'יש $n חובות ישנים. לשלוח להם תזכורת?';
+  static String backlogBody(int customers) =>
+      'מועד התשלום שלהם עבר לפני שהפעלת את התזכורות. '
+      '${customers == 1 ? 'הלקוח יקבל' : 'כל אחד מ-$customers הלקוחות יקבל'} תזכורת אחת בלבד, '
+      'ולא יותר מאחת ללקוח ביום.';
+  static const backlogSend = 'שלח תזכורת אחת';
+  static const backlogLater = 'לא עכשיו';
+  static const backlogApproved =
+      'החובות הישנים יקבלו תזכורת אחת בימים הקרובים, בשעות השליחה.';
   static const saveFailed = 'השינוי לא נשמר. נסו שוב.';
   static const saved = 'נשמר';
 

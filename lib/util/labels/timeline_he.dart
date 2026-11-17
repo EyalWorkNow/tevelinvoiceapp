@@ -8,6 +8,15 @@ abstract final class TimelineHe {
   static const rowSubtitle = 'כל מה שקרה עם הלקוח, מהחדש לישן';
   static const empty = 'עוד לא קרה כלום עם הלקוח הזה';
   static const emptyHint = 'מסמכים, תשלומים, הצעות מחיר והערות יופיעו כאן.';
+
+  /// Walkthrough 2026-11-17 #12: a chip with nothing in it says so — not
+  /// "nothing happened with this customer".
+  static String emptyFiltered(String chip) => 'אין כאן $chip עדיין';
+  static const emptyFilteredHint =
+      'בחרו "הכל" כדי לראות את כל מה שקרה עם הלקוח.';
+
+  /// A note written on the customer card (פתקים ומעקב), shown read-only here.
+  static const fromCustomerCard = 'פתק מכרטיס הלקוח';
   static const loadMore = 'הצג עוד';
   static const today = 'היום';
   static const yesterday = 'אתמול';

@@ -454,8 +454,19 @@ void resetToHome({AppTab tab = AppTab.home}) {
 }
 
 /// A (sign-in). [expired] shows "פג תוקף ההתחברות".
-void resetToLogin({bool expired = false}) {
-  _resetTo(LoginScreen(sessionExpired: expired), '/gate');
+void resetToLogin({
+  bool expired = false,
+  bool mfaRequired = false,
+  String? email,
+}) {
+  _resetTo(
+    LoginScreen(
+      sessionExpired: expired,
+      mfaRequired: mfaRequired,
+      email: email,
+    ),
+    '/gate',
+  );
   _openPendingInvite();
 }
 
@@ -746,8 +757,13 @@ class AppRouter with WidgetsBindingObserver {
     // After the reset, so the toast lands on the visible Scaffold.
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => messengerKey.currentState?.showNotchNotice(
-        const SnackBar(
-          content: Text(CommonHe.permissionsUpdated),
+        SnackBar(
+          // #8: "updated" only when the refresh really changed something.
+          content: Text(
+            businessContext.lastForbiddenChangedCaps
+                ? CommonHe.permissionsUpdated
+                : CommonHe.actionNotAllowed,
+          ),
           behavior: SnackBarBehavior.fixed,
         ),
       ),

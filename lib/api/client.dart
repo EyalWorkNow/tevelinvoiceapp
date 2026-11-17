@@ -39,7 +39,21 @@ class ApiException implements Exception {
 /// the login flow listens for [mfaRequired] while still on the cookie session;
 /// lib/state/business_context.dart listens for [forbidden] (SPEC-v2 §4.6:
 /// a 403 means the capabilities changed → refresh /me and rebuild).
-enum ApiEvent { sessionExpired, mfaRequired, forbidden }
+enum ApiEvent {
+  sessionExpired,
+  mfaRequired,
+  forbidden,
+
+  /// 402: issuing needs an active plan / the month's quota is used
+  /// (walkthrough 2026-11-17 #10a) — the plan gate opens the plans sheet.
+  planRequired,
+}
+
+/// 402 codes that mean "pick (or upgrade) a plan to issue".
+const Set<String> planRequiredCodes = {
+  'SUBSCRIPTION_REQUIRED',
+  'INVOICE_QUOTA_EXCEEDED',
+};
 
 /// 403 codes that mean "your permissions changed" (§4.6).
 const Set<String> capabilityRefreshCodes = {
@@ -394,6 +408,9 @@ class ApiClient {
         capabilityRefreshCodes.contains(code) &&
         path != '/me') {
       _events.add(ApiEvent.forbidden);
+    }
+    if (status == 402 && planRequiredCodes.contains(code)) {
+      _events.add(ApiEvent.planRequired);
     }
     return ApiException(
       status,

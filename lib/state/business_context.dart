@@ -102,10 +102,22 @@ class BusinessContext extends ChangeNotifier {
     await _refresh();
   }
 
+  bool _lastForbiddenChangedCaps = true;
+
+  /// Whether the last capability 403's /me refresh changed what this member
+  /// may do. False = permissions are as they were: the action simply is not
+  /// allowed (walkthrough 2026-11-17 #8 — "ההרשאות שלך עודכנו" was shown
+  /// although nothing had changed).
+  bool get lastForbiddenChangedCaps => _lastForbiddenChangedCaps;
+
   /// A capability 403 (§4.6): refresh /me, then tell the shell.
   Future<void> handleForbidden() async {
     if (_session.business == null) return;
+    final before = caps;
     await _refresh();
+    final after = caps;
+    _lastForbiddenChangedCaps =
+        before.preset != after.preset || !setEquals(before.all, after.all);
     _permissionsChanged.add(null);
   }
 

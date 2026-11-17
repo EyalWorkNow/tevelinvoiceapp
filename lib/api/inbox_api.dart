@@ -575,7 +575,8 @@ bool cardAllowed(InboxItem c, Caps caps) => switch (c.kind) {
     caps.can(Cap.paymentRecord) || caps.can(Cap.reportView),
   InboxKind.signingLocked => caps.can(Cap.docIssue),
   InboxKind.allocationProblem => caps.can(Cap.allocationRequest),
-  InboxKind.overdue => caps.can(Cap.docSend) && caps.can(Cap.moneyView),
+  InboxKind.overdue || InboxKind.collectionRemindersReady =>
+    caps.can(Cap.docSend) && caps.can(Cap.moneyView),
   InboxKind.expenseReview => caps.can(Cap.expenseApprove),
   InboxKind.paymentReceived => caps.can(Cap.paymentRecord),
   InboxKind.shaamRenew => caps.can(Cap.settingsBusiness),

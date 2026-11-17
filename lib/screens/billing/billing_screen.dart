@@ -20,9 +20,10 @@ const _planColors = [
 
 /// Unasked plan prompts in this app launch: the required gate on launch and
 /// the owner's plans sheet on Home. Together they show a business at most
-/// once per launch, never both. Closing either never blocks issuing (the
-/// server decides that; BILLING_ENFORCE is off). Explicit "מסלול" taps are
-/// not prompts and always open.
+/// once per launch, never both. Closing either keeps the app usable (read,
+/// export, billing, account deletion); ISSUING is gated by the server (402,
+/// on in production) and [PlanGate] reopens the plans sheet at that moment
+/// (walkthrough 2026-11-17 #10a). Explicit "מסלול" taps always open.
 abstract final class PlanPrompts {
   static final Set<String> _shown = {};
   static final Set<String> _checking = {};
@@ -268,7 +269,15 @@ class _PlansSheetState extends State<PlansSheet> with WidgetsBindingObserver {
                         '${_subscription!.used} מסמכי הכנסה הופקו החודש',
                         style: AppText.body,
                       ),
-                      if (_subscription!.cancelAtPeriodEnd)
+                      // #10a: a comp plan (given by Tevel, migration 0112 /
+                      // billing:comp) has nothing to renew or cancel.
+                      if (_subscription!.billingProvider == 'COMP')
+                        const Text(
+                          BusinessHe.compPlan,
+                          key: Key('billing-comp'),
+                          style: AppText.secondary,
+                        )
+                      else if (_subscription!.cancelAtPeriodEnd)
                         const Text(
                           'החידוש בוטל. המסלול פעיל עד סוף התקופה ששולמה.',
                           style: AppText.secondary,
@@ -480,7 +489,11 @@ class _PlanCard extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: '${plan.name}, ${plan.monthlyMinor ~/ 100} שקלים לחודש',
+      // #10b: VoiceOver says the price the card shows — the store's
+      // localized price when there is one (₪7.90 / $2.99), not the server's
+      // whole-shekel plan price.
+      label:
+          '${plan.name}, ${localizedPrice ?? _shekels(plan.monthlyMinor)} לחודש',
       child: Material(
         key: Key('plan-${plan.code}'),
         color: color,
@@ -499,11 +512,11 @@ class _PlanCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Icon(
-                          plan.limit == null
-                              ? Icons.all_inclusive_rounded
-                              : plan.limit == 21
-                              ? Icons.auto_awesome_outlined
-                              : Icons.workspace_premium_outlined,
+                          switch (plan.code) {
+                            'UNLIMITED' => Icons.all_inclusive_rounded,
+                            'START' => Icons.auto_awesome_outlined,
+                            _ => Icons.workspace_premium_outlined,
+                          },
                           size: 42,
                           color: ink,
                         ),
@@ -519,7 +532,7 @@ class _PlanCard extends StatelessWidget {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
-                              localizedPrice ?? '₪${plan.monthlyMinor ~/ 100}',
+                              localizedPrice ?? _shekels(plan.monthlyMinor),
                               textDirection: TextDirection.ltr,
                               style: AppText.displayTitle.copyWith(
                                 fontSize: 42,
@@ -936,7 +949,7 @@ class _BillingCheckoutScreenState extends State<BillingCheckoutScreen>
                               const SizedBox(height: 30),
                               Text(
                                 _product?.price ??
-                                    '₪${widget.plan.monthlyMinor ~/ 100}',
+                                    _shekels(widget.plan.monthlyMinor),
                                 textDirection: TextDirection.ltr,
                                 style: AppText.displayTitle.copyWith(
                                   color: const Color(0xFF302139),
@@ -1031,7 +1044,7 @@ class _BillingCheckoutScreenState extends State<BillingCheckoutScreen>
                                 ),
                                 Text(
                                   _product?.price ??
-                                      '₪${widget.plan.monthlyMinor ~/ 100}',
+                                      _shekels(widget.plan.monthlyMinor),
                                   textDirection: TextDirection.ltr,
                                   style: AppText.title.copyWith(fontSize: 38),
                                 ),
@@ -1184,7 +1197,7 @@ class _BillingCheckoutScreenState extends State<BillingCheckoutScreen>
                         : _isIOS
                         ? BusinessHe.monthlySubscriptionPrice(
                             _product?.price ??
-                                '₪${widget.plan.monthlyMinor ~/ 100}',
+                                _shekels(widget.plan.monthlyMinor),
                           )
                         : BusinessHe.securePaymentPrice(
                             widget.plan.monthlyMinor,
@@ -1208,3 +1221,9 @@ class _BillingCheckoutScreenState extends State<BillingCheckoutScreen>
     );
   }
 }
+
+/// "₪8" / "₪7.90": the server plan price (agorot), used only before the
+/// store's localized price loads or off iOS.
+String _shekels(int minor) => minor % 100 == 0
+    ? '₪${minor ~/ 100}'
+    : '₪${(minor / 100).toStringAsFixed(2)}';

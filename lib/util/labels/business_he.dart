@@ -114,9 +114,15 @@ abstract final class BusinessHe {
   static const remindersOn = 'תזכורות אוטומטיות פועלות';
   static const remindersOff = 'תזכורות אוטומטיות כבויות';
   static const remindersConfirmTitle = 'להפעיל תזכורות אוטומטיות?';
+
+  /// #10a: a COMP plan (no store, no charge) — nothing to renew or cancel.
+  static const compPlan = 'מסלול ללא חיוב מתבל. אין חידוש לבטל.';
+  // #9b: only what is due from today gets the ladder; old debts wait for a
+  // separate "yes" (תזכורות גבייה אוטומטיות).
   static const remindersConfirmBody =
-      'כל לקוח שלא שילם יקבל ממך מייל תזכורת עם קישור למסמך, לפי לוח זמנים קבוע. '
-      'אפשר לכבות בכל רגע.';
+      'לקוח שלא שילם יקבל ממך תזכורת עם קישור למסמך, לפי לוח זמנים קבוע, '
+      'על מסמכים שמועד התשלום שלהם היום או אחריו. חובות ישנים לא יקבלו תזכורת '
+      'בלי שתאשר. אפשר לכבות בכל רגע.';
   static const remindersConfirmAction = 'הפעל';
   static const ccOwner = 'עותק של כל מסמך אליי';
   static const ccOwnerHint = 'כל מסמך שנשלח ללקוח במייל יגיע גם אליך';
@@ -229,6 +235,13 @@ abstract final class BusinessHe {
       'החשבון $email לא משויך כרגע לאף עסק. בקש מבעל העסק להזמין אותך, '
       'או המשך במחשב כדי לפתוח עסק.';
   static const checkAgain = 'בדוק שוב';
+
+  /// Walkthrough 2026-11-17 #14: "בדוק שוב" found the business, but this
+  /// device signed in before it needed two-step verification (an owner /
+  /// accountant membership). The server refuses such a device token, so the
+  /// user signs in once more — told why, email filled in, never "פג תוקף".
+  static const signInAgainForMfa =
+      'נמצא עסק בחשבון. כדי להיכנס אליו צריך אימות דו-שלבי, ולכן צריך להתחבר שוב פעם אחת.';
 }
 
 /// "המשך במחשב" topics (§13.9) → BE-35 topic keys. Labels from the server list.

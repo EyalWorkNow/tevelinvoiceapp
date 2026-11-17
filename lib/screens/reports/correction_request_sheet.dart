@@ -11,6 +11,7 @@ import '../../api/documents_api.dart' show issuedStatuses;
 import '../../api/models/models.dart';
 import '../../api/readiness_api.dart';
 import '../../state/business_context.dart';
+import '../../state/caps.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/labels.dart';
 import '../../util/money.dart';
@@ -18,9 +19,13 @@ import '../../util/still_here.dart';
 import '../../util/money_input.dart';
 
 /// The menu item shows for the accountant presets on an issued, not
-/// cancelled document that is not itself a credit note.
+/// cancelled document that is not itself a credit note. Same rule as the
+/// server's canRequestCorrection (walkthrough #8): report:read or, for the P0
+/// accountant preset (READ_ONLY + expense grants), expense:approve.
 bool canRequestCorrection(DocumentDetail d) =>
     businessContext.caps.homeIsReports &&
+    (businessContext.caps.can(Cap.reportView) ||
+        businessContext.caps.can(Cap.expenseApprove)) &&
     issuedStatuses.contains(d.status) &&
     d.voidedAt == null &&
     d.documentType != 'CREDIT_DOCUMENT';

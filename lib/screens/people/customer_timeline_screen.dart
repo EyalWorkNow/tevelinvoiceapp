@@ -315,13 +315,22 @@ class _CustomerTimelineScreenState extends State<CustomerTimelineScreen> {
         onRefresh: _load,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            EmptyState(
-              key: Key('timeline-empty'),
-              icon: Iconsax.clock,
-              title: TimelineHe.empty,
-              message: TimelineHe.emptyHint,
-            ),
+          children: [
+            _source == null
+                ? const EmptyState(
+                    key: Key('timeline-empty'),
+                    icon: Iconsax.clock,
+                    title: TimelineHe.empty,
+                    message: TimelineHe.emptyHint,
+                  )
+                : EmptyState(
+                    key: const Key('timeline-empty-filtered'),
+                    icon: Iconsax.clock,
+                    title: TimelineHe.emptyFiltered(
+                      TimelineHe.chips[_source!.name] ?? _source!.name,
+                    ),
+                    message: TimelineHe.emptyFilteredHint,
+                  ),
           ],
         ),
       );
@@ -425,6 +434,9 @@ class TimelineRow extends StatelessWidget {
     final detail = [
       item.time,
       if (item.kind == 'note' || item.actorName != null) ?item.actorName,
+      // #12: the card's "פתק" (edited there, read-only here).
+      if (item.kind == 'note' && item.data['source'] == 'customerCard')
+        TimelineHe.fromCustomerCard,
       if (item.kind == 'note' && item.data['edited'] == true)
         TimelineHe.noteEdited,
     ].where((s) => s.isNotEmpty).join(' · ');
