@@ -8,6 +8,7 @@ import 'package:invoice/ui/money_text.dart';
 import 'package:invoice/ui/widgets/amount_display.dart';
 import 'package:invoice/screens/business/cardcom_merchant_screen.dart';
 import 'package:invoice/util/allowed_urls.dart';
+import 'package:invoice/util/labels/business_he.dart';
 import 'business/e_harness.dart';
 import 'fakes/commerce_fake.dart';
 import 'fakes/fake_backend.dart';
@@ -62,6 +63,47 @@ void main() {
       expect(find.text('העסק שלך מוכן להמשיך'), findsNothing);
     },
   );
+  testWidgets(
+    'walkthrough #10: a COMP plan has nothing to cancel; cards speak their price',
+    (tester) async {
+      phone(tester);
+      backend.json('GET', '/billing/subscription', {
+        'active': true,
+        'needsPlan': false,
+        'usedInvoices': 4,
+        'enforced': true,
+        'subscription': {
+          'plan_code': 'UNLIMITED',
+          'status': 'ACTIVE',
+          'period_end': '2100-01-01 00:00:00+00',
+          'cancel_at_period_end': false,
+          'billing_provider': 'COMP',
+        },
+      });
+      await tester.pumpWidget(
+        eApp(
+          Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => unawaited(showBillingPlans(context)),
+                child: const Text('plans'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('plans'));
+      await settle(tester);
+      expect(find.byKey(const Key('billing-comp')), findsOneWidget);
+      expect(find.text(BusinessHe.cancelPlanRenewal), findsNothing);
+      // No store price off iOS → the server price, spoken as shown.
+      expect(
+        tester.getSemantics(find.byKey(const Key('plan-START'))).label,
+        contains('מתחילים, ₪8 לחודש'),
+      );
+    },
+  );
+
   testWidgets('horizontal swiping changes the selected carousel page', (
     tester,
   ) async {

@@ -114,6 +114,9 @@ abstract final class BusinessHe {
   static const remindersOn = 'תזכורות אוטומטיות פועלות';
   static const remindersOff = 'תזכורות אוטומטיות כבויות';
   static const remindersConfirmTitle = 'להפעיל תזכורות אוטומטיות?';
+
+  /// #10a: a COMP plan (no store, no charge) — nothing to renew or cancel.
+  static const compPlan = 'מסלול ללא חיוב מתבל. אין חידוש לבטל.';
   // #9b: only what is due from today gets the ladder; old debts wait for a
   // separate "yes" (תזכורות גבייה אוטומטיות).
   static const remindersConfirmBody =
