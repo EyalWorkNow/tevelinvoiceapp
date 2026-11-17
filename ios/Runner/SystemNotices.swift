@@ -200,8 +200,11 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
 
   /// Foreground handling never tries to start a Live Activity in the background.
   func receive(_ userInfo: [AnyHashable: Any], opened: Bool) -> Bool {
-    guard let kind = userInfo["tevelKind"] as? String,
-          let route = userInfo["route"] as? String,
+    // `tevelKind`/`route` (/mobile/push-tokens) or the push catalogue's `kind`/`link` (QUOTE_SIGNED …).
+    // Only catalogue kinds the Dart side presents are taken (others keep the system banner).
+    let catalogueKind = (userInfo["kind"] as? String).flatMap { ["QUOTE_SIGNED"].contains($0) ? $0 : nil }
+    guard let kind = (userInfo["tevelKind"] as? String) ?? catalogueKind,
+          let route = (userInfo["route"] as? String) ?? (userInfo["link"] as? String),
           let businessID = userInfo["businessId"] as? String,
           route.range(of: "^(/(home|activity|expenses|calendar)|/(quote|doc|person)/[A-Za-z0-9_-]{1,64})$", options: .regularExpression) != nil else { return false }
     emit(["type": opened ? "opened" : "notice", "kind": kind, "route": route,

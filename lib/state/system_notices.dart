@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../api/client.dart';
+import '../api/documents_api.dart' show notifyDocumentsChanged;
 import '../router.dart';
 import '../util/errors_he.dart';
 import '../ui/widgets/notch_notice.dart';
@@ -18,6 +19,8 @@ const _events = EventChannel('tevel/system_notice_events');
 /// Fixed, amount-free text for OS and foreground events.
 (String, NoticeMotion)? systemNoticePresentation(String kind) => switch (kind) {
   'approved' => ('הלקוח אישר את הצעת המחיר!', NoticeMotion.approved),
+  // Push catalogue (/mobile/push/devices): the customer accepted and signed.
+  'QUOTE_SIGNED' => ('הלקוח אישר את הצעת המחיר', NoticeMotion.approved),
   'payment' => ('התקבל תשלום חדש', NoticeMotion.payment),
   'approvalNeeded' => ('מסמך חדש ממתין לאישור', NoticeMotion.document),
   'rejected' => ('המסמך הוחזר לתיקון', NoticeMotion.error),
@@ -181,6 +184,16 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// Push kinds whose arrival means a quote/document changed on the server.
+  static bool refreshesDocuments(String kind, String route) =>
+      kind == 'approved' ||
+      kind == 'QUOTE_SIGNED' ||
+      route.startsWith('/quote/') ||
+      route.startsWith('/doc/');
+
+  @visibleForTesting
+  void debugEvent(Map<Object?, Object?> raw) => _onEvent(raw);
+
   void _onEvent(dynamic raw) {
     if (raw is! Map) return;
     if (raw['type'] == 'registrationError') {
@@ -218,6 +231,9 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     }
     final presentation = systemNoticePresentation(kind);
     if (presentation == null) return;
+    // A quote accepted / a document changed elsewhere: the open quote screen
+    // and the lists reload (ACCEPTED, the signed PDF).
+    if (refreshesDocuments(kind, route)) notifyDocumentsChanged();
     if (raw['type'] == 'opened') {
       final link = Uri(
         path: route,

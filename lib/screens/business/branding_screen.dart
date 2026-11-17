@@ -14,6 +14,8 @@ import '../document/document_parts.dart' show pdfPreviewBuilder;
 import 'sheets/editor_configs.dart' show logoPicker;
 import 'sheets/s13_editor.dart' show UnsavedChangesGuard;
 import 'template_gallery.dart';
+import '../../util/labels/signature_he.dart';
+import '../signature/signature_screen.dart' show openSignatureScreen;
 
 const _fonts = {'sans': 'נקי', 'serif': 'מסורתי', 'rounded': 'מעוגל'};
 const _logoSizes = {'small': 'קטן', 'medium': 'בינוני', 'large': 'גדול'};
@@ -550,6 +552,16 @@ class _BrandingScreenState extends State<BrandingScreen> {
           alignLabelWithHint: true,
         ),
         onChanged: (v) => _change({'footerNote': v}),
+      ),
+      const SizedBox(height: 4),
+      ListTile(
+        key: const Key('branding-signature'),
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Iconsax.edit_2),
+        title: const Text(SignatureHe.title),
+        subtitle: const Text(SignatureHe.rowHint),
+        trailing: const Icon(Iconsax.arrow_left_2),
+        onTap: () => openSignatureScreen(context),
       ),
       const SizedBox(height: 12),
       Text(
