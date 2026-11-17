@@ -75,7 +75,7 @@ abstract final class CollectionHe {
   static const more = 'עוד';
   static const pauseDocument = 'השהה תזכורות למסמך הזה';
   static const optOutCustomer = 'אל תשלח תזכורות ללקוח הזה';
-  static const debtLine = 'מספר החובות';
+  static const debtLine = 'רישום בפנקס החובות';
 
   // ---- holds (customer / document) -----------------------------------------
   static const holdCustomer = 'אל תשלח תזכורות ללקוח הזה';
