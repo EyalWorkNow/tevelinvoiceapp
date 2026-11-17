@@ -50,7 +50,7 @@ import 'sheets/s5_payment.dart';
 import 'sheets/s6_share.dart';
 import 'sheets/s8_cancel.dart';
 import 'waiting_allocation_card.dart';
-import '../compose/sheets/quote_paid_choice.dart';
+import 'quote_conversion.dart';
 import '../reports/correction_request_sheet.dart';
 
 class DocumentScreen extends StatefulWidget {
@@ -633,36 +633,17 @@ class _DocumentScreenState extends State<DocumentScreen> {
       case DocAction.sendQuote:
         return _sendQuote(label);
       case DocAction.convertQuote:
-        // C3: pay later (305 / 300) or "שילם עכשיו" (320 / receipt + payment).
-        final exemptBusiness = businessContext.isVatExempt;
-        final choice = await askQuotePaid(context, exempt: exemptBusiness);
-        if (choice == null || !mounted || !_alive()) return;
-        if (choice == QuotePaidChoice.paidNow) {
-          await openCompose(
-            context,
-            intent: paidNowIntent(exempt: exemptBusiness),
-            fromQuoteId: quote!.id,
-          );
-          return;
-        }
-        String? draftId;
-        await _guard(label, () async {
-          final exempt = businessContext.isVatExempt;
-          draftId = await quoteToInvoice(
-            quote!,
-            vatExempt: exempt,
-            vatRateBasisPoints: exempt ? 0 : await documentVatRate(),
-          );
-          return null;
-        });
-        if (draftId != null && mounted) {
-          await openCompose(
-            context,
-            intent: businessContext.isVatExempt ? 'TYPE:300' : 'TYPE:305',
-            draftId: draftId,
-            fromQuoteId: quote!.id,
-          );
-        }
+        // C3: pay later (305 / 300) or "שילם עכשיו" (320 / receipt + payment)
+        // — the same path as the home card (walkthrough #3).
+        await convertAcceptedQuote(
+          context,
+          quote!,
+          vatRate: documentVatRate,
+          guard: (work) => _guard(label, () async {
+            await work();
+            return null;
+          }),
+        );
       case DocAction.editQuote || DocAction.extendQuote:
         await openCompose(context, intent: 'QUOTE', fromQuoteId: quote!.id);
         if (mounted) await _load();

@@ -687,4 +687,89 @@ void main() {
       expect(find.byKey(const Key('intent-request')), findsNothing);
     },
   );
+
+  group(
+    'walkthrough #3: "<לקוח> אישר את ההצעה" converts like the quote screen',
+    () {
+      Future<void> until(WidgetTester tester, Finder f) async {
+        for (var k = 0; k < 60 && f.evaluate().isEmpty; k++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)),
+          );
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        expect(f, findsWidgets);
+      }
+
+      Future<void> pumpAccepted(WidgetTester tester) async {
+        await pumpHome(
+          tester,
+          Preset.owner,
+          mobileInbox: mobileInboxJson(
+            open: 0,
+            cards: [
+              {
+                ...inboxCardJson(
+                  'QUOTE_ACCEPTED',
+                  action: 'CONVERT_QUOTE',
+                  detail: {'quoteId': 'q-1', 'customerName': 'דנה כהן'},
+                ),
+                'quoteIds': ['q-1'],
+              },
+            ],
+          ),
+        );
+        installQuoteDetail(backend, status: 'ACCEPTED');
+        backend
+          ..json('GET', '/tax-rates', {
+            'rates': [
+              {'tax_code': 'VAT', 'rate_basis_points': 1800},
+            ],
+          })
+          ..on(
+            'POST',
+            '/quotes/:id/status',
+            (r) => FakeResponse(200, {'status': r.body['to']}),
+          )
+          ..json('POST', '/quotes/:id/convert', {
+            'documentId': 'doc-new',
+          }, status: 201);
+        await tester.tap(find.byKey(const Key('inbox-QUOTE_ACCEPTED')));
+        await until(tester, find.byKey(const Key('quote-choice-later')));
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('"ישלם אחר כך" → convert → C on the new draft (not ₪0)', (
+        tester,
+      ) async {
+        await pumpAccepted(tester);
+        await tester.tap(find.byKey(const Key('quote-choice-later')));
+        await until(tester, find.byType(ComposeScreen));
+        expect(
+          backend.last('POST', '/quotes/:id/convert')!.path,
+          '/quotes/q-1/convert',
+        );
+        final c = tester.widget<ComposeScreen>(find.byType(ComposeScreen));
+        expect(
+          (c.draftId, c.fromQuoteId, c.intent),
+          ('doc-new', 'q-1', 'TYPE:305'),
+        );
+      });
+
+      testWidgets(
+        '"שילם עכשיו" → C as 320 from the quote, nothing converted yet',
+        (tester) async {
+          await pumpAccepted(tester);
+          await tester.tap(find.byKey(const Key('quote-choice-paid')));
+          await until(tester, find.byType(ComposeScreen));
+          final c = tester.widget<ComposeScreen>(find.byType(ComposeScreen));
+          expect(
+            (c.draftId, c.fromQuoteId, c.intent),
+            (null, 'q-1', 'TYPE:320'),
+          );
+          expect(backend.calls('POST', '/quotes/:id/convert'), isEmpty);
+        },
+      );
+    },
+  );
 }

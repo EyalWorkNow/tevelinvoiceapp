@@ -5,8 +5,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../compose/sheets/quote_paid_choice.dart'
-    show QuotePaidChoice, askQuotePaid, paidNowIntent;
+import '../document/quote_conversion.dart';
+import '../../api/quotes_api.dart' show fetchQuote;
 
 import '../../ui/widgets/notch_notice.dart';
 import '../../api/client.dart';
@@ -232,18 +232,24 @@ Future<void> runInboxAction(
     case InboxKind.overdue:
       return runReminders(context, onChanged: onChanged);
     case InboxKind.quoteAccepted:
-      // C3: the same choice as "הפוך לחשבונית" in the quote — pays later
-      // (305 / 300) or paid now (320 with the payment step; פטור: a receipt).
-      // Either way the quote converts only when "הפק" is pressed.
-      final exempt = businessContext.isVatExempt;
-      final choice = await askQuotePaid(context, exempt: exempt);
-      if (choice == null || !context.mounted || !stillHere(context)) return;
-      return openCompose(
+      // Walkthrough #3: the card carries quote ids (BE-21 `quoteIds`), not
+      // document ids. The newest accepted quote (the one the title names)
+      // takes the quote screen's own path; several → the quotes list.
+      final quoteId = c.quoteIds.isEmpty ? null : c.quoteIds.first;
+      if (quoteId == null) return openActivity(context, chip: 'quotes');
+      final quote = await fetchQuote(quoteId);
+      if (!context.mounted || !stillHere(context)) return;
+      if (quote == null) return openActivity(context, chip: 'quotes');
+      return convertAcceptedQuote(
         context,
-        intent: choice == QuotePaidChoice.paidNow
-            ? paidNowIntent(exempt: exempt)
-            : 'TYPE:305',
-        fromQuoteId: first,
+        quote,
+        guard: (work) async {
+          try {
+            await work();
+          } on Object catch (e) {
+            if (context.mounted) showErrorSnack(context, e);
+          }
+        },
       );
     case InboxKind.expenseReview:
       return openExpenses(
