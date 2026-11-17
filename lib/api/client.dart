@@ -464,6 +464,11 @@ const Set<String> businessScopedMobilePaths = {
   '/mobile/inbox',
   '/mobile/web-handoff',
   '/mobile/push-tokens',
+  // Home bell + search (tester feedback 2026-11-18).
+  '/mobile/notifications',
+  '/mobile/notifications/unread-count',
+  '/mobile/notifications/read',
+  '/mobile/search',
 };
 
 bool sendsBusinessHeader(String path) {

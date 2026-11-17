@@ -25,6 +25,8 @@ import 'screens/business/business_screen.dart';
 import 'screens/business/delete_account_screen.dart';
 import 'screens/compose/compose_screen.dart';
 import 'screens/compose/payment_request_screen.dart';
+import 'screens/home/global_search_screen.dart';
+import 'screens/home/notifications_screen.dart';
 import 'screens/debts/debts_screen.dart';
 import 'screens/calendar/calendar_screen.dart';
 import 'screens/document/document_screen.dart';
@@ -541,6 +543,14 @@ Future<void> openCompose(
   }),
   fullscreen: true,
 );
+
+/// Home bell → "עדכונים" (tester 2026-11-18).
+Future<void> openNotifications(BuildContext context) =>
+    _push(context, const NotificationsScreen(), '/notifications');
+
+/// Home search over customers, documents, quotes, sign requests.
+Future<void> openGlobalSearch(BuildContext context) =>
+    _push(context, const GlobalSearchScreen(), '/search');
 
 /// בקשת תשלום: the short payment-request form (a 300; owner 2026-11-18).
 /// Its "עריכה מתקדמת" opens [openCompose] with intent REQUEST.

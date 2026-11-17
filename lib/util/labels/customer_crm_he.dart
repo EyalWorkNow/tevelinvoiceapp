@@ -1,4 +1,8 @@
 abstract final class CustomerCrmHe {
+  /// Home preview of the next follow-ups (tester 2026-11-18: "העבודה או
+  /// המעקב הקרובים" read unnatural).
+  static const upcomingTitle = 'משימות קרובות';
+
   static String followUpWith(String name) => 'שיחת מעקב עם $name';
   static String completedFollowupsCount(int count) => 'מעקבים שהושלמו ($count)';
   static String allNotesCount(int count) => 'כל הפתקים ($count)';

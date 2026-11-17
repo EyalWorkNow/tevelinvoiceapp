@@ -49,4 +49,42 @@ void main() {
       expect(SystemNotices.pushRegistrationError(other), same(other));
     },
   );
+
+  group('push at start-up (tester 2026-11-18: no quote-accepted push)', () {
+    test('fresh install / sign-in, iOS never asked → ask once', () {
+      expect(
+        pushStartup(stored: null, osAuthorized: false, osDetermined: false),
+        PushStartup.ask,
+      );
+    });
+    test('iOS already allows, never chosen in the app → on (was: off, '
+        'so no token was ever registered and no push could arrive)', () {
+      expect(
+        pushStartup(stored: null, osAuthorized: true, osDetermined: true),
+        PushStartup.on,
+      );
+    });
+    test('switched off in the app stays off, even when iOS allows', () {
+      expect(
+        pushStartup(stored: '0', osAuthorized: true, osDetermined: true),
+        PushStartup.off,
+      );
+    });
+    test('declined in iOS → off, never re-asked', () {
+      expect(
+        pushStartup(stored: null, osAuthorized: false, osDetermined: true),
+        PushStartup.off,
+      );
+      expect(
+        pushStartup(stored: '1', osAuthorized: false, osDetermined: true),
+        PushStartup.off,
+      );
+    });
+    test('switched on and allowed → on', () {
+      expect(
+        pushStartup(stored: '1', osAuthorized: true, osDetermined: true),
+        PushStartup.on,
+      );
+    });
+  });
 }

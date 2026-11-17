@@ -167,7 +167,7 @@ void main() {
       );
       expect(find.text('שלום, דנה'), findsOneWidget);
       expect(find.byKey(const Key('home-role-tag')), findsNothing);
-      expect(find.text('מגיע לך'), findsOneWidget);
+      expect(find.text('יתרה לגבייה'), findsOneWidget);
       expect(find.text('מתוכם באיחור'), findsOneWidget);
       expect(find.byKey(const Key('intent-paid')), findsOneWidget);
       expect(find.byKey(const Key('intent-request')), findsOneWidget);
@@ -209,6 +209,9 @@ void main() {
       find.byKey(const Key('home-recent-search')),
       240,
     );
+    // The Home search field (2026-11-18) makes the page longer.
+    await tester.ensureVisible(find.byKey(const Key('home-recent-search')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('home-recent-search')));
     await tester.pumpAndSettle();
 
@@ -433,7 +436,7 @@ void main() {
     'cache first: a later network failure keeps the cached H + offline banner',
     (tester) async {
       final c = await pumpHome(tester, Preset.owner);
-      expect(find.text('מגיע לך'), findsOneWidget);
+      expect(find.text('יתרה לגבייה'), findsOneWidget);
       backend.on(
         'GET',
         '/dashboard',
@@ -453,7 +456,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300)); // banner grows in
       expect(fresh.error?.isNetwork, isTrue);
-      expect(find.text('מגיע לך'), findsOneWidget); // painted from the cache
+      expect(find.text('יתרה לגבייה'), findsOneWidget); // painted from the cache
       expect(find.text('אין חיבור – מציג נתונים אחרונים'), findsOneWidget);
       expect(c.data, isNotNull);
     },
@@ -522,7 +525,7 @@ void main() {
     await pumpHome(tester, Preset.owner);
     expect(find.bySemanticsLabel(RegExp('קיבלתי תשלום')), findsWidgets);
     expect(find.bySemanticsLabel(RegExp('בקש תשלום')), findsWidgets);
-    expect(find.bySemanticsLabel(RegExp('מגיע לך')), findsWidgets);
+    expect(find.bySemanticsLabel(RegExp('יתרה לגבייה')), findsWidgets);
     handle.dispose();
   });
 

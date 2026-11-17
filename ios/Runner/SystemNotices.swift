@@ -48,6 +48,7 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
           var enabled = false
           if #available(iOS 17.2, *) { enabled = ActivityAuthorizationInfo().areActivitiesEnabled }
           result(["notifications": settings.authorizationStatus == .authorized,
+                  "determined": settings.authorizationStatus != .notDetermined,
                   "liveActivities": enabled])
         }
       }

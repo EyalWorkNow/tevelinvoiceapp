@@ -8,6 +8,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../api/client.dart';
 import '../api/documents_api.dart' show notifyDocumentsChanged;
+import '../api/notifications_api.dart'
+    show notifyNotificationsChanged, refreshNotificationsUnread;
 import '../api/settings_api.dart' show appVersion;
 import '../api/sign_requests_api.dart' show notifySignRequestsChanged;
 import '../router.dart';
@@ -90,6 +92,7 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
   int _generation = 0;
   Future<void>? _registration;
   bool _registrationPending = false;
+  bool _askedThisLaunch = false;
 
   /// Per-kind foreground handlers (see [ForegroundNoticeHandler]).
   final Map<String, ForegroundNoticeHandler> foregroundHandlers = {};
@@ -155,7 +158,7 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
       final id = business.businessId;
       try {
         final opted =
-            await _storage.read(key: 'system_notices_${user}_$id') == '1';
+            await _storage.read(key: 'system_notices_${user}_$id') != '0';
         if (opted) {
           await ApiClient.instance.deleteForBusiness(id, '/mobile/push-tokens');
         }
@@ -171,10 +174,27 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> refresh() async {
     if (!supported || session.status != SessionStatus.signedIn) return;
     final generation = _generation;
-    final optedIn = await _storage.read(key: _preferenceKey) == '1';
+    final stored = await _storage.read(key: _preferenceKey);
     final status = await _channel.invokeMapMethod<String, Object?>('status');
     if (generation != _generation) return;
-    enabled = optedIn && status?['notifications'] == true;
+    final startup = pushStartup(
+      stored: stored,
+      osAuthorized: status?['notifications'] == true,
+      // Older native builds do not report it: never prompt on their behalf.
+      osDetermined: status?['determined'] != false,
+    );
+    if (startup == PushStartup.ask && !_askedThisLaunch) {
+      // Fresh install / first sign-in: ask the OS once, so the quote-accepted
+      // push can arrive without a trip to ניהול → התראות (tester 2026-11-18).
+      _askedThisLaunch = true;
+      try {
+        await enable();
+      } on Object {
+        // Declined: iOS remembers; the switch in ניהול stays available.
+      }
+      return;
+    }
+    enabled = startup == PushStartup.on;
     liveActivities = status?['liveActivities'] == true;
     notifyListeners();
     if (enabled) {
@@ -210,7 +230,8 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     if (!supported) return;
     // Remove this business/device registration while its bearer is still valid.
     await ApiClient.instance.delete('/mobile/push-tokens');
-    await _storage.delete(key: _preferenceKey);
+    // '0' = switched off on purpose (no preference = on while iOS allows it).
+    await _storage.write(key: _preferenceKey, value: '0');
     enabled = false;
     _uploaded.clear();
     // The catalogue device is per user: kept while another business is on.
@@ -271,8 +292,15 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     // A quote accepted / a document changed elsewhere: the open quote screen
     // and the lists reload (ACCEPTED, the signed PDF).
     if (refreshesDocuments(kind, route)) notifyDocumentsChanged();
-    // Open lists / the detail reload on any sign-request push.
-    if (kind.startsWith('signRequest')) notifySignRequestsChanged();
+    // Open lists / the detail reload on any sign-request push; Home's
+    // "מסמכים אחרונים" shows the signed document too (tester 2026-11-18).
+    if (kind.startsWith('signRequest')) {
+      notifySignRequestsChanged();
+      if (kind == 'signRequestCompleted') notifyDocumentsChanged();
+    }
+    // Every push is also an item in the Home bell: badge + open list reload.
+    notifyNotificationsChanged();
+    unawaited(refreshNotificationsUnread());
     if (raw['type'] == 'opened') {
       final uri = Uri.parse(route);
       final query = {
@@ -339,8 +367,8 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
           ? enabled
           : await _storage.read(
                   key: 'system_notices_${session.account?.userId}_$target',
-                ) ==
-                '1';
+                ) !=
+                '0';
       if (generation != _generation) return;
       if (!optedIn) continue;
       final key = '$target:${token['tokenType']}:${token['token']}';
@@ -429,8 +457,8 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> _optedInAnywhere() async {
     final user = session.account?.userId;
     for (final b in session.businesses) {
-      if (await _storage.read(key: 'system_notices_${user}_${b.businessId}') ==
-          '1') {
+      if (await _storage.read(key: 'system_notices_${user}_${b.businessId}') !=
+          '0') {
         return true;
       }
     }
@@ -481,4 +509,22 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(_subscription?.cancel());
     super.dispose();
   }
+}
+
+/// Push on/off at start-up for one business (tester 2026-11-18: the
+/// quote-accepted push never arrived because a fresh install/sign-in never
+/// registered a token until the user found ניהול → התראות).
+enum PushStartup { on, off, ask }
+
+/// [stored]: '1' switched on, '0' switched off on purpose, null never chosen.
+PushStartup pushStartup({
+  required String? stored,
+  required bool osAuthorized,
+  required bool osDetermined,
+}) {
+  if (stored == '0') return PushStartup.off;
+  if (osAuthorized) return PushStartup.on;
+  // Never asked yet → ask once; asked and declined (or switched off in iOS
+  // Settings) → off: the in-app switch explains how to turn it back on.
+  return stored == null && !osDetermined ? PushStartup.ask : PushStartup.off;
 }
