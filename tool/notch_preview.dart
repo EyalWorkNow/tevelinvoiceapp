@@ -28,6 +28,7 @@ const _examples = <NoticeMotion, String>{
   NoticeMotion.saved: 'עיצוב המסמכים נשמר',
   NoticeMotion.error: 'אין חיבור כרגע. נסו שוב.',
   NoticeMotion.approved: 'הלקוח אישר את הצעת המחיר!',
+  NoticeMotion.calendar: 'נקבעה פגישה חדשה · דנה כהן · יום ג׳ 10:00',
 };
 
 void _show(NoticeMotion motion) {
@@ -39,7 +40,9 @@ void _show(NoticeMotion motion) {
 
 Future<void> main() async {
   if (!kDebugMode) {
-    throw StateError('The simulator showcase is debug-only; build lib/main.dart');
+    throw StateError(
+      'The simulator showcase is debug-only; build lib/main.dart',
+    );
   }
   WidgetsFlutterBinding.ensureInitialized();
   CustomerCrmStore.instance.useDeviceLocalPreview();

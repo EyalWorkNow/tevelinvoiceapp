@@ -38,6 +38,7 @@ import '../audit/audit_log_screen.dart' show canViewAuditLog, openAuditLog;
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../people/sheets/s2_customer.dart' show showCustomerSheet;
 import '../retainers/retainers_month_screen.dart';
+import '../calendar/calendar_screen.dart';
 
 class BusinessScreen extends StatelessWidget {
   const BusinessScreen({super.key, this.section});
@@ -402,6 +403,20 @@ class _BusinessListState extends State<_BusinessList> {
           onTap: () => unawaited(
             openCustomerCrmAgenda(context, businessId: currentBusinessId),
           ),
+        ),
+      // 0106 "יומן": bookings from the public link + the phone's busy times.
+      if (mayUseCalendar(caps))
+        _ManagementAction(
+          id: 'calendar',
+          label: CalendarHe.title,
+          icon: Iconsax.calendar_2,
+          orb: const Icon(
+            Iconsax.calendar_2,
+            color: Color(0xFF2F5B47),
+            size: 27,
+          ),
+          color: const Color(0xFFCFF5DE),
+          onTap: () => unawaited(openCalendar(context)),
         ),
       // C4 "חבילת ריטיינר": the month's recurring drafts, reviewed and issued at once.
       if (mayUseRetainers(caps))

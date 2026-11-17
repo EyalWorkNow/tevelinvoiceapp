@@ -25,6 +25,7 @@ import 'screens/business/business_screen.dart';
 import 'screens/business/delete_account_screen.dart';
 import 'screens/compose/compose_screen.dart';
 import 'screens/debts/debts_screen.dart';
+import 'screens/calendar/calendar_screen.dart';
 import 'screens/document/document_screen.dart';
 import 'screens/expense/expense_capture_screen.dart';
 import 'screens/expense/expenses_screen.dart';
@@ -73,6 +74,8 @@ const Map<String, ScreenId> routeTable = {
   '/reports/:kind': ScreenId.r,
   '/business': ScreenId.b,
   '/business/:section': ScreenId.b,
+  // 0106 "יומן": the owner's calendar + self-booking (a ניהול view, not a tab).
+  '/calendar': ScreenId.b,
 };
 
 /// The 8 sheets of §5 → file that owns the show*() function (AT-93).
@@ -196,6 +199,7 @@ class AppRoute {
   Cap? get requiredCap => switch (pattern) {
     '/compose' => Cap.docDraft,
     '/debts' => Cap.moneyView,
+    '/calendar' => Cap.settingsBusiness,
     '/activity' || '/doc/:id' || '/quote/:id' || '/people' => Cap.docView,
     // C2: the daily summary also answers employees / cashiers (own count only).
     '/reports/:kind' when params['kind'] == dailySummaryKind => Cap.docView,
@@ -259,6 +263,7 @@ Widget? screenFor(AppRoute route) {
       isSupplier: q['kind'] == 'supplier',
     ),
     '/debts' => const DebtsScreen(),
+    '/calendar' => const CalendarScreen(),
     '/expenses' => ExpensesScreen(expenseId: q['id']),
     '/expenses/overview' => const ExpenseOverviewScreen(),
     '/reports' => ReportsScreen(period: q['period']),

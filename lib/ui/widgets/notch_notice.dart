@@ -18,6 +18,9 @@ enum NoticeMotion {
   reminder,
   error,
   approved,
+
+  /// "יומן": a calendar page drops in and a day is ticked (new booking / soon).
+  calendar,
 }
 
 final notchNoticeKey = GlobalKey<NotchNoticeHostState>();
@@ -286,6 +289,7 @@ Color _accent(NoticeMotion motion) => switch (motion) {
   NoticeMotion.sent => DesignTokens.yellow,
   NoticeMotion.reminder => DesignTokens.pink,
   NoticeMotion.error => DesignTokens.coral,
+  NoticeMotion.calendar => DesignTokens.green,
 };
 
 /// Lines a notice wraps to before it is elided (the box grows to fit them).
@@ -659,6 +663,50 @@ class _NoticeGlyph extends CustomPainter {
         canvas.save();
         canvas.scale(.4 + .6 * arrive);
         _check(canvas, ink, paint, radius: 17);
+        canvas.restore();
+        _sparks(canvas, flourish, paint, count: 6);
+      case NoticeMotion.calendar:
+        // A calendar page drops in and swings to rest; the rings bounce, the
+        // day grid prints, then one day is circled and ticked.
+        final drop = Curves.easeOutBack.transform(_phase(.0, .5));
+        canvas.save();
+        canvas.translate(0, -22 * (1 - drop));
+        canvas.rotate(
+          math.sin(_phase(.1, .6) * math.pi * 3) * .12 * (1 - _phase(.1, .6)),
+        );
+        final page = RRect.fromRectAndRadius(
+          const Rect.fromLTWH(-15, -14, 30, 30),
+          const Radius.circular(5),
+        );
+        canvas.drawRRect(page, Paint()..color = color.withValues(alpha: .12));
+        canvas.drawRRect(page, paint);
+        canvas.drawLine(const Offset(-15, -6), const Offset(15, -6), paint);
+        for (final x in [-7.0, 7.0]) {
+          final bounce = math.sin(_phase(.3, .6) * math.pi) * 2;
+          canvas.drawLine(
+            Offset(x, -18 - bounce),
+            Offset(x, -11 - bounce),
+            paint,
+          );
+        }
+        final grid = _phase(.25, .65);
+        var cell = 0;
+        for (var row = 0; row < 3; row++) {
+          for (var col = 0; col < 4; col++) {
+            if (cell++ / 12 > grid) continue;
+            canvas.drawCircle(
+              Offset(-9 + col * 6.0, -1 + row * 6.0),
+              1,
+              Paint()..color = color.withValues(alpha: .8),
+            );
+          }
+        }
+        canvas.restore();
+        final mark = Curves.elasticOut.transform(_phase(.5, .9));
+        canvas.save();
+        canvas.translate(9, 9);
+        canvas.scale(.2 + .8 * mark);
+        _check(canvas, ink, paint, radius: 8);
         canvas.restore();
         _sparks(canvas, flourish, paint, count: 6);
       case NoticeMotion.approved:

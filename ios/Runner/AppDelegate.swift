@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 import MessageUI
 import UserNotifications
 import Contacts
+import EventKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -64,6 +65,9 @@ import Contacts
     }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "TevelContactsPermission") {
       ContactsPermission.register(with: registrar)
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "TevelDeviceCalendar") {
+      DeviceCalendar.register(with: registrar)
     }
   }
 }
@@ -181,6 +185,199 @@ final class SmsComposer: NSObject, MFMessageComposeViewControllerDelegate {
     controller.dismiss(animated: true) {
       self.pending?(result == .sent ? "SENT" : result == .cancelled ? "CANCELLED" : "FAILED")
       self.pending = nil
+    }
+  }
+}
+
+
+/// "יומן" (lib/screens/calendar/device_calendar.dart): the phone's own calendars through EventKit —
+/// iCloud, Google, Outlook and Exchange accounts already on the iPhone. Reads ONLY start/end of
+/// busy events in the calendars the owner chose (titles, attendees and locations never leave this
+/// method), writes confirmed bookings into one chosen calendar (marked with a tevel-booking:// URL,
+/// so they are never read back as "busy"), and schedules local reminders that open "יומן".
+final class DeviceCalendar: NSObject {
+  private static let store = EKEventStore()
+  private static let marker = "tevel-booking"
+  private static let reminderPrefix = "tevel-booking-reminder-"
+
+  private static var channel: FlutterMethodChannel?
+  private static var observer: NSObjectProtocol?
+
+  static func register(with registrar: FlutterPluginRegistrar) {
+    let channel = FlutterMethodChannel(name: "tevel/calendar", binaryMessenger: registrar.messenger())
+    Self.channel = channel
+    // "after changes": the app re-syncs busy times when the owner edits a calendar while it runs.
+    observer = NotificationCenter.default.addObserver(
+      forName: .EKEventStoreChanged, object: store, queue: .main
+    ) { _ in Self.channel?.invokeMethod("changed", arguments: nil) }
+    channel.setMethodCallHandler { call, result in
+        let args = call.arguments as? [String: Any] ?? [:]
+        switch call.method {
+        case "status": result(status())
+        case "requestAccess": requestAccess(result)
+        case "calendars": result(hasRead() ? calendars() : [])
+        case "busy": result(hasRead() ? busy(args) : [])
+        case "upsertEvent": result(hasWrite() ? upsert(args) : nil)
+        case "deleteEvent":
+          if hasWrite(), let id = args["eventId"] as? String, let event = store.event(withIdentifier: id) {
+            try? store.remove(event, span: .thisEvent, commit: true)
+          }
+          result(nil)
+        case "scheduleReminders": scheduleReminders(args, result)
+        #if DEBUG
+        // QA only (compiled out of release): a plain private event, as if the owner added it in
+        // the Calendar app — to prove its time is blocked and its title never leaves the phone.
+        case "debugAddEvent":
+          guard hasWrite(), let title = args["title"] as? String,
+                let s = args["start"] as? Int64, let e = args["end"] as? Int64 else { return result(nil) }
+          let event = EKEvent(eventStore: store)
+          event.calendar = store.defaultCalendarForNewEvents
+          event.title = title
+          event.startDate = Date(timeIntervalSince1970: TimeInterval(s) / 1000)
+          event.endDate = Date(timeIntervalSince1970: TimeInterval(e) / 1000)
+          try? store.save(event, span: .thisEvent, commit: true)
+          result(event.eventIdentifier)
+        #endif
+        default: result(FlutterMethodNotImplemented)
+        }
+      }
+  }
+
+  private static func status() -> String {
+    switch EKEventStore.authorizationStatus(for: .event) {
+    case .notDetermined: return "notDetermined"
+    case .restricted: return "restricted"
+    case .denied: return "denied"
+    case .authorized: return "full" // before iOS 17 (deprecated name for full access)
+    default:
+      if #available(iOS 17.0, *) {
+        switch EKEventStore.authorizationStatus(for: .event) {
+        case .fullAccess: return "full"
+        case .writeOnly: return "writeOnly"
+        default: return "denied"
+        }
+      }
+      return "denied"
+    }
+  }
+
+  private static func hasRead() -> Bool { status() == "full" }
+  private static func hasWrite() -> Bool { status() == "full" || status() == "writeOnly" }
+
+  private static func requestAccess(_ result: @escaping FlutterResult) {
+    let done: (Bool, Error?) -> Void = { _, _ in
+      DispatchQueue.main.async {
+        store.reset()
+        result(status())
+      }
+    }
+    if #available(iOS 17.0, *) {
+      store.requestFullAccessToEvents(completion: done)
+    } else {
+      store.requestAccess(to: .event, completion: done)
+    }
+  }
+
+  private static func calendars() -> [[String: Any]] {
+    store.calendars(for: .event).map { c in
+      [
+        "id": c.calendarIdentifier,
+        "title": c.title,
+        "account": c.source.title,
+        "color": hex(c.cgColor),
+        "writable": c.allowsContentModifications,
+        "isDefault": c.calendarIdentifier == store.defaultCalendarForNewEvents?.calendarIdentifier,
+      ]
+    }
+  }
+
+  private static func hex(_ color: CGColor?) -> String {
+    guard let c = color?.converted(to: CGColorSpaceCreateDeviceRGB(), intent: .defaultIntent, options: nil),
+          let p = c.components, p.count >= 3 else { return "#8A948F" }
+    return String(format: "#%02X%02X%02X", Int(p[0] * 255), Int(p[1] * 255), Int(p[2] * 255))
+  }
+
+  /// [{start, end}] in epoch milliseconds — nothing else.
+  private static func busy(_ args: [String: Any]) -> [[String: Int64]] {
+    guard let from = args["from"] as? Int64, let to = args["to"] as? Int64,
+          let ids = args["calendarIds"] as? [String], !ids.isEmpty else { return [] }
+    let chosen = store.calendars(for: .event).filter { ids.contains($0.calendarIdentifier) }
+    if chosen.isEmpty { return [] }
+    let start = Date(timeIntervalSince1970: TimeInterval(from) / 1000)
+    let end = Date(timeIntervalSince1970: TimeInterval(to) / 1000)
+    let predicate = store.predicateForEvents(withStart: start, end: end, calendars: chosen)
+    return store.events(matching: predicate).compactMap { e in
+      if e.availability == .free || e.status == .canceled { return nil }
+      if e.url?.scheme == marker { return nil } // our own booking events
+      guard let s = e.startDate, let f = e.endDate, f > s else { return nil }
+      return ["start": Int64(s.timeIntervalSince1970 * 1000), "end": Int64(f.timeIntervalSince1970 * 1000)]
+    }
+  }
+
+  private static func upsert(_ args: [String: Any]) -> String? {
+    guard let bookingId = args["bookingId"] as? String,
+          bookingId.range(of: "^[0-9a-fA-F-]{36}$", options: .regularExpression) != nil,
+          let startMs = args["start"] as? Int64, let endMs = args["end"] as? Int64, endMs > startMs,
+          let title = args["title"] as? String else { return nil }
+    var event: EKEvent?
+    if let id = args["eventId"] as? String { event = store.event(withIdentifier: id) }
+    let target = event ?? EKEvent(eventStore: store)
+    if event == nil {
+      let calendarId = args["calendarId"] as? String
+      target.calendar = calendarId.flatMap { store.calendar(withIdentifier: $0) } ?? store.defaultCalendarForNewEvents
+    }
+    target.title = String(title.prefix(200))
+    target.startDate = Date(timeIntervalSince1970: TimeInterval(startMs) / 1000)
+    target.endDate = Date(timeIntervalSince1970: TimeInterval(endMs) / 1000)
+    target.notes = (args["notes"] as? String).map { String($0.prefix(2000)) }
+    target.url = URL(string: "\(marker)://\(bookingId)")
+    target.availability = .busy
+    do {
+      try store.save(target, span: .thisEvent, commit: true)
+      return target.eventIdentifier
+    } catch {
+      return nil
+    }
+  }
+
+  /// Replaces every pending booking reminder with [items]: {id, at (ms), title, body, businessId}.
+  private static func scheduleReminders(_ args: [String: Any], _ result: @escaping FlutterResult) {
+    let center = UNUserNotificationCenter.current()
+    let items = args["items"] as? [[String: Any]] ?? []
+    center.getPendingNotificationRequests { pending in
+      center.removePendingNotificationRequests(
+        withIdentifiers: pending.map(\.identifier).filter { $0.hasPrefix(reminderPrefix) })
+      center.getNotificationSettings { settings in
+        let add = {
+          var scheduled = 0
+          for item in items.prefix(40) {
+            guard let id = item["id"] as? String, let at = item["at"] as? Int64,
+                  let title = item["title"] as? String, let body = item["body"] as? String,
+                  let businessId = item["businessId"] as? String else { continue }
+            let interval = TimeInterval(at) / 1000 - Date().timeIntervalSince1970
+            if interval < 1 { continue }
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            content.sound = .default
+            content.threadIdentifier = "tevel-calendar"
+            content.userInfo = ["tevelKind": "bookingSoon", "route": "/calendar",
+                                "businessId": businessId, "eventID": "local-\(id)"]
+            center.add(UNNotificationRequest(
+              identifier: reminderPrefix + id, content: content,
+              trigger: UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)))
+            scheduled += 1
+          }
+          DispatchQueue.main.async { result(scheduled) }
+        }
+        // Never prompts from here: the owner turns notifications on in the app's own
+        // notification setting; until then the reminder is the in-app notch only.
+        if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
+          add()
+        } else {
+          DispatchQueue.main.async { result(0) }
+        }
+      }
     }
   }
 }

@@ -60,6 +60,10 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>כדי לצלם קבלות של הוצאות ולשלוח אותן לתיבת ההוצאות של העסק.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>כדי לחסום ביומן הפגישות של העסק את השעות שבהן את/ה כבר תפוס/ה, ולהוסיף ליומן שלך פגישות שלקוחות קובעים. נשלחות לשרת רק שעות התחלה וסיום — בלי שמות, משתתפים או פרטים.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>כדי לחסום ביומן הפגישות של העסק את השעות שבהן את/ה כבר תפוס/ה, ולהוסיף ליומן שלך פגישות שלקוחות קובעים. נשלחות לשרת רק שעות התחלה וסיום — בלי שמות, משתתפים או פרטים.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>כדי לבחור לקוח מאנשי הקשר ולמלא את שמו ואת מספר הטלפון שלו במסמך או בבקשת תשלום.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

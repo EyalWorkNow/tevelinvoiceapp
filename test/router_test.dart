@@ -54,6 +54,7 @@ void main() {
       '/reports/:kind',
       '/business',
       '/business/:section',
+      '/calendar', // 0106 "יומן" (a B view)
     ]);
     expect(routeTable.values.toSet(), ScreenId.values.toSet());
     expect(ScreenId.values, hasLength(10));
