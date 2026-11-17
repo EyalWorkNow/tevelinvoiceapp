@@ -24,6 +24,7 @@ import '../../util/labels/common_he.dart';
 import '../../util/labels/business_he.dart' show ActivityHe;
 import '../../util/labels/document_he.dart' show docTypeLabel;
 import '../../util/labels/inbox_he.dart';
+import '../../util/labels/sign_he.dart';
 import '../home/doc_rows.dart';
 import '../home/inbox_cards.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
@@ -538,12 +539,33 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   Expanded(
                     child: Semantics(
                       header: true,
-                      child: Text(
-                        InboxHe.documentsAction,
-                        style: AppText.displayTitle,
+                      // One line even beside "מסמך לחתימה" (narrow phones).
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          InboxHe.documentsAction,
+                          style: AppText.displayTitle,
+                        ),
                       ),
                     ),
                   ),
+                  // 0116 "מסמך לחתימה": send a PDF for the customer to fill + sign.
+                  if (businessContext.caps.can(Cap.docDraft))
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(end: Space.s),
+                      child: TextButton.icon(
+                        key: const Key('activity-sign-requests'),
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(0, 36),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () => unawaited(openSignRequests(context)),
+                        icon: const Icon(Iconsax.edit_2, size: 20),
+                        label: const Text(SignHe.entry),
+                      ),
+                    ),
                   if (ModalRoute.of(context)?.canPop ?? false)
                     const DesignBackButton(),
                 ],

@@ -9,6 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../api/client.dart';
 import '../api/documents_api.dart' show notifyDocumentsChanged;
 import '../api/settings_api.dart' show appVersion;
+import '../api/sign_requests_api.dart' show notifySignRequestsChanged;
 import '../router.dart';
 import '../util/errors_he.dart';
 import '../ui/widgets/notch_notice.dart';
@@ -62,6 +63,9 @@ const _events = EventChannel('tevel/system_notice_events');
   'recurringReady' => ('טיוטות חודשיות מוכנות לאישור', NoticeMotion.document),
   'bookingNew' => ('נקבעה פגישה חדשה', NoticeMotion.calendar),
   'bookingSoon' => ('הפגישה הבאה מתקרבת', NoticeMotion.calendar),
+  // 0116 "מסמך לחתימה" (route /sign-request/:id).
+  'signRequestCompleted' => ('המסמך נחתם', NoticeMotion.signed),
+  'signRequestViewed' => ('המסמך לחתימה נצפה', NoticeMotion.sent),
   _ => null,
 };
 
@@ -267,6 +271,8 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     // A quote accepted / a document changed elsewhere: the open quote screen
     // and the lists reload (ACCEPTED, the signed PDF).
     if (refreshesDocuments(kind, route)) notifyDocumentsChanged();
+    // Open lists / the detail reload on any sign-request push.
+    if (kind.startsWith('signRequest')) notifySignRequestsChanged();
     if (raw['type'] == 'opened') {
       final uri = Uri.parse(route);
       final query = {
