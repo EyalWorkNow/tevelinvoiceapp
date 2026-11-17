@@ -114,9 +114,12 @@ abstract final class BusinessHe {
   static const remindersOn = 'תזכורות אוטומטיות פועלות';
   static const remindersOff = 'תזכורות אוטומטיות כבויות';
   static const remindersConfirmTitle = 'להפעיל תזכורות אוטומטיות?';
+  // #9b: only what is due from today gets the ladder; old debts wait for a
+  // separate "yes" (תזכורות גבייה אוטומטיות).
   static const remindersConfirmBody =
-      'כל לקוח שלא שילם יקבל ממך מייל תזכורת עם קישור למסמך, לפי לוח זמנים קבוע. '
-      'אפשר לכבות בכל רגע.';
+      'לקוח שלא שילם יקבל ממך תזכורת עם קישור למסמך, לפי לוח זמנים קבוע, '
+      'על מסמכים שמועד התשלום שלהם היום או אחריו. חובות ישנים לא יקבלו תזכורת '
+      'בלי שתאשר. אפשר לכבות בכל רגע.';
   static const remindersConfirmAction = 'הפעל';
   static const ccOwner = 'עותק של כל מסמך אליי';
   static const ccOwnerHint = 'כל מסמך שנשלח ללקוח במייל יגיע גם אליך';

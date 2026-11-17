@@ -38,6 +38,7 @@ class _CollectionSettingsScreenState extends State<CollectionSettingsScreen> {
   CollectionSettings? _s;
   Object? _error;
   bool _saving = false;
+  bool _backlogLater = false;
 
   @override
   void initState() {
@@ -73,7 +74,9 @@ class _CollectionSettingsScreenState extends State<CollectionSettingsScreen> {
         context: context,
         builder: (c) => AlertDialog(
           title: const Text(BusinessHe.remindersConfirmTitle),
-          content: const Text(BusinessHe.remindersConfirmBody),
+          // #9b: says the old debts are left alone (the first switch-on
+          // once queued 100 reminders at once).
+          content: Text(CollectionHe.enableBody(_s?.backlog ?? 0)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(c).pop(false),
@@ -90,6 +93,63 @@ class _CollectionSettingsScreenState extends State<CollectionSettingsScreen> {
       if (ok != true || !mounted) return;
     }
     await _save(() => saveCollectionSettings(enabled: on));
+  }
+
+  /// #9b: the old debts, opt-in and once.
+  List<Widget> _backlogCard(CollectionSettings s, bool locked) {
+    if (!s.enabled) return const [];
+    if (s.backlogApproved) {
+      return [
+        Padding(
+          key: const Key('collection-backlog-approved'),
+          padding: const EdgeInsets.symmetric(vertical: Space.s),
+          child: Text(
+            CollectionHe.backlogApproved,
+            style: AppText.secondary.copyWith(color: context.palette.muted),
+          ),
+        ),
+      ];
+    }
+    if (s.backlog == 0 || _backlogLater) return const [];
+    return [
+      const SizedBox(height: Space.s),
+      AppCard(
+        key: const Key('collection-backlog'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(CollectionHe.backlogTitle(s.backlog), style: AppText.headline),
+            const SizedBox(height: Space.xs),
+            Text(
+              CollectionHe.backlogBody(s.backlogCustomers),
+              style: AppText.secondary.copyWith(color: context.palette.muted),
+            ),
+            const SizedBox(height: Space.s),
+            Wrap(
+              spacing: Space.s,
+              children: [
+                FilledButton.tonal(
+                  key: const Key('collection-backlog-send'),
+                  onPressed: locked
+                      ? null
+                      : () => unawaited(
+                          _save(
+                            () => saveCollectionSettings(sendBacklog: true),
+                          ),
+                        ),
+                  child: const Text(CollectionHe.backlogSend),
+                ),
+                TextButton(
+                  key: const Key('collection-backlog-later'),
+                  onPressed: () => setState(() => _backlogLater = true),
+                  child: const Text(CollectionHe.backlogLater),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ];
   }
 
   Future<void> _editStep(int index) async {
@@ -134,6 +194,7 @@ class _CollectionSettingsScreenState extends State<CollectionSettingsScreen> {
               onChanged: locked ? null : (v) => unawaited(_setEnabled(v)),
             ),
           ),
+          ..._backlogCard(s, locked),
           const RowGroupGap(),
           _SectionTitle(CollectionHe.whenTitle),
           for (var i = 0; i < s.steps.length; i++)

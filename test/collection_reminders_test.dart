@@ -70,8 +70,14 @@ Map<String, dynamic> readyJson() => {
   ],
 };
 
-Map<String, dynamic> settingsJson({bool enabled = true}) => {
+Map<String, dynamic> settingsJson({
+  bool enabled = true,
+  Map<String, dynamic>? backlog,
+  String? backlogApprovedAt,
+}) => {
   'enabled': enabled,
+  'backlog': ?backlog,
+  'backlogApprovedAt': backlogApprovedAt,
   'steps': [
     {'offsetDays': -3, 'enabled': true, 'template': null},
     {'offsetDays': 0, 'enabled': true, 'template': null},
@@ -356,6 +362,81 @@ void main() {
       expect(backend.last('PUT', '/settings/reminders')!.body, {
         'enabled': true,
       });
+    });
+  });
+
+  group('#9b old debts: never a blast, opt-in once', () {
+    testWidgets('the switch-on dialog says old debts wait for a "yes"', (
+      tester,
+    ) async {
+      backend
+        ..json(
+          'GET',
+          '/settings/reminders',
+          settingsJson(
+            enabled: false,
+            backlog: {'documents': 36, 'debts': 28, 'customers': 40},
+          ),
+        )
+        ..on(
+          'PUT',
+          '/settings/reminders',
+          (r) => FakeResponse(
+            200,
+            settingsJson(
+              backlog: {'documents': 36, 'debts': 28, 'customers': 40},
+            ),
+          ),
+        );
+      await pump(tester, const CollectionSettingsScreen());
+      expect(find.byKey(const Key('collection-backlog')), findsNothing);
+      await tester.tap(find.byKey(const Key('collection-master-switch')));
+      await tester.pumpAndSettle();
+      expect(find.text(CollectionHe.enableBody(64)), findsOneWidget);
+      expect(find.textContaining('ל-64 חובות ישנים'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('collection-confirm')));
+      await tester.pumpAndSettle();
+      expect(backend.last('PUT', '/settings/reminders')!.body, {
+        'enabled': true,
+      });
+      // On: the old debts are offered once, separately.
+      expect(find.byKey(const Key('collection-backlog')), findsOneWidget);
+      expect(find.text(CollectionHe.backlogTitle(64)), findsOneWidget);
+      await tester.tap(find.byKey(const Key('collection-backlog-later')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('collection-backlog')), findsNothing);
+      expect(backend.calls('PUT', '/settings/reminders'), hasLength(1));
+    });
+
+    testWidgets('"שלח תזכורת אחת" sends sendBacklog once', (tester) async {
+      backend
+        ..json(
+          'GET',
+          '/settings/reminders',
+          settingsJson(backlog: {'documents': 2, 'debts': 1, 'customers': 3}),
+        )
+        ..on(
+          'PUT',
+          '/settings/reminders',
+          (r) => FakeResponse(
+            200,
+            settingsJson(
+              backlog: {'documents': 2, 'debts': 1, 'customers': 3},
+              backlogApprovedAt: '2026-11-17T08:00:00Z',
+            ),
+          ),
+        );
+      await pump(tester, const CollectionSettingsScreen());
+      await tester.tap(find.byKey(const Key('collection-backlog-send')));
+      await tester.pumpAndSettle();
+      expect(backend.last('PUT', '/settings/reminders')!.body, {
+        'sendBacklog': true,
+      });
+      expect(find.byKey(const Key('collection-backlog')), findsNothing);
+      expect(
+        find.byKey(const Key('collection-backlog-approved')),
+        findsOneWidget,
+      );
     });
   });
 

@@ -76,6 +76,10 @@ class CollectionSettings {
     required this.email,
     required this.whatsapp,
     required this.dailySummary,
+    this.backlogDocuments = 0,
+    this.backlogDebts = 0,
+    this.backlogCustomers = 0,
+    this.backlogApproved = false,
     this.defaultBefore = '',
     this.defaultOnDue = '',
     this.defaultAfter = '',
@@ -84,6 +88,9 @@ class CollectionSettings {
   factory CollectionSettings.fromJson(Map<String, dynamic> j) {
     final channels = j['channels'] is Map
         ? (j['channels'] as Map).cast<String, dynamic>()
+        : const <String, dynamic>{};
+    final backlog = j['backlog'] is Map
+        ? (j['backlog'] as Map).cast<String, dynamic>()
         : const <String, dynamic>{};
     final defaults = j['defaultTemplates'] is Map
         ? (j['defaultTemplates'] as Map).cast<String, dynamic>()
@@ -101,6 +108,10 @@ class CollectionSettings {
       email: channels['email'] != false,
       whatsapp: channels['whatsapp'] != false,
       dailySummary: j['dailySummary'] != false,
+      backlogDocuments: jIntOrNull(backlog['documents']) ?? 0,
+      backlogDebts: jIntOrNull(backlog['debts']) ?? 0,
+      backlogCustomers: jIntOrNull(backlog['customers']) ?? 0,
+      backlogApproved: jStr(j['backlogApprovedAt']) != null,
       defaultBefore: jStr(defaults['before']) ?? '',
       defaultOnDue: jStr(defaults['onDue']) ?? '',
       defaultAfter: jStr(defaults['after']) ?? '',
@@ -119,6 +130,16 @@ class CollectionSettings {
   final bool email;
   final bool whatsapp;
   final bool dailySummary;
+
+  /// Walkthrough 2026-11-17 #9b: open debts due BEFORE the switch was turned
+  /// on. The ladder leaves them alone; the owner may remind them once
+  /// ([saveCollectionSettings] sendBacklog). 0 on an older server.
+  final int backlogDocuments;
+  final int backlogDebts;
+  final int backlogCustomers;
+  final bool backlogApproved;
+  int get backlog => backlogDocuments + backlogDebts;
+
   final String defaultBefore;
   final String defaultOnDue;
   final String defaultAfter;
@@ -149,6 +170,7 @@ Future<CollectionSettings> saveCollectionSettings({
   bool? email,
   bool? whatsapp,
   bool? dailySummary,
+  bool? sendBacklog,
 }) async => CollectionSettings.fromJson(
   await _api.put('/settings/reminders', {
     'enabled': ?enabled,
@@ -157,6 +179,7 @@ Future<CollectionSettings> saveCollectionSettings({
     if (email != null || whatsapp != null)
       'channels': {'email': ?email, 'whatsapp': ?whatsapp},
     'dailySummary': ?dailySummary,
+    'sendBacklog': ?sendBacklog,
   }),
 );
 
