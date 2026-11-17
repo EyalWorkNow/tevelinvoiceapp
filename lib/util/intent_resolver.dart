@@ -3,11 +3,14 @@
 //
 // | intent     | עוסק מורשה / חברה / שותפות | עוסק פטור / עמותה |
 // | PAID       | 320                        | 400               |
-// | REQUEST    | 305                        | 300               |
+// | REQUEST    | 300                        | 300               |
 // | QUOTE      | quote                      | quote             |
 // | TYPE:<code>| that code when the business may produce it (§8.1); else null |
 //
 // The user never picks or sees the type before issuing (F1); S3 can switch it.
+// REQUEST = "בקשת תשלום" (owner 2026-11-17): a 300 (חשבון עסקה, the non-tax
+// demand for payment) for every business type. A VAT business issues the tax
+// document when the money arrives ("קיבלתי תשלום" on D → a linked 320).
 
 import 'composer_config.dart';
 
@@ -47,7 +50,7 @@ DocKind? resolveIntent(
         ? (canRecordPayment ? DocKind.receipt : DocKind.transactionInvoice)
         : DocKind.taxInvoiceReceipt;
   } else if (intent == intentRequest) {
-    kind = exempt ? DocKind.transactionInvoice : DocKind.taxInvoice;
+    kind = DocKind.transactionInvoice;
   } else if (intent == intentQuote) {
     kind = DocKind.quote;
   } else if (intent.startsWith('TYPE:')) {

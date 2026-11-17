@@ -8,7 +8,12 @@ void main() {
   test('PAID / REQUEST per business type (§4.7)', () {
     for (final t in ['OSEK_MURSHE', 'COMPANY', 'PARTNERSHIP']) {
       expect(resolveIntent('PAID', t), DocKind.taxInvoiceReceipt, reason: t);
-      expect(resolveIntent('REQUEST', t), DocKind.taxInvoice, reason: t);
+      // בקשת תשלום = 300 for every business type (owner 2026-11-17).
+      expect(
+        resolveIntent('REQUEST', t),
+        DocKind.transactionInvoice,
+        reason: t,
+      );
     }
     for (final t in ['OSEK_PATUR', 'NONPROFIT']) {
       expect(resolveIntent('PAID', t), DocKind.receipt, reason: t);

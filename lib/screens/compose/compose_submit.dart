@@ -26,6 +26,7 @@ import '../../util/composer_config.dart';
 import '../../util/intent_resolver.dart';
 import '../../util/labels/labels.dart';
 import '../../util/phone.dart';
+import '../document/sheets/s6_share.dart' show paymentUrlForSend;
 import '../../util/vat.dart';
 import 'compose_dialogs.dart';
 import 'compose_memory.dart';
@@ -219,6 +220,7 @@ Future<void> runCompose(
       onStep(ComposeHe.stepSending);
       try {
         final link = await createIssueShareLink(id);
+        final payUrl = await paymentUrlForSend(result.document);
         // Late navigation: the Composer was closed while the link was made —
         // the document stays issued, WhatsApp does not open by itself.
         if (!context.mounted) return;
@@ -229,6 +231,7 @@ Future<void> runCompose(
           totalMinor: result.document.totalMinor,
           link: link,
           businessName: businessContext.displayName,
+          paymentUrl: payUrl,
         );
         final opened = await launchAllowed(
           whatsAppUri(phone: waPhone(s.customer!.phone), text: text),

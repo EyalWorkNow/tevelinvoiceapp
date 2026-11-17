@@ -384,43 +384,26 @@ void main() {
     },
   );
 
-  for (final systemBack in [false, true]) {
+  for (final bt in ['OSEK_MURSHE', 'OSEK_PATUR']) {
     testWidgets(
-      'payment request returns from coming soon without issuing (system back: $systemBack)',
+      'בקשת תשלום ($bt): REQUEST issues a 300 and opens WhatsApp with the link',
       (tester) async {
-        await open(tester, intent: 'REQUEST');
+        await open(tester, intent: 'REQUEST', businessType: bt);
         await type(tester, '590');
-        expect(primaryLabel(tester), 'המשך');
-        final writesBefore = backend.requests
-            .where((r) => r.method != 'GET')
-            .length;
-        for (var attempt = 0; attempt < 2; attempt++) {
-          await tap(tester, primary());
-          expect(find.byKey(const Key('payment-coming-soon')), findsOneWidget);
-          if (systemBack) {
-            Navigator.of(
-              tester.element(find.byKey(const Key('payment-coming-soon'))),
-            ).pop();
-          } else {
-            await tester.tap(find.byKey(const Key('payment-coming-soon-back')));
-          }
-          await flush(tester);
-          if (systemBack) {
-            expect(find.byType(Keypad), findsOneWidget);
-            expect(primaryLabel(tester), 'המשך');
-          } else {
-            expect(find.byType(ComposeScreen), findsNothing);
-            expect(find.text('open'), findsOneWidget);
-          }
-          expect(find.textContaining('הופק'), findsNothing);
-          expect(routes.where((route) => route.startsWith('/doc/')), isEmpty);
-          expect(
-            backend.requests.where((r) => r.method != 'GET').length,
-            writesBefore,
-          );
-          expect(launcher.opened, isEmpty);
-          if (!systemBack) break;
-        }
+        expect(
+          find.text('יופק: ${kindLabels[DocKind.transactionInvoice]}'),
+          findsOneWidget,
+        );
+        await tap(tester, primary());
+        final created = backend.last('POST', '/documents')!.body;
+        expect(created['documentType'], 'TRANSACTION_INVOICE');
+        final rate = created['lines'][0]['taxRateBasisPoints'];
+        // A VAT business's 300 carries VAT; an exempt one's never does.
+        expect(rate, bt == 'OSEK_PATUR' ? 0 : greaterThan(0));
+        expect(backend.calls('POST', '/payments'), isEmpty);
+        expect(backend.calls('POST', '/receipts'), isEmpty);
+        expect(find.byKey(const Key('payment-coming-soon')), findsNothing);
+        expect(launcher.last.toString(), startsWith('https://wa.me/972'));
       },
     );
   }
@@ -911,6 +894,33 @@ void main() {
     );
 
     testWidgets(
+      'בקשת תשלום paid (VAT business): TYPE:320 from the 300 → linked clone + payment, no POST /documents',
+      (tester) async {
+        final source = fake.seedIssued('TRANSACTION_INVOICE', 'c1', [
+          {
+            'description': 'עיצוב',
+            'quantityMicros': '1000000',
+            'unitPriceMinor': '50000',
+            'taxRateBasisPoints': 1800,
+          },
+        ]);
+        await open(tester, intent: 'TYPE:320', fromDocId: source);
+        await tap(tester, primary());
+        expect(backend.last('POST', '/documents/:id/clone')!.body, {
+          'documentType': 'TAX_INVOICE_RECEIPT',
+          'link': true,
+        });
+        expect(backend.calls('POST', '/documents'), isEmpty);
+        final id = backend
+            .last('POST', '/documents/:id/finalize')!
+            .params['id']!;
+        expect(fake.docs[id]!['converted_from_document_id'], source);
+        expect(fake.docs[id]!['total_minor'], '59000');
+        expect(backend.calls('POST', '/payments'), hasLength(1));
+      },
+    );
+
+    testWidgets(
       'BE-07/09: the due date follows the customer terms; S3 shows it',
       (tester) async {
         fake.paymentTerms['c1'] = 'EOM';
@@ -1397,7 +1407,7 @@ void main() {
     testWidgets(
       'allocation: status unknown above ₪5,000 → gentle line + "סמן כעוסק מורשה" → PATCH, then "יקבל מספר"',
       (tester) async {
-        await open(tester, intent: 'REQUEST', customer: ron);
+        await open(tester, intent: 'TYPE:305', customer: ron);
         await type(tester, '6200'); // ₪5,254.24 before VAT
         expect(
           find.byKey(const Key('compose-allocation-if-dealer')),
@@ -1429,7 +1439,7 @@ void main() {
     testWidgets('allocation: private customer (walk-in) → no line at all', (
       tester,
     ) async {
-      await open(tester, intent: 'REQUEST', customer: walkIn);
+      await open(tester, intent: 'TYPE:305', customer: walkIn);
       await type(tester, '6200');
       expect(
         find.byKey(const Key('compose-allocation-if-dealer')),
@@ -1470,7 +1480,7 @@ void main() {
     testWidgets('dealer customer above ₪5,000 before VAT → one quiet line', (
       tester,
     ) async {
-      await open(tester, intent: 'REQUEST', customer: dealer);
+      await open(tester, intent: 'TYPE:305', customer: dealer);
       await tester.tap(find.byKey(const Key('compose-customer')));
       await flush(tester);
       await type(tester, '6000'); // incl. 18% → ₪5,084.75 before VAT
@@ -1479,7 +1489,7 @@ void main() {
     });
 
     testWidgets('below the threshold → nothing', (tester) async {
-      await open(tester, intent: 'REQUEST', customer: dealer);
+      await open(tester, intent: 'TYPE:305', customer: dealer);
       await tester.tap(find.byKey(const Key('compose-customer')));
       await flush(tester);
       await type(tester, '5900'); // exactly ₪5,000 before VAT

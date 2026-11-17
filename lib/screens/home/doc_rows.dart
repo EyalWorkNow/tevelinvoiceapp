@@ -36,6 +36,7 @@ Widget docRowFor(
   DocumentSummary d, {
   required VoidCallback onTap,
   VoidCallback? onDelete,
+  VoidCallback? onSend,
   DateTime? today,
   Key? key,
 }) {
@@ -70,6 +71,11 @@ Widget docRowFor(
     ],
     meta: dateStr.isEmpty ? null : ltrIsolate(dateStr),
     onTap: onTap,
+    // Owner 2026-11-17: send any issued document from the list (swipe or
+    // long press → S6).
+    swipeLabel: onSend == null ? null : CommonHe.send,
+    onSwipe: onSend,
+    onLongPress: onSend,
   );
   if (onDelete == null || !isDraftStatus(d.status)) return row;
   return Row(
@@ -119,15 +125,22 @@ Future<bool> confirmDraftDeletion(BuildContext context) async =>
     ) ??
     false;
 
-Widget quoteRowFor(QuoteRow q, {required VoidCallback onTap, Key? key}) =>
-    DocRow(
-      key: key ?? Key('quote-${q.id}'),
-      title: q.customerName ?? q.title ?? InboxHe.quoteNoCustomer,
-      subtitle: quoteSubtitle(q),
-      amountMinor: q.amountHidden ? null : q.totalMinor,
-      status: StatusPill.quote(quoteListStatus(q.status, expired: q.expired)),
-      onTap: onTap,
-    );
+Widget quoteRowFor(
+  QuoteRow q, {
+  required VoidCallback onTap,
+  VoidCallback? onSend,
+  Key? key,
+}) => DocRow(
+  key: key ?? Key('quote-${q.id}'),
+  title: q.customerName ?? q.title ?? InboxHe.quoteNoCustomer,
+  subtitle: quoteSubtitle(q),
+  amountMinor: q.amountHidden ? null : q.totalMinor,
+  status: StatusPill.quote(quoteListStatus(q.status, expired: q.expired)),
+  onTap: onTap,
+  swipeLabel: onSend == null ? null : CommonHe.send,
+  onSwipe: onSend,
+  onLongPress: onSend,
+);
 
 /// "בתוקף עד 12.10.2026" (else "נוצרה …") — never the title's fallback
 /// word. With a number (it must fit one row): "מס׳ 12 · עד 12.10.2026",

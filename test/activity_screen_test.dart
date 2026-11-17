@@ -9,16 +9,21 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/inbox_api.dart';
-import 'package:invoice/api/models/models.dart' show DocumentSummary;
+import 'package:invoice/api/models/models.dart'
+    show DocumentSummary, Me, QuoteRow;
 import 'package:invoice/app_shell.dart';
 import 'package:invoice/router.dart';
 import 'package:invoice/screens/activity/activity_screen.dart';
 import 'package:invoice/screens/compose/compose_screen.dart';
 import 'package:invoice/screens/document/document_screen.dart';
+import 'package:invoice/screens/document/sheets/s6_share.dart'
+    show ShareSheet, textSharer;
+import 'package:invoice/screens/document/sheets/send_sheet.dart';
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/theme.dart';
+import 'package:invoice/ui/ds.dart' show ErrorView;
 import 'package:invoice/ui/widgets/primary_button.dart';
 
 import 'fakes/fake_api.dart';
@@ -551,4 +556,162 @@ void main() {
       expect(filterDocuments(rows), same(rows));
     },
   );
+
+  group('send from the documents list (owner 2026-11-17)', () {
+    const issuedTypes = [
+      'TAX_INVOICE',
+      'TAX_INVOICE_RECEIPT',
+      'TRANSACTION_INVOICE',
+      'RECEIPT',
+      'DONATION_RECEIPT',
+      'CREDIT_DOCUMENT',
+      'SALES_ORDER',
+      'PURCHASE_ORDER',
+    ];
+    final owner = Caps.fromMe(Me.fromJson(meJson(Preset.owner)));
+
+    test('every issued type is sendable; drafts / unfinished never', () {
+      for (final t in issuedTypes) {
+        for (final st in sendableDocumentStatuses) {
+          expect(
+            canSendFromList(
+              DocumentSummary.fromJson(docJson('x', type: t, status: st)),
+              owner,
+            ),
+            isTrue,
+            reason: '$t $st',
+          );
+        }
+        for (final st in [
+          'DRAFT',
+          'VALIDATING',
+          'READY_TO_FINALIZE',
+          'PENDING_APPROVAL',
+          'WAITING_FOR_ALLOCATION',
+          'ARTIFACT_PENDING',
+          'REJECTED',
+        ]) {
+          expect(
+            canSendFromList(
+              DocumentSummary.fromJson(docJson('x', type: t, status: st)),
+              owner,
+            ),
+            isFalse,
+            reason: '$t $st',
+          );
+        }
+      }
+      // Hidden amounts (another member's row without money:read): no send.
+      final hidden = docJson('h')..remove('totalMinor');
+      expect(canSendFromList(DocumentSummary.fromJson(hidden), owner), isFalse);
+    });
+
+    test('quotes: open ones only', () {
+      for (final st in ['DRAFT', 'SENT', 'ACCEPTED']) {
+        expect(
+          canSendQuoteFromList(
+            QuoteRow.fromJson(quoteRowJson(status: st)),
+            owner,
+          ),
+          isTrue,
+          reason: st,
+        );
+      }
+      for (final st in ['CONVERTED', 'REJECTED', 'CANCELLED', 'EXPIRED']) {
+        expect(
+          canSendQuoteFromList(
+            QuoteRow.fromJson(quoteRowJson(status: st)),
+            owner,
+          ),
+          isFalse,
+          reason: st,
+        );
+      }
+      expect(
+        canSendQuoteFromList(
+          QuoteRow.fromJson({...quoteRowJson(), 'expired': true}),
+          owner,
+        ),
+        isFalse,
+      );
+    });
+
+    testWidgets('long press / swipe on an issued row → S6; a draft → nothing', (
+      tester,
+    ) async {
+      installActionsFakes(backend);
+      await pumpActivity(tester);
+      backend.json('GET', '/documents/:id', docDetailJson());
+      await tester.longPress(find.byKey(const Key('doc-paid')));
+      await tester.pumpAndSettle();
+      expect(find.byType(ErrorView), findsNothing);
+      expect(find.byType(ShareSheet), findsOneWidget);
+      Navigator.of(tester.element(find.byType(ShareSheet))).pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(ShareSheet), findsNothing);
+
+      await tester.drag(
+        find.byKey(const Key('doc-open')),
+        const Offset(-500, 0),
+      );
+      await tester.pumpAndSettle();
+      if (find.byType(ShareSheet).evaluate().isEmpty) {
+        await tester.drag(
+          find.byKey(const Key('doc-open')),
+          const Offset(500, 0),
+        );
+        await tester.pumpAndSettle();
+      }
+      expect(find.byType(ShareSheet), findsOneWidget);
+      Navigator.of(tester.element(find.byType(ShareSheet))).pop();
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.byKey(const Key('doc-draft')));
+      await tester.pumpAndSettle();
+      expect(find.byType(ShareSheet), findsNothing);
+    });
+
+    testWidgets(
+      'a quote: long press → WhatsApp with its page; a DRAFT becomes SENT',
+      (tester) async {
+        installActionsFakes(backend);
+        final launcher = FakeLauncher()..install();
+        addTearDown(FakeLauncher.uninstall);
+        textSharer = (_) async {};
+        backend
+          ..json('GET', '/quotes/:id', quoteDetailJson(status: 'DRAFT'))
+          ..json('POST', '/quotes/:id/share-link', {
+            'url': 'https://invoice.test/d/qtok',
+          }, status: 201)
+          ..json('POST', '/quotes/:id/status', {'status': 'SENT'});
+        await pumpActivity(
+          tester,
+          chip: 'quotes',
+          quotes: [quoteRowJson(status: 'DRAFT')],
+        );
+        Future<void> settle() async {
+          for (var i = 0; i < 15; i++) {
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 20)),
+            );
+            await tester.pump(const Duration(milliseconds: 50));
+          }
+          await tester.pumpAndSettle();
+        }
+
+        await tester.longPress(find.byKey(const Key('quote-q-1')));
+        await settle();
+        expect(find.byType(QuoteSendSheet), findsOneWidget);
+        expect(find.byType(ErrorView), findsNothing);
+        await tester.tap(find.byKey(const Key('send-quote-whatsapp')));
+        await settle();
+        expect(launcher.last.toString(), startsWith('https://wa.me/972'));
+        expect(Uri.decodeFull(launcher.last.toString()), contains('/q/qtok'));
+        expect(backend.last('POST', '/quotes/:id/status')!.body, {
+          'to': 'SENT',
+        });
+        expect(find.byType(QuoteSendSheet), findsNothing);
+      },
+    );
+  });
 }

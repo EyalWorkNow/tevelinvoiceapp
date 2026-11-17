@@ -612,6 +612,10 @@ class _DocumentScreenState extends State<DocumentScreen> {
           return null;
         });
         await _loadLastReminded(d.id);
+      case DocAction.recordPayment
+          when paysByTaxInvoiceReceipt(_facts, _viewer):
+        await openCompose(context, intent: 'TYPE:320', fromDocId: doc!.id);
+        if (mounted) await _load();
       case DocAction.recordPayment:
         final out = await showPaymentSheet(
           context,

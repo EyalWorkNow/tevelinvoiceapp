@@ -20,8 +20,10 @@ import '../../ui/ds.dart' show AppText, Space, showErrorSnack;
 import '../../ui/theme.dart';
 import '../../ui/widgets/design_controls.dart' show ActionOrb;
 import '../../ui/widgets/sheet.dart' show SheetTitle, showAppSheet;
-import '../../util/composer_config.dart' show DocKind, configFor, moreKinds;
-import '../../util/intent_resolver.dart' show intentQuote, typeIntent;
+import '../../util/composer_config.dart'
+    show DocKind, configFor, kindAllowedForCaps, moreKinds;
+import '../../util/intent_resolver.dart'
+    show intentQuote, intentRequest, typeIntent;
 import '../../util/labels/labels.dart';
 import 'account_page.dart';
 import 'system_notice_settings.dart';
@@ -418,6 +420,20 @@ class _BusinessListState extends State<_BusinessList> {
     // branding, business details, numbering, …) lives there once (07·U9).
     // Customers are a tab of their own (§5, PM 2026-11-12), not an action here.
     final actions = <_ManagementAction>[
+      // Owner 2026-11-17: "בקשת תשלום" (a 300) first, for every business type.
+      if (kindAllowedForCaps(DocKind.transactionInvoice, caps))
+        _ManagementAction(
+          id: 'payment-request',
+          label: ComposeHe.requestChoice,
+          icon: Iconsax.money_send,
+          orb: const Icon(
+            Iconsax.money_send,
+            color: Color(0xFF2F5B47),
+            size: 28,
+          ),
+          color: const Color(0xFFCFF5DE),
+          onTap: () => unawaited(openCompose(context, intent: intentRequest)),
+        ),
       if (currentBusinessId != null)
         _ManagementAction(
           id: 'crm-agenda',

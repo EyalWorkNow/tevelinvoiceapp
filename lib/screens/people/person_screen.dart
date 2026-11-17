@@ -363,8 +363,11 @@ class _PersonScreenState extends State<PersonScreen> {
       if (owes && _caps.can(Cap.docDraft))
         TextButton.icon(
           key: const Key('person-new-invoice'),
-          onPressed: () =>
-              openCompose(context, intent: 'REQUEST', customerId: widget.id),
+          onPressed: () => openCompose(
+            context,
+            intent: invoiceIntentFor(businessContext.businessType),
+            customerId: widget.id,
+          ),
           icon: const Icon(Iconsax.receipt_add, size: 18),
           label: const Text(PeopleHe.newInvoice),
         ),
@@ -582,7 +585,7 @@ class _PersonScreenState extends State<PersonScreen> {
                   ? () => unawaited(
                       openCompose(
                         context,
-                        intent: 'REQUEST',
+                        intent: invoiceIntentFor(businessContext.businessType),
                         customerId: widget.id,
                       ),
                     )

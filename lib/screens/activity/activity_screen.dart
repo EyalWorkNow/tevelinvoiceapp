@@ -26,6 +26,7 @@ import '../../util/labels/document_he.dart' show docTypeLabel;
 import '../../util/labels/inbox_he.dart';
 import '../home/doc_rows.dart';
 import '../home/inbox_cards.dart';
+import '../document/sheets/send_sheet.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 enum ActivityChip { all, unpaid, drafts, quotes, paid, inbox }
@@ -691,12 +692,22 @@ class _ActivityScreenState extends State<ActivityScreen> {
           QuoteRow q => quoteRowFor(
             q,
             onTap: () => unawaited(openQuote(context, q.id)),
+            onSend: canSendQuoteFromList(q, businessContext.caps)
+                ? () => unawaited(
+                    sendQuoteFromList(context, q.id, onSent: _reload),
+                  )
+                : null,
           ),
           DocumentSummary d => docRowFor(
             d,
             today: _c.now?.call(),
             onTap: () => unawaited(openDocument(context, d.id)),
             onDelete: () => unawaited(_deleteDraft(d)),
+            onSend: canSendFromList(d, businessContext.caps)
+                ? () => unawaited(
+                    sendDocumentFromList(context, d, onSent: _reload),
+                  )
+                : null,
           ),
           _ => const SizedBox.shrink(),
         };

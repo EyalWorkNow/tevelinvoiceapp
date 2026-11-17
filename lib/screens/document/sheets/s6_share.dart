@@ -23,6 +23,7 @@ import '../../../util/labels/labels.dart';
 import '../../../util/payment_reminder.dart';
 import '../../../util/phone.dart';
 import '../../../util/sms_composer.dart';
+import '../../../util/status_map.dart' show isCollectionType;
 import '../../../util/still_here.dart';
 import '../dialogs.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
@@ -64,6 +65,34 @@ Future<void> _sharePdfFile(
   }
 }
 
+/// Test seams for [paymentUrlForSend] (the Cardcom terminal of the business).
+Future<bool> Function() merchantConnected = fetchBusinessMerchantConnected;
+Future<String> Function(String documentId) customerPaymentLink =
+    createCustomerPaymentLink;
+
+/// The "לתשלום" link a sent payment request (300) / invoice (305) carries
+/// (owner 2026-11-17): only while money is still owed on it. The business's
+/// own payment page (ניהול → פרטי העסק) first; else, when the business's
+/// Cardcom terminal is connected and the user may record payments, a Cardcom
+/// checkout for this document (the server's automatic send does the same).
+/// Null when there is none — the message then goes without it, never fails.
+Future<String?> paymentUrlForSend(DocumentDetail doc) async {
+  if (!isCollectionType(doc.documentType) ||
+      doc.voidedAt != null ||
+      doc.balanceMinor <= BigInt.zero) {
+    return null;
+  }
+  final own = businessContext.profile?.paymentLinkUrl?.trim() ?? '';
+  if (own.isNotEmpty) return own;
+  if (!businessContext.can(Cap.paymentRecord)) return null;
+  try {
+    if (!await merchantConnected()) return null;
+    return await customerPaymentLink(doc.id);
+  } on Object {
+    return null; // a gateway problem never blocks sending the document
+  }
+}
+
 // ---- flows (also used by D's one-tap buttons) --------------------------------
 
 String get _businessName => businessContext.displayName;
@@ -80,6 +109,7 @@ Future<void> sendDocumentWhatsApp(
   bool Function()? alive,
 }) async {
   final link = await createShareLink(doc);
+  final payUrl = await paymentUrlForSend(doc);
   if (alive?.call() == false) return;
   final text = whatsAppMessage(
     customerName: customer?.name,
@@ -88,6 +118,8 @@ Future<void> sendDocumentWhatsApp(
     totalMinor: doc.totalMinor,
     businessName: _businessName,
     link: link,
+    balanceMinor: doc.balanceMinor,
+    paymentLinkUrl: payUrl,
   );
   final opened = await launchAllowed(
     whatsAppUri(phone: waPhone(customer?.phone), text: text),
@@ -326,9 +358,7 @@ class _ShareSheetState extends State<ShareSheet> {
     }
     if (_deliveryId == null) {
       await ensureOriginal(doc);
-      final payUrl = doc.balanceMinor > BigInt.zero
-          ? businessContext.profile?.paymentLinkUrl
-          : null;
+      final payUrl = await paymentUrlForSend(doc);
       try {
         _deliveryId = await sendDocumentEmail(
           doc.id,

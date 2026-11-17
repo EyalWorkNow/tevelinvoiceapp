@@ -643,6 +643,8 @@ String whatsAppMessage({
   required BigInt totalMinor,
   required String businessName,
   required String link,
+  BigInt? balanceMinor,
+  String? paymentLinkUrl,
 }) => buildWhatsAppMessage(
   customerName: customerName,
   documentType: documentType,
@@ -650,6 +652,8 @@ String whatsAppMessage({
   totalMinor: totalMinor,
   businessName: businessName,
   link: link,
+  balanceMinor: balanceMinor,
+  paymentLinkUrl: paymentLinkUrl,
 );
 
 /// Quote text (§8.2.4). P1 (BE-06): with [link] to the quote's page and PDF;
