@@ -265,10 +265,13 @@ class _AccountPageState extends State<AccountPage> {
           icon: Iconsax.message_question,
           onTap: () => openHelpScreen(context),
         ),
+        // Owner 2026-11-18: "תמיכה" opens the help chat too; a human (e-mail) is one tap
+        // away inside it ("העבר לנציג").
         BusinessRow(
+          key: const Key('account-support'),
           label: BusinessHe.support,
           icon: Iconsax.support,
-          onTap: () => openSafari(Uri.parse(supportUrl)),
+          onTap: () => openHelpScreen(context),
         ),
         BusinessRow(
           label: BusinessHe.version,

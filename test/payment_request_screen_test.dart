@@ -329,6 +329,21 @@ void main() {
     expect(c.customerId, 'c1');
     expect(c.prefillAmountMinor, BigInt.from(35000));
     expect(c.prefillDescription, 'תיקון');
+    expect(c.prefillNotes, isNull);
+  });
+
+  testWidgets('"עריכה מתקדמת" keeps the typed note', (tester) async {
+    await open(tester);
+    await fill(tester, amount: '350', description: 'תיקון');
+    await tester.enterText(
+      find.byKey(const Key('payment-request-note')),
+      '  לתשלום עד סוף החודש  ',
+    );
+    await tester.tap(find.byKey(const Key('payment-request-advanced')));
+    await flush(tester);
+    final c = tester.widget<ComposeScreen>(find.byType(ComposeScreen));
+    expect(c.prefillNotes, 'לתשלום עד סוף החודש');
+    expect(c.prefillDescription, 'תיקון');
   });
 
   group('route', () {

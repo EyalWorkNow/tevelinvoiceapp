@@ -45,6 +45,7 @@ import '../people/sheets/payment_terms_sheet.dart';
 import '../../api/customer_timeline_api.dart' show fetchBusinessPaymentTerms;
 import '../../util/labels/timeline_he.dart';
 import 'vault_screen.dart';
+import 'notification_preferences_screen.dart';
 
 class BusinessScreen extends StatelessWidget {
   const BusinessScreen({super.key, this.section});
@@ -72,6 +73,7 @@ class BusinessScreen extends StatelessWidget {
     ),
     'more' => const _MoreSettingsPage(),
     'vault' => const VaultScreen(),
+    'alerts' => const NotificationPreferencesScreen(),
     _ => const _BusinessList(),
   };
 }

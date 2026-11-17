@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 
 import '../../app_shell.dart' show AppTab;
 import '../../router.dart';
+import '../../state/business_context.dart';
+import '../../state/caps.dart';
 import '../billing/billing_screen.dart' show showBillingPlans;
 import '../signature/signature_screen.dart' show openSignatureScreen;
 
@@ -22,6 +24,9 @@ const Set<String> helpExtraLocations = {
   '/signature',
   '/billing',
   '/help',
+  // FIXA (2026-11-18): the bell's "עדכונים" and the Home search.
+  '/notifications',
+  '/search',
 };
 
 /// True when [location] can be opened from a chip in this build.
@@ -53,6 +58,14 @@ Future<bool> openHelpLocation(BuildContext context, String location) async {
       return true;
     case '/billing':
       unawaited(showBillingPlans(context));
+      return true;
+    case '/notifications':
+      unawaited(openNotifications(context));
+      return true;
+    case '/search':
+      // The Home search field is for members who see documents (R).
+      if (!businessContext.caps.can(Cap.docView)) return false;
+      unawaited(openGlobalSearch(context));
       return true;
     case '/profile':
       selectTab(AppTab.profile);

@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import '../../api/notifications_api.dart';
-import '../../router.dart' show go;
+import '../../router.dart' show BusinessSection, go, openBusinessSection;
 import '../../ui/ds.dart';
 import '../../util/labels/labels.dart' show relativeDateHe;
 import '../../util/labels/notifications_he.dart';
@@ -84,9 +84,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             i.id == n.id ? i.asRead() : i,
         ];
       });
-      unawaited(
-        markNotificationsRead(ids: [n.id]).catchError((Object _) {}),
-      );
+      unawaited(markNotificationsRead(ids: [n.id]).catchError((Object _) {}));
     }
     await go(n.route, context: context);
   }
@@ -117,6 +115,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               onPressed: () => unawaited(_markAll()),
               child: const Text(NotificationsHe.markAllRead),
             ),
+          IconButton(
+            key: const Key('notifications-settings'),
+            tooltip: NotificationPrefsHe.gearTooltip,
+            icon: const Icon(Iconsax.setting_2),
+            onPressed: () =>
+                unawaited(openBusinessSection(context, BusinessSection.alerts)),
+          ),
         ],
       ),
       body: SafeArea(
@@ -248,18 +253,17 @@ class _NotificationTile extends StatelessWidget {
 }
 
 /// Icon + tone per server kind (unknown kinds get a neutral bell).
-(IconData, Color) notificationIcon(String kind, AppPalette p) =>
-    switch (kind) {
-      'QUOTE_ACCEPTED' ||
-      'SIGN_REQUEST_COMPLETED' ||
-      'ITA_ALLOCATION_APPROVED' => (Iconsax.tick_circle, p.ok),
-      'QUOTE_VIEWED' || 'SIGN_REQUEST_VIEWED' => (Iconsax.eye, p.info),
-      'PAYMENT_RECEIVED' => (Iconsax.money_recive, p.ok),
-      'DOCUMENT_SENT' => (Iconsax.send_2, p.info),
-      'DOCUMENT_SEND_FAILED' ||
-      'ITA_ALLOCATION_REJECTED' => (Iconsax.danger, p.danger),
-      'BOOKING_NEW' => (Iconsax.calendar_1, p.info),
-      'COLLECTION_REMINDERS_READY' ||
-      'COLLECTION_REMINDERS_SENT' => (Iconsax.notification_bing, p.warn),
-      _ => (Iconsax.notification, p.muted),
-    };
+(IconData, Color) notificationIcon(String kind, AppPalette p) => switch (kind) {
+  'QUOTE_ACCEPTED' ||
+  'SIGN_REQUEST_COMPLETED' ||
+  'ITA_ALLOCATION_APPROVED' => (Iconsax.tick_circle, p.ok),
+  'QUOTE_VIEWED' || 'SIGN_REQUEST_VIEWED' => (Iconsax.eye, p.info),
+  'PAYMENT_RECEIVED' => (Iconsax.money_recive, p.ok),
+  'DOCUMENT_SENT' => (Iconsax.send_2, p.info),
+  'DOCUMENT_SEND_FAILED' ||
+  'ITA_ALLOCATION_REJECTED' => (Iconsax.danger, p.danger),
+  'BOOKING_NEW' => (Iconsax.calendar_1, p.info),
+  'COLLECTION_REMINDERS_READY' ||
+  'COLLECTION_REMINDERS_SENT' => (Iconsax.notification_bing, p.warn),
+  _ => (Iconsax.notification, p.muted),
+};

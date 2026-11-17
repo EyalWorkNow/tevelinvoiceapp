@@ -250,6 +250,21 @@ void main() {
     expect(find.byType(HelpScreen), findsOneWidget);
   });
 
+  testWidgets('the "תמיכה" row opens the help chat too, with "העבר לנציג"', (
+    tester,
+  ) async {
+    await pumpAs(tester, backend, Preset.owner, const AccountPage());
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('account-support')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('account-support')));
+    await settle(tester);
+    expect(find.byType(HelpScreen), findsOneWidget);
+    expect(find.byKey(const Key('help-escalate')), findsOneWidget);
+  });
+
   test('help extras and §5 routes are openable locations', () {
     expect(isHelpLocation('/sign-requests'), isTrue);
     expect(isHelpLocation('/compose?intent=REQUEST'), isTrue);

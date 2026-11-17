@@ -389,8 +389,7 @@ abstract final class ReportsHe {
   static String monthOnlyIncome(String month) => 'הכנסות החודש בלבד ($month)';
   static const owed = 'מגיע לך';
   static const periodIncome = 'הכנסות בתקופה';
-  static String owedLine(String amount) =>
-      'מגיע לך מלקוחות (כל התקופות): $amount';
+  static String owedLine(String amount) => 'יתרה לגבייה (כל התקופות): $amount';
   static const overdue = 'באיחור';
   static const sendToAccountant = 'שלח לרו״ח';
   static const share = 'שתף';

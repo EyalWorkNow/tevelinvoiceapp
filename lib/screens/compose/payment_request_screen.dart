@@ -221,6 +221,7 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
         prefillDescription: s?.mainDescription.isEmpty ?? true
             ? null
             : s!.mainDescription,
+        prefillNotes: _note.text.trim().isEmpty ? null : _note.text.trim(),
       ),
     );
   }

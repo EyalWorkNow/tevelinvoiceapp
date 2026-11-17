@@ -120,6 +120,9 @@ enum BusinessSection {
   /// 0119 "המסמכים של העסק" (also the expiry push's route /business/vault).
   vault,
 
+  /// "סוגי התראות": per-category notification on/off (owner 2026-11-18).
+  alerts,
+
   /// "עוד הגדרות": the rarely used rows of B (≤ 10 rows, §6.B).
   more,
 }
@@ -132,7 +135,9 @@ Cap? sectionCap(BusinessSection s) => switch (s) {
   BusinessSection.branding => Cap.settingsDesign,
   BusinessSection.approvals => Cap.settingsBusiness,
   BusinessSection.shaam => null,
-  BusinessSection.account || BusinessSection.notifications => null,
+  BusinessSection.account ||
+  BusinessSection.notifications ||
+  BusinessSection.alerts => null,
   BusinessSection.desktop || BusinessSection.more => null,
   BusinessSection.numbering => Cap.settingsNumbering,
   BusinessSection.vault => Cap.vaultView,
@@ -525,6 +530,7 @@ Future<void> openCompose(
   String? draftId,
   BigInt? prefillAmountMinor,
   String? prefillDescription,
+  String? prefillNotes,
   ValueChanged<String>? onIssued,
 }) => _push(
   context,
@@ -536,6 +542,7 @@ Future<void> openCompose(
     draftId: draftId,
     prefillAmountMinor: prefillAmountMinor,
     prefillDescription: prefillDescription,
+    prefillNotes: prefillNotes,
     onIssued: onIssued,
   ),
   location('/compose', {

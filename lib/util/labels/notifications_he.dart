@@ -31,3 +31,15 @@ abstract final class SearchHe {
   static const signRequest = 'מסמך לחתימה';
   static const examples = ['הצעת מחיר של…', 'בקשת תשלום ל…', 'קבלה 450'];
 }
+
+/// Per-category notification preferences (owner 2026-11-18).
+abstract final class NotificationPrefsHe {
+  static const title = 'סוגי התראות';
+  static const row = 'סוגי התראות';
+  static const rowHint = 'בחירה אילו התראות לקבל';
+  static const gearTooltip = 'הגדרות התראות';
+  static const intro =
+      'בחרו על מה לקבל התראות לטלפון. ההגדרה שלכם בלבד, ולא משנה מה מקבלים אחרים בצוות.';
+  static const alwaysOn = 'תמיד פעיל — לשמירה על החשבון';
+  static const saved = 'ההגדרה נשמרה';
+}
