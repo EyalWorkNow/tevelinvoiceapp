@@ -17,6 +17,7 @@ import 'package:invoice/main.dart' as app;
 import 'package:invoice/router.dart';
 
 import 'crash_sweep_test.dart' show t, pumpMs, waitFor;
+import 'qa_plans_guard.dart';
 import 'v2_qa_gate_helpers.dart' show keychain, resetDevice;
 
 const _token = String.fromEnvironment('DEVICE_TOKEN');
@@ -43,6 +44,7 @@ Future<void> _ask(String q) async {
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  dismissPlansDuringTests();
 
   testWidgets('help chat walkthrough', (tester) async {
     t = tester;
@@ -80,7 +82,10 @@ void main() {
     await _tap(find.byKey(const Key('help-chip-payment-request')));
     await pumpMs(2500);
     await _shot('5-chip-opened');
-    Navigator.of(navigatorKey.currentContext!).pop();
+    Navigator.of(
+      navigatorKey.currentContext!,
+    ).popUntil((r) => r.settings.name == '/help' || r.isFirst);
+    await waitFor(find.byKey(const Key('help-input')), ms: 8000);
     await pumpMs(1500);
 
     await _ask('איך מחברים את החשבון לבנק דיסקונט?');
