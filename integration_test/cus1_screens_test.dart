@@ -66,6 +66,38 @@ Future<String?> findCustomer() async {
   return list.isEmpty ? null : (list.first as Map)['id'] as String;
 }
 
+/// The Composer for the customer: the due date from the terms (S3) and the
+/// preferred method chip of a paid kind.
+Future<void> composeShots(String id) async {
+  await guarded('compose prefill', () async {
+    unawaited(openCompose(ctx, intent: 'PAID', customerId: id));
+    await pumpMs(4500);
+    await shot('compose-paid-preferred-method');
+    await hardRoot();
+    unawaited(openCompose(ctx, intent: 'REQUEST', customerId: id));
+    await pumpMs(4500);
+    await shot('compose-request');
+    final more = find.byKey(const Key('compose-more-details'));
+    if (more.evaluate().isEmpty) {
+      final keypad = find.byKey(const Key('compose-show-keypad'));
+      noteFor('more-details hidden (keypad up?) ${keypad.evaluate().length}');
+      await t.tap(find.text('1').first, warnIfMissed: false);
+      await pumpMs(500);
+      await t.tap(find.text('0').first, warnIfMissed: false);
+      await pumpMs(800);
+    }
+    if (more.evaluate().isNotEmpty) {
+      await t.ensureVisible(more.first);
+      await t.tap(more.first, warnIfMissed: false);
+      await pumpMs(2200);
+      await shot('compose-due-date-prefilled');
+    } else {
+      noteFor('no compose-more-details');
+    }
+    await hardRoot();
+  });
+}
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   startPlansGuard();
@@ -160,6 +192,11 @@ void main() {
         return;
       }
 
+      if (part == 'compose') {
+        await composeShots(id);
+        return;
+      }
+
       await guarded('card', () async {
         unawaited(openPerson(ctx, id));
         await pumpMs(3500);
@@ -201,17 +238,7 @@ void main() {
         await hardRoot();
       });
 
-      await guarded('compose prefill', () async {
-        unawaited(openCompose(ctx, intent: 'REQUEST', customerId: id));
-        await pumpMs(4000);
-        await tapKey('compose-more-details', ms: 2000);
-        await shot('compose-due-date-prefilled');
-        await hardRoot();
-        unawaited(openCompose(ctx, intent: 'PAID', customerId: id));
-        await pumpMs(4000);
-        await shot('compose-paid-preferred-method');
-        await hardRoot();
-      });
+      await composeShots(id);
 
       await guarded('business default', () async {
         openBusinessRow(ctx, 'paymentTerms');
