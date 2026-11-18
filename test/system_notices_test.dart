@@ -1,5 +1,7 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/client.dart';
+import 'package:invoice/router.dart' show debugPendingDeepLink;
 import 'package:invoice/state/system_notices.dart';
 import 'package:invoice/ui/widgets/notch_notice.dart';
 
@@ -86,5 +88,72 @@ void main() {
         PushStartup.on,
       );
     });
+  });
+
+  group('admin/template announcements (invoice#60, kind ANNOUNCEMENT)', () {
+    TestWidgetsFlutterBinding.ensureInitialized();
+
+    test('keep the server text: no fixed in-app presentation', () {
+      expect(pushOpenOnlyKinds, contains('ANNOUNCEMENT'));
+      expect(systemNoticePresentation('ANNOUNCEMENT'), isNull);
+    });
+
+    test('a tap opens the allowed link (after sign-in when signed out)', () {
+      systemNotices.debugEvent({
+        'type': 'opened',
+        'kind': 'ANNOUNCEMENT',
+        'route': '/business/account',
+        'businessId': '',
+        'eventID': '',
+      });
+      expect(debugPendingDeepLink, '/business/account');
+    });
+
+    test('a tap with a link outside the route table opens nothing', () {
+      for (final route in ['/admin', 'https://evil.example/x', '']) {
+        systemNotices.debugEvent({
+          'type': 'opened',
+          'kind': 'ANNOUNCEMENT',
+          'route': route,
+          'businessId': '',
+        });
+      }
+      // The previous test's pending link is the only one.
+      expect(debugPendingDeepLink, '/business/account');
+    });
+
+    test('foreground arrival is not turned into an in-app notice', () {
+      // No notch host in this test: a notice attempt would be a no-op, the
+      // point is that it returns before needing a presentation.
+      systemNotices.debugEvent({
+        'type': 'notice',
+        'kind': 'ANNOUNCEMENT',
+        'route': '/home',
+        'businessId': '',
+      });
+      expect(debugPendingDeepLink, '/business/account');
+    });
+  });
+
+  test('clearBadge asks the native side to clear the icon badge', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final calls = <String>[];
+    const channel = MethodChannel('tevel/system_notices');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          calls.add(call.method);
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+    await systemNotices.clearBadge();
+    expect(calls, ['clearBadge']);
+  });
+
+  test('clearBadge never throws without the native side', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    await systemNotices.clearBadge();
   });
 }

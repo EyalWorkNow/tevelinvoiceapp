@@ -10,6 +10,7 @@ import '../api/client.dart';
 import '../api/documents_api.dart' show notifyDocumentsChanged;
 import '../api/notifications_api.dart'
     show notifyNotificationsChanged, refreshNotificationsUnread;
+import '../api/push_preferences_api.dart' show reportPushOpened;
 import '../api/settings_api.dart' show appVersion;
 import '../api/sign_requests_api.dart' show notifySignRequestsChanged;
 import '../router.dart';
@@ -73,6 +74,11 @@ const _events = EventChannel('tevel/system_notice_events');
   _ => null,
 };
 
+/// Kinds whose text is the server's own (admin/template announcements): iOS
+/// shows them as the system banner, even in the foreground; a tap opens their
+/// `link`. ios/Runner/SystemNotices.swift `openOnlyKinds` mirrors this.
+const pushOpenOnlyKinds = {'ANNOUNCEMENT'};
+
 final systemNotices = SystemNotices();
 
 /// A feature that shows its own, richer foreground notice for a kind (e.g.
@@ -95,6 +101,12 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
   Future<void>? _registration;
   bool _registrationPending = false;
   bool _askedThisLaunch = false;
+
+  /// Tapped pushes (`pushId`) waiting for a signed-in session to report.
+  final List<String> _openedPushIds = [];
+  static final _pushIdPattern = RegExp(
+    r'^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$',
+  );
 
   /// Per-kind foreground handlers (see [ForegroundNoticeHandler]).
   final Map<String, ForegroundNoticeHandler> foregroundHandlers = {};
@@ -122,6 +134,7 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _onSession() {
+    _flushOpenedPushes();
     final next = session.status == SessionStatus.signedIn
         ? session.business?.businessId
         : null;
@@ -252,8 +265,21 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
   @visibleForTesting
   void debugEvent(Map<Object?, Object?> raw) => _onEvent(raw);
 
+  /// What the session listener does for tapped pushes (tests).
+  @visibleForTesting
+  void debugFlushOpenedPushes() => _flushOpenedPushes();
+
   void _onEvent(dynamic raw) {
     if (raw is! Map) return;
+    if (raw['type'] == 'pushOpened') {
+      final id = raw['pushId'];
+      if (id is String && _pushIdPattern.hasMatch(id)) {
+        _openedPushIds.add(id);
+        if (_openedPushIds.length > 20) _openedPushIds.removeAt(0);
+        _flushOpenedPushes();
+      }
+      return;
+    }
     if (raw['type'] == 'registrationError') {
       _failure(StateError('APNS_REGISTRATION_FAILED'));
       return;
@@ -290,7 +316,8 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     final presentation = systemNoticePresentation(kind);
-    if (presentation == null) return;
+    final openOnly = pushOpenOnlyKinds.contains(kind);
+    if (presentation == null && !openOnly) return;
     // A quote accepted / a document changed elsewhere: the open quote screen
     // and the lists reload (ACCEPTED, the signed PDF).
     if (refreshesDocuments(kind, route)) notifyDocumentsChanged();
@@ -320,7 +347,7 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
         (business.isNotEmpty && business != _business)) {
       return;
     }
-    if (raw['type'] != 'notice') return;
+    if (raw['type'] != 'notice' || presentation == null) return;
     final id = raw['eventID'];
     if (id is String && id.isNotEmpty) {
       if (!_seen.add(id)) return;
@@ -489,6 +516,31 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
       );
     }
     return e;
+  }
+
+  /// Reports tapped pushes once signed in (cold start: after the session is
+  /// restored). Fire and forget, see [reportPushOpened].
+  void _flushOpenedPushes() {
+    if (session.status != SessionStatus.signedIn || _openedPushIds.isEmpty) {
+      return;
+    }
+    final ids = [..._openedPushIds];
+    _openedPushIds.clear();
+    for (final id in ids) {
+      unawaited(reportPushOpened(id));
+    }
+  }
+
+  /// Clears the app icon badge the server may have set (opening "עדכונים";
+  /// the native side also clears it whenever the app becomes active).
+  Future<void> clearBadge() async {
+    try {
+      await _channel.invokeMethod<void>('clearBadge');
+    } on PlatformException catch (_) {
+      // Badge cleanup is best effort.
+    } on MissingPluginException catch (_) {
+      // Tests / platforms without the native side.
+    }
   }
 
   Future<String?> preview() => _channel.invokeMethod<String>('preview');

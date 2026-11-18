@@ -23,6 +23,12 @@
 		A1B2C3D40000000000000002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000001 /* PrivacyInfo.xcprivacy */; };
 		CBBD1E67EE46B2349AA17537 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 07B55BC9C2DB4566C117FE68 /* Foundation.framework */; };
 		CE39021A33AAC1358239D8B2 /* TevelActivity.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = DB150BC514F3221F6F78000C /* TevelActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A7E500000000000000001005 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E500000000000000001000 /* NotificationService.swift */; };
+		A7E500000000000000001006 /* RichPushImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E500000000000000001001 /* RichPushImage.swift */; };
+		A7E500000000000000001007 /* RichPushImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E500000000000000001001 /* RichPushImage.swift */; };
+		A7E500000000000000001008 /* RichPushImageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E500000000000000001004 /* RichPushImageTests.swift */; };
+		A7E500000000000000001009 /* TevelNotificationService.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A7E500000000000000001003 /* TevelNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A7E500000000000000001015 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E500000000000000001000 /* NotificationService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -40,6 +46,13 @@
 			remoteGlobalIDString = 050CEAA2412EFC836E4FFDD5;
 			remoteInfo = TevelActivity;
 		};
+		A7E50000000000000000100F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A7E50000000000000000100B;
+			remoteInfo = TevelNotificationService;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -50,6 +63,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				CE39021A33AAC1358239D8B2 /* TevelActivity.appex in Embed App Extensions */,
+				A7E500000000000000001009 /* TevelNotificationService.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -92,6 +106,11 @@
 		D16ED7B1849F0DE5A5A8E69D /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		DB150BC514F3221F6F78000C /* TevelActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TevelActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1CF9E9E3AC5AA1846C12B88 /* SystemNotices.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SystemNotices.swift; sourceTree = "<group>"; };
+		A7E500000000000000001000 /* NotificationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		A7E500000000000000001001 /* RichPushImage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RichPushImage.swift; sourceTree = "<group>"; };
+		A7E500000000000000001002 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A7E500000000000000001003 /* TevelNotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TevelNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A7E500000000000000001004 /* RichPushImageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichPushImageTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -111,6 +130,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A7E50000000000000000100D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -126,6 +152,7 @@
 			isa = PBXGroup;
 			children = (
 				331C807B294A618700263BE5 /* RunnerTests.swift */,
+				A7E500000000000000001004 /* RichPushImageTests.swift */,
 			);
 			path = RunnerTests;
 			sourceTree = "<group>";
@@ -138,6 +165,17 @@
 			);
 			name = TevelActivity;
 			path = TevelActivity;
+			sourceTree = "<group>";
+		};
+		A7E50000000000000000100A /* TevelNotificationService */ = {
+			isa = PBXGroup;
+			children = (
+				A7E500000000000000001000 /* NotificationService.swift */,
+				A7E500000000000000001001 /* RichPushImage.swift */,
+				A7E500000000000000001002 /* Info.plist */,
+			);
+			name = TevelNotificationService;
+			path = TevelNotificationService;
 			sourceTree = "<group>";
 		};
 		559DAD78D68DA384FA66ECFA /* iOS */ = {
@@ -179,6 +217,7 @@
 				8072EAEFD98C5822133F434A /* Shared */,
 				0E5546B4526ED0CDBD3585F0 /* Frameworks */,
 				41332021C9A593D78A588991 /* TevelActivity */,
+				A7E50000000000000000100A /* TevelNotificationService */,
 			);
 			sourceTree = "<group>";
 		};
@@ -188,6 +227,7 @@
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 				DB150BC514F3221F6F78000C /* TevelActivity.appex */,
+				A7E500000000000000001003 /* TevelNotificationService.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -265,6 +305,7 @@
 			);
 			dependencies = (
 				98C12A21DF23F7F60613B9EF /* PBXTargetDependency */,
+				A7E500000000000000001010 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			packageProductDependencies = (
@@ -273,6 +314,23 @@
 			productName = Runner;
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A7E50000000000000000100B /* TevelNotificationService */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A7E500000000000000001014 /* Build configuration list for PBXNativeTarget "TevelNotificationService" */;
+			buildPhases = (
+				A7E50000000000000000100C /* Sources */,
+				A7E50000000000000000100D /* Frameworks */,
+				A7E50000000000000000100E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TevelNotificationService;
+			productName = TevelNotificationService;
+			productReference = A7E500000000000000001003 /* TevelNotificationService.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -313,6 +371,7 @@
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
 				050CEAA2412EFC836E4FFDD5 /* TevelActivity */,
+				A7E50000000000000000100B /* TevelNotificationService */,
 			);
 		};
 /* End PBXProject section */
@@ -338,6 +397,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		BC1FC4CD6A3C8B455488172D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7E50000000000000000100E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -402,6 +468,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */,
+				A7E500000000000000001008 /* RichPushImageTests.swift in Sources */,
+				A7E500000000000000001007 /* RichPushImage.swift in Sources */,
+				A7E500000000000000001015 /* NotificationService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -426,6 +495,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A7E50000000000000000100C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A7E500000000000000001005 /* NotificationService.swift in Sources */,
+				A7E500000000000000001006 /* RichPushImage.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -439,6 +517,12 @@
 			name = TevelActivity;
 			target = 050CEAA2412EFC836E4FFDD5 /* TevelActivity */;
 			targetProxy = C5E722C1955AD16B341FC65B /* PBXContainerItemProxy */;
+		};
+		A7E500000000000000001010 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = TevelNotificationService;
+			target = A7E50000000000000000100B /* TevelNotificationService */;
+			targetProxy = A7E50000000000000000100F /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -812,6 +896,75 @@
 			};
 			name = Release;
 		};
+		A7E500000000000000001012 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = ARFSXMWT96;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TevelNotificationService/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = space.tevel.invoice.NotificationService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A7E500000000000000001013 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = ARFSXMWT96;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TevelNotificationService/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = space.tevel.invoice.NotificationService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Profile;
+		};
+		A7E500000000000000001011 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = ARFSXMWT96;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TevelNotificationService/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = space.tevel.invoice.NotificationService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -851,6 +1004,16 @@
 				DAA0D28A87CA839FCE9E64D1 /* Release */,
 				56C1B06A1DEEF609A908DEA1 /* Debug */,
 				6EED8BCC1429D1439FCD8122 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A7E500000000000000001014 /* Build configuration list for PBXNativeTarget "TevelNotificationService" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A7E500000000000000001011 /* Release */,
+				A7E500000000000000001012 /* Debug */,
+				A7E500000000000000001013 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

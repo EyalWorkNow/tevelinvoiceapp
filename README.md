@@ -10,7 +10,7 @@ After building the backend, run its supervised local installer `/usr/bin/python3
 
 ## Release candidate
 
-Run `FLUTTER_BIN=/path/to/flutter/bin/flutter dart run tool/build_release.dart`. It requires analysis and the entire test suite to pass, fixes the real entrypoint, rejects unsafe API origins and requires a newly produced IPA. It never uploads to Apple. `--unsigned` builds a diagnostic archive that cannot be distributed. Xcode needs the Apple account and distribution profiles for both the app and TevelActivity.
+Run `FLUTTER_BIN=/path/to/flutter/bin/flutter dart run tool/build_release.dart`. It requires analysis and the entire test suite to pass, fixes the real entrypoint, rejects unsafe API origins and requires a newly produced IPA. It never uploads to Apple. `--unsigned` builds a diagnostic archive that cannot be distributed. Xcode needs the Apple account and distribution profiles for the app, TevelActivity and TevelNotificationService (rich-push images).
 
 See [release qualification](docs/PRODUCTION-QUALIFICATION.md), [feature/blocker map](docs/backend-audit/FEATURE-MAP-he.md), [CRM](docs/CUSTOMER-CRM.md) and [push activation](docs/NOTCH-NOTIFICATIONS.md). An archive alone does not qualify a release.
 

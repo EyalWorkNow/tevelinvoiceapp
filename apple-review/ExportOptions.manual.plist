@@ -18,6 +18,8 @@
     <string>Tevel Invoice App Store</string>
     <key>space.tevel.invoice.TevelActivity</key>
     <string>Tevel Activity App Store</string>
+    <key>space.tevel.invoice.NotificationService</key>
+    <string>Tevel Notification Service App Store</string>
   </dict>
   <key>uploadSymbols</key>
   <true/>
