@@ -19,6 +19,18 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
     FlutterEventChannel(name: "tevel/system_notice_events", binaryMessenger: registrar.messenger())
       .setStreamHandler(shared)
     registrar.addApplicationDelegate(shared)
+    // The server may set a badge number; it is cleared whenever the app comes forward.
+    NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification,
+                                           object: nil, queue: .main) { _ in clearBadge() }
+  }
+
+  /// iOS 16+ keeps delivered notifications; iOS 15's badge setter also clears them.
+  static func clearBadge() {
+    if #available(iOS 16.0, *) {
+      UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
+    } else {
+      UIApplication.shared.applicationIconBadgeNumber = 0
+    }
   }
 
   func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
@@ -42,6 +54,9 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
 
   func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
+    case "clearBadge":
+      Self.clearBadge()
+      result(nil)
     case "status":
       UNUserNotificationCenter.current().getNotificationSettings { settings in
         DispatchQueue.main.async {
@@ -207,6 +222,10 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
     "SUBSCRIPTION_PAYMENT_FAILED", "SUBSCRIPTION_EXPIRED", "EXPORT_READY",
     "EXPORT_FAILED", "NEW_DEVICE_LOGIN", "UPLOAD_BLOCKED",
   ]
+  /// Kinds with the server's own text (admin/template announcements, invoice#60): the system
+  /// banner stays (also in the foreground); only a tap is forwarded, to open `link`.
+  /// lib/state/system_notices.dart `pushOpenOnlyKinds` mirrors this.
+  static let openOnlyKinds: Set<String> = ["ANNOUNCEMENT"]
   /// App routes a push may open (Dart re-checks with AppRoute.parse).
   static let allowedRoute =
     "^(/(home|activity|expenses|calendar|debts|reports|people)(\\?[A-Za-z0-9=&_-]{1,64})?|/(quote|doc|person|sign-request)/[A-Za-z0-9_-]{1,64}|/business/[a-z]{2,20})$"
@@ -215,13 +234,16 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
   func receive(_ userInfo: [AnyHashable: Any], opened: Bool) -> Bool {
     // `tevelKind`/`route` (/mobile/push-tokens) or the push catalogue's `kind`/`link` (QUOTE_SIGNED …).
     // Only catalogue kinds the Dart side presents are taken (others keep the system banner).
-    let catalogueKind = (userInfo["kind"] as? String).flatMap { Self.catalogueKinds.contains($0) ? $0 : nil }
+    let catalogueKind = (userInfo["kind"] as? String).flatMap {
+      Self.catalogueKinds.contains($0) || Self.openOnlyKinds.contains($0) ? $0 : nil
+    }
     let tevelKind = userInfo["tevelKind"] as? String
     guard let kind = tevelKind ?? catalogueKind,
           let route = (userInfo["route"] as? String) ?? (userInfo["link"] as? String),
           // Account-level catalogue pushes (subscription, new device) have no business.
           let businessID = (userInfo["businessId"] as? String) ?? (tevelKind == nil ? "" : nil),
           route.range(of: Self.allowedRoute, options: .regularExpression) != nil else { return false }
+    if Self.openOnlyKinds.contains(kind) && !opened { return false }
     emit(["type": opened ? "opened" : "notice", "kind": kind, "route": route,
           "businessId": businessID, "eventID": userInfo["eventID"] as? String ?? ""])
     return true

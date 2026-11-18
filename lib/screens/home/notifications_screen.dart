@@ -11,6 +11,7 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import '../../api/notifications_api.dart';
 import '../../router.dart' show BusinessSection, go, openBusinessSection;
+import '../../state/system_notices.dart' show systemNotices;
 import '../../ui/ds.dart';
 import '../../util/labels/labels.dart' show relativeDateHe;
 import '../../util/labels/notifications_he.dart';
@@ -36,6 +37,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     super.initState();
     notificationsVersion.addListener(_reload);
     unawaited(_reload());
+    unawaited(systemNotices.clearBadge());
   }
 
   @override

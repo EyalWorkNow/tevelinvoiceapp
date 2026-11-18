@@ -4,6 +4,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -112,6 +113,31 @@ void main() {
       expect(find.byKey(const Key('notification-unread-$a')), findsOneWidget);
       expect(notificationsUnread.value, 2);
       expect(find.byKey(const Key('notifications-mark-all')), findsOneWidget);
+    });
+
+    testWidgets('opening עדכונים clears the app icon badge (invoice#60)', (
+      tester,
+    ) async {
+      feed();
+      final calls = <String>[];
+      const channel = MethodChannel('tevel/system_notices');
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+        call,
+      ) async {
+        calls.add(call.method);
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      await tester.runAsync(() => signInAs(backend, Preset.owner));
+      await tester.pumpWidget(_app(const NotificationsScreen()));
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pumpAndSettle();
+      expect(calls, contains('clearBadge'));
     });
 
     testWidgets('"סמן הכול כנקרא" posts {all:true} and clears the dots', (

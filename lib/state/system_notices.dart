@@ -73,6 +73,11 @@ const _events = EventChannel('tevel/system_notice_events');
   _ => null,
 };
 
+/// Kinds whose text is the server's own (admin/template announcements): iOS
+/// shows them as the system banner, even in the foreground; a tap opens their
+/// `link`. ios/Runner/SystemNotices.swift `openOnlyKinds` mirrors this.
+const pushOpenOnlyKinds = {'ANNOUNCEMENT'};
+
 final systemNotices = SystemNotices();
 
 /// A feature that shows its own, richer foreground notice for a kind (e.g.
@@ -290,7 +295,8 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     final presentation = systemNoticePresentation(kind);
-    if (presentation == null) return;
+    final openOnly = pushOpenOnlyKinds.contains(kind);
+    if (presentation == null && !openOnly) return;
     // A quote accepted / a document changed elsewhere: the open quote screen
     // and the lists reload (ACCEPTED, the signed PDF).
     if (refreshesDocuments(kind, route)) notifyDocumentsChanged();
@@ -320,7 +326,7 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
         (business.isNotEmpty && business != _business)) {
       return;
     }
-    if (raw['type'] != 'notice') return;
+    if (raw['type'] != 'notice' || presentation == null) return;
     final id = raw['eventID'];
     if (id is String && id.isNotEmpty) {
       if (!_seen.add(id)) return;
@@ -489,6 +495,18 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
       );
     }
     return e;
+  }
+
+  /// Clears the app icon badge the server may have set (opening "עדכונים";
+  /// the native side also clears it whenever the app becomes active).
+  Future<void> clearBadge() async {
+    try {
+      await _channel.invokeMethod<void>('clearBadge');
+    } on PlatformException catch (_) {
+      // Badge cleanup is best effort.
+    } on MissingPluginException catch (_) {
+      // Tests / platforms without the native side.
+    }
   }
 
   Future<String?> preview() => _channel.invokeMethod<String>('preview');

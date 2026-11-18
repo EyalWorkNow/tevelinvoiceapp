@@ -4,6 +4,12 @@ In-app feedback uses `NotchNoticeHost` with finite, hand-drawn animation for doc
 
 Outside the app, `TevelActivity` is a real WidgetKit/ActivityKit extension. It provides compact, minimal, expanded Dynamic Island and Lock Screen presentations. This is a separate OS-rendered SwiftUI surface; iOS controls prominence and expansion. Widget/Live Activity animations are limited to two seconds by Apple. Remote starts require iOS 17.2 or newer and may be limited by system policy/user settings. Other devices retain ordinary APNs alerts.
 
+## Rich push images
+
+`TevelNotificationService` (`space.tevel.invoice.NotificationService`, iOS 15+) is a Notification Service Extension. When a push has `aps.mutable-content: 1` and a top-level `imageUrl`, it downloads that one image and attaches it to the banner. Rules (`ios/TevelNotificationService/RichPushImage.swift`): https only, host allow-list `invoice.crm.tevel.space` (`RichPushImage.allowedHosts`), redirects only to allowed hosts, 8 s timeout, 5 MB cap, `Content-Type` image/jpeg|png|gif|heic **and** matching magic bytes, ephemeral session (no cookies/cache). Any failure, or the system's time limit, delivers the original notification unchanged; pushes without `imageUrl` pass straight through. No other network call is made. The server sends images from `https://invoice.crm.tevel.space/public/push-images/<id>.<ext>`. In the foreground the animated in-app notice stays text-only; the image appears in the system banner, Notification Center and Lock Screen. Release export maps the extension to the `Tevel Notification Service App Store` profile in `apple-review/ExportOptions.manual.plist`.
+
+Admin and template announcements (server kind `ANNOUNCEMENT`, invoice#60) keep the server's own title/subtitle/body as the system banner, also in the foreground (no fixed in-app text). A tap opens the push's `link` when it passes the route allow-list (`SystemNotices.allowedRoute` natively, `AppRoute.parse` in Dart); otherwise it only opens the app. The app icon badge the server may set is cleared whenever the app becomes active and when "עדכונים" opens. Not in the app yet: the time-sensitive interruption level (needs the capability on the App ID and regenerated profiles) and push-open reporting (no server endpoint).
+
 ## Implemented flow
 
 1. The user enables notifications for the current business under Management → Notifications. Permission is requested only after that action.
