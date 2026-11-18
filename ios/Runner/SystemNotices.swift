@@ -64,6 +64,7 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
           if #available(iOS 17.2, *) { enabled = ActivityAuthorizationInfo().areActivitiesEnabled }
           result(["notifications": settings.authorizationStatus == .authorized,
                   "determined": settings.authorizationStatus != .notDetermined,
+                  "authorization": Self.authorizationName(settings.authorizationStatus),
                   "liveActivities": enabled])
         }
       }
@@ -109,7 +110,7 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
     case "resume":
       UNUserNotificationCenter.current().getNotificationSettings { settings in
         DispatchQueue.main.async {
-          if settings.authorizationStatus == .authorized {
+          if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
             UIApplication.shared.registerForRemoteNotifications()
             self.observeStartToken()
           }
@@ -197,6 +198,17 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
     }
   }
 
+  private static func authorizationName(_ status: UNAuthorizationStatus) -> String {
+    switch status {
+    case .authorized: return "authorized"
+    case .denied: return "denied"
+    case .notDetermined: return "notDetermined"
+    case .provisional: return "provisional"
+    case .ephemeral: return "ephemeral"
+    @unknown default: return "unknown"
+    }
+  }
+
   private static func hex(_ data: Data) -> String { data.map { String(format: "%02x", $0) }.joined() }
   private static var environment: String {
     #if DEBUG
@@ -211,7 +223,10 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
   }
 
   func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-    emit(["type": "registrationError", "code": "APNS_REGISTRATION_FAILED"])
+    // The reason (e.g. a missing aps-environment entitlement) is shown in "סטטוס התראות".
+    let nsError = error as NSError
+    emit(["type": "registrationError", "code": "APNS_REGISTRATION_FAILED",
+          "message": "\(nsError.domain) \(nsError.code): \(String(nsError.localizedDescription.prefix(160)))"])
   }
 
   /// packages/shared/src/push-catalogue.ts PUSH_KINDS (PUSH-001, /mobile/push/devices).

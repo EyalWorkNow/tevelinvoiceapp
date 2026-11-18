@@ -112,6 +112,46 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
   final Map<String, ForegroundNoticeHandler> foregroundHandlers = {};
 
   bool get supported => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+  /// What "סטטוס התראות" shows (no tokens, no secrets).
+  PushDiagnostics get diagnostics => PushDiagnostics(
+    osAuthorization: _osAuthorization,
+    tokenReceived: _tokens.values.any((t) => t['tokenType'] == 'alert'),
+    businessRegistered: _uploaded.any(
+      (k) => _business != null && k.startsWith('$_business:alert:'),
+    ),
+    catalogueRegistered: _catalogueRegistered != null,
+    serverDeliveryConfigured: _serverChecked ? deliveryConfigured : null,
+    lastError: _apnsError ?? pushErrorCode(syncError) ?? _catalogueError,
+  );
+  String? _osAuthorization;
+  String? _apnsError;
+  String? _catalogueError;
+  bool _serverChecked = false;
+
+  /// A short, secret-free code for an error (status/diagnostics only).
+  static String? pushErrorCode(Object? e) => switch (e) {
+    null => null,
+    ApiException(:final code, :final status) => '$code ($status)',
+    StateError(:final message) => message,
+    PlatformException(:final code) => code,
+    _ => e.runtimeType.toString(),
+  };
+
+  /// "נסה לרשום שוב": ask iOS for the token again and re-send every
+  /// registration (business + catalogue), even ones that already succeeded.
+  Future<void> retryRegistration() async {
+    if (!supported || session.status != SessionStatus.signedIn) return;
+    syncError = null;
+    _apnsError = null;
+    _catalogueError = null;
+    _uploaded.clear();
+    _catalogueRegistered = null;
+    notifyListeners();
+    await refresh();
+    await _uploadTokens();
+  }
+
   String get _preferenceKey =>
       'system_notices_${session.account?.userId}_${session.business?.businessId}';
 
@@ -142,6 +182,9 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     _business = next;
     _generation++;
     syncError = null;
+    _apnsError = null;
+    _catalogueError = null;
+    _serverChecked = false;
     _uploaded.clear();
     _seen.clear();
     enabled = false;
@@ -192,6 +235,13 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     final stored = await _storage.read(key: _preferenceKey);
     final status = await _channel.invokeMapMethod<String, Object?>('status');
     if (generation != _generation) return;
+    _osAuthorization =
+        status?['authorization'] as String? ??
+        (status?['notifications'] == true
+            ? 'authorized'
+            : status?['determined'] == false
+            ? 'notDetermined'
+            : 'denied');
     final startup = pushStartup(
       stored: stored,
       osAuthorized: status?['notifications'] == true,
@@ -222,8 +272,11 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
         '/mobile/push-status',
       );
       if (generation != _generation) return;
+      // Server-side delivery readiness is information for "סטטוס התראות",
+      // never a reason to stop registering this phone: the rows must exist
+      // the moment the server is configured (prod 2026-11-18: none did).
       deliveryConfigured = backend['deliveryConfigured'] == true;
-      if (!deliveryConfigured) throw StateError('PUSH_SERVICE_NOT_CONFIGURED');
+      _serverChecked = true;
       notifyListeners();
     }
   }
@@ -281,6 +334,10 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     if (raw['type'] == 'registrationError') {
+      final message = raw['message'];
+      _apnsError = message is String && message.isNotEmpty
+          ? 'APNS_REGISTRATION_FAILED: $message'
+          : 'APNS_REGISTRATION_FAILED';
       _failure(StateError('APNS_REGISTRATION_FAILED'));
       return;
     }
@@ -291,6 +348,7 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
       if (kind is! String || token is! String || environment is! String) {
         return;
       }
+      if (kind == 'alert') _apnsError = null;
       final eventID = raw['eventID'];
       final business = raw['businessId'];
       _tokens['$kind:${eventID ?? ''}'] = {
@@ -384,6 +442,7 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _uploadTokensOnce() async {
     if (session.status != SessionStatus.signedIn) return;
     final generation = _generation;
+    Object? failure;
     for (final token in _tokens.values.toList()) {
       if (generation != _generation) return;
       final target = token['businessId'] as String? ?? _business;
@@ -411,18 +470,26 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
               'liveActivities': liveActivities,
             });
       } on ApiException catch (e) {
-        throw pushRegistrationError(e);
+        // One refused token (e.g. an ended Live Activity) must not keep the
+        // alert token or the catalogue device from registering.
+        failure ??= pushRegistrationError(e);
+        continue;
       }
       if (generation != _generation) return;
-      deliveryConfigured = result['deliveryConfigured'] == true;
-      if (result['deliveryConfigured'] == false) {
-        throw StateError('PUSH_SERVICE_NOT_CONFIGURED');
+      if (target == _business) {
+        deliveryConfigured = result['deliveryConfigured'] == true;
+        _serverChecked = true;
       }
       _uploaded.add(key);
     }
+    // Was: only after every business upload succeeded AND the server said
+    // "deliveryConfigured" — so on prod (APNs not configured yet) the
+    // catalogue device (/mobile/push/devices) was never registered.
     if (generation == _generation && enabled) await _registerCatalogueDevice();
-    syncError = null;
+    if (generation != _generation) return;
+    syncError = failure;
     notifyListeners();
+    if (failure != null) throw failure;
   }
 
   // ---- PUSH-001 catalogue device (/mobile/push/devices) ----------------------
@@ -465,8 +532,10 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
         'appVersion': appVersion,
       });
       _catalogueRegistered = key;
-    } on Object {
-      // Older server / offline: retried on the next resume.
+      _catalogueError = null;
+    } on Object catch (e) {
+      // Retried on the next resume / "נסה לרשום שוב"; shown in the status.
+      _catalogueError = 'CATALOGUE ${pushErrorCode(e)}';
     }
   }
 
@@ -578,7 +647,42 @@ PushStartup pushStartup({
 }) {
   if (stored == '0') return PushStartup.off;
   if (osAuthorized) return PushStartup.on;
-  // Never asked yet → ask once; asked and declined (or switched off in iOS
-  // Settings) → off: the in-app switch explains how to turn it back on.
-  return stored == null && !osDetermined ? PushStartup.ask : PushStartup.off;
+  // iOS never asked on THIS install → ask once. The stored '1' does not
+  // count: the Keychain outlives deleting the app, so a reinstall kept a '1'
+  // from the previous install and was never asked again (simulator repro
+  // 2026-11-18: notDetermined forever, no token, no rows).
+  // Asked and declined (or switched off in iOS Settings) → off: the in-app
+  // switch explains how to turn it back on.
+  return !osDetermined ? PushStartup.ask : PushStartup.off;
+}
+
+/// Push registration state for the owner (ניהול → התראות → "סטטוס התראות").
+@immutable
+class PushDiagnostics {
+  const PushDiagnostics({
+    required this.osAuthorization,
+    required this.tokenReceived,
+    required this.businessRegistered,
+    required this.catalogueRegistered,
+    required this.lastError,
+    this.serverDeliveryConfigured,
+  });
+
+  /// iOS: authorized / denied / notDetermined / provisional / ephemeral.
+  final String? osAuthorization;
+  final bool tokenReceived;
+  final bool businessRegistered;
+  final bool catalogueRegistered;
+  final String? lastError;
+
+  /// The server can send (APNs configured); null until asked.
+  final bool? serverDeliveryConfigured;
+
+  bool get registered => businessRegistered && catalogueRegistered;
+
+  @override
+  String toString() =>
+      'ios=$osAuthorization token=$tokenReceived business=$businessRegistered '
+      'catalogue=$catalogueRegistered server=$serverDeliveryConfigured '
+      'error=$lastError';
 }
