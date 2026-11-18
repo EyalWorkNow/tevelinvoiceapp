@@ -12,6 +12,8 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
   private var startTokenTask: Task<Void, Never>?
   private var activityTask: Task<Void, Never>?
   private var updateTasks: [String: Task<Void, Never>] = [:]
+  /// Live Activity ids already shown as the in-app notice.
+  private var announced: Set<String> = []
 
   static func register(with registrar: FlutterPluginRegistrar) {
     FlutterMethodChannel(name: "tevel/system_notices", binaryMessenger: registrar.messenger())
@@ -21,7 +23,43 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
     registrar.addApplicationDelegate(shared)
     // The server may set a badge number; it is cleared whenever the app comes forward.
     NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification,
-                                           object: nil, queue: .main) { _ in clearBadge() }
+                                           object: nil, queue: .main) { _ in
+      clearBadge()
+      endExpiredAnnouncements()
+    }
+    // Pushes with an image carry this category: TevelNotificationContent shows the image full
+    // width when the notification is expanded (long-press / pull down).
+    UNUserNotificationCenter.current().setNotificationCategories([
+      UNNotificationCategory(identifier: richCategory, actions: [], intentIdentifiers: [],
+                             options: [])
+    ])
+  }
+
+  static let richCategory = "TEVEL_RICH"
+
+  /// A notch announcement (server 0124) whose time is up but whose "end" push never came
+  /// (no update token, offline): ended when the app comes forward.
+  static func endExpiredAnnouncements(now: Date = Date()) {
+    guard #available(iOS 17.2, *) else { return }
+    Task { @MainActor in
+      for activity in Activity<TevelActivityAttributes>.activities
+      where activity.content.state.isAnnouncement {
+        if let end = activity.content.state.endDate, end <= now {
+          await activity.end(nil, dismissalPolicy: .immediate)
+        }
+      }
+    }
+  }
+
+  /// The in-app notch notice of an announcement (Live Activity started while the app is open,
+  /// or the fallback push with `display: notch`). Title/body are the admin's text.
+  static func announcementEvent(title: String, body: String, route: String, businessID: String,
+                                eventID: String) -> [String: Any]? {
+    guard !title.isEmpty, route.range(of: allowedRoute, options: .regularExpression) != nil
+    else { return nil }
+    return ["type": "announcement", "title": String(title.prefix(120)),
+            "body": String(body.prefix(240)), "route": route, "businessId": businessID,
+            "eventID": eventID]
   }
 
   /// iOS 16+ keeps delivered notifications; iOS 15's badge setter also clears them.
@@ -152,8 +190,13 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
       Task { @MainActor in
         do {
           for old in Activity<TevelActivityAttributes>.activities { await old.end(nil, dismissalPolicy: .immediate) }
-          let state = TevelActivityAttributes.ContentState(kind: "approved", title: "הצעת המחיר אושרה!",
-            detail: "הלקוח אישר. אפשר להתקדם לחשבונית.", revision: 1)
+          let announce = (call.arguments as? [String: Any])?["kind"] as? String == "announcement"
+          let state = announce
+            ? TevelActivityAttributes.ContentState(kind: "announcement", title: "מבצע סוף שנה בתבל",
+                detail: "חודש ראשון במתנה לכל מנוי חדש. לפרטים בניהול ← החשבון.", revision: 1,
+                icon: "gift", endsAt: Date().addingTimeInterval(600).timeIntervalSince1970)
+            : TevelActivityAttributes.ContentState(kind: "approved", title: "הצעת המחיר אושרה!",
+                detail: "הלקוח אישר. אפשר להתקדם לחשבונית.", revision: 1)
           let activity = try Activity.request(
             attributes: TevelActivityAttributes(eventID: "preview", route: "/home", businessID: "preview"),
             content: ActivityContent(state: state, staleDate: Date().addingTimeInterval(120)), pushType: nil)
@@ -188,6 +231,18 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
   @available(iOS 17.2, *)
   private func observeUpdates(_ activity: Activity<TevelActivityAttributes>) {
     guard updateTasks[activity.id] == nil else { return }
+    // An announcement that starts while the app is open: iOS keeps the app's own activity out of
+    // the Dynamic Island in the foreground, so the in-app notch notice shows it instead.
+    let state = activity.content.state
+    if state.isAnnouncement, UIApplication.shared.applicationState == .active,
+       !announced.contains(activity.id),
+       let event = Self.announcementEvent(title: state.title, body: state.detail,
+                                          route: activity.attributes.route,
+                                          businessID: activity.attributes.businessID,
+                                          eventID: activity.attributes.eventID) {
+      announced.insert(activity.id)
+      emit(event)
+    }
     updateTasks[activity.id] = Task { @MainActor in
       for await token in activity.pushTokenUpdates {
         self.emit(["type": "token", "tokenType": "liveActivityUpdate", "token": Self.hex(token),
@@ -269,7 +324,17 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
           // Account-level catalogue pushes (subscription, new device) have no business.
           let businessID = (userInfo["businessId"] as? String) ?? (tevelKind == nil ? "" : nil),
           route.range(of: Self.allowedRoute, options: .regularExpression) != nil else { return false }
-    if Self.openOnlyKinds.contains(kind) && !opened { return false }
+    if Self.openOnlyKinds.contains(kind) && !opened {
+      // 0124: the ordinary push of a notch announcement → the in-app notch notice (foreground).
+      guard userInfo["display"] as? String == "notch",
+            let alert = (userInfo["aps"] as? [String: Any])?["alert"] as? [String: Any],
+            let event = Self.announcementEvent(
+              title: alert["title"] as? String ?? "", body: alert["body"] as? String ?? "",
+              route: route, businessID: businessID, eventID: userInfo["pushId"] as? String ?? "")
+      else { return false }
+      emit(event)
+      return true
+    }
     emit(["type": opened ? "opened" : "notice", "kind": kind, "route": route,
           "businessId": businessID, "eventID": userInfo["eventID"] as? String ?? ""])
     return true

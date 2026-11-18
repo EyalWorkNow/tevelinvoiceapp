@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 
 /// Rich-push image rules for the Notification Service Extension.
 ///
@@ -81,6 +82,25 @@ enum RichPushImage {
   static func accept(data: Data, contentType: String?) -> Kind? {
     guard !data.isEmpty, data.count <= maxBytes, kind(contentType: contentType) != nil else { return nil }
     return sniff(data)
+  }
+
+  /// The category whose content extension (TevelNotificationContent) shows the image large.
+  static let richCategory = "TEVEL_RICH"
+
+  /// Unit rect of the centred square of the image (nil when square or unreadable).
+  static func thumbnailClip(_ data: Data) -> CGRect? {
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+          let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+          let w = (props[kCGImagePropertyPixelWidth] as? NSNumber)?.doubleValue,
+          let h = (props[kCGImagePropertyPixelHeight] as? NSNumber)?.doubleValue,
+          w > 0, h > 0, abs(w - h) > 1
+    else { return nil }
+    if w > h {
+      let side = h / w
+      return CGRect(x: (1 - side) / 2, y: 0, width: side, height: 1)
+    }
+    let side = w / h
+    return CGRect(x: 0, y: (1 - side) / 2, width: 1, height: side)
   }
 
   /// Writes the image to a fresh temporary file the attachment can take over.

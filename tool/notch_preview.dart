@@ -88,9 +88,24 @@ Future<void> main() async {
     }
     final destination = request.uri.queryParameters['to'];
     if (destination != null) unawaited(go(destination));
-    if (request.uri.queryParameters['native'] == 'start') {
+    if (request.uri.queryParameters['announce'] == 'inapp') {
+      // A notch announcement arriving while the app is open (server 0124).
+      // ignore: invalid_use_of_visible_for_testing_member
+      systemNotices.debugEvent({
+        'type': 'announcement',
+        'title': 'מבצע סוף שנה בתבל',
+        'body': 'חודש ראשון במתנה לכל מנוי חדש',
+        'route': '/business/account',
+        'businessId': '',
+        'eventID': DateTime.now().microsecondsSinceEpoch.toString(),
+      });
+    }
+    final native = request.uri.queryParameters['native'];
+    if (native == 'start' || native == 'announce') {
       try {
-        request.response.write(await systemNotices.preview());
+        request.response.write(
+          await systemNotices.preview(announcement: native == 'announce'),
+        );
       } catch (error) {
         request.response.statusCode = 500;
         request.response.write(error);

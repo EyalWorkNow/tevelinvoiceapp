@@ -27,10 +27,13 @@ final class NotificationService: UNNotificationServiceExtension {
       guard let (data, kind) = result,
             let file = RichPushImage.write(data, kind: kind),
             let attachment = try? UNNotificationAttachment(
-              identifier: "image", url: file,
-              options: [UNNotificationAttachmentOptionsTypeHintKey: kind.typeIdentifier])
+              identifier: "image", url: file, options: RichPushImage.attachmentOptions(data, kind: kind))
       else { self.deliver(request.content); return }
+      // The full-resolution download (never a server thumbnail). iOS always shows it as a small
+      // square in the collapsed banner; the content extension (TEVEL_RICH) shows it full width
+      // when the notification is expanded.
       content.attachments = [attachment]
+      content.categoryIdentifier = RichPushImage.richCategory
       self.deliver(content)
     }
   }
@@ -48,5 +51,18 @@ final class NotificationService: UNNotificationServiceExtension {
     contentHandler = nil
     lock.unlock()
     handler?(content)
+  }
+}
+
+extension RichPushImage {
+  /// Attachment options: the type hint, and for a non-square image a centred square thumbnail
+  /// clip (the collapsed banner's thumbnail is square; a wide banner image keeps its middle).
+  static func attachmentOptions(_ data: Data, kind: Kind) -> [String: Any] {
+    var options: [String: Any] = [UNNotificationAttachmentOptionsTypeHintKey: kind.typeIdentifier]
+    if let clip = thumbnailClip(data) {
+      options[UNNotificationAttachmentOptionsThumbnailClippingRectKey] =
+        clip.dictionaryRepresentation
+    }
+    return options
   }
 }

@@ -20,6 +20,8 @@
     <string>Tevel Activity App Store</string>
     <key>space.tevel.invoice.NotificationService</key>
     <string>Tevel Notification Service App Store</string>
+    <key>space.tevel.invoice.NotificationContent</key>
+    <string>Tevel Notification Content App Store</string>
   </dict>
   <key>uploadSymbols</key>
   <true/>

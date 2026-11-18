@@ -125,6 +125,34 @@ final class NotificationServiceTests: XCTestCase {
     XCTAssertEqual(out.attachments.first?.identifier, "image")
     XCTAssertEqual(out.title, "תבל")
     XCTAssertEqual(out.userInfo["kind"] as? String, "ANNOUNCEMENT")
+    // The content extension (TEVEL_RICH) shows it full width when expanded.
+    XCTAssertEqual(out.categoryIdentifier, "TEVEL_RICH")
+  }
+
+  func testNoImageKeepsCategory() {
+    let out = run(["tevelKind": "approved", "route": "/home", "businessId": "b1"])
+    XCTAssertEqual(out.categoryIdentifier, "")
+  }
+
+  func testThumbnailClipIsCentredSquare() {
+    func png(_ w: CGFloat, _ h: CGFloat) -> Data {
+      let format = UIGraphicsImageRendererFormat()
+      format.scale = 1
+      return UIGraphicsImageRenderer(size: CGSize(width: w, height: h), format: format).pngData { ctx in
+        UIColor.red.setFill(); ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+      }
+    }
+    let wide = RichPushImage.thumbnailClip(png(200, 100))!
+    XCTAssertEqual(wide.origin.x, 0.25, accuracy: 0.001)
+    XCTAssertEqual(wide.width, 0.5, accuracy: 0.001)
+    XCTAssertEqual(wide.height, 1, accuracy: 0.001)
+    let tall = RichPushImage.thumbnailClip(png(100, 400))!
+    XCTAssertEqual(tall.origin.y, 0.375, accuracy: 0.001)
+    XCTAssertEqual(tall.height, 0.25, accuracy: 0.001)
+    XCTAssertNil(RichPushImage.thumbnailClip(png(64, 64)))
+    XCTAssertNil(RichPushImage.thumbnailClip(Data([1, 2, 3])))
+    let options = RichPushImage.attachmentOptions(png(200, 100), kind: .png)
+    XCTAssertNotNil(options[UNNotificationAttachmentOptionsThumbnailClippingRectKey])
   }
 
   func testPassThroughWithoutImageMakesNoRequest() {
