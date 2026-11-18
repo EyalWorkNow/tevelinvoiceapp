@@ -55,10 +55,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
 
   void _changed(String _) {
     _debounce?.cancel();
-    _debounce = Timer(
-      const Duration(milliseconds: 300),
-      () => unawaited(_run()),
-    );
+    _debounce = Timer(const Duration(milliseconds: 300), () => unawaited(_run()));
     setState(() {});
   }
 
