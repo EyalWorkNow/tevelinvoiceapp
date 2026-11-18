@@ -66,6 +66,13 @@ void main() {
         PushStartup.on,
       );
     });
+    test('reinstall: a "1" left in the Keychain by the previous install '
+        'does not stop the one-time question (was: never asked again)', () {
+      expect(
+        pushStartup(stored: '1', osAuthorized: false, osDetermined: false),
+        PushStartup.ask,
+      );
+    });
     test('switched off in the app stays off, even when iOS allows', () {
       expect(
         pushStartup(stored: '0', osAuthorized: true, osDetermined: true),
