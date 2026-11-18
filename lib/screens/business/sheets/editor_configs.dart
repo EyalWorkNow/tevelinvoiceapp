@@ -222,6 +222,14 @@ EditorConfig _profileConfig({
           label: 'מספר אישור סעיף 46',
           initial: profile?.section46ApprovalNumber,
         ),
+      if (type == 'NONPROFIT')
+        EditorField(
+          key: 'incomeTaxFileNumber',
+          label: 'מספר תיק המוסד אצל פקיד השומה',
+          kind: FieldKind.number,
+          initial: s(raw['incomeTaxFileNumber']),
+          hint: 'מודפס בקבלה על תרומה לפי סעיף 46',
+        ),
       if (advances)
         EditorField(
           key: 'advanceRate',
@@ -396,6 +404,8 @@ EditorConfig _profileConfig({
         'withholdingFileNumber': v.orNull('withholdingFileNumber'),
         if (type == 'NONPROFIT')
           'section46ApprovalNumber': v.orNull('section46ApprovalNumber'),
+        if (type == 'NONPROFIT')
+          'incomeTaxFileNumber': v.orNull('incomeTaxFileNumber'),
         'paymentTerms': v.orNull('paymentTerms'),
         'defaultLineDescription': v.orNull('defaultLineDescription'),
         'bank': bankFull

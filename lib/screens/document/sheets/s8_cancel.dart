@@ -156,6 +156,11 @@ class _CancelSheetState extends State<CancelSheet> {
       );
       return;
     }
+    // §9(ה): a credit note states the reason for the change (printed on it).
+    if (_reason.text.trim().isEmpty) {
+      setState(() => _invalid = DocumentHe.reasonRequired);
+      return;
+    }
     setState(() {
       _busy = true;
       _invalid = null;
@@ -334,8 +339,7 @@ class _CancelSheetState extends State<CancelSheet> {
         onChanged: (_) => setState(() => _invalid = null),
       ),
       const SizedBox(height: Space.s),
-      // C6: optional reason — printed on the credit; the accountant's
-      // readiness check flags a credit without one.
+      // §9(ה): the reason is required — printed on the credit note.
       TextField(
         key: const Key('s8-credit-reason'),
         controller: _reason,

@@ -423,6 +423,11 @@ void main() {
         isTrue,
       );
       await tester.enterText(find.byKey(const Key('s8-amount')), '200');
+      // §9(ה): the reason is required (printed on the credit note).
+      await tester.enterText(
+        find.byKey(const Key('s8-credit-reason')),
+        'החזרת שירות',
+      );
       await tester.pump();
       expect(find.text('זיכוי חלקי'), findsOneWidget);
       await tap(tester, find.byKey(const Key('s8-credit')));
