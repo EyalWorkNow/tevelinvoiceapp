@@ -9,6 +9,27 @@ const String privacyUrl = 'https://www.tevel.space/legal/privacy';
 const String termsUrl = 'https://www.tevel.space/legal/tevel-invoice';
 const String supportUrl = 'https://www.tevel.space/contact';
 
+/// Tevel's own contact details (websitetry src/lib/site.ts `company`).
+const String tevelEmail = 'help@tevel.space';
+const String tevelPhone = '053-932-8311';
+const String tevelPhoneE164 = '+972539328311';
+
+/// "אין לך חשבון? דברו איתנו": WhatsApp with a prefilled Hebrew message.
+Uri tevelWhatsAppUri([String text = accountRequestText]) =>
+    Uri.https('wa.me', '/${tevelPhoneE164.substring(1)}', {'text': text});
+
+/// The same request by e-mail.
+Uri tevelEmailUri([String text = accountRequestText]) => Uri(
+  scheme: 'mailto',
+  path: tevelEmail,
+  query:
+      'subject=${Uri.encodeComponent('פתיחת חשבון בתבל')}'
+      '&body=${Uri.encodeComponent(text)}',
+);
+
+const String accountRequestText =
+    'היי, אשמח לפתוח חשבון באפליקציית תבל להפקת חשבוניות וקבלות.';
+
 /// Pages allowed in SFSafariViewController.
 const Set<String> safariWhitelist = {privacyUrl, termsUrl, supportUrl};
 

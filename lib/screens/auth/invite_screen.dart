@@ -8,7 +8,8 @@
 //                       "Confirm email" is on: the 6-digit code from the
 //                       e-mail) → the server accepts and links the identity
 // valid, has account  → its password (Supabase app password, or the Tevel
-//                       password) → accept · or "המשך עם Apple"
+//                       password) → accept (no Apple / Google: owner
+//                       2026-11-18, password accounts only)
 // INVITATION_EMAIL_MISMATCH → "ההזמנה נשלחה ל-x, התחברת כ-y"
 // MEMBER_EXISTS       → "אתה כבר חבר ב-{עסק}" → "למסך הכניסה"
 // expired / revoked   → "ההזמנה כבר לא בתוקף. בקשו מ{מזמין} לשלוח הזמנה חדשה"
@@ -25,21 +26,15 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../../api/auth_api.dart';
 import '../../api/client.dart';
 import '../../api/models/models.dart';
-import '../../api/settings_api.dart' show rememberAppleSignIn;
 import '../../api/supabase_auth.dart';
 import '../../router.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/labels.dart';
 import 'auth_flow.dart';
-import 'login_screen.dart'
-    show
-        AppleSignInFailure,
-        TevelLogo,
-        appleCredential,
-        showForgotPasswordSheet;
+import 'login_screen.dart' show TevelLogo, showForgotPasswordSheet;
 import 'password_recovery.dart' show passwordPolicyErrorHe;
 
-enum _Busy { none, password, apple, code }
+enum _Busy { none, password, code }
 
 /// Invitation codes that end the invitation (shown as the "ask again" state).
 const Set<String> _deadInvitation = {
@@ -119,8 +114,6 @@ class _InviteScreenState extends State<InviteScreen> {
     } on ApiException catch (e) {
       HapticFeedback.heavyImpact();
       if (mounted) _showError(e);
-    } on AppleSignInFailure catch (e) {
-      if (mounted) setState(() => _fieldError = e.messageHe);
     } finally {
       if (mounted) setState(() => _busy = _Busy.none);
     }
@@ -150,7 +143,6 @@ class _InviteScreenState extends State<InviteScreen> {
   Future<void> _accept({
     String? password,
     String? supabaseAccessToken,
-    String? appleIdentityToken,
     String? displayName,
   }) {
     final invite = _invite!;
@@ -159,7 +151,6 @@ class _InviteScreenState extends State<InviteScreen> {
       widget.token,
       password: password,
       supabaseAccessToken: supabaseAccessToken,
-      appleIdentityToken: appleIdentityToken,
       displayName: name,
     );
   }
@@ -252,17 +243,6 @@ class _InviteScreenState extends State<InviteScreen> {
     await supabaseAuth.resendSignUpCode(_invite!.email);
     if (mounted) setState(() => _codeNotice = AuthHe.codeSentAgain);
     return false;
-  });
-
-  Future<void> _apple() => _attempt(_Busy.apple, () async {
-    final cred = await appleCredential();
-    if (cred == null) return false;
-    await _accept(
-      appleIdentityToken: cred.identityToken,
-      displayName: cred.fullName.isNotEmpty ? cred.fullName : null,
-    );
-    await rememberAppleSignIn(); // account deletion must revoke the grant
-    return true;
   });
 
   Future<void> _forgot() async {
@@ -415,35 +395,6 @@ class _InviteScreenState extends State<InviteScreen> {
                   child: const Text(AuthHe.forgotPassword),
                 ),
               ),
-            const SizedBox(height: Space.l),
-            Row(
-              children: [
-                const Expanded(child: Divider()),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: Space.m),
-                  child: Text(
-                    AuthHe.orDivider,
-                    style: AppText.secondary.copyWith(color: p.muted),
-                  ),
-                ),
-                const Expanded(child: Divider()),
-              ],
-            ),
-            const SizedBox(height: Space.l),
-            OutlinedButton.icon(
-              key: const Key('invite-apple'),
-              onPressed: idle ? _apple : null,
-              icon: _busy == _Busy.apple
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.apple),
-              label: const Text(AuthHe.continueWithApple),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(Hit.bigButton),
-              ),
-            ),
           ],
         ),
       ),

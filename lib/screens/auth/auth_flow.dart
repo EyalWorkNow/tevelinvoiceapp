@@ -1,7 +1,9 @@
 // A · the sign-in gate (SPEC-v2 §6.A). Owner: squad E.
-// provider → MFA (blocking step) → device token → /me + profile →
-//   no business → NoBusinessScreen · several → S14 (required) ·
-//   setup not done: owner → setup, others → SetupPendingScreen · else home.
+// password → MFA (blocking step) → device token → /me + profile →
+//   no business → NoBusinessScreen ("החשבון שלך עוד בהקמה") · several → S14
+//   (required) · setup not done: a business the Tevel team opened (name +
+//   tax id, wizard never started) is completed silently, else owner → setup,
+//   others → SetupPendingScreen · else home.
 
 import 'dart:async';
 
@@ -15,11 +17,11 @@ import '../../state/business_context.dart';
 import '../../state/caps.dart';
 import '../../state/session.dart';
 import '../../ui/ds.dart';
-import '../../util/allowed_urls.dart';
 import '../../util/labels/labels.dart';
 import '../business/delete_account_screen.dart';
 import '../business/sheets/s14_switch.dart';
 import '../billing/billing_screen.dart';
+import 'contact_tevel.dart';
 import 'mfa_sheet.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
@@ -34,7 +36,7 @@ void resetSignInRouting() {
   _subscriptionGateBusiness = null;
 }
 
-/// After a provider answered (login / Apple / Google / invitation): MFA if
+/// After a sign-in answered (password / invitation): MFA if
 /// needed, trade the cookie session for a device token, then route. Returns
 /// false when the user backed out of the MFA step. Throws [ApiException].
 Future<bool> finishSignIn(BuildContext context, SignInResult result) async {
@@ -117,11 +119,14 @@ Future<void> routeSignedIn(BuildContext context) async {
     final me = session.me;
     if (me != null && !me.onboardingCompleted && !session.offline) {
       if (businessContext.can(Cap.owner)) {
-        resetToSetup();
+        if (!await _finishProvisionedSetup()) {
+          resetToSetup();
+          return;
+        }
       } else {
         _resetTo(const SetupPendingScreen(), '/gate/setup-pending');
+        return;
       }
-      return;
     }
     if (session.business != null && !session.offline) {
       if (session.restoredFromCache) {
@@ -137,6 +142,32 @@ Future<void> routeSignedIn(BuildContext context) async {
   } finally {
     _routingSignedIn = false;
   }
+}
+
+/// The Tevel team opens every business in the admin console (name, type and
+/// tax id, owner 2026-11-18), so its owner should not meet the registration
+/// wizard. Such a business never started the wizard (step 1): mark setup
+/// done (the server re-checks name + tax id) and go on. False → the wizard,
+/// e.g. no tax id yet, or a setup the owner had already started.
+Future<bool> _finishProvisionedSetup() async {
+  final profile = session.profile;
+  if (profile == null ||
+      profile.legalName.trim().length < 2 ||
+      (profile.taxId ?? '').isEmpty ||
+      (session.me?.onboardingStep ?? 1) > 1) {
+    return false;
+  }
+  try {
+    await completeOnboarding();
+  } on ApiException {
+    return false;
+  }
+  try {
+    await session.refreshBusiness();
+  } on ApiException {
+    // Done on the server; /me catches up on the next refresh.
+  }
+  return true;
 }
 
 /// True when the business has no active subscription and the required
@@ -275,9 +306,10 @@ class _SetupPendingScreenState extends State<SetupPendingScreen> {
   );
 }
 
-/// Signed in, but no business membership (invitation revoked, business
-/// closed). Explain + check again + continue on the computer (mail to self,
-/// F6 (א)) + sign out + delete account (5.1.1(v)).
+/// Signed in, but no business yet: the Tevel team is still setting the
+/// account up (or an invitation was revoked / the business closed). Never the
+/// self-registration wizard (owner 2026-11-18): "החשבון שלך עוד בהקמה — נחזור
+/// אליך" + check again + talk to us + sign out + delete account (5.1.1(v)).
 class NoBusinessScreen extends StatefulWidget {
   const NoBusinessScreen({super.key});
 
@@ -301,18 +333,11 @@ class _NoBusinessScreenState extends State<NoBusinessScreen> {
     }
   }
 
-  Future<void> _desktop() async {
-    final to = session.account?.email ?? '';
-    final subject = Uri.encodeComponent('תבל — להמשך במחשב: פתיחת עסק');
-    final body = Uri.encodeComponent('https://invoice.crm.tevel.space/app/');
-    await launchAllowed(Uri.parse('mailto:$to?subject=$subject&body=$body'));
-  }
-
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     return _GateMessage(
-      icon: Iconsax.shop,
+      icon: Iconsax.timer_1,
       title: BusinessHe.noBusinessTitle,
       body: BusinessHe.noBusinessBody(ltrIsolate(session.account?.email ?? '')),
       primary: PrimaryButton(
@@ -323,8 +348,9 @@ class _NoBusinessScreenState extends State<NoBusinessScreen> {
       ),
       links: [
         TextButton(
-          onPressed: _desktop,
-          child: const Text(CommonHe.continueOnComputer),
+          key: const Key('no-business-contact'),
+          onPressed: () => showContactTevelSheet(context),
+          child: const Text(AuthHe.noAccount),
         ),
         TextButton(
           onPressed: session.signOut,
