@@ -230,6 +230,17 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
   static let allowedRoute =
     "^(/(home|activity|expenses|calendar|debts|reports|people)(\\?[A-Za-z0-9=&_-]{1,64})?|/(quote|doc|person|sign-request)/[A-Za-z0-9_-]{1,64}|/business/[a-z]{2,20})$"
 
+  /// A tap on any push with `pushId` (invoice#61) is reported by Dart (POST /mobile/push/opened).
+  /// Buffered like other events, so a tap that launched the app is not lost.
+  @discardableResult
+  func reportOpened(_ userInfo: [AnyHashable: Any]) -> Bool {
+    guard let pushId = userInfo["pushId"] as? String,
+          pushId.range(of: "^[0-9A-Fa-f]{8}(-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}$",
+                       options: .regularExpression) != nil else { return false }
+    emit(["type": "pushOpened", "pushId": pushId])
+    return true
+  }
+
   /// Foreground handling never tries to start a Live Activity in the background.
   func receive(_ userInfo: [AnyHashable: Any], opened: Bool) -> Bool {
     // `tevelKind`/`route` (/mobile/push-tokens) or the push catalogue's `kind`/`link` (QUOTE_SIGNED …).

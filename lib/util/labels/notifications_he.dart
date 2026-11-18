@@ -42,4 +42,9 @@ abstract final class NotificationPrefsHe {
       'בחרו על מה לקבל התראות לטלפון. ההגדרה שלכם בלבד, ולא משנה מה מקבלים אחרים בצוות.';
   static const alwaysOn = 'תמיד פעיל — לשמירה על החשבון';
   static const saved = 'ההגדרה נשמרה';
+
+  /// §30A marketing consent (invoice#61). Default off.
+  static const marketing = 'עדכונים ומבצעים מתבל';
+  static const marketingHint =
+      'הודעות שיווקיות מתבל: מבצעים, הטבות ותכונות חדשות. כבוי עד שתפעילו, ואפשר לבטל בכל רגע.';
 }

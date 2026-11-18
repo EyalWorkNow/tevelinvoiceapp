@@ -3,6 +3,9 @@
 // the user's preferences (GET/PUT /mobile/push/preferences). Reached from
 // B → התראות and from the bell's "עדכונים" screen (gear). Categories the
 // server marks canDisable=false (אבטחה) stay on and cannot be switched.
+// "עדכונים ומבצעים מתבל": the user's own §30A marketing consent
+// (GET/PUT /mobile/push/marketing-consent, invoice#61), default off, hidden on
+// a server without the endpoint.
 
 import 'dart:async';
 
@@ -29,6 +32,9 @@ class _NotificationPreferencesScreenState
   Object? _error;
   String? _saving;
 
+  /// null: the server has no consent endpoint (or it failed) — no switch.
+  MarketingConsent? _consent;
+
   @override
   void initState() {
     super.initState();
@@ -38,14 +44,20 @@ class _NotificationPreferencesScreenState
   Future<void> _load() async {
     setState(() => _error = null);
     try {
+      final consent = fetchMarketingConsent().then<MarketingConsent?>(
+        (c) => c,
+        onError: (Object _) => null,
+      );
       final results = await Future.wait<Object>([
         fetchPushCategories(),
         fetchPushPreferences(),
       ]);
+      final c = await consent;
       if (!mounted) return;
       setState(() {
         _categories = results[0] as List<PushCategory>;
         _prefs = results[1] as PushPreferences;
+        _consent = c;
       });
     } on Object catch (e) {
       if (mounted) setState(() => _error = e);
@@ -69,6 +81,34 @@ class _NotificationPreferencesScreenState
     } on Object catch (e) {
       if (!mounted) return;
       setState(() => _prefs = before);
+      showErrorSnack(context, e);
+    } finally {
+      if (mounted) setState(() => _saving = null);
+    }
+  }
+
+  Future<void> _toggleMarketing(bool on) async {
+    final before = _consent;
+    if (before == null || _saving != null) return;
+    setState(() {
+      _saving = 'marketing';
+      _consent = MarketingConsent(granted: on, text: before.text);
+    });
+    try {
+      final saved = await saveMarketingConsent(on);
+      if (!mounted) return;
+      setState(
+        () => _consent = MarketingConsent(
+          granted: saved.granted,
+          text: saved.text.isEmpty ? before.text : saved.text,
+        ),
+      );
+      ScaffoldMessenger.of(context).showNotchNotice(
+        const SnackBar(content: Text(NotificationPrefsHe.saved)),
+      );
+    } on Object catch (e) {
+      if (!mounted) return;
+      setState(() => _consent = before);
       showErrorSnack(context, e);
     } finally {
       if (mounted) setState(() => _saving = null);
@@ -108,6 +148,20 @@ class _NotificationPreferencesScreenState
               c.canDisable
                   ? c.description
                   : '${c.description}\n${NotificationPrefsHe.alwaysOn}',
+            ),
+          ),
+        if (_consent case final consent?)
+          SwitchListTile.adaptive(
+            key: const Key('notification-pref-marketing'),
+            value: consent.granted,
+            onChanged: _saving != null
+                ? null
+                : (on) => unawaited(_toggleMarketing(on)),
+            title: const Text(NotificationPrefsHe.marketing),
+            subtitle: Text(
+              consent.text.isEmpty
+                  ? NotificationPrefsHe.marketingHint
+                  : consent.text,
             ),
           ),
       ],

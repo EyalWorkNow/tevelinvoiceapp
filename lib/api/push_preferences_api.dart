@@ -85,3 +85,53 @@ Future<PushPreferences> savePushPreferences(PushPreferences p) async =>
     PushPreferences.fromJson(
       await _api.put('/mobile/push/preferences', p.toJson()),
     );
+
+/// §30A marketing consent (invoice#61, 0123): GET/PUT
+/// /mobile/push/marketing-consent {granted, text?}. Default off; only the user
+/// can switch it on.
+class MarketingConsent {
+  const MarketingConsent({required this.granted, this.text = ''});
+
+  factory MarketingConsent.fromJson(Map<String, dynamic> j) => MarketingConsent(
+    granted: j['granted'] == true,
+    text: j['text'] is String ? j['text'] as String : '',
+  );
+
+  final bool granted;
+
+  /// The server's consent wording (versioned there); may be empty.
+  final String text;
+}
+
+/// null: a server without the endpoint (404) — the switch is hidden.
+Future<MarketingConsent?> fetchMarketingConsent() async {
+  try {
+    return MarketingConsent.fromJson(
+      await _api.get('/mobile/push/marketing-consent'),
+    );
+  } on ApiException catch (e) {
+    if (e.status == 404) return null;
+    rethrow;
+  }
+}
+
+Future<MarketingConsent> saveMarketingConsent(bool granted) async =>
+    MarketingConsent.fromJson(
+      await _api.put('/mobile/push/marketing-consent', {'granted': granted}),
+    );
+
+/// A tap on a push carrying `pushId` (invoice#61 "opened" metrics). Fire and
+/// forget: 404/422/429 and other answers are ignored; a network error is
+/// retried once.
+Future<void> reportPushOpened(String pushId) async {
+  for (var attempt = 0; attempt < 2; attempt++) {
+    try {
+      await _api.post('/mobile/push/opened', {'pushId': pushId});
+      return;
+    } on ApiException catch (e) {
+      if (e.status != 0) return; // answered (404/422/429/…) → drop
+    } on Object {
+      return;
+    }
+  }
+}

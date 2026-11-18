@@ -33,7 +33,9 @@ import EventKit
   override func userNotificationCenter(_ center: UNUserNotificationCenter,
       didReceive response: UNNotificationResponse,
       withCompletionHandler completionHandler: @escaping () -> Void) {
-    _ = SystemNotices.shared.receive(response.notification.request.content.userInfo, opened: true)
+    let userInfo = response.notification.request.content.userInfo
+    SystemNotices.shared.reportOpened(userInfo)
+    _ = SystemNotices.shared.receive(userInfo, opened: true)
     completionHandler()
   }
 

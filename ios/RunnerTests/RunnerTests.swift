@@ -35,4 +35,12 @@ final class SystemNoticesReceiveTests: XCTestCase {
     XCTAssertTrue(SystemNotices.shared.receive(["tevelKind": "approved", "route": "/home", "businessId": "b1"], opened: false))
     XCTAssertFalse(SystemNotices.shared.receive(["kind": "SOMETHING_NEW", "link": "/home"], opened: true))
   }
+
+  func testPushOpenedOnlyForWellFormedPushId() {
+    XCTAssertTrue(SystemNotices.shared.reportOpened(["pushId": "0f8fad5b-d9cb-469f-a165-70867728950e", "kind": "ANNOUNCEMENT"]))
+    XCTAssertTrue(SystemNotices.shared.reportOpened(["pushId": "0F8FAD5B-D9CB-469F-A165-70867728950E"]))
+    XCTAssertFalse(SystemNotices.shared.reportOpened(["pushId": "x; drop"]))
+    XCTAssertFalse(SystemNotices.shared.reportOpened(["pushId": 7]))
+    XCTAssertFalse(SystemNotices.shared.reportOpened(["kind": "QUOTE_SIGNED"]))
+  }
 }
