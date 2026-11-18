@@ -171,6 +171,93 @@ void main() {
     },
   );
 
+  group('FIXB (tester 2026-11-18: "סיכום יומי לא עובד")', () {
+    test('today is the Israel civil date, whatever the phone\'s zone', () {
+      // 23:30 UTC on 16.11 is already 01:30 on 17.11 in Israel (UTC+2).
+      final lateUtc = DateTime.utc(2026, 11, 16, 23, 30);
+      expect(DailyRange.today(lateUtc).query, {'date': '2026-11-17'});
+      // Summer (UTC+3): 21:30 UTC on 1.7 is 00:30 on 2.7.
+      expect(
+        DailyRange.today(DateTime.utc(2026, 7, 1, 21, 30)).fromIso,
+        '2026-07-02',
+      );
+      expect(DailyRange.week(lateUtc).fromIso, '2026-11-15'); // Sunday
+    });
+
+    test('parses the issued documents (and tolerates an older server)', () {
+      final s = DailySummary.fromJson({
+        ...summaryJson(),
+        'issued': {
+          'count': 3,
+          'byType': [
+            {
+              'documentType': 'TAX_INVOICE',
+              'label': 'חשבונית מס',
+              'count': 2,
+              'totalMinor': '236000',
+            },
+            {
+              'documentType': 'RECEIPT',
+              'label': 'קבלה',
+              'count': 1,
+              'totalMinor': '20000',
+            },
+          ],
+        },
+        'issuedOwnCount': 2,
+      });
+      expect(s.issuedCount, 3);
+      expect(s.issued!.first.totalMinor, BigInt.from(236000));
+      expect(s.issuedOwnCount, 2);
+      final old = DailySummary.fromJson(summaryJson());
+      expect(old.issued, isNull);
+      expect(old.issuedOwnCount, 0);
+    });
+
+    testWidgets('a day of unpaid invoices shows what was issued, not just ₪0', (
+      tester,
+    ) async {
+      serve({
+        ...summaryJson(),
+        'count': 0,
+        'totalMinor': '0',
+        'receipts': <Object>[],
+        'issued': {
+          'count': 2,
+          'byType': [
+            {
+              'documentType': 'TAX_INVOICE',
+              'label': 'חשבונית מס',
+              'count': 2,
+              'totalMinor': '236000',
+            },
+          ],
+        },
+        'issuedOwnCount': 2,
+      });
+      await pumpAs(tester, backend, Preset.owner, const DailySummaryView());
+      expect(find.text(DailySummaryHe.issuedToday), findsOneWidget);
+      expect(find.byKey(const Key('daily-issued-TAX_INVOICE')), findsOneWidget);
+      expect(find.textContaining('(2)'), findsWidgets);
+      expect(find.text(DailySummaryHe.issuedCount(2)), findsOneWidget);
+      // The request asked for today in Israel.
+      expect(backend.last('GET', '/reports/:kind')!.query['date'], isNotNull);
+    });
+
+    testWidgets('cashier: her own issued count, still no amounts', (
+      tester,
+    ) async {
+      serve({
+        ...summaryJson(restricted: true),
+        'issuedOwnCount': 3,
+        'issued': null,
+      });
+      await pumpAs(tester, backend, Preset.cashier, const DailySummaryView());
+      expect(find.text(DailySummaryHe.issuedOwn(3)), findsOneWidget);
+      expect(find.byKey(const Key('daily-issued')), findsNothing);
+    });
+  });
+
   testWidgets('R: the "סיכום יום" card opens the view', (tester) async {
     serve(summaryJson());
     await pumpAs(tester, backend, Preset.owner, const ReportsScreen());

@@ -61,7 +61,7 @@ class _CreateSheetState extends State<CreateSheet> {
             const Key('s1-request'),
             Iconsax.money_send,
             ComposeHe.requestChoice,
-            () => close((c) => openCompose(c, intent: intentRequest)),
+            () => close(openPaymentRequest),
           ),
         if (caps.can(Cap.docDraft))
           _tile(

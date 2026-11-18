@@ -13,6 +13,7 @@ import 'package:invoice/app_shell.dart';
 import 'package:invoice/router.dart';
 import 'package:invoice/screens/activity/activity_screen.dart';
 import 'package:invoice/screens/compose/compose_screen.dart';
+import 'package:invoice/screens/compose/payment_request_screen.dart';
 import 'package:invoice/screens/document/document_screen.dart';
 import 'package:invoice/screens/home/home_controller.dart';
 import 'package:invoice/screens/home/home_screen.dart';
@@ -166,7 +167,7 @@ void main() {
       );
       expect(find.text('שלום, דנה'), findsOneWidget);
       expect(find.byKey(const Key('home-role-tag')), findsNothing);
-      expect(find.text('מגיע לך'), findsOneWidget);
+      expect(find.text('יתרה לגבייה'), findsOneWidget);
       expect(find.text('מתוכם באיחור'), findsOneWidget);
       expect(find.byKey(const Key('intent-paid')), findsOneWidget);
       expect(find.byKey(const Key('intent-request')), findsOneWidget);
@@ -208,6 +209,9 @@ void main() {
       find.byKey(const Key('home-recent-search')),
       240,
     );
+    // The Home search field (2026-11-18) makes the page longer.
+    await tester.ensureVisible(find.byKey(const Key('home-recent-search')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('home-recent-search')));
     await tester.pumpAndSettle();
 
@@ -251,12 +255,11 @@ void main() {
         'PAID',
       );
       await back();
+      // Owner 2026-11-18: בקשת תשלום is its own short form.
       await tester.tap(find.byKey(const Key('intent-request')));
       await tester.pumpAndSettle();
-      expect(
-        tester.widget<ComposeScreen>(find.byType(ComposeScreen)).intent,
-        'REQUEST',
-      );
+      expect(find.byType(PaymentRequestScreen), findsOneWidget);
+      expect(find.byType(ComposeScreen), findsNothing);
       await back();
 
       // J7 first tap: the single approval card opens D on that document.
@@ -433,7 +436,7 @@ void main() {
     'cache first: a later network failure keeps the cached H + offline banner',
     (tester) async {
       final c = await pumpHome(tester, Preset.owner);
-      expect(find.text('מגיע לך'), findsOneWidget);
+      expect(find.text('יתרה לגבייה'), findsOneWidget);
       backend.on(
         'GET',
         '/dashboard',
@@ -453,7 +456,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300)); // banner grows in
       expect(fresh.error?.isNetwork, isTrue);
-      expect(find.text('מגיע לך'), findsOneWidget); // painted from the cache
+      expect(find.text('יתרה לגבייה'), findsOneWidget); // painted from the cache
       expect(find.text('אין חיבור – מציג נתונים אחרונים'), findsOneWidget);
       expect(c.data, isNotNull);
     },
@@ -522,7 +525,7 @@ void main() {
     await pumpHome(tester, Preset.owner);
     expect(find.bySemanticsLabel(RegExp('קיבלתי תשלום')), findsWidgets);
     expect(find.bySemanticsLabel(RegExp('בקש תשלום')), findsWidgets);
-    expect(find.bySemanticsLabel(RegExp('מגיע לך')), findsWidgets);
+    expect(find.bySemanticsLabel(RegExp('יתרה לגבייה')), findsWidgets);
     handle.dispose();
   });
 

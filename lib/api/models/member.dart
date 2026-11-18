@@ -17,6 +17,18 @@ const List<Preset> invitablePresets = [
   Preset.viewer,
 ];
 
+/// 0119 "המסמכים של העסק": view + share grant (owner / partner / accountants
+/// hold it by role).
+const String vaultGrant = 'business_documents:read';
+
+/// Presets whose role does not include [vaultGrant] — the editor offers it.
+bool vaultGrantable(Preset p) =>
+    p == Preset.employee ||
+    p == Preset.employeeIssuer ||
+    p == Preset.officeManager ||
+    p == Preset.cashier ||
+    p == Preset.viewer;
+
 /// Server role + explicit grants for a preset (P0, §4.3; BE-41 sends both).
 /// [issuer] only matters for [Preset.employee] ("מפיק בעצמו").
 (String role, List<String> grants) presetToServer(
@@ -56,6 +68,11 @@ Preset presetOf(String role, List<String> grants) => Caps.fromMe(
 
 /// True when [grants] are not exactly what [presetOf] implies (§12.4 "מותאם אישית").
 bool hasCustomGrants(String role, List<String> grants) {
+  // 0119: "צפייה במסמכי העסק" is a toggle on top of any preset, not a custom set.
+  grants = [
+    for (final g in grants)
+      if (g != vaultGrant) g,
+  ];
   final base = (rolePermissionsFallback[role] ?? const <String>[]).toSet();
   // ACCOUNTANT_REP (BE-04) already holds the accountant grants in its role.
   final expected = presetToServer(

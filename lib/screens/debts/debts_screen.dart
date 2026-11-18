@@ -480,7 +480,7 @@ class _DebtorCard extends StatelessWidget {
                 dense: true,
                 leading: const Icon(Iconsax.document_text, size: 20),
                 title: Text(
-                  ReminderHe.documentLine(doc.documentType, doc.documentNumber),
+                  DebtsHe.documentLine(doc.documentType, doc.documentNumber),
                 ),
                 subtitle: Text(
                   doc.overdueDays > 0

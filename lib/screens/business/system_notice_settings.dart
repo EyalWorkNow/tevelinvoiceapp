@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
+
+import '../../router.dart' show BusinessSection, openBusinessSection;
+import '../../util/labels/notifications_he.dart';
 
 import '../../state/system_notices.dart';
 import '../../util/labels/system_notices_he.dart';
@@ -81,6 +85,14 @@ class _SystemNoticeSettingsState extends State<SystemNoticeSettings> {
             Text(SystemNoticesHe.testLocalHint, style: AppText.secondary),
             if (systemNotices.enabled && systemNotices.deliveryConfigured)
               const Text(SystemNoticesHe.deliveryReady),
+            const SizedBox(height: Space.s),
+            BusinessRow(
+              key: const Key('system-notices-prefs'),
+              label: NotificationPrefsHe.row,
+              value: NotificationPrefsHe.rowHint,
+              icon: Iconsax.setting_4,
+              onTap: () => openBusinessSection(context, BusinessSection.alerts),
+            ),
             const SizedBox(height: Space.l),
             const Text(SystemNoticesHe.outside, style: AppText.body),
             const SizedBox(height: Space.s),

@@ -214,6 +214,7 @@ class ApiClient {
     Uint8List bytes,
     String contentType, {
     Map<String, String>? query,
+    String? filename,
   }) async {
     final response = await _send(
       'POST',
@@ -221,6 +222,9 @@ class ApiClient {
       bytes: bytes,
       contentType: contentType,
       query: query,
+      extraHeaders: {
+        if (filename != null) 'X-Filename': Uri.encodeComponent(filename),
+      },
     );
     return await _decode(response);
   }
@@ -464,6 +468,11 @@ const Set<String> businessScopedMobilePaths = {
   '/mobile/inbox',
   '/mobile/web-handoff',
   '/mobile/push-tokens',
+  // Home bell + search (tester feedback 2026-11-18).
+  '/mobile/notifications',
+  '/mobile/notifications/unread-count',
+  '/mobile/notifications/read',
+  '/mobile/search',
 };
 
 bool sendsBusinessHeader(String path) {

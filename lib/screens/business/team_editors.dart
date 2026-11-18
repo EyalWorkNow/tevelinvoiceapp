@@ -141,13 +141,27 @@ EditorConfig memberEditor(
         hint: TeamHe.more,
       ),
       _issuerField(initial: current == Preset.employeeIssuer),
+      // 0119: view + send the business's own certificates (not by role).
+      EditorField(
+        key: 'vault',
+        label: VaultHe.permission,
+        kind: FieldKind.toggle,
+        initial: m.grants.contains(vaultGrant),
+        hint: VaultHe.permissionHint,
+        visibleWhen: (v) => vaultGrantable(_preset(v['preset'])),
+      ),
     ],
     onSave: (v) async {
       final p = _preset(v['preset']);
       if (p == Preset.accountantFull) {
         return; // existing tag kept as is (§19 q2)
       }
-      await saveMemberPreset(m, p, issuer: v.flag('issuer'));
+      await saveMemberPreset(
+        m,
+        p,
+        issuer: v.flag('issuer'),
+        vault: v.flag('vault'),
+      );
     },
     more: [
       if (canTransfer)

@@ -15,6 +15,7 @@ import 'package:invoice/app_shell.dart';
 import 'package:invoice/router.dart';
 import 'package:invoice/screens/activity/activity_screen.dart';
 import 'package:invoice/screens/compose/compose_screen.dart';
+import 'package:invoice/screens/compose/payment_request_screen.dart';
 import 'package:invoice/screens/document/document_screen.dart';
 import 'package:invoice/screens/document/sheets/s6_share.dart'
     show ShareSheet, textSharer;
@@ -337,10 +338,9 @@ void main() {
     expect(find.text('עוד אין מסמכים'), findsOneWidget);
     await tester.tap(find.text('בקש תשלום'));
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<ComposeScreen>(find.byType(ComposeScreen)).intent,
-      'REQUEST',
-    );
+    // Owner 2026-11-18: בקשת תשלום is its own short form.
+    expect(find.byType(PaymentRequestScreen), findsOneWidget);
+    expect(find.byType(ComposeScreen), findsNothing);
   });
 
   testWidgets('empty for צפייה בלבד has no button (F5)', (tester) async {

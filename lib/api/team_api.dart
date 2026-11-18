@@ -179,11 +179,17 @@ Future<void> saveMemberPreset(
   TeamMember member,
   Preset preset, {
   bool issuer = false,
+  bool vault = false,
 }) async {
+  (String, List<String>) withVault((String, List<String>) t) =>
+      vault && vaultGrantable(preset) ? (t.$1, [...t.$2, vaultGrant]) : t;
   await _withRepFallback(
     preset,
     () => saveMemberRole(member, accountantRepTarget),
-    () => saveMemberRole(member, presetToServer(preset, issuer: issuer)),
+    () => saveMemberRole(
+      member,
+      withVault(presetToServer(preset, issuer: issuer)),
+    ),
   );
 }
 

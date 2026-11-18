@@ -253,24 +253,6 @@ class _PeopleScreenState extends State<PeopleScreen> {
                       ),
                     ),
                   ),
-                  if (_canAdd)
-                    TextButton.icon(
-                      key: const Key('people-add'),
-                      onPressed: _add,
-                      icon: const Icon(
-                        Icons.person_add_alt_1_rounded,
-                        size: 19,
-                      ),
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(Hit.min, Hit.min),
-                        textStyle: AppText.button,
-                      ),
-                      label: Text(
-                        _chip == PeopleChip.suppliers
-                            ? PeopleHe.addSupplier
-                            : PeopleHe.addCustomer,
-                      ),
-                    ),
                   if (_canImport)
                     // Header-sized "⋯" (the shared MoreMenu button is 46pt and
                     // would push P's list when the keyboard is up).
@@ -309,6 +291,32 @@ class _PeopleScreenState extends State<PeopleScreen> {
                 ],
               ),
             ),
+            // Tester 2026-11-18: a clear, full-width "+ לקוח חדש" right
+            // under the title (was a small text link in the corner).
+            if (_canAdd)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Space.page,
+                  0,
+                  Space.page,
+                  Space.m,
+                ),
+                child: FilledButton.icon(
+                  key: const Key('people-add'),
+                  onPressed: _add,
+                  icon: const Icon(Iconsax.user_add, size: 20),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    shape: const StadiumBorder(),
+                    textStyle: AppText.button,
+                  ),
+                  label: Text(
+                    _chip == PeopleChip.suppliers
+                        ? PeopleHe.addSupplier
+                        : PeopleHe.addCustomer,
+                  ),
+                ),
+              ),
             OfflineBanner(
               visible: _offline || businessContext.offline,
               onRetry: _load,
@@ -413,6 +421,11 @@ class _PeopleScreenState extends State<PeopleScreen> {
           title: _chip == PeopleChip.debtors
               ? PeopleHe.emptyDebtors
               : PeopleHe.noMatches,
+          // Not found → add them right here (tester 2026-11-18).
+          actionLabel: _chip != PeopleChip.debtors && _canAdd
+              ? PeopleHe.addCustomer
+              : null,
+          onAction: _chip != PeopleChip.debtors && _canAdd ? _add : null,
         ),
       );
     }

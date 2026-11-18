@@ -63,6 +63,7 @@ class ComposeScreen extends StatefulWidget {
     this.draftId,
     this.prefillAmountMinor,
     this.prefillDescription,
+    this.prefillNotes,
     this.onIssued,
   });
 
@@ -76,6 +77,9 @@ class ComposeScreen extends StatefulWidget {
   /// with, and the issued document's id once it is issued (closes the entry).
   final BigInt? prefillAmountMinor;
   final String? prefillDescription;
+
+  /// בקשת תשלום → "עריכה מתקדמת": the note to the customer typed there.
+  final String? prefillNotes;
   final ValueChanged<String>? onIssued;
 
   @override
@@ -183,6 +187,8 @@ class _ComposeScreenState extends State<ComposeScreen> {
       s.description = description;
       s.descriptionTouched = true;
     }
+    final notes = widget.prefillNotes?.trim() ?? '';
+    if (notes.isNotEmpty) s.notes = notes;
   }
 
   /// True once this Composer is the top route again (a dialog or screen
