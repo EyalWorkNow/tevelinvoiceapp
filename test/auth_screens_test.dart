@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -25,6 +26,8 @@ import 'package:invoice/state/session.dart';
 import 'package:invoice/ui/theme.dart';
 import 'package:invoice/util/biometric.dart';
 import 'package:local_auth/local_auth.dart';
+
+import 'fakes/fake_launcher.dart';
 
 Widget app(
   Widget home, {
@@ -129,22 +132,25 @@ void main() {
   });
 
   testWidgets(
-    'login: Apple first, no Google (needs Firebase), local validation',
+    'login: e-mail + password only — no Apple / Google / sign-up; validation',
     (tester) async {
       phone(tester);
       for (final b in Brightness.values) {
         await tester.pumpWidget(
           app(const LoginScreen(sessionExpired: true), brightness: b),
         );
-        expect(find.text('המשך עם Apple'), findsOneWidget);
-        expect(find.text('המשך עם Google'), findsNothing);
+        // Owner 2026-11-18: only accounts the Tevel team opened can sign in.
+        expect(find.textContaining('Apple'), findsNothing);
+        expect(find.textContaining('Google'), findsNothing);
+        expect(find.textContaining('צור חשבון'), findsNothing);
+        expect(find.textContaining('הרשמה'), findsNothing);
+        expect(find.text('אימייל'), findsOneWidget);
+        expect(find.text('סיסמה'), findsOneWidget);
+        expect(find.text('שכחתי סיסמה'), findsOneWidget);
+        expect(find.text('אין לך חשבון? דברו איתנו'), findsOneWidget);
         expect(find.text('פג תוקף ההתחברות — נא להיכנס שוב'), findsOneWidget);
         expect(find.text('לתנאי השימוש'), findsOneWidget);
         expect(find.text('ולמדיניות הפרטיות'), findsOneWidget);
-        expect(
-          tester.getTopLeft(find.text('המשך עם Apple')).dy,
-          lessThan(tester.getTopLeft(find.text('כניסה')).dy),
-        );
         expect(tester.takeException(), isNull);
       }
       await tester.enterText(find.byType(TextField).first, 'not-an-email');
@@ -155,6 +161,103 @@ void main() {
       expect(sent, isEmpty);
     },
   );
+
+  testWidgets(
+    '"אין לך חשבון? דברו איתנו" → WhatsApp (prefilled) or e-mail to Tevel',
+    (tester) async {
+      phone(tester);
+      final launcher = FakeLauncher()..install();
+      addTearDown(FakeLauncher.uninstall);
+      await tester.pumpWidget(app(const LoginScreen()));
+      final cta = find.byKey(const Key('no-account-cta'));
+      await tester.ensureVisible(cta);
+      await tester.tap(cta);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('contact-tevel-sheet')), findsOneWidget);
+      expect(find.textContaining('אחרי שיחה קצרה'), findsOneWidget);
+      expect(find.text('053-932-8311 · help@tevel.space'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('contact-whatsapp')));
+      await tester.pump();
+      final wa = launcher.last!;
+      expect(wa.host, 'wa.me');
+      expect(wa.path, '/972539328311');
+      expect(wa.queryParameters['text'], contains('לפתוח חשבון'));
+
+      await tester.tap(find.byKey(const Key('contact-email')));
+      await tester.pump();
+      final mail = launcher.last!;
+      expect(mail.scheme, 'mailto');
+      expect(mail.path, 'help@tevel.space');
+      expect(Uri.decodeComponent(mail.query), contains('פתיחת חשבון בתבל'));
+      expect(launcher.inApp, isEmpty);
+      expect(sent, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'first sign-in: a gentle, optional "החלף סיסמה" — once per account',
+    (tester) async {
+      phone(tester);
+      session
+        ..status = SessionStatus.signedIn
+        ..business = Business.fromJson({
+          'businessId': 'b1',
+          'legalName': 'סטודיו תבל',
+          'role': 'OWNER',
+        });
+      await tester.pumpWidget(app(const Scaffold(body: Text('בית'))));
+
+      unawaited(suggestPasswordChange('New.Owner@tevel.test'));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('password-change-suggestion')),
+        findsOneWidget,
+      );
+      expect(find.text('רוצה לבחור סיסמה משלך?'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('password-change-later')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('password-change-suggestion')), findsNothing);
+      expect(find.text('בית'), findsOneWidget); // never blocks
+
+      // Same account again (any case) → not asked twice.
+      unawaited(suggestPasswordChange('new.owner@tevel.test'));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('password-change-suggestion')), findsNothing);
+
+      // Another account: "החלף סיסמה" opens the reset flow for that e-mail.
+      unawaited(suggestPasswordChange('second@tevel.test'));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('password-change-accept')));
+      await tester.pumpAndSettle();
+      expect(find.text('איפוס סיסמה'), findsOneWidget);
+      expect(find.text('second@tevel.test'), findsOneWidget);
+      expect(sent, isEmpty);
+    },
+  );
+
+  testWidgets('no suggestion while signed in without a business', (
+    tester,
+  ) async {
+    phone(tester);
+    session.status = SessionStatus.signedIn;
+    await tester.pumpWidget(app(const NoBusinessScreen()));
+    unawaited(suggestPasswordChange('x@tevel.test'));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('password-change-suggestion')), findsNothing);
+  });
 
   testWidgets('login error shows Hebrew message inline', (tester) async {
     phone(tester);
@@ -715,6 +818,19 @@ void main() {
       find.text('פתיחה בדפדפן'),
       findsNothing,
     ); // F6: no browser for a business action
+    // Owner 2026-11-18: never a self-registration path, only "we'll be back".
+    expect(find.text('החשבון שלך עוד בהקמה — נחזור אליך'), findsOneWidget);
+    expect(find.text('המשך במחשב'), findsNothing);
+    expect(find.byType(OnboardingScreen), findsNothing);
+    final contact = find.byKey(const Key('no-business-contact'));
+    await tester.ensureVisible(contact);
+    await tester.tap(contact);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('contact-tevel-sheet')), findsOneWidget);
+    Navigator.of(
+      tester.element(find.byKey(const Key('contact-tevel-sheet'))),
+    ).pop();
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('מחק חשבון'));
     await tester.tap(find.text('מחק חשבון'));
     await tester.pumpAndSettle();

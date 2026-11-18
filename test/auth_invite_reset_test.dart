@@ -119,13 +119,6 @@ Future<void> settle(WidgetTester tester) async {
 
 const strongPassword = 'Strong-Pass-2026!';
 
-/// The Apple button sits below the password form (ListView builds lazily).
-Future<void> showApple(WidgetTester tester) => tester.scrollUntilVisible(
-  find.byKey(const Key('invite-apple')),
-  200,
-  scrollable: find.byType(Scrollable).first,
-);
-
 void main() {
   late Directory tmp;
 
@@ -149,7 +142,6 @@ void main() {
 
   tearDown(() {
     supabaseAuth = SupabaseAuthApi();
-    appleCredential = requestAppleCredential;
   });
 
   group('invitation links', () {
@@ -335,8 +327,9 @@ void main() {
         await settle(tester);
         expect(find.text('הוזמנת ל-סטודיו תבל כעובד'), findsOneWidget);
         expect(find.textContaining(invited), findsOneWidget);
-        await showApple(tester);
-        expect(find.text('המשך עם Apple'), findsOneWidget);
+        // Owner 2026-11-18: password accounts only, no Apple / Google.
+        expect(find.text('המשך עם Apple'), findsNothing);
+        expect(find.byKey(const Key('invite-apple')), findsNothing);
 
         // Local policy first: nothing is sent.
         await tester.enterText(
@@ -480,26 +473,25 @@ void main() {
       'e-mail mismatch says both addresses; the invitation stays open',
       (tester) async {
         phone(tester);
-        appleCredential = () async =>
-            (identityToken: 'apple-jwt', fullName: '');
         serve({
           ...preview(),
+          'POST /auth/v1/token': reply(200, {'access_token': 'old-jwt'}),
           'POST /auth/invite/$inviteToken/accept': reply(403, {
             'error': 'INVITATION_EMAIL_MISMATCH',
-            'signedInEmail': 'x1@privaterelay.appleid.com',
+            'signedInEmail': 'other@tevel.test',
           }),
         });
         await tester.pumpWidget(app(const InviteScreen(token: inviteToken)));
         await settle(tester);
-        await showApple(tester);
-        await tester.tap(find.byKey(const Key('invite-apple')));
+        await tester.enterText(
+          find.byKey(const Key('invite-password')),
+          strongPassword,
+        );
+        await tester.tap(find.byKey(const Key('invite-join')));
         await settle(tester);
-        expect(bodyOf('/auth/invite/$inviteToken/accept'), {
-          'appleIdentityToken': 'apple-jwt',
-        });
         expect(
           find.textContaining(
-            'ההזמנה נשלחה ל-${ltrIsolate(invited)}, התחברת כ-${ltrIsolate('x1@privaterelay.appleid.com')}',
+            'ההזמנה נשלחה ל-${ltrIsolate(invited)}, התחברת כ-${ltrIsolate('other@tevel.test')}',
           ),
           findsOneWidget,
         );

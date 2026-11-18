@@ -8,7 +8,8 @@ import 'supabase_auth.dart';
 
 final _api = ApiClient.instance;
 
-/// Answer of /auth/login, /auth/apple, /auth/google.
+/// Answer of /auth/login and /auth/supabase (password accounts only:
+/// Apple / Google sign-in was removed, owner 2026-11-18).
 class SignInResult {
   const SignInResult({required this.mfaRequired, required this.businesses});
 
@@ -49,28 +50,6 @@ Future<SignInResult> signInWithPassword(String email, String password) async {
 Future<SignInResult> signInWithSupabase(String accessToken) async {
   _freshCookiePhase();
   final json = await _api.post('/auth/supabase', {'accessToken': accessToken});
-  return SignInResult.fromJson(json);
-}
-
-/// CONTRACT A. [fullName] only exists on the very first Apple authorisation.
-Future<SignInResult> signInWithApple(
-  String identityToken, {
-  String? fullName,
-}) async {
-  _freshCookiePhase();
-  final json = await _api.post('/auth/apple', {
-    'identityToken': identityToken,
-    if (fullName != null && fullName.trim().isNotEmpty)
-      'fullName': fullName.trim(),
-  });
-  return SignInResult.fromJson(json);
-}
-
-/// POST /auth/google. NOTE: the server verifies a *Firebase* ID token
-/// (iss `securetoken.google.com/<project>`); see the auth squad report.
-Future<SignInResult> signInWithGoogle(String idToken) async {
-  _freshCookiePhase();
-  final json = await _api.post('/auth/google', {'idToken': idToken});
   return SignInResult.fromJson(json);
 }
 
@@ -178,8 +157,7 @@ Future<InvitationPreview> fetchInvitation(String token) async =>
 /// POST /auth/invite/:token/accept → a cookie session (not MFA-satisfied
 /// yet); the caller continues with finishSignIn. One proof of the invited
 /// e-mail: a Supabase access token (+ [password]: the new account's password,
-/// or an existing account's current Tevel password), an Apple identity token,
-/// or only [password] (the Tevel password; builds without Supabase).
+/// or an existing account's current Tevel password), or only [password] (the Tevel password; builds without Supabase).
 /// Errors: INVALID_CREDENTIALS, PASSWORD_POLICY, MEMBER_EXISTS, INVITATION_*,
 /// INVITATION_EMAIL_MISMATCH (+ `signedInEmail`), SUPABASE_EMAIL_NOT_CONFIRMED.
 Future<void> acceptInvitation(
@@ -187,13 +165,11 @@ Future<void> acceptInvitation(
   String? password,
   String? displayName,
   String? supabaseAccessToken,
-  String? appleIdentityToken,
 }) async {
   _freshCookiePhase();
   await _api.post('/auth/invite/$token/accept', {
     'password': ?password,
     'supabaseAccessToken': ?supabaseAccessToken,
-    'appleIdentityToken': ?appleIdentityToken,
     if (displayName != null && displayName.trim().isNotEmpty)
       'displayName': displayName.trim(),
   });

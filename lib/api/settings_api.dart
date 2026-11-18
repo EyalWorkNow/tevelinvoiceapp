@@ -194,17 +194,9 @@ Future<void> logoutAllDevices() async {
 
 const _appleSignInKey = 'apple_sign_in_used';
 
-/// Remembers on this device that the account signed in with Apple, so account
-/// deletion asks for an Apple authorization code (token revocation, 5.1.1(v)).
-Future<void> rememberAppleSignIn() async {
-  try {
-    await _prefs.write(key: _appleSignInKey, value: '1');
-  } on Object {
-    // Best effort: deletion still offers the Apple step.
-  }
-}
-
-/// True when this device signed in with Apple at least once.
+/// True when this device signed in with Apple at least once (builds ≤ 18;
+/// Apple sign-in is gone, but such an account's deletion still revokes the
+/// Apple grant, 5.1.1(v)).
 Future<bool> usedAppleSignIn() async {
   try {
     return await _prefs.read(key: _appleSignInKey) == '1';

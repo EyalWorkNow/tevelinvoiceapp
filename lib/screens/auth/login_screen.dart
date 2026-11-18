@@ -1,73 +1,37 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../api/auth_api.dart';
 import '../../api/client.dart';
 import '../../api/supabase_auth.dart';
-import '../../api/settings_api.dart' show rememberAppleSignIn;
+import '../../router.dart' show navigatorKey;
+import '../../state/session.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets/big_button.dart';
 import '../../ui/widgets/error_view.dart';
 import '../../ui/widgets/sheet.dart';
 import '../../util/allowed_urls.dart';
 import 'auth_flow.dart';
+import 'contact_tevel.dart';
 import 'password_recovery.dart';
 import '../../util/labels/labels.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
-enum _Busy { none, apple, password }
+enum _Busy { none, password }
 
-/// A native Apple sign-in: the identity token for the server, plus the name
-/// Apple sends only on the very first authorisation ('' otherwise).
-typedef AppleCredential = ({String identityToken, String fullName});
-
-/// Apple sign-in did not complete; [messageHe] says why.
-class AppleSignInFailure implements Exception {
-  const AppleSignInFailure(this.messageHe);
-
-  final String messageHe;
-}
-
-/// The system Apple sheet. Null when the user cancelled it.
-Future<AppleCredential?> requestAppleCredential() async {
-  final AuthorizationCredentialAppleID cred;
-  try {
-    cred = await SignInWithApple.getAppleIDCredential(
-      scopes: [
-        AppleIDAuthorizationScopes.email,
-        AppleIDAuthorizationScopes.fullName,
-      ],
-    );
-  } on SignInWithAppleAuthorizationException catch (e) {
-    if (e.code == AuthorizationErrorCode.canceled) return null;
-    throw const AppleSignInFailure('הכניסה עם Apple לא הושלמה — נסו שוב');
-  } on SignInWithAppleException {
-    throw const AppleSignInFailure('הכניסה עם Apple לא זמינה במכשיר הזה');
-  }
-  final token = cred.identityToken;
-  if (token == null) {
-    throw const AppleSignInFailure('הכניסה עם Apple לא הושלמה — נסו שוב');
-  }
-  final name = [
-    cred.givenName,
-    cred.familyName,
-  ].whereType<String>().where((s) => s.trim().isNotEmpty).join(' ');
-  return (identityToken: token, fullName: name);
-}
-
-/// Login and invitation screens ask through this (tests replace it).
-Future<AppleCredential?> Function() appleCredential = requestAppleCredential;
-
-/// S1 · Sign-in: Apple, email+password, forgot password.
+/// S1 · Sign-in: e-mail + password and "שכחתי סיסמה" only.
 ///
-/// No Google button yet: POST /auth/google accepts only a Firebase ID token,
-/// so it needs firebase_core + firebase_auth (signInWithCredential →
-/// getIdToken), GoogleService-Info.plist and the reversed-client-id URL scheme
-/// in Info.plist (APP-STORE.md checklist #10). `signInWithGoogle` in
-/// auth_api.dart is ready for that token.
-/// [sessionExpired] shows 'פג תוקף ההתחברות'. On success: MFA if needed →
-/// `session.completeSignIn()` → route (G2 / S2 / home).
+/// Every account is opened by the Tevel team after a short conversation
+/// (admin console → "משתמש חדש": confirmed Supabase user, a password the
+/// team sets, and the business). So there is no Apple / Google sign-in and
+/// no self sign-up here; people without an account get "אין לך חשבון?
+/// דברו איתנו" (WhatsApp / e-mail). [sessionExpired] shows 'פג תוקף
+/// ההתחברות'. On success: MFA if needed → `session.completeSignIn()` → route
+/// (G2 / S2 / home), then once per account on this device a gentle,
+/// optional "החלף סיסמה" suggestion (the first password was set for them).
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
     super.key,
@@ -110,8 +74,9 @@ class _LoginScreenState extends State<LoginScreen> {
   /// [SignInResult] (null = the user cancelled the system sheet).
   Future<void> _run(
     _Busy which,
-    Future<SignInResult?> Function() attempt,
-  ) async {
+    Future<SignInResult?> Function() attempt, {
+    bool typedPassword = false,
+  }) async {
     if (_busy != _Busy.none) return;
     FocusScope.of(context).unfocus();
     setState(() {
@@ -119,32 +84,19 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
+      final email = _email.text.trim();
       final result = await attempt();
       if (result == null || !mounted) return;
-      await finishSignIn(context, result);
+      final signedIn = await finishSignIn(context, result);
+      if (signedIn && typedPassword) {
+        unawaited(suggestPasswordChange(email));
+      }
     } on ApiException catch (e) {
       HapticFeedback.heavyImpact();
       if (mounted) setState(() => _error = e.messageHe);
     } finally {
       if (mounted) setState(() => _busy = _Busy.none);
     }
-  }
-
-  Future<SignInResult?> _apple() async {
-    final AppleCredential? cred;
-    try {
-      cred = await appleCredential();
-    } on AppleSignInFailure catch (e) {
-      _localError(e.messageHe);
-      return null;
-    }
-    if (cred == null) return null;
-    final result = await signInWithApple(
-      cred.identityToken,
-      fullName: cred.fullName,
-    );
-    await rememberAppleSignIn(); // account deletion must then revoke the Apple grant
-    return result;
   }
 
   Future<SignInResult?> _withPassword() async {
@@ -169,12 +121,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _appleTap() {
-    if (_busy != _Busy.none) return;
-    HapticFeedback.lightImpact();
-    _run(_Busy.apple, _apple);
-  }
-
   void _localError(String message) {
     HapticFeedback.heavyImpact();
     if (mounted) setState(() => _error = message);
@@ -183,7 +129,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final dark = Theme.of(context).brightness == Brightness.dark;
     final idle = _busy == _Busy.none;
     return Scaffold(
       body: SafeArea(
@@ -240,45 +185,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                   const SizedBox(height: Space.xl),
-                  Semantics(
-                    button: true,
-                    label: 'המשך עם Apple',
-                    excludeSemantics: true,
-                    onTap: idle ? _appleTap : null,
-                    child: SizedBox(
-                      height: Hit.bigButton,
-                      child: _busy == _Busy.apple
-                          ? _ProviderSpinner(dark: !dark)
-                          : SignInWithAppleButton(
-                              text: 'המשך עם Apple',
-                              height: Hit.bigButton,
-                              style: dark
-                                  ? SignInWithAppleButtonStyle.white
-                                  : SignInWithAppleButtonStyle.black,
-                              borderRadius: const BorderRadius.all(
-                                Radius.circular(Radii.button),
-                              ),
-                              onPressed: _appleTap,
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: Space.xl),
-                  Row(
-                    children: [
-                      const Expanded(child: Divider()),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: Space.m,
-                        ),
-                        child: Text(
-                          'או',
-                          style: AppText.caption.copyWith(color: p.muted),
-                        ),
-                      ),
-                      const Expanded(child: Divider()),
-                    ],
-                  ),
-                  const SizedBox(height: Space.xl),
                   TextField(
                     controller: _email,
                     enabled: idle,
@@ -305,7 +211,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     textInputAction: TextInputAction.go,
                     autofillHints: const [AutofillHints.password],
                     textDirection: TextDirection.ltr,
-                    onSubmitted: (_) => _run(_Busy.password, _withPassword),
+                    onSubmitted: (_) => _run(
+                      _Busy.password,
+                      _withPassword,
+                      typedPassword: true,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'סיסמה',
                       suffixIcon: IconButton(
@@ -339,10 +249,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     label: AuthHe.signIn,
                     loading: _busy == _Busy.password,
                     onPressed: idle
-                        ? () => _run(_Busy.password, _withPassword)
+                        ? () => _run(
+                            _Busy.password,
+                            _withPassword,
+                            typedPassword: true,
+                          )
                         : null,
                   ),
-                  const SizedBox(height: Space.xl),
+                  const SizedBox(height: Space.l),
+                  const NoAccountCta(),
+                  const SizedBox(height: Space.l),
                   const _LegalLinks(),
                 ],
               ),
@@ -389,29 +305,6 @@ class TevelLogo extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ProviderSpinner extends StatelessWidget {
-  const _ProviderSpinner({required this.dark});
-
-  final bool dark;
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: dark ? Colors.black : Colors.white,
-      borderRadius: BorderRadius.circular(Radii.button),
-    ),
-    child: Center(
-      child: SizedBox.square(
-        dimension: 22,
-        child: CircularProgressIndicator(
-          strokeWidth: 2.5,
-          color: dark ? Colors.white : Colors.black,
-        ),
-      ),
-    ),
-  );
 }
 
 class _Notice extends StatelessWidget {
@@ -589,5 +482,68 @@ class _ForgotPasswordState extends State<_ForgotPassword> {
         ),
       ],
     );
+  }
+}
+
+/// Key of "the change-password suggestion was shown" for [email].
+String _suggestedKey(String email) =>
+    'password_change_suggested:${email.trim().toLowerCase()}';
+
+const _suggestPrefs = FlutterSecureStorage(
+  iOptions: IOSOptions(
+    accessibility: KeychainAccessibility.first_unlock_this_device,
+  ),
+);
+
+/// After a password sign-in, once per account on this device: the Tevel team
+/// set that first password, so suggest (never require) a password of their
+/// own. "החלף סיסמה" runs the "שכחתי סיסמה" flow without signing in again
+/// (a code by e-mail → new password). The server has no "must change
+/// password" flag; this is the gentle alternative.
+Future<void> suggestPasswordChange(String email) async {
+  if (email.isEmpty) return;
+  try {
+    if (await _suggestPrefs.read(key: _suggestedKey(email)) == '1') return;
+    await _suggestPrefs.write(key: _suggestedKey(email), value: '1');
+  } on Object {
+    return; // no storage → never nag on every sign-in
+  }
+  await WidgetsBinding.instance.endOfFrame;
+  final context = navigatorKey.currentContext;
+  if (context == null ||
+      !context.mounted ||
+      session.status != SessionStatus.signedIn ||
+      session.business == null) {
+    return;
+  }
+  final change = await showAppSheet<bool>(
+    context,
+    builder: (sheet) => Column(
+      key: const Key('password-change-suggestion'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Icon(Iconsax.key, size: 48, color: sheet.palette.info),
+        const SizedBox(height: Space.l),
+        const SheetTitle(
+          AuthHe.suggestPasswordTitle,
+          subtitle: AuthHe.suggestPasswordBody,
+        ),
+        BigButton(
+          key: const Key('password-change-accept'),
+          label: AuthHe.changePassword,
+          onPressed: () => Navigator.of(sheet).pop(true),
+        ),
+        const SizedBox(height: Space.s),
+        TextButton(
+          key: const Key('password-change-later'),
+          onPressed: () => Navigator.of(sheet).pop(false),
+          child: const Text(AuthHe.notNow),
+        ),
+      ],
+    ),
+  );
+  final now = navigatorKey.currentContext;
+  if (change == true && now != null && now.mounted) {
+    await showForgotPasswordSheet(now, email, signIn: false);
   }
 }

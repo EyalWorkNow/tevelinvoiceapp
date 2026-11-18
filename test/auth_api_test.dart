@@ -78,35 +78,6 @@ void main() {
     expect(r.businesses.single.legalName, 'סטודיו');
   });
 
-  test('Apple sends identityToken, fullName only when present', () async {
-    respond(200, {
-      'status': 'PASSWORD_OK',
-      'mfaRequired': false,
-      'csrfToken': 'c',
-      'businesses': [],
-    });
-    await signInWithApple('jwt', fullName: ' דנה כהן ');
-    expect(jsonDecode(sent.last.body), {
-      'identityToken': 'jwt',
-      'fullName': 'דנה כהן',
-    });
-    await signInWithApple('jwt', fullName: '  ');
-    expect(jsonDecode(sent.last.body), {'identityToken': 'jwt'});
-    expect(sent.last.url.path, '/auth/apple');
-  });
-
-  test('Apple errors map to Hebrew', () async {
-    respond(401, {'error': 'APPLE_TOKEN_INVALID', 'message': 'x'});
-    await expectLater(
-      signInWithApple('bad'),
-      throwsA(
-        isA<ApiException>()
-            .having((e) => e.code, 'code', 'APPLE_TOKEN_INVALID')
-            .having((e) => e.messageHe, 'he', contains('Apple')),
-      ),
-    );
-  });
-
   test('MFA methods: e-mail preferred, TOTP fallback', () async {
     respond(200, {
       'totp': false,

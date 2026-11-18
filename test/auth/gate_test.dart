@@ -39,8 +39,8 @@ void main() {
       expect(find.text('יש לי סיסמה'), findsOneWidget);
       expect(find.text('שכחתי סיסמה'), findsOneWidget);
       expect(find.byType(PrimaryButton), findsOneWidget);
-      // AUTH-INVITE-RESET: /accept takes an Apple identity token too.
-      expect(find.text('המשך עם Apple'), findsOneWidget);
+      // Owner 2026-11-18: password accounts only, no Apple / Google.
+      expect(find.text('המשך עם Apple'), findsNothing);
     },
   );
 
@@ -206,11 +206,98 @@ void main() {
       await settle(tester);
     }
 
-    testWidgets('owner → setup', (tester) async {
+    testWidgets('owner, setup the server refuses → the setup wizard', (
+      tester,
+    ) async {
+      backend.error('PUT', '/business/onboarding', 422, 'VALIDATION');
       await route(tester, Preset.owner);
       expect(find.byType(OnboardingScreen), findsOneWidget);
       // identityLocked fixture: documents exist → the name step only.
       expect(find.text('סיימתי'), findsOneWidget);
+    });
+
+    testWidgets(
+      'owner of a business the Tevel team opened (name + tax id, step 1) → '
+      'setup marked done, never the registration wizard',
+      (tester) async {
+        // The plan gate is shown once per business per launch.
+        addTearDown(PlanPrompts.reset);
+        addTearDown(resetSignInRouting);
+        backend.json('PUT', '/business/onboarding', {
+          'onboarding': {'completed': true, 'step': 1},
+        });
+        backend.json('GET', '/billing/subscription', {
+          'active': false,
+          'needsPlan': true,
+          'usedInvoices': 0,
+          'subscription': null,
+        });
+        phone(tester);
+        await tester.runAsync(() => signInAs(backend, Preset.owner));
+        backend.json(
+          'GET',
+          '/me',
+          meJson(Preset.owner, onboardingCompleted: false),
+        );
+        await tester.runAsync(session.refreshBusiness);
+        expect(session.me!.onboardingCompleted, isFalse);
+        // After the completion /me says done.
+        backend.json('GET', '/me', meJson(Preset.owner));
+        await tester.pumpWidget(
+          eApp(
+            Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => routeSignedIn(context),
+                  child: const Text('go'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('go'));
+        await settle(tester);
+        expect(backend.last('PUT', '/business/onboarding')!.body, {
+          'completed': true,
+        });
+        expect(find.byType(OnboardingScreen), findsNothing);
+        expect(session.me!.onboardingCompleted, isTrue);
+        // On to the next gate (no plan yet), not the wizard.
+        expect(find.byType(RequiredSubscriptionScreen), findsOneWidget);
+      },
+    );
+
+    testWidgets('owner, no tax id yet → the wizard, nothing completed', (
+      tester,
+    ) async {
+      phone(tester);
+      final profile = profileJson(identityLocked: false);
+      (profile['profile'] as Map<String, dynamic>)['taxId'] = null;
+      await tester.runAsync(
+        () => signInAs(backend, Preset.owner, profile: profile),
+      );
+      backend.json(
+        'GET',
+        '/me',
+        meJson(Preset.owner, onboardingCompleted: false),
+      );
+      await tester.runAsync(session.refreshBusiness);
+      await tester.pumpWidget(
+        eApp(
+          Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => routeSignedIn(context),
+                child: const Text('go'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('go'));
+      await settle(tester);
+      expect(backend.calls('PUT', '/business/onboarding'), isEmpty);
+      expect(find.byType(OnboardingScreen), findsOneWidget);
     });
 
     testWidgets('member → "בעל העסק עדיין מסיים להגדיר את העסק" + "נסה שוב"', (

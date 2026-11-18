@@ -242,10 +242,11 @@ abstract final class BusinessHe {
   static const setupPendingBody = 'אפשר להתחיל לעבוד כשההגדרה תסתיים.';
 
   // No business at all.
-  static const noBusinessTitle = 'עוד אין עסק בחשבון';
+  static const noBusinessTitle = 'החשבון שלך עוד בהקמה — נחזור אליך';
   static String noBusinessBody(String email) =>
-      'החשבון $email לא משויך כרגע לאף עסק. בקש מבעל העסק להזמין אותך, '
-      'או המשך במחשב כדי לפתוח עסק.';
+      'צוות תבל עוד מקים את העסק בחשבון $email. כשהוא מוכן נעדכן אותך, '
+      'ואז "בדוק שוב" יכניס אותך. אם הוזמנת לעסק של מישהו אחר — בקש/י ממנו '
+      'לשלוח הזמנה חדשה.';
   static const checkAgain = 'בדוק שוב';
 
   /// Walkthrough 2026-11-17 #14: "בדוק שוב" found the business, but this
@@ -430,6 +431,20 @@ abstract final class AuthHe {
 
   // Sign-in screen, password reset, app lock, account deletion (AT-92).
   static const signIn = 'כניסה';
+
+  // Owner 2026-11-18: accounts are opened by the Tevel team only.
+  static const noAccount = 'אין לך חשבון? דברו איתנו';
+  static const contactTitle = 'פתיחת חשבון בתבל';
+  static const contactBody =
+      'את החשבונות אנחנו פותחים אחרי שיחה קצרה: מכירים את העסק, '
+      'מקימים אותו עבורך ושולחים לך שם משתמש וסיסמה.';
+  static const contactWhatsApp = 'וואטסאפ';
+  static const contactEmail = 'שליחת מייל';
+  static const suggestPasswordTitle = 'רוצה לבחור סיסמה משלך?';
+  static const suggestPasswordBody =
+      'את הסיסמה הזו קבענו עבורך בפתיחת החשבון. כדאי להחליף אותה לסיסמה '
+      'שרק את/ה מכיר/ה — נשלח קוד למייל ותבחר/י סיסמה חדשה.';
+  static const changePassword = 'החלף סיסמה';
   static const showPassword = 'הצגת הסיסמה';
   static const hidePassword = 'הסתרת הסיסמה';
   static const termsLink = 'לתנאי השימוש';
@@ -512,8 +527,6 @@ abstract final class AuthHe {
       'בוחרים סיסמה לאפליקציה. אותה סיסמה תשמש גם לכניסה לתבל במחשב.';
   static const inviteExistingHint =
       'לכתובת הזו כבר יש חשבון תבל. הזינו את הסיסמה שלכם, או המשיכו עם Apple.';
-  static const continueWithApple = 'המשך עם Apple';
-  static const orDivider = 'או';
   static String emailMismatch(String invited, String signedIn) =>
       'ההזמנה נשלחה ל-$invited, התחברת כ-$signedIn. התחברו עם הכתובת שאליה נשלחה ההזמנה.';
   static const appleHiddenEmail = 'חשבון Apple שמסתיר את כתובת האימייל';
