@@ -17,6 +17,15 @@ import '../../ui/ds.dart';
 /// The designs, in gallery order (ids = packages/document-renderer
 /// DOCUMENT_TEMPLATES). Name + one-line hint, Hebrew.
 const invoiceTemplates = <String, (String, String)>{
+  // r5 (owner selection 2026-11-18): the default, then the new designs, then the originals.
+  'summary': ('כרטיס הסכום', 'הסכום ותאריך הפירעון בראש המסמך, עם QR לתשלום'),
+  'elegant': ('נייר מכתבים אלגנטי', 'סריף עברי, קישוט עדין ושורת ״בברכה״'),
+  'swiss': ('רשת מינימלית', 'שחור על לבן, תוויות זעירות וסה״כ גדול'),
+  'slip': ('סרט קבלה', 'טור צר כמו קבלת קופה, מתאים גם למדפסת תרמית'),
+  'bold': ('בלוק צבע', 'בלוק מותג עמוק וכרטיס סה״כ בצבע המשני'),
+  'clinic': ('קליניקה', 'רכה ומרגיעה, עם אייקונים ושורת פרטיות'),
+  'legal': ('משרד עורכי דין', 'כותרות סריף וקו דק בצבע המשני'),
+  'events': ('אירועים', 'כרטיס ״לתשלום עכשיו״ ולוח תשלומים'),
   'classic': ('קלאסית', 'טבלה עם מסגרות, מסודרת ומוכרת'),
   'modern': ('מודרנית', 'כותרת צבעונית עדינה ופינות מעוגלות'),
   'minimal': ('נקייה', 'הרבה אוויר וטיפוגרפיה שקטה'),
@@ -55,6 +64,8 @@ Future<Uint8List?> _rasterize(Uint8List pdf) async {
 String _styleKey(Branding d) => [
   businessContext.business?.businessId,
   d.accentColor,
+  d.secondaryColor,
+  d.inkSave,
   d.fontFamily,
   d.logoSize,
   d.accentTableHeader,

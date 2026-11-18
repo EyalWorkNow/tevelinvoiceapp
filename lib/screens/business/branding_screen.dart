@@ -17,7 +17,17 @@ import 'template_gallery.dart';
 import '../../util/labels/signature_he.dart';
 import '../signature/signature_screen.dart' show openSignatureScreen;
 
-const _fonts = {'sans': 'נקי', 'serif': 'מסורתי', 'rounded': 'מעוגל'};
+const _fonts = {
+  'auto': 'לפי העיצוב',
+  'heebo': 'Heebo',
+  'rubik': 'Rubik',
+  'assistant': 'Assistant',
+  'noto': 'Noto Sans',
+  'frank': 'פרנק רוהל (סריף)',
+};
+
+/// The original three font choices map onto the embedded fonts (renderer r5).
+const _legacyFonts = {'sans': 'noto', 'serif': 'frank', 'rounded': 'rubik'};
 const _logoSizes = {'small': 'קטן', 'medium': 'בינוני', 'large': 'גדול'};
 
 class BrandingScreen extends StatefulWidget {
@@ -31,9 +41,11 @@ class _BrandingScreenState extends State<BrandingScreen> {
   Uint8List? _preview;
   Object? _error, _previewError;
   bool _saving = false, _previewLoading = false, _dirty = false;
+  String _previewType = 'TAX_INVOICE';
   int _generation = 0, _pdfRevision = 0;
   Timer? _debounce;
   final _hex = TextEditingController(),
+      _hex2 = TextEditingController(),
       _header = TextEditingController(),
       _footer = TextEditingController();
   final _scroll = ScrollController();
@@ -62,6 +74,7 @@ class _BrandingScreenState extends State<BrandingScreen> {
     _debounce?.cancel();
     businessContext.removeListener(_businessChanged);
     _hex.dispose();
+    _hex2.dispose();
     _header.dispose();
     _footer.dispose();
     _scroll.dispose();
@@ -80,6 +93,7 @@ class _BrandingScreenState extends State<BrandingScreen> {
       final branding = await fetchBranding();
       if (!mounted || generation != _generation) return;
       _hex.text = branding.accentColor ?? '#1f2a2e';
+      _hex2.text = branding.secondaryColor ?? '';
       _header.text = branding.raw['headerNote'] as String? ?? '';
       _footer.text = branding.raw['footerNote'] as String? ?? '';
       setState(() => _draft = branding);
@@ -116,7 +130,7 @@ class _BrandingScreenState extends State<BrandingScreen> {
     final draft = _draft;
     if (draft == null) return;
     try {
-      final bytes = await previewBranding(draft);
+      final bytes = await previewBranding(draft, documentType: _previewType);
       if (!mounted || generation != _generation) return;
       setState(() {
         _preview = bytes;
@@ -151,7 +165,9 @@ class _BrandingScreenState extends State<BrandingScreen> {
 
   Future<void> _save() async {
     if (_draft == null || _saving) return;
-    if (!RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(_hex.text)) {
+    if (!RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(_hex.text) ||
+        (_hex2.text.isNotEmpty &&
+            !RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(_hex2.text))) {
       setState(() => _error = 'יש להזין צבע בפורמט #RRGGBB');
       return;
     }
@@ -220,6 +236,32 @@ class _BrandingScreenState extends State<BrandingScreen> {
               child: Text(
                 _dirty ? 'דוגמה · טרם נשמר' : 'תצוגה מקדימה',
                 style: AppText.secondary,
+              ),
+            ),
+            PopupMenuButton<String>(
+              key: const Key('branding-preview-type'),
+              tooltip: 'סוג המסמך בתצוגה',
+              initialValue: _previewType,
+              onSelected: (t) {
+                setState(() => _previewType = t);
+                _schedulePreview();
+              },
+              itemBuilder: (_) => [
+                for (final e in previewDocumentTypes.entries)
+                  PopupMenuItem(value: e.key, child: Text(e.value)),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      previewDocumentTypes[_previewType]!,
+                      style: AppText.secondary,
+                    ),
+                    const Icon(Icons.arrow_drop_down_rounded),
+                  ],
+                ),
               ),
             ),
             IconButton(
@@ -447,6 +489,54 @@ class _BrandingScreenState extends State<BrandingScreen> {
           }
         },
       ),
+      const SizedBox(height: 8),
+      _controlHeading(
+        'צבע משני',
+        Iconsax.colorfilter,
+        'לכרטיס הסה״כ, לקווים ולקישוטים. הטקסט מעליו מקבל ניגודיות אוטומטית',
+      ),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final (name, primary, secondary) in brandColorPairs)
+            ActionChip(
+              key: Key('color-pair-$primary'),
+              avatar: _pairDot(primary, secondary),
+              label: Text(name),
+              onPressed: _saving
+                  ? null
+                  : () {
+                      _hex.text = primary;
+                      _hex2.text = secondary;
+                      _change({
+                        'accentColor': primary,
+                        'secondaryColor': secondary,
+                      });
+                    },
+            ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      TextField(
+        key: const Key('branding-color2-hex'),
+        controller: _hex2,
+        enabled: !_saving,
+        textDirection: TextDirection.ltr,
+        maxLength: 7,
+        decoration: const InputDecoration(
+          labelText: 'צבע משני · #RRGGBB',
+          helperText: 'ריק = גוון בהיר של צבע המותג',
+          prefixIcon: Icon(Iconsax.brush_2),
+        ),
+        onChanged: (value) {
+          if (value.isEmpty) {
+            _change({'secondaryColor': null});
+          } else if (RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(value)) {
+            _change({'secondaryColor': value});
+          }
+        },
+      ),
       const SizedBox(height: 12),
       _controlHeading(
         'לוגו העסק',
@@ -510,7 +600,8 @@ class _BrandingScreenState extends State<BrandingScreen> {
           for (final e in _fonts.entries)
             ChoiceChip(
               label: Text(e.value),
-              selected: draft.fontFamily == e.key,
+              selected:
+                  (_legacyFonts[draft.fontFamily] ?? draft.fontFamily) == e.key,
               onSelected: _saving
                   ? null
                   : (_) => _change({'fontFamily': e.key}),
@@ -525,6 +616,58 @@ class _BrandingScreenState extends State<BrandingScreen> {
         value: draft.accentTableHeader,
         onChanged: _saving ? null : (v) => _change({'accentTableHeader': v}),
       ),
+      SwitchListTile(
+        key: const Key('branding-ink-save'),
+        contentPadding: EdgeInsets.zero,
+        secondary: const Icon(Iconsax.printer),
+        title: const Text('מצב חיסכון בדיו'),
+        subtitle: const Text('בלי מילוי צבע — מתאים להדפסה בשחור-לבן'),
+        value: draft.inkSave,
+        onChanged: _saving ? null : (v) => _change({'inkSave': v}),
+      ),
+      SwitchListTile(
+        key: const Key('branding-payment-qr'),
+        contentPadding: EdgeInsets.zero,
+        secondary: const Icon(Iconsax.scan_barcode),
+        title: const Text('QR לתשלום בחשבוניות פתוחות'),
+        subtitle: const Text('מוביל לקישור התשלום שהוגדר בפרטי העסק'),
+        value: draft.paymentQr,
+        onChanged: _saving ? null : (v) => _change({'paymentQr': v}),
+      ),
+      SwitchListTile(
+        key: const Key('branding-verify-footer'),
+        contentPadding: EdgeInsets.zero,
+        secondary: const Icon(Iconsax.shield_tick),
+        title: const Text('שורת אימות בתחתית'),
+        subtitle: const Text('טביעת אצבע (SHA-256) של נתוני המסמך'),
+        value: draft.verifyFooter,
+        onChanged: _saving ? null : (v) => _change({'verifyFooter': v}),
+      ),
+      const SizedBox(height: 8),
+      _controlHeading(
+        'מעטפת חלון',
+        Iconsax.sms,
+        'כתובת הלקוח תודפס במקום החלון של מעטפת DL',
+      ),
+      Wrap(
+        spacing: 8,
+        children: [
+          for (final e in const {
+            null: 'כבוי',
+            'right': 'חלון מימין',
+            'left': 'חלון משמאל',
+          }.entries)
+            ChoiceChip(
+              key: Key('branding-envelope-${e.key ?? 'off'}'),
+              label: Text(e.value),
+              selected: draft.windowEnvelope == e.key,
+              onSelected: _saving
+                  ? null
+                  : (_) => _change({'windowEnvelope': e.key}),
+            ),
+        ],
+      ),
+      const SizedBox(height: 12),
       TextField(
         key: const Key('branding-header-note'),
         controller: _header,
@@ -565,7 +708,7 @@ class _BrandingScreenState extends State<BrandingScreen> {
       ),
       const SizedBox(height: 12),
       Text(
-        'העיצוב יחול על מסמכים חדשים. פרטי העסק, המספור והסכומים נשמרים בכל התבניות; מקור שכבר הופק אינו משתנה.',
+        'העיצוב יחול על מסמכים חדשים. פרטי העסק, המספור, הסכומים וכל שדות החובה נשמרים בכל התבניות; מסמך שכבר הופק (וגם העתקים שלו) אינו משתנה. קבלה על תרומה מודפסת תמיד בעיצוב הייעודי, וחשבונית זיכוי מציגה את החשבונית המזוכה.',
         style: AppText.secondary.copyWith(
           color: context.palette.muted,
           height: 1.5,
@@ -604,4 +747,36 @@ class _BrandingScreenState extends State<BrandingScreen> {
           ],
         ),
       );
+
+  Widget _pairDot(String primary, String secondary) {
+    Color c(String hex) =>
+        Color(int.parse(hex.substring(1), radix: 16) | 0xff000000);
+    return SizedBox(
+      width: 22,
+      height: 22,
+      child: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: c(primary),
+              shape: BoxShape.circle,
+            ),
+          ),
+          PositionedDirectional(
+            end: 0,
+            bottom: 0,
+            child: Container(
+              width: 11,
+              height: 11,
+              decoration: BoxDecoration(
+                color: c(secondary),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

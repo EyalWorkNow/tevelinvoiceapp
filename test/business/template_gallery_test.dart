@@ -89,27 +89,23 @@ void main() {
       phone(tester);
       await tester.pumpWidget(eApp(const BrandingScreen()));
       await settle(tester);
-      // RTL: the first design sits to the right of the second.
+      // RTL: the first design (the r5 default) sits to the right of the second.
       expect(
-        tester.getCenter(find.byKey(const Key('branding-template-classic'))).dx,
+        tester.getCenter(find.byKey(const Key('branding-template-summary'))).dx,
         greaterThan(
           tester
-              .getCenter(find.byKey(const Key('branding-template-modern')))
+              .getCenter(find.byKey(const Key('branding-template-elegant')))
               .dx,
         ),
       );
-      expect(
-        find.byKey(const Key('branding-template-check-modern')),
-        findsOneWidget,
-      );
       final before = thumbRequests().length;
-      await tester.tap(find.byKey(const Key('branding-template-classic')));
+      await tester.tap(find.byKey(const Key('branding-template-summary')));
       await tester.pump(const Duration(milliseconds: 450));
       await settle(tester);
-      expectCard(tester, 'classic', selected: true);
-      expectCard(tester, 'modern', selected: false);
+      expectCard(tester, 'summary', selected: true);
+      expectCard(tester, 'elegant', selected: false);
       expect(
-        find.byKey(const Key('branding-template-check-classic')),
+        find.byKey(const Key('branding-template-check-summary')),
         findsOneWidget,
       );
       expect(
@@ -117,12 +113,12 @@ void main() {
         findsNothing,
       );
       // Only the big preview re-rendered — thumbnails come from the cache.
-      expect(thumbRequests().sublist(before), ['classic']);
+      expect(thumbRequests().sublist(before), ['summary']);
       await tester.tap(find.byKey(const Key('editor-save')));
       await settle(tester);
       expect(
         backend.last('PUT', '/settings/branding')!.body,
-        containsPair('template', 'classic'),
+        containsPair('template', 'summary'),
       );
       handle.dispose();
     },
@@ -167,7 +163,7 @@ void main() {
     await tester.pumpWidget(eApp(const BrandingScreen()));
     await settle(tester);
     expect(find.byKey(const Key('branding-template-stripe')), findsNothing);
-    expect(find.byKey(const Key('branding-template-classic')), findsOneWidget);
+    expect(find.byKey(const Key('branding-template-summary')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -179,10 +175,10 @@ void main() {
     await tester.pumpWidget(eApp(const BrandingScreen()));
     await settle(tester);
     expect(
-      find.byKey(const Key('branding-template-thumb-classic')),
+      find.byKey(const Key('branding-template-thumb-summary')),
       findsNothing,
     );
-    expect(find.byKey(const Key('branding-template-classic')), findsOneWidget);
+    expect(find.byKey(const Key('branding-template-summary')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

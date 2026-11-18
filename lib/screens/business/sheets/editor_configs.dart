@@ -222,6 +222,14 @@ EditorConfig _profileConfig({
           label: 'מספר אישור סעיף 46',
           initial: profile?.section46ApprovalNumber,
         ),
+      if (type == 'NONPROFIT')
+        EditorField(
+          key: 'incomeTaxFileNumber',
+          label: 'מספר תיק המוסד אצל פקיד השומה',
+          kind: FieldKind.number,
+          initial: s(raw['incomeTaxFileNumber']),
+          hint: 'מודפס בקבלה על תרומה לפי סעיף 46',
+        ),
       if (advances)
         EditorField(
           key: 'advanceRate',
@@ -262,6 +270,27 @@ EditorConfig _profileConfig({
         label: 'חשבון',
         kind: FieldKind.number,
         initial: s(bank['account']),
+      ),
+      EditorField(
+        key: 'iban',
+        label: 'IBAN (להעברות מחו״ל)',
+        initial: s(raw['iban']),
+        hint: 'יופיע באפשרויות התשלום בחשבונית',
+        validator: (v) => ibanError((v as String?) ?? ''),
+      ),
+      EditorField(
+        key: 'bitPhone',
+        label: 'מספר לתשלום בביט',
+        kind: FieldKind.phone,
+        initial: s(raw['bitPhone']),
+        validator: _phoneError,
+      ),
+      EditorField(
+        key: 'payboxPhone',
+        label: 'מספר לתשלום בפייבוקס',
+        kind: FieldKind.phone,
+        initial: s(raw['payboxPhone']),
+        validator: _phoneError,
       ),
       EditorField(
         key: 'paymentLinkUrl',
@@ -375,6 +404,8 @@ EditorConfig _profileConfig({
         'withholdingFileNumber': v.orNull('withholdingFileNumber'),
         if (type == 'NONPROFIT')
           'section46ApprovalNumber': v.orNull('section46ApprovalNumber'),
+        if (type == 'NONPROFIT')
+          'incomeTaxFileNumber': v.orNull('incomeTaxFileNumber'),
         'paymentTerms': v.orNull('paymentTerms'),
         'defaultLineDescription': v.orNull('defaultLineDescription'),
         'bank': bankFull
@@ -385,6 +416,9 @@ EditorConfig _profileConfig({
               }
             : null,
         'paymentLinkUrl': v.orNull('paymentLinkUrl'),
+        'iban': v.orNull('iban'),
+        'bitPhone': v.orNull('bitPhone'),
+        'payboxPhone': v.orNull('payboxPhone'),
         'accountant': v.str('accountantName').isEmpty
             ? null
             : {
@@ -711,4 +745,21 @@ EditorConfig desktopEditor({String? topic}) {
       return sendWebHandoff(t, desktopTopics[t] ?? t);
     },
   );
+}
+
+/// IBAN check (ISO 13616 mod-97), mirrors the server (business-profile.ts normaliseIban).
+String? ibanError(String value) {
+  final compact = value.replaceAll(RegExp(r'[\s-]'), '').toUpperCase();
+  if (compact.isEmpty) return null;
+  if (!RegExp(r'^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$').hasMatch(compact) ||
+      (compact.startsWith('IL') && compact.length != 23)) {
+    return 'מספר IBAN אינו תקין';
+  }
+  final rearranged = '${compact.substring(4)}${compact.substring(0, 4)}'
+      .replaceAllMapped(RegExp('[A-Z]'), (m) => '${m[0]!.codeUnitAt(0) - 55}');
+  var rem = 0;
+  for (final c in rearranged.split('')) {
+    rem = (rem * 10 + int.parse(c)) % 97;
+  }
+  return rem == 1 ? null : 'מספר IBAN אינו תקין';
 }
