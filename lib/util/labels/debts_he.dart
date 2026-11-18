@@ -22,6 +22,7 @@ abstract final class DebtsHe {
         : docTypeLabel(documentType);
     return number == null || number.isEmpty ? type : '$type מס׳ $number';
   }
+
   static const headerOverdue = 'באיחור';
 
   /// Under the header: the debt book is added on top of Home's figure, never into it.

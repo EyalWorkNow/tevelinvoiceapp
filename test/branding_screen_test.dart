@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/screens/business/branding_screen.dart';
+import 'package:invoice/screens/business/sheets/editor_configs.dart'
+    show ibanError;
 import 'package:invoice/screens/document/document_parts.dart';
 import 'business/e_harness.dart';
 import 'fakes/fake_api.dart';
@@ -30,12 +32,12 @@ void main() {
       );
       await settle(tester);
       expect(find.text('PDF 1'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('branding-template-minimal')));
+      await tester.tap(find.byKey(const Key('branding-template-elegant')));
       await tester.pump(const Duration(milliseconds: 450));
       await settle(tester);
       expect(
         backend.last('POST', '/settings/branding/preview')!.body['template'],
-        'minimal',
+        'elegant',
       );
       expect(backend.calls('PUT', '/settings/branding'), isEmpty);
       await tester.ensureVisible(find.byKey(const Key('color-#0b6e4f')));
@@ -50,7 +52,7 @@ void main() {
       await settle(tester);
       expect(
         backend.last('PUT', '/settings/branding')!.body,
-        containsPair('template', 'minimal'),
+        containsPair('template', 'elegant'),
       );
       expect(
         backend.last('PUT', '/settings/branding')!.body,
@@ -66,14 +68,14 @@ void main() {
     backend.on(
       'POST',
       '/settings/branding/preview',
-      (request) => request.body['template'] == 'classic'
+      (request) => request.body['template'] == 'summary'
           ? stale.future
           : FakeResponse(200, [
               37,
               80,
               68,
               70,
-              request.body['template'] == 'minimal' ? 3 : 1,
+              request.body['template'] == 'elegant' ? 3 : 1,
             ]),
     );
     phone(tester);
@@ -81,12 +83,12 @@ void main() {
       eApp(const BrandingScreen(), brightness: Brightness.dark),
     );
     await settle(tester);
-    await tester.tap(find.byKey(const Key('branding-template-classic')));
+    await tester.tap(find.byKey(const Key('branding-template-summary')));
     await tester.pump(const Duration(milliseconds: 450));
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 10)),
     );
-    await tester.tap(find.byKey(const Key('branding-template-minimal')));
+    await tester.tap(find.byKey(const Key('branding-template-elegant')));
     await tester.pump(const Duration(milliseconds: 450));
     await settle(tester);
     expect(find.text('PDF 3'), findsOneWidget);
@@ -211,4 +213,53 @@ void main() {
       expect(put['accentTableHeader'], !was);
     },
   );
+
+  testWidgets(
+    'r5: colour pair, envelope, ink-save and preview type reach preview + save',
+    (tester) async {
+      phone(tester);
+      await tester.pumpWidget(eApp(const BrandingScreen()));
+      await settle(tester);
+      await tester.ensureVisible(find.byKey(const Key('color-pair-#0f766e')));
+      await tester.tap(find.byKey(const Key('color-pair-#0f766e')));
+      await tester.pump(const Duration(milliseconds: 450));
+      await settle(tester);
+      Map<String, dynamic> bigPreview() => backend
+          .calls('POST', '/settings/branding/preview')
+          .lastWhere((r) => r.body.containsKey('documentType'))
+          .body;
+      final preview = bigPreview();
+      expect(preview['accentColor'], '#0f766e');
+      expect(preview['secondaryColor'], '#f97362');
+      expect(preview['documentType'], 'TAX_INVOICE');
+      await tester.ensureVisible(
+        find.byKey(const Key('branding-envelope-right')),
+      );
+      await tester.tap(find.byKey(const Key('branding-envelope-right')));
+      await tester.ensureVisible(find.byKey(const Key('branding-ink-save')));
+      await tester.tap(find.byKey(const Key('branding-ink-save')));
+      await tester.pump(const Duration(milliseconds: 450));
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('branding-preview-type')));
+      await settle(tester);
+      await tester.tap(find.text('קבלה').last);
+      await tester.pump(const Duration(milliseconds: 450));
+      await settle(tester);
+      expect(bigPreview()['documentType'], 'RECEIPT');
+      await tester.tap(find.byKey(const Key('editor-save')));
+      await settle(tester);
+      final saved = backend.last('PUT', '/settings/branding')!.body;
+      expect(saved['secondaryColor'], '#f97362');
+      expect(saved['windowEnvelope'], 'right');
+      expect(saved['inkSave'], true);
+      expect(saved.containsKey('documentType'), isFalse);
+    },
+  );
+
+  test('IBAN validation mirrors the server (mod-97)', () {
+    expect(ibanError(''), isNull);
+    expect(ibanError('IL62 0108 0000 0009 9999 999'), isNull);
+    expect(ibanError('IL62 0108 0000 0009 9999 998'), isNotNull);
+    expect(ibanError('IL62 0108'), isNotNull);
+  });
 }

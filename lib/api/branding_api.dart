@@ -39,8 +39,15 @@ class Branding {
   final Map<String, dynamic> raw;
 
   String? get logoDataUri => raw['logoDataUri'] as String?;
-  String get template => raw['template'] as String? ?? 'classic';
-  String get fontFamily => raw['fontFamily'] as String? ?? 'sans';
+  String get template => raw['template'] as String? ?? 'summary';
+  String get fontFamily => raw['fontFamily'] as String? ?? 'auto';
+  String? get secondaryColor => raw['secondaryColor'] as String?;
+  bool get inkSave => raw['inkSave'] == true;
+  bool get paymentQr => raw['paymentQr'] != false;
+  bool get verifyFooter => raw['verifyFooter'] != false;
+
+  /// 'right' | 'left' | null (off).
+  String? get windowEnvelope => raw['windowEnvelope'] as String?;
   String get logoSize => raw['logoSize'] as String? ?? 'medium';
   bool get accentTableHeader => raw['accentTableHeader'] == true;
   String? get accentColor => raw['accentColor'] as String?;
@@ -77,6 +84,13 @@ Future<Branding> saveBranding(
       'accentTableHeader',
       'headerNote',
       'footerNote',
+      'secondaryColor',
+      'inkSave',
+      'bilingual',
+      'paymentQr',
+      'verifyFooter',
+      'typeAccents',
+      'windowEnvelope',
     ])
       k: current.raw[k],
     if (logoDataUri != null)
@@ -109,8 +123,30 @@ String? logoDataUriFrom(Uint8List bytes) {
 }
 
 /// Previewing a draft never saves settings or creates an issued document.
-Future<Uint8List> previewBranding(Branding draft) => _api.postBytes(
-  '/settings/branding/preview',
-  draft.raw,
-  accept: 'application/pdf',
-);
+/// [documentType]: TAX_INVOICE (default), TAX_INVOICE_RECEIPT, RECEIPT,
+/// TRANSACTION_INVOICE, CREDIT_DOCUMENT or QUOTE.
+Future<Uint8List> previewBranding(Branding draft, {String? documentType}) =>
+    _api.postBytes('/settings/branding/preview', {
+      ...draft.raw,
+      'documentType': ?documentType,
+    }, accept: 'application/pdf');
+
+/// Document kinds the preview can show (server PREVIEW_TYPES), Hebrew labels.
+const previewDocumentTypes = <String, String>{
+  'TAX_INVOICE': 'חשבונית מס',
+  'TAX_INVOICE_RECEIPT': 'חשבונית מס/קבלה',
+  'RECEIPT': 'קבלה',
+  'TRANSACTION_INVOICE': 'חשבון עסקה',
+  'CREDIT_DOCUMENT': 'זיכוי',
+  'QUOTE': 'הצעת מחיר',
+};
+
+/// Primary + secondary colour presets (owner 2026-11-18: full colour control).
+const brandColorPairs = <(String, String, String)>[
+  ('כחול לילה וזהב', '#1f3a5f', '#c9a96e'),
+  ('טורקיז ואלמוג', '#0f766e', '#f97362'),
+  ('שזיף וליים', '#5b2a6e', '#d9f99d'),
+  ('ירוק מרווה ושמנת', '#2f5546', '#e9e4d4'),
+  ('בורדו ובז׳', '#6e1b38', '#e8d5c4'),
+  ('גרפיט וצהוב', '#1f2a2e', '#f5b700'),
+];
