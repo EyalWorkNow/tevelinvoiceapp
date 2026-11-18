@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/client.dart';
@@ -139,6 +140,55 @@ void main() {
         'businessId': '',
       });
       expect(debugPendingDeepLink, '/business/account');
+    });
+  });
+
+  group('notch announcements (server 0124)', () {
+    TestWidgetsFlutterBinding.ensureInitialized();
+
+    test('in-app notice text: title, then the body on its own line', () {
+      expect(
+        announcementNoticeText(' מבצע ', ' חודש במתנה '),
+        'מבצע\nחודש במתנה',
+      );
+      expect(announcementNoticeText('מבצע', '  '), 'מבצע');
+    });
+
+    test('signed out / unsafe route: ignored, nothing opened', () {
+      final before = debugPendingDeepLink;
+      for (final route in ['/home', '/admin', 'https://evil.example']) {
+        systemNotices.debugEvent({
+          'type': 'announcement',
+          'title': 'מבצע',
+          'body': 'חודש במתנה',
+          'route': route,
+          'businessId': '',
+          'eventID': 'e1',
+        });
+      }
+      systemNotices.debugEvent({'type': 'announcement', 'route': '/home'});
+      expect(debugPendingDeepLink, before);
+    });
+
+    testWidgets('a two-line announcement fits the notch notice', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotchNoticeHost(
+            key: notchNoticeKey,
+            child: const Scaffold(body: SizedBox()),
+          ),
+        ),
+      );
+      notchNoticeKey.currentState!.show(
+        SnackBar(content: Text(announcementNoticeText('מבצע', 'חודש במתנה'))),
+        motion: NoticeMotion.sent,
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.textContaining('חודש במתנה'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpAndSettle(const Duration(seconds: 10));
     });
   });
 

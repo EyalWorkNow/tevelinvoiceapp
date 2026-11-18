@@ -15,6 +15,7 @@ struct TevelActivityWidget: Widget {
         VStack(alignment: .leading, spacing: 6) {
           Text(context.state.title).font(.headline).contentTransition(.opacity)
           Text(context.state.detail).font(.subheadline).foregroundStyle(.white.opacity(0.7))
+          AnnouncementTimeline(state: context.state)
         }
         Spacer(minLength: 0)
         Image(systemName: "arrow.up.left").font(.caption.bold()).foregroundStyle(.white.opacity(0.45))
@@ -30,15 +31,16 @@ struct TevelActivityWidget: Widget {
           EventSeal(state: context.state, large: true).padding(.leading, 4)
         }
         DynamicIslandExpandedRegion(.trailing) {
-          Text("תבל").font(.caption.weight(.semibold)).foregroundStyle(accent(context.state.kind))
+          Text("תבל").font(.caption.weight(.semibold)).foregroundStyle(accent(context.state))
             .padding(.trailing, 6)
         }
         DynamicIslandExpandedRegion(.bottom) {
           VStack(alignment: .trailing, spacing: 7) {
             Text(context.state.title).font(.headline).contentTransition(.opacity)
             Text(context.state.detail).font(.subheadline).foregroundStyle(.white.opacity(0.65))
-            Capsule().fill(LinearGradient(colors: [accent(context.state.kind).opacity(0.1),
-              accent(context.state.kind)], startPoint: .leading, endPoint: .trailing)).frame(height: 2)
+              .lineLimit(2)
+            Capsule().fill(LinearGradient(colors: [accent(context.state).opacity(0.1),
+              accent(context.state)], startPoint: .leading, endPoint: .trailing)).frame(height: 2)
           }
           .frame(maxWidth: .infinity, alignment: .trailing)
           .padding(.horizontal, 8).padding(.bottom, 6)
@@ -47,20 +49,21 @@ struct TevelActivityWidget: Widget {
       } compactLeading: {
         EventSeal(state: context.state, large: false)
       } compactTrailing: {
-        Image(systemName: symbol(context.state.kind)).font(.system(size: 14, weight: .bold))
-          .foregroundStyle(accent(context.state.kind))
+        Image(systemName: symbol(context.state)).font(.system(size: 14, weight: .bold))
+          .foregroundStyle(accent(context.state))
           .contentTransition(.symbolEffect(.replace))
       } minimal: {
         EventSeal(state: context.state, large: false)
       }
       .widgetURL(context.attributes.destination)
-      .keylineTint(accent(context.state.kind))
+      .keylineTint(accent(context.state))
     }
   }
 }
 
-private func accent(_ kind: String) -> Color {
-  switch kind {
+private func accent(_ state: TevelActivityAttributes.ContentState) -> Color {
+  switch state.kind {
+  case "announcement": return Color(red: 1, green: 0.8, blue: 0.42)
   case "approved", "payment": return Color(red: 0.51, green: 1, blue: 0.66)
   case "reminder": return Color(red: 0.98, green: 0.35, blue: 0.49)
   case "error", "rejected": return Color(red: 0.87, green: 0.51, blue: 0.42)
@@ -68,8 +71,9 @@ private func accent(_ kind: String) -> Color {
   }
 }
 
-private func symbol(_ kind: String) -> String {
-  switch kind {
+private func symbol(_ state: TevelActivityAttributes.ContentState) -> String {
+  if state.isAnnouncement { return TevelAnnouncementIcon.symbol(state.icon) }
+  switch state.kind {
   case "approved": return "checkmark.seal.fill"
   case "payment": return "shekelsign.circle.fill"
   case "reminder": return "phone.arrow.up.right.fill"
@@ -85,6 +89,22 @@ private func symbol(_ kind: String) -> String {
   }
 }
 
+/// Announcements: a thin bar that empties until the activity goes (system-animated, no app
+/// process needed). Business events show nothing here.
+private struct AnnouncementTimeline: View {
+  let state: TevelActivityAttributes.ContentState
+
+  var body: some View {
+    if state.isAnnouncement, let end = state.endDate, end > Date() {
+      ProgressView(timerInterval: Date()...end, countsDown: true) { EmptyView() } currentValueLabel: { EmptyView() }
+        .progressViewStyle(.linear)
+        .tint(accent(state))
+        .frame(maxWidth: 160)
+        .accessibilityHidden(true)
+    }
+  }
+}
+
 private struct EventSeal: View {
   let state: TevelActivityAttributes.ContentState
   let large: Bool
@@ -93,12 +113,12 @@ private struct EventSeal: View {
   var body: some View {
     ZStack {
       if large {
-        Circle().fill(accent(state.kind).opacity(0.12))
-        Circle().strokeBorder(accent(state.kind).opacity(0.3), lineWidth: 1)
+        Circle().fill(accent(state).opacity(0.12))
+        Circle().strokeBorder(accent(state).opacity(0.3), lineWidth: 1)
       }
-      Image(systemName: symbol(state.kind))
+      Image(systemName: symbol(state))
         .font(.system(size: large ? 27 : 16, weight: .semibold))
-        .foregroundStyle(accent(state.kind))
+        .foregroundStyle(accent(state))
         .symbolEffect(.bounce, options: .nonRepeating, value: reduceMotion ? 0 : state.revision)
         .contentTransition(.symbolEffect(.replace))
     }

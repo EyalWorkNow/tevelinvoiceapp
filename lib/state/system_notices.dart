@@ -361,6 +361,10 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(_uploadTokens().catchError(_failure));
       return;
     }
+    if (raw['type'] == 'announcement') {
+      _onAnnouncement(raw);
+      return;
+    }
     final kind = raw['kind'];
     final route = raw['route'];
     final business = raw['businessId'];
@@ -422,6 +426,52 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
         ),
       ),
       motion: presentation.$2,
+    );
+  }
+
+  /// An admin "נוטצ׳" announcement (server 0124) while the app is open: the
+  /// in-app animated notch notice with the admin's own text (the Live Activity
+  /// is not shown in the Dynamic Island while the app is in the foreground).
+  void _onAnnouncement(Map<dynamic, dynamic> raw) {
+    final title = raw['title'];
+    final body = raw['body'];
+    final route = raw['route'];
+    final business = raw['businessId'];
+    if (title is! String ||
+        title.trim().isEmpty ||
+        route is! String ||
+        AppRoute.parse(route) == null ||
+        session.status != SessionStatus.signedIn) {
+      return;
+    }
+    final id = raw['eventID'];
+    if (id is String && id.isNotEmpty) {
+      if (!_seen.add('announcement:$id')) return;
+      if (_seen.length > 100) _seen.remove(_seen.first);
+    }
+    // It is also an item in "עדכונים".
+    notifyNotificationsChanged();
+    unawaited(refreshNotificationsUnread());
+    final text = announcementNoticeText(title, body is String ? body : '');
+    notchNoticeKey.currentState?.show(
+      SnackBar(
+        content: Text(text),
+        action: SnackBarAction(
+          label: InboxHe.actOpen,
+          onPressed: () {
+            final link = business is String && business.isNotEmpty
+                ? Uri(
+                    path: route,
+                    queryParameters: {'businessId': business},
+                  ).toString()
+                : route;
+            unawaited(
+              AppRouter.instance.openDeepLink(link).catchError(_failure),
+            );
+          },
+        ),
+      ),
+      motion: NoticeMotion.sent,
     );
   }
 
@@ -612,7 +662,11 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<String?> preview() => _channel.invokeMethod<String>('preview');
+  Future<String?> preview({bool announcement = false}) =>
+      _channel.invokeMethod<String>(
+        'preview',
+        announcement ? {'kind': 'announcement'} : null,
+      );
   Future<void> testLocal() => _channel.invokeMethod<void>('testLocal');
   Future<void> endAll() => _channel.invokeMethod<void>('endAll');
 
@@ -632,6 +686,13 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(_subscription?.cancel());
     super.dispose();
   }
+}
+
+/// One or two lines of an announcement's in-app notice (title, then body).
+String announcementNoticeText(String title, String body) {
+  final t = title.trim();
+  final b = body.trim();
+  return b.isEmpty ? t : '$t\n$b';
 }
 
 /// Push on/off at start-up for one business (tester 2026-11-18: the
