@@ -1,5 +1,11 @@
 import 'dart:io';
 
+/// Release switch for the currently free app; server enforcement is separate.
+const paidFeaturesEnabled = bool.fromEnvironment(
+  'PAID_FEATURES_ENABLED',
+  defaultValue: true,
+);
+
 /// Release builds must never send credentials to a development endpoint.
 Uri productionApiUri(String value) {
   final uri = Uri.tryParse(value);

@@ -1,3 +1,4 @@
+import '../../api/environment.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -198,7 +199,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   Widget _build(BuildContext context) {
     // The plan is the owner's (same rule as the "המסלול של העסק" row).
-    final plan = businessContext.can(Cap.owner);
+    final plan = paidFeaturesEnabled && businessContext.can(Cap.owner);
     // §4.4 / F5: the business form (13.1, bank, accountant) only for those who
     // may edit it; everyone else gets their own account as "פרופיל".
     if (!businessContext.can(Cap.settingsBusiness)) {
