@@ -547,7 +547,8 @@ void main() {
     Map<String, (int, Object) Function(http.Request)> recovery({
       Object? exchange,
     }) => {
-      'POST /auth/v1/recover': reply(200, {}),
+      // Tevel's server sends the code e-mail (never Supabase's /recover).
+      'POST /auth/password/forgot': reply(202, {'status': 'ok'}),
       'POST /auth/v1/verify': (request) =>
           (jsonDecode(request.body) as Map)['token'] == '123456'
           ? (200, {'access_token': 'recovery-jwt'})
@@ -658,7 +659,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(result, isA<SignInResult>());
       expect(bodyOf('/auth/supabase'), {'accessToken': 'recovery-jwt'});
-      expect(sent.any((r) => r.url.path == '/auth/password/forgot'), isFalse);
+      // Tevel sends the code e-mail; Supabase's own /recover mail is never used.
+      expect(sent.any((r) => r.url.path == '/auth/password/forgot'), isTrue);
+      expect(sent.any((r) => r.url.path == '/auth/v1/recover'), isFalse);
     });
 
     testWidgets(

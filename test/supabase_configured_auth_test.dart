@@ -49,14 +49,14 @@ void main() {
   );
 
   test(
-    'configured recovery asks Supabase for a code, never the legacy reset',
+    'configured recovery asks Tevel for the code e-mail, never Supabase /recover',
     () async {
       final previous = api.httpClient;
       addTearDown(() => api.httpClient = previous);
       api.httpClient = MockClient((request) async {
-        expect(request.url.host, settings.origin.host);
-        expect(request.url.path, '/auth/v1/recover');
-        return http.Response('{}', 200);
+        expect(request.url.host, isNot(settings.origin.host));
+        expect(request.url.path, endsWith('/auth/password/forgot'));
+        return http.Response('{"status":"ok"}', 202);
       });
       await requestPasswordReset('owner@example.test');
     },
