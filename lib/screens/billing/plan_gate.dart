@@ -1,3 +1,4 @@
+import '../../api/environment.dart';
 // Walkthrough 2026-11-17 #10a: the plan is a HARD gate at the moment of
 // issuing. The server refuses to number any document without an active plan
 // (402 SUBSCRIPTION_REQUIRED) or above the month's quota (402
@@ -33,6 +34,8 @@ abstract final class PlanGate {
   /// Once, from main() (idempotent).
   static void install() {
     unawaited(_sub?.cancel());
+    _sub = null;
+    if (!paidFeaturesEnabled) return;
     _sub = ApiClient.instance.events
         .where((e) => e == ApiEvent.planRequired)
         .listen((_) => unawaited(_open ? Future<void>.value() : _show()));
