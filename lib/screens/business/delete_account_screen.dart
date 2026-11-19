@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../api/client.dart';
 import '../../api/settings_api.dart';
@@ -15,7 +14,7 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 const String deleteConfirmWord = 'מחק';
 
 /// Delete account (App Store 5.1.1(v)): what is deleted vs. kept by law, a
-/// fresh proof of identity (password or Apple), typed "מחק", then
+/// fresh password confirmation, typed "מחק", then
 /// POST /mobile/account/delete {confirm:"DELETE"} and a local wipe → login.
 class DeleteAccountScreen extends StatefulWidget {
   const DeleteAccountScreen({super.key});
@@ -27,26 +26,9 @@ class DeleteAccountScreen extends StatefulWidget {
 class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
   final _password = TextEditingController();
   final _confirm = TextEditingController();
-  String? _appleToken;
-
-  /// One-time code from the same Apple sheet; the server revokes the Apple
-  /// grant with it (App Store 5.1.1(v)).
-  String? _appleCode;
-
-  /// This device signed in with Apple: the Apple step is required (a password
-  /// proves identity but gives no code to revoke).
-  bool _appleAccount = false;
-  bool _appleBusy = false;
+  bool _showPassword = false;
   bool _deleting = false;
   String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    usedAppleSignIn().then((v) {
-      if (mounted && v) setState(() => _appleAccount = true);
-    });
-  }
 
   @override
   void dispose() {
@@ -55,36 +37,8 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
     super.dispose();
   }
 
-  bool get _hasProof => _appleAccount
-      ? _appleToken != null
-      : (_password.text.isNotEmpty || _appleToken != null);
+  bool get _hasProof => _password.text.isNotEmpty;
   bool get _typed => _confirm.text.trim() == deleteConfirmWord;
-
-  Future<void> _verifyWithApple() async {
-    setState(() {
-      _appleBusy = true;
-      _error = null;
-    });
-    try {
-      final credential = await SignInWithApple.getAppleIDCredential(
-        scopes: const [],
-      );
-      if (!mounted) return;
-      setState(() {
-        _appleToken = credential.identityToken;
-        _appleCode = credential.authorizationCode;
-        _password.clear();
-      });
-    } on SignInWithAppleAuthorizationException catch (e) {
-      if (mounted && e.code != AuthorizationErrorCode.canceled) {
-        setState(() => _error = 'אימות Apple נכשל — נסו שוב');
-      }
-    } on Object {
-      if (mounted) setState(() => _error = 'אימות Apple אינו זמין במכשיר הזה');
-    } finally {
-      if (mounted) setState(() => _appleBusy = false);
-    }
-  }
 
   Future<void> _delete() async {
     FocusScope.of(context).unfocus();
@@ -93,11 +47,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       _error = null;
     });
     try {
-      await deleteAccount(
-        password: _password.text.isEmpty ? null : _password.text,
-        appleIdentityToken: _password.text.isEmpty ? _appleToken : null,
-        appleAuthorizationCode: _appleCode,
-      );
+      await deleteAccount(password: _password.text);
       HapticFeedback.heavyImpact();
       // Everything server-side is revoked; wipe the device. main.dart then
       // resets the stack to the login screen.
@@ -108,11 +58,6 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       setState(() {
         _deleting = false;
         _error = deleteAccountErrorHe(e);
-        // An Apple proof is single-use within 10 minutes; ask for a new one.
-        if (e.code == 'REAUTH_FAILED') {
-          _appleToken = null;
-          _appleCode = null;
-        }
       });
     } on Object catch (e) {
       if (!mounted) return;
@@ -148,7 +93,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
               color: p.danger,
               title: 'מה יימחק',
               lines: const [
-                'החשבון שלך: אימייל, שם, סיסמה וחיבור Apple / Google',
+                'החשבון שלך: אימייל, שם וסיסמה',
                 'החיבור מכל המכשירים — הטלפון הזה והדפדפנים',
                 'הגישה שלך לכל העסקים',
               ],
@@ -168,62 +113,41 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
             Text('אימות זהות', style: AppText.headline),
             const SizedBox(height: Space.xs),
             Text(
-              _appleAccount
-                  ? 'החשבון מחובר ל-Apple — אמתו עם Apple כדי שגם החיבור ל-Apple יבוטל.'
-                  : 'הזינו את הסיסמה, או אמתו עם Apple אם נכנסתם כך.',
+              'כדי לאשר שזו הבקשה שלך, הזינו את הסיסמה שבה אתם נכנסים לתבל.',
               style: AppText.caption.copyWith(color: p.muted),
             ),
             const SizedBox(height: Space.m),
-            if (_appleToken == null && !_appleAccount)
-              TextField(
-                controller: _password,
-                obscureText: true,
-                autocorrect: false,
-                enableSuggestions: false,
-                textDirection: TextDirection.ltr,
-                autofillHints: const [AutofillHints.password],
-                textInputAction: TextInputAction.next,
-                onChanged: (_) => setState(() => _error = null),
-                decoration: const InputDecoration(labelText: 'סיסמה'),
-              )
-            else if (_appleToken != null)
-              Semantics(
-                liveRegion: true,
-                child: Row(
-                  children: [
-                    Icon(Iconsax.shield_tick, color: p.ok),
-                    const SizedBox(width: Space.s),
-                    Expanded(
-                      child: Text(
-                        'אומת עם Apple',
-                        style: AppText.body.copyWith(color: p.ok),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => setState(() {
-                        _appleToken = null;
-                        _appleCode = null;
-                      }),
-                      child: const Text(CommonHe.cancel),
-                    ),
-                  ],
+            TextField(
+              key: const Key('delete-password'),
+              controller: _password,
+              enabled: !_deleting,
+              obscureText: !_showPassword,
+              autocorrect: false,
+              enableSuggestions: false,
+              textDirection: TextDirection.ltr,
+              autofillHints: const [AutofillHints.password],
+              textInputAction: TextInputAction.next,
+              onChanged: (_) => setState(() => _error = null),
+              decoration: InputDecoration(
+                labelText: 'סיסמה',
+                suffixIcon: IconButton(
+                  tooltip: _showPassword ? 'הסתרת הסיסמה' : 'הצגת הסיסמה',
+                  onPressed: _deleting
+                      ? null
+                      : () => setState(() => _showPassword = !_showPassword),
+                  icon: Icon(
+                    _showPassword ? Icons.visibility_off : Icons.visibility,
+                  ),
                 ),
               ),
-            if (_appleToken == null) ...[
-              const SizedBox(height: Space.s),
-              BigButton(
-                label: AuthHe.verifyWithApple,
-                icon: Iconsax.apple,
-                variant: BigButtonVariant.secondary,
-                loading: _appleBusy,
-                onPressed: _deleting ? null : _verifyWithApple,
-              ),
-            ],
+            ),
             const SizedBox(height: Space.xl),
             Text('להמשך, הקלידו "$deleteConfirmWord"', style: AppText.headline),
             const SizedBox(height: Space.s),
             TextField(
+              key: const Key('delete-confirm'),
               controller: _confirm,
+              enabled: !_deleting,
               autocorrect: false,
               enableSuggestions: false,
               onChanged: (_) => setState(() => _error = null),
@@ -251,7 +175,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
               label: AuthHe.deleteForever,
               variant: BigButtonVariant.danger,
               loading: _deleting,
-              onPressed: _typed && _hasProof && !offline ? _delete : null,
+              onPressed: _typed && _hasProof && !offline && !_deleting
+                  ? _delete
+                  : null,
             ),
             const SizedBox(height: Space.s),
             TextButton(
