@@ -131,7 +131,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
               decoration: InputDecoration(
                 labelText: 'סיסמה',
                 suffixIcon: IconButton(
-                  tooltip: _showPassword ? 'הסתרת הסיסמה' : 'הצגת הסיסמה',
+                  tooltip: _showPassword
+                      ? AuthHe.hidePassword
+                      : AuthHe.showPassword,
                   onPressed: _deleting
                       ? null
                       : () => setState(() => _showPassword = !_showPassword),
