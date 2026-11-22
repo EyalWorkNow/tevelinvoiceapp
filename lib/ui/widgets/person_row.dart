@@ -147,15 +147,20 @@ class PersonRow extends StatelessWidget {
             const SizedBox(width: Space.m),
             Flexible(
               flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    amountLabel!,
-                    style: AppText.secondary.copyWith(color: p.muted),
-                  ),
-                  AmountText(amountMinor!, color: p.warn),
-                ],
+              // The loose share is wider than the amount: pin the column to the
+              // row's end so balances line up with document amounts (Codex 11-23).
+              child: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      amountLabel!,
+                      style: AppText.secondary.copyWith(color: p.muted),
+                    ),
+                    AmountText(amountMinor!, color: p.warn),
+                  ],
+                ),
               ),
             ),
           ],

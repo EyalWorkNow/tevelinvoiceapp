@@ -247,4 +247,37 @@ void main() {
       }
     }
   }
+
+  // Codex 2026-11-23: a customer's balance sat ~15 px in from the edge (the
+  // amount column floated inside its loose 2/3 share).
+  testWidgets('RTL document amounts and customer balances hug the left edge', (
+    tester,
+  ) async {
+    size(tester, 390);
+    await tester.pumpWidget(
+      eApp(
+        Scaffold(
+          body: Column(
+            children: [
+              DocRow(
+                title: 'דניאל רוזן',
+                subtitle: 'חשבונית מס 1042',
+                amountMinor: BigInt.from(28400),
+                status: const StatusPill.doc(DocStatus.paid),
+              ),
+              PersonRow(
+                name: 'דניאל רוזן',
+                amountLabel: 'חייב לך',
+                amountMinor: BigInt.from(28400),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final values = find.byType(AmountText);
+    expect(tester.getTopLeft(values.first).dx, closeTo(Space.page, .1));
+    expect(tester.getTopLeft(values.last).dx, closeTo(Space.page, .1));
+  });
 }
