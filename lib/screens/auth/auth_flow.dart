@@ -18,7 +18,9 @@ import '../../state/caps.dart';
 import '../../state/session.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/labels.dart';
+import '../../state/accountant_store.dart';
 import '../business/delete_account_screen.dart';
+import '../business/sheets/accountant_sheets.dart' show showOfficeNameSheet;
 import '../business/sheets/s14_switch.dart';
 import '../billing/billing_screen.dart';
 import 'contact_tevel.dart';
@@ -87,6 +89,11 @@ Future<void> routeSignedIn(BuildContext context) async {
   _routingSignedIn = true;
   try {
     if (session.hasNoBusiness) {
+      // Feature 5: an accountant without clients yet has a screen of their own.
+      if (await _accountantWithoutClients()) {
+        resetToAccountantClients();
+        return;
+      }
       _resetTo(const NoBusinessScreen(), '/gate/no-business');
       return;
     }
@@ -142,6 +149,24 @@ Future<void> routeSignedIn(BuildContext context) async {
   } finally {
     _routingSignedIn = false;
   }
+}
+
+/// True when GET /mobile/accountant/clients says the user is an accountant
+/// (an old server / offline → false: the "no business" gate as before).
+Future<bool> _accountantWithoutClients() async {
+  try {
+    await accountantStore.load().timeout(const Duration(seconds: 8));
+  } on Object {
+    return false;
+  }
+  return accountantStore.overview?.isAccountant == true;
+}
+
+/// "אני רו״ח ומלווה עסקים" (feature 5): the office name → PUT profile →
+/// the (empty) clients screen.
+Future<void> becomeAccountant(BuildContext context) async {
+  final saved = await showOfficeNameSheet(context);
+  if (saved != null) resetToAccountantClients();
 }
 
 /// The Tevel team opens every business in the admin console (name, type and
@@ -351,6 +376,11 @@ class _NoBusinessScreenState extends State<NoBusinessScreen> {
           key: const Key('no-business-contact'),
           onPressed: () => showContactTevelSheet(context),
           child: const Text(AuthHe.noAccount),
+        ),
+        TextButton(
+          key: const Key('no-business-accountant'),
+          onPressed: session.offline ? null : () => becomeAccountant(context),
+          child: const Text(AccountantHe.iAmAccountant),
         ),
         TextButton(
           onPressed: session.signOut,

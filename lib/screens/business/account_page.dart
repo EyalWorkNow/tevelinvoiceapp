@@ -26,6 +26,8 @@ import '../../util/labels/labels.dart';
 import 'business_template.dart';
 import 'business_data_page.dart';
 import 'sheets/s13_editor.dart';
+import 'sheets/accountant_sheets.dart' show showOfficeNameSheet;
+import '../../state/accountant_store.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'team_editors.dart' show confirmDanger;
 import '../signature/signature_screen.dart' show openSignatureScreen;
@@ -58,6 +60,11 @@ class _AccountPageState extends State<AccountPage> {
     super.initState();
     unawaited(_loadPrefs());
     unawaited(_loadMfa());
+    // Feature 5: the office name row needs the overview (accountants only).
+    if (accountantStore.overview == null &&
+        (accountantStore.isAccountant || businessContext.caps.homeIsReports)) {
+      unawaited(accountantStore.load());
+    }
   }
 
   Future<void> _loadMfa() async {
@@ -200,12 +207,30 @@ class _AccountPageState extends State<AccountPage> {
                     ),
                   ),
           ),
-        BusinessRow(
-          key: const Key('account-signature'),
-          label: SignatureHe.title,
-          icon: Iconsax.edit_2,
-          onTap: session.offline ? null : () => openSignatureScreen(context),
+        ListenableBuilder(
+          listenable: accountantStore,
+          builder: (context, _) {
+            final o = accountantStore.overview;
+            if (o == null || !o.isAccountant) return const SizedBox.shrink();
+            return BusinessRow(
+              key: const Key('account-office'),
+              label: AccountantHe.officeLabel,
+              value: o.officeName ?? '',
+              icon: Iconsax.briefcase,
+              onTap: session.offline
+                  ? null
+                  : () => showOfficeNameSheet(context, initial: o.officeName),
+            );
+          },
         ),
+        // An accountant without a business (feature 5) has nothing to sign.
+        if (session.business != null)
+          BusinessRow(
+            key: const Key('account-signature'),
+            label: SignatureHe.title,
+            icon: Iconsax.edit_2,
+            onTap: session.offline ? null : () => openSignatureScreen(context),
+          ),
         const RowGroupGap(),
         if (_faceIdAvailable == true)
           SwitchListTile.adaptive(

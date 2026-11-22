@@ -46,6 +46,9 @@ import '../../api/customer_timeline_api.dart' show fetchBusinessPaymentTerms;
 import '../../util/labels/timeline_he.dart';
 import 'vault_screen.dart';
 import 'notification_preferences_screen.dart';
+import '../../api/accountant_api.dart' show leaveClient;
+import '../../state/accountant_store.dart';
+import '../auth/auth_flow.dart' show routeSignedIn;
 
 class BusinessScreen extends StatelessWidget {
   const BusinessScreen({super.key, this.section});
@@ -295,6 +298,62 @@ class _BusinessListState extends State<_BusinessList> {
     return ok ?? false;
   }
 
+  /// Feature 7 "הפסקת ליווי": confirm, POST leave, reload the businesses and
+  /// route on (another client, the picker, or the empty clients screen).
+  Future<void> _leave() async {
+    final b = session.business;
+    if (b == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const Key('leave-confirm'),
+        title: Text(AccountantHe.leaveTitle(b.legalName)),
+        content: const Text(AccountantHe.leaveBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text(AccountantHe.leaveCancel),
+          ),
+          TextButton(
+            key: const Key('leave-yes'),
+            style: TextButton.styleFrom(
+              foregroundColor: dialogContext.palette.danger,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(AccountantHe.leaveConfirm),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await leaveClient(b.businessId);
+    } on Object catch (e) {
+      if (mounted) showErrorSnack(context, e);
+      return;
+    }
+    messengerKey.currentState?.showNotchNotice(
+      const SnackBar(content: Text(AccountantHe.left)),
+      motion: NoticeMotion.sent,
+    );
+    try {
+      await session.refreshAccount();
+      final next = session.business;
+      if (next != null && next.businessId != b.businessId) {
+        await session.selectBusiness(next);
+      } else if (next == null) {
+        session
+          ..me = null
+          ..profile = null;
+      }
+    } on Object {
+      // Offline: the next start reloads the businesses.
+    }
+    unawaited(accountantStore.load());
+    final nav = navigatorKey.currentContext;
+    if (nav != null && nav.mounted) await routeSignedIn(nav);
+  }
+
   /// The ladder settings; the switch above reflects what was saved there.
   Future<void> _openCollectionSettings() async {
     await openCollectionSettings(context);
@@ -412,6 +471,17 @@ class _BusinessListState extends State<_BusinessList> {
                 icon: r.icon,
                 onTap: () => _open(context, r.key),
               ),
+          // Feature 7: an accountant leaves this client (never the owner).
+          if (caps.homeIsReports && session.business != null) ...[
+            const RowGroupGap(),
+            BusinessRow(
+              key: const Key('brow-leave'),
+              label: AccountantHe.leave,
+              icon: Iconsax.logout_1,
+              destructive: true,
+              onTap: session.offline ? null : () => unawaited(_leave()),
+            ),
+          ],
         ],
       );
     },

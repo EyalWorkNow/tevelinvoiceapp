@@ -56,6 +56,12 @@ String validationMessageHe(String? raw) {
 }
 
 const Map<String, String> _mobileMessages = {
+  // Accountant access requests (2026-11-22).
+  'TOO_MANY_PENDING':
+      'יש לך כבר 10 בקשות שממתינות לאישור. אפשר לבטל אחת או לחכות לתשובה.',
+  'ACCESS_REQUEST_NOT_FOUND':
+      'הבקשה כבר לא בתוקף. אפשר לבקש מהרו״ח לשלוח בקשה חדשה.',
+  'ALREADY_MEMBER': 'הרו״ח כבר בצוות של העסק הזה',
   'SUPABASE_AUTH_DISABLED': 'שירות ההתחברות עדיין לא הוגדר. פנו לתמיכה.',
   'SUPABASE_AUTH_UNAVAILABLE':
       'שירות ההתחברות לא זמין זמנית. נסו שוב בעוד רגע.',

@@ -2,6 +2,8 @@
 //   GET /mobile/push/catalogue    {categories:[{id,label,description,canDisable}], kinds:[…]}
 //   GET /mobile/push/preferences  {disabledCategories, enabledKinds, quietHours}
 //   PUT /mobile/push/preferences  same shape; the server refuses switching SECURITY off.
+// disabledKinds (accountant pushes, 2026-11-22): per-kind mute; sent only once
+// the server returned it or the user muted a kind (older servers never see it).
 // PUT replaces the whole record, so enabledKinds and quietHours are sent back
 // exactly as read.
 
@@ -35,6 +37,8 @@ class PushPreferences {
     this.disabledCategories = const {},
     this.enabledKinds = const [],
     this.quietHours = true,
+    this.disabledKinds = const {},
+    this.servesKinds = false,
   });
 
   factory PushPreferences.fromJson(Map<String, dynamic> j) => PushPreferences(
@@ -47,9 +51,32 @@ class PushPreferences {
         if (k is String) k,
     ],
     quietHours: j['quietHours'] != false,
+    disabledKinds: {
+      for (final k in (j['disabledKinds'] as List? ?? const []))
+        if (k is String) k,
+    },
+    servesKinds: j.containsKey('disabledKinds'),
   );
 
   final Set<String> disabledCategories;
+
+  /// Muted push kinds (ACCOUNTANT_*).
+  final Set<String> disabledKinds;
+
+  /// The server's preferences carry disabledKinds.
+  final bool servesKinds;
+
+  bool kindOn(String kind) => !disabledKinds.contains(kind);
+
+  PushPreferences withKind(String kind, bool on) => PushPreferences(
+    disabledCategories: disabledCategories,
+    enabledKinds: enabledKinds,
+    quietHours: quietHours,
+    disabledKinds: on
+        ? ({...disabledKinds}..remove(kind))
+        : {...disabledKinds, kind},
+    servesKinds: servesKinds,
+  );
   final List<String> enabledKinds;
   final bool quietHours;
 
@@ -61,12 +88,16 @@ class PushPreferences {
         : {...disabledCategories, category},
     enabledKinds: enabledKinds,
     quietHours: quietHours,
+    disabledKinds: disabledKinds,
+    servesKinds: servesKinds,
   );
 
   Map<String, Object> toJson() => {
     'disabledCategories': disabledCategories.toList()..sort(),
     'enabledKinds': enabledKinds,
     'quietHours': quietHours,
+    if (servesKinds || disabledKinds.isNotEmpty)
+      'disabledKinds': disabledKinds.toList()..sort(),
   };
 }
 

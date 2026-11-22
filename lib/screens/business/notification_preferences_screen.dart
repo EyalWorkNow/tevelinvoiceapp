@@ -12,6 +12,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../api/push_preferences_api.dart';
+import '../../state/accountant_store.dart';
+import '../../state/business_context.dart';
+import '../../util/labels/accountant_he.dart';
 import '../../ui/ds.dart';
 import '../../ui/widgets/notch_notice.dart';
 import '../../util/labels/notifications_he.dart';
@@ -87,6 +90,31 @@ class _NotificationPreferencesScreenState
     }
   }
 
+  /// Accountant push kinds (feature 4), muted one by one.
+  Future<void> _toggleKind(String kind, bool on) async {
+    final before = _prefs;
+    if (before == null || _saving != null) return;
+    setState(() {
+      _saving = kind;
+      _prefs = before.withKind(kind, on);
+    });
+    try {
+      final saved = await savePushPreferences(_prefs!);
+      if (!mounted) return;
+      // An older server drops disabledKinds: keep what the user chose.
+      if (saved.servesKinds) setState(() => _prefs = saved);
+      ScaffoldMessenger.of(context).showNotchNotice(
+        const SnackBar(content: Text(NotificationPrefsHe.saved)),
+      );
+    } on Object catch (e) {
+      if (!mounted) return;
+      setState(() => _prefs = before);
+      showErrorSnack(context, e);
+    } finally {
+      if (mounted) setState(() => _saving = null);
+    }
+  }
+
   Future<void> _toggleMarketing(bool on) async {
     final before = _consent;
     if (before == null || _saving != null) return;
@@ -150,6 +178,37 @@ class _NotificationPreferencesScreenState
                   : '${c.description}\n${NotificationPrefsHe.alwaysOn}',
             ),
           ),
+        if (accountantStore.isAccountant ||
+            businessContext.caps.homeIsReports) ...[
+          const SizedBox(height: Space.m),
+          Text(AccountantHe.prefsTitle, style: AppText.headline),
+          for (final (kind, title, hint) in const [
+            (
+              'ACCOUNTANT_ACCESS_APPROVED',
+              AccountantHe.prefApproved,
+              AccountantHe.prefApprovedHint,
+            ),
+            (
+              'ACCOUNTANT_CORRECTION_ANSWERED',
+              AccountantHe.prefCorrection,
+              AccountantHe.prefCorrectionHint,
+            ),
+            (
+              'ACCOUNTANT_EXPENSES_DIGEST',
+              AccountantHe.prefDigest,
+              AccountantHe.prefDigestHint,
+            ),
+          ])
+            SwitchListTile.adaptive(
+              key: Key('notification-kind-$kind'),
+              value: prefs.kindOn(kind),
+              onChanged: _saving != null
+                  ? null
+                  : (on) => unawaited(_toggleKind(kind, on)),
+              title: Text(title),
+              subtitle: Text(hint),
+            ),
+        ],
         if (_consent case final consent?)
           SwitchListTile.adaptive(
             key: const Key('notification-pref-marketing'),

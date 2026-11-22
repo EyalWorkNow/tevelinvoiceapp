@@ -22,6 +22,7 @@ import '../../router.dart';
 import '../../state/session.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/labels.dart';
+import 'auth_flow.dart' show becomeAccountant;
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 /// S14 "+ עסק נוסף" (BE-40): A setup for another business (route /setup).
@@ -355,6 +356,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: TextButton(
               onPressed: () => setState(() => _showOther = true),
               child: const Text(AuthHe.otherTypes),
+            ),
+          ),
+        // Feature 5: an accountant signs up without setting up a business
+        // (only on the first setup, not "+ עסק נוסף" / B → פרטי העסק).
+        if (!widget.newBusiness && !Navigator.of(context).canPop())
+          Center(
+            child: TextButton(
+              key: const Key('setup-accountant'),
+              onPressed: session.offline
+                  ? null
+                  : () => becomeAccountant(context),
+              child: Text(
+                AccountantHe.iAmAccountant,
+                style: AppText.secondary.copyWith(color: p.muted),
+              ),
             ),
           ),
       ],
