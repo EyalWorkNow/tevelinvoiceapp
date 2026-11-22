@@ -10,6 +10,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../api/auth_api.dart';
+import '../../api/environment.dart';
 import '../../api/client.dart';
 import '../../api/commerce_api.dart';
 import '../../router.dart';
@@ -198,6 +199,7 @@ Future<bool> _finishProvisionedSetup() async {
 /// True when the business has no active subscription and the required
 /// subscription screen was shown. [context] null = background check.
 Future<bool> _subscriptionGate(BuildContext? context) async {
+  if (!paidFeaturesEnabled) return false;
   final checkedBusiness = session.business?.businessId;
   // Home's plans sheet waits for this check instead of prompting too.
   if (checkedBusiness != null) PlanPrompts.checking(checkedBusiness, true);

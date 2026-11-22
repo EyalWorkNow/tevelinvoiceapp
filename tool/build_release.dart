@@ -45,6 +45,7 @@ Future<void> main(List<String> args) async {
       '--no-pub',
       '--target=lib/main.dart',
       '--dart-define=API_BASE=$origin',
+      '--dart-define=PAID_FEATURES_ENABLED=false',
       if (auth.enabled) ...[
         '--dart-define=SUPABASE_AUTH_URL=${auth.origin}',
         '--dart-define=SUPABASE_AUTH_PUBLISHABLE_KEY=${auth.publishableKey}',

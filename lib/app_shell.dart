@@ -1,3 +1,4 @@
+import 'api/environment.dart';
 // The app shell owns root destinations and the floating glass navigation:
 // [בית][לקוחות][ניהול][פרופיל] (§5; לקוחות only with Caps.showPeopleTab).
 // Invoice creation (＋) sits beside the navigation on Home when the caps allow
@@ -55,7 +56,8 @@ class _AppShellState extends State<AppShell> {
   bool _checkingBilling = false;
   void _checkBilling() {
     final id = businessContext.business?.businessId;
-    if (!mounted ||
+    if (!paidFeaturesEnabled ||
+        !mounted ||
         id == null ||
         id == _billingBusiness ||
         _checkingBilling ||

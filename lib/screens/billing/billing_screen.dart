@@ -1,3 +1,4 @@
+import '../../api/environment.dart';
 import '../../util/labels/common_he.dart';
 import '../../util/labels/business_he.dart';
 import 'dart:async';
@@ -44,6 +45,7 @@ abstract final class PlanPrompts {
 }
 
 Future<void> showBillingPlans(BuildContext context) async {
+  if (!paidFeaturesEnabled) return;
   final navigator = Navigator.of(context);
   final plan = await showModalBottomSheet<BillingPlan>(
     context: context,
