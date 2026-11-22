@@ -1,0 +1,31 @@
+{
+  "build": "1.0.0 (23)",
+  "sourceCommit": "2e3f7ef",
+  "mergedCommit": "cf988f60c6a2675cd4673503585a039b669cd234",
+  "paidFeaturesEnabled": false,
+  "apiCommit": "1184103",
+  "apiPaidFeaturesEnabled": "0",
+  "apiBillingEnforced": false,
+  "applePurchasesAvailable": false,
+  "cardcomPurchasesAvailable": false,
+  "ipa": "/Users/eyalatiya/Projects/tim-wt/delete-account-fix/build/ios/ipa/\u05ea\u05d1\u05dc.ipa",
+  "sha256": "7554853647c0958b885b5291d58cc4926a9dffca06ae229ed0ea777835ddab8b",
+  "validation": {
+    "flutterAnalyze": "passed",
+    "targetedRegressionTests": 20,
+    "freeModeWidgetTest": "passed",
+    "archiveSignature": "verified"
+  },
+  "upload": "Processed; ready in TestFlight; selected for version 1.0",
+  "physicalDeviceQA": "Developer confirmed build 23 sign-in, navigation, draft and document/PDF flow passed; no purchase prompts.",
+  "reviewEvidence": "TEVEL-APP-REVIEW-EVIDENCE.zip uploaded",
+  "reviewNotes": "Six-part response saved; no government approval claimed",
+  "reviewStatus": "Waiting for Review",
+  "submittedAtIsrael": "2026-11-19 21:12",
+  "releaseMode": "MANUAL",
+  "submissionId": "8c89d24a-0874-4720-8712-6eec115627f1",
+  "knownLimits": [
+    "No software-registration certificate supplied; developer reports SHAAM registration only.",
+    "Videos and physical QA use iOS 26.7.3; latest official iOS is 27.2.1."
+  ]
+}
