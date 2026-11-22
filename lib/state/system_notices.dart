@@ -68,6 +68,8 @@ const _events = EventChannel('tevel/system_notice_events');
   'recurringReady' => ('טיוטות חודשיות מוכנות לאישור', NoticeMotion.document),
   'bookingNew' => ('נקבעה פגישה חדשה', NoticeMotion.calendar),
   'bookingSoon' => ('הפגישה הבאה מתקרבת', NoticeMotion.calendar),
+  // Calendar v2: a request waiting for approval (route /calendar).
+  'bookingPending' => ('בקשה לפגישה ממתינה לאישור', NoticeMotion.calendar),
   // 0116 "מסמך לחתימה" (route /sign-request/:id).
   'signRequestCompleted' => ('המסמך נחתם', NoticeMotion.signed),
   'signRequestViewed' => ('המסמך לחתימה נצפה', NoticeMotion.sent),

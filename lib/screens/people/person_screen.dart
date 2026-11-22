@@ -38,7 +38,10 @@ import '../../util/intent_resolver.dart' show invoiceIntentFor;
 import '../../util/labels/customer_crm_he.dart';
 import '../../util/labels/debts_he.dart';
 import '../../util/status_map.dart';
+import '../calendar/calendar_screen.dart' show mayUseCalendar;
+import '../calendar/customer_booking_sheet.dart';
 import '../document/sheets/s6_share.dart' show pdfSharer;
+import '../../util/labels/calendar_he.dart';
 import '../compose/compose_repeat.dart' show lastRepeatable, openRepeat;
 import '../expense/expense_capture_screen.dart' show nextCaptureSupplier;
 import '../debts/debt_entry_sheet.dart';
@@ -642,6 +645,26 @@ class _PersonScreenState extends State<PersonScreen> {
             onTap: manage ? _editTerms : null,
           ),
         ],
+        // Calendar v2: suggest times / send the personal link / book for them.
+        if (!widget.isSupplier &&
+            !_archived &&
+            _detail != null &&
+            mayUseCalendar(_caps))
+          ListTile(
+            key: const Key('person-book'),
+            minTileHeight: Hit.row,
+            leading: const Icon(Iconsax.calendar_add),
+            title: const Text(CalendarHe.bookFor, style: AppText.body),
+            trailing: const Icon(Iconsax.arrow_left_2),
+            onTap: () => unawaited(
+              showCustomerBookingSheet(
+                context,
+                customerId: widget.id,
+                name: _name,
+                phone: _phone,
+              ),
+            ),
+          ),
         if (!widget.isSupplier && _statement && !_archived)
           ListTile(
             key: const Key('person-statement'),

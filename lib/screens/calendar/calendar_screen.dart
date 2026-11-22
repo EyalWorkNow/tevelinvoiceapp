@@ -1,7 +1,8 @@
 // "יומן" — the owner's agenda (server migration 0106). Bookings that clients
 // made from the public link, next to the busy blocks synced from the phone's
 // calendars; a day or a week at a time. "שתף קישור לקביעת פגישה" shares the
-// public link (WhatsApp / share sheet / copy). Reached from ניהול (the bottom
+// public link (WhatsApp / share sheet / copy). Requests waiting for the
+// owner's approval (requireApproval) sit on top, "ממתינות לאישור". Reached from ניהול (the bottom
 // navbar is unchanged) and from booking notifications (/calendar).
 
 import 'dart:async';
@@ -10,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
+import '../../api/client.dart' show ApiException;
 import '../../state/business_context.dart';
 import '../../state/caps.dart';
 import '../../ui/app_page_route.dart';
@@ -58,6 +60,7 @@ DateTime _day(DateTime d) {
 /// The agenda for [from, from + days) (local days), sorted; busy blocks that
 /// exactly cover a confirmed booking (the booking written into the phone) are
 /// dropped — the server already ignores those, older blocks may remain.
+/// PENDING requests are listed apart ([pendingBookings]).
 List<AgendaItem> agendaItems(CalendarAgenda a, DateTime from, int days) {
   final start = _day(from);
   final end = start.add(Duration(days: days));
@@ -66,7 +69,7 @@ List<AgendaItem> agendaItems(CalendarAgenda a, DateTime from, int days) {
   final seenBusy = <String>{};
   final items = <AgendaItem>[
     for (final b in a.bookings)
-      if (inRange(b.startsAt, b.endsAt)) AgendaItem.booking(b),
+      if (!b.pending && inRange(b.startsAt, b.endsAt)) AgendaItem.booking(b),
     for (final x in a.busy)
       if (inRange(x.start, x.end) &&
           // Two phones / calendars with the same busy time: one row.
@@ -80,6 +83,12 @@ List<AgendaItem> agendaItems(CalendarAgenda a, DateTime from, int days) {
   ]..sort((x, y) => x.startsAt.compareTo(y.startsAt));
   return items;
 }
+
+/// Requests still waiting for the owner (not yet past), soonest first.
+List<Booking> pendingBookings(CalendarAgenda a, DateTime now) => [
+  for (final b in a.bookings)
+    if (b.pending && b.endsAt.isAfter(now)) b,
+]..sort((x, y) => x.startsAt.compareTo(y.startsAt));
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key, this.sync});
@@ -231,6 +240,68 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
+  /// Runs [action] on [b] (approve / decline / block), then re-syncs.
+  Future<void> _act(
+    Booking b,
+    Future<Booking> Function(String) action,
+    String done,
+  ) async {
+    if (_busy.contains(b.id)) return;
+    setState(() => _busy.add(b.id));
+    try {
+      await action(b.id);
+      // Approved here: no "new booking" notice for it on the next sync.
+      _sync.prefs?.seen.add(b.id);
+      if (mounted) toast(context, done, motion: NoticeMotion.calendar);
+      await _sync.sync(force: true);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.code == 'BOOKING_NOT_PENDING') {
+        toast(context, CalendarHe.error(e.code));
+        unawaited(_sync.sync(force: true));
+      } else {
+        showErrorSnack(context, e);
+      }
+    } on Object catch (e) {
+      if (mounted) showErrorSnack(context, e);
+    } finally {
+      if (mounted) setState(() => _busy.remove(b.id));
+    }
+  }
+
+  Future<void> _block(Booking b) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text(CalendarHe.blockTitle),
+        content: Text('${b.clientName}\n\n${CalendarHe.blockBody}'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text(CalendarHe.keep),
+          ),
+          TextButton(
+            key: const Key('calendar-block-confirm'),
+            style: TextButton.styleFrom(foregroundColor: c.palette.danger),
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text(CalendarHe.blockConfirm),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await _act(b, blockBookingClient, CalendarHe.blocked);
+  }
+
+  Widget _card(Booking b) => BookingCard(
+    booking: b,
+    busy: _busy.contains(b.id),
+    onCancel: () => unawaited(_cancel(b)),
+    onApprove: () => unawaited(_act(b, approveBooking, CalendarHe.approved)),
+    onDecline: () => unawaited(_act(b, declineBooking, CalendarHe.declined)),
+    onBlock: () => unawaited(_block(b)),
+  );
+
   Future<void> _connect() async {
     final access = await _sync.connect();
     if (!mounted) return;
@@ -272,6 +343,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ? const <AgendaItem>[]
         : agendaItems(agenda, from, days);
     final enabled = _settings?.enabled ?? agenda?.enabled ?? true;
+    final pending = agenda == null
+        ? const <Booking>[]
+        : pendingBookings(agenda, DateTime.now());
     return BusinessPage(
       title: CalendarHe.title,
       onRefresh: () => _sync.sync(force: true),
@@ -298,10 +372,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
               height: 16,
               child: CircularProgressIndicator.adaptive(strokeWidth: 2),
             ),
-          IconButton(
+          TextButton.icon(
             key: const Key('calendar-settings'),
-            tooltip: CalendarHe.settings,
-            icon: const Icon(Iconsax.setting_2),
+            icon: const Icon(Iconsax.setting_2, size: 18),
+            label: const Text(CalendarHe.hoursButton),
             onPressed: () async {
               await openCalendarSettings(context, sync: _sync);
               if (mounted) unawaited(_refresh());
@@ -346,6 +420,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
               onConnect: () => unawaited(_connect()),
             ),
           ),
+        if (pending.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: Space.xs),
+            child: Text(
+              '${CalendarHe.pendingGroup} (${pending.length})',
+              key: const Key('calendar-pending'),
+              style: AppText.headline,
+            ),
+          ),
+          for (final b in pending)
+            Padding(
+              padding: const EdgeInsets.only(bottom: Space.s),
+              child: _card(b),
+            ),
+          const SizedBox(height: Space.s),
+        ],
         ChipRow<AgendaView>(
           key: const Key('calendar-view'),
           padding: EdgeInsets.zero,
@@ -430,11 +520,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Padding(
             padding: const EdgeInsets.only(bottom: Space.s),
             child: item.booking != null
-                ? BookingCard(
-                    booking: item.booking!,
-                    busy: _busy.contains(item.booking!.id),
-                    onCancel: () => unawaited(_cancel(item.booking!)),
-                  )
+                ? _card(item.booking!)
                 : _BusyRow(block: item.busy!),
           ),
         );
@@ -568,17 +654,23 @@ class BookingCard extends StatelessWidget {
     required this.booking,
     required this.busy,
     required this.onCancel,
+    this.onApprove,
+    this.onDecline,
+    this.onBlock,
   });
 
   final Booking booking;
   final bool busy;
   final VoidCallback onCancel;
+  final VoidCallback? onApprove;
+  final VoidCallback? onDecline;
+  final VoidCallback? onBlock;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     final b = booking;
-    final cancelled = !b.confirmed;
+    final cancelled = b.closed;
     final wa = waPhone(b.clientPhone);
     final minutes = b.endsAt.difference(b.startsAt).inMinutes;
     return Opacity(
@@ -616,17 +708,42 @@ class BookingCard extends StatelessWidget {
                   CalendarHe.minutes(minutes),
                   style: AppText.secondary.copyWith(color: p.muted),
                 ),
-                const Spacer(),
-                if (cancelled)
-                  Text(
-                    CalendarHe.cancelledBy(b.cancelledBy),
-                    key: Key('booking-cancelled-${b.id}'),
-                    style: AppText.secondary.copyWith(color: p.danger),
-                  ),
+                const SizedBox(width: Space.s),
+                Expanded(
+                  child: b.pending
+                      ? Text(
+                          CalendarHe.pending,
+                          key: Key('booking-pending-${b.id}'),
+                          textAlign: TextAlign.end,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.secondary.copyWith(color: p.warn),
+                        )
+                      : cancelled
+                      ? Text(
+                          CalendarHe.closedLabel(b.status, b.cancelledBy),
+                          key: Key('booking-cancelled-${b.id}'),
+                          textAlign: TextAlign.end,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.secondary.copyWith(color: p.danger),
+                        )
+                      : const SizedBox.shrink(),
+                ),
               ],
             ),
             const SizedBox(height: Space.s),
             Text(b.clientName, style: AppText.headline),
+            if (b.pending)
+              Padding(
+                padding: const EdgeInsets.only(top: Space.xs),
+                child: Text(
+                  [
+                    bookingWhen(b.startsAt),
+                    if (b.expiresAt != null)
+                      CalendarHe.pendingUntil(bookingWhen(b.expiresAt!)),
+                  ].join(' · '),
+                  style: AppText.secondary.copyWith(color: p.muted),
+                ),
+              ),
             if (b.notes != null && b.notes!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: Space.xs),
@@ -635,6 +752,28 @@ class BookingCard extends StatelessWidget {
                   style: AppText.secondary.copyWith(color: p.muted),
                 ),
               ),
+            if (b.pending) ...[
+              const SizedBox(height: Space.s),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton(
+                      key: Key('booking-approve-${b.id}'),
+                      onPressed: busy ? null : onApprove,
+                      child: const Text(CalendarHe.approve),
+                    ),
+                  ),
+                  const SizedBox(width: Space.s),
+                  Expanded(
+                    child: OutlinedButton(
+                      key: Key('booking-decline-${b.id}'),
+                      onPressed: busy ? null : onDecline,
+                      child: const Text(CalendarHe.decline),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (!cancelled) ...[
               const SizedBox(height: Space.s),
               Wrap(
@@ -655,20 +794,32 @@ class BookingCard extends StatelessWidget {
                         launchAllowed(whatsAppUri(phone: wa, text: '')),
                       ),
                     ),
-                  _Action(
-                    icon: Iconsax.sms,
-                    label: CalendarHe.email,
-                    onTap: () => unawaited(
-                      launchAllowed(Uri(scheme: 'mailto', path: b.clientEmail)),
+                  if (b.clientEmail.isNotEmpty)
+                    _Action(
+                      icon: Iconsax.sms,
+                      label: CalendarHe.email,
+                      onTap: () => unawaited(
+                        launchAllowed(
+                          Uri(scheme: 'mailto', path: b.clientEmail),
+                        ),
+                      ),
                     ),
-                  ),
-                  _Action(
-                    key: Key('booking-cancel-${b.id}'),
-                    icon: Iconsax.close_circle,
-                    label: CalendarHe.cancelBooking,
-                    danger: true,
-                    onTap: busy ? null : onCancel,
-                  ),
+                  if (!b.pending)
+                    _Action(
+                      key: Key('booking-cancel-${b.id}'),
+                      icon: Iconsax.close_circle,
+                      label: CalendarHe.cancelBooking,
+                      danger: true,
+                      onTap: busy ? null : onCancel,
+                    ),
+                  if (onBlock != null)
+                    _Action(
+                      key: Key('booking-block-${b.id}'),
+                      icon: Iconsax.user_remove,
+                      label: CalendarHe.blockClient,
+                      danger: true,
+                      onTap: busy ? null : onBlock,
+                    ),
                 ],
               ),
             ],
