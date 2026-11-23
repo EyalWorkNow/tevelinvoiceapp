@@ -499,6 +499,9 @@ Future<Set<String>?> showReminderPreview(
                   CheckboxListTile(
                     key: Key('reminder-${d.id}'),
                     contentPadding: EdgeInsets.zero,
+                    // Checkbox at the start, the amount at the row's end
+                    // (left in RTL) like every other money row (2026-11-23).
+                    controlAffinity: ListTileControlAffinity.leading,
                     value: chosen.contains(d.id),
                     onChanged: (on) => setState(() {
                       on == true ? chosen.add(d.id) : chosen.remove(d.id);
@@ -516,7 +519,6 @@ Future<Set<String>?> showReminderPreview(
                     secondary: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        AmountText(d.openMinor ?? d.totalMinor),
                         if (mayRemindOnWhatsApp(
                           documentType: d.documentType,
                           status: d.status,
@@ -541,6 +543,7 @@ Future<Set<String>?> showReminderPreview(
                               }
                             },
                           ),
+                        AmountText(d.openMinor ?? d.totalMinor),
                       ],
                     ),
                   ),

@@ -132,6 +132,14 @@ void main() {
       // Only waiting drafts have row actions.
       expect(find.byKey(const Key('retainer-menu-r3')), findsNothing);
       expect(find.byKey(const Key('retainer-menu-r1')), findsOneWidget);
+      // Totals share the card's end edge, menu or not (2026-11-23).
+      expect(
+        t.getTopLeft(find.byKey(const Key('retainer-total-r1'))).dx,
+        closeTo(
+          t.getTopLeft(find.byKey(const Key('retainer-total-r3'))).dx,
+          .1,
+        ),
+      );
       expect(find.textContaining(RetainerHe.readyCount(2)), findsOneWidget);
       expect(
         find.textContaining('${RetainerHe.issueAll} · ₪8,260'),

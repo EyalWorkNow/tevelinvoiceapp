@@ -20,7 +20,8 @@ class CustomerCrmFinanceCard extends StatefulWidget {
   });
   final List<CustomerCrmJob> jobs;
 
-  /// The balance from the issued documents (customer card only).
+  /// The balance from the issued documents. No longer drawn here: the
+  /// customer page's balance card already shows it (2026-11-23).
   final BigInt? documentsOpenMinor;
   final ValueChanged<CustomerCrmJob> onOpenJob;
   final bool compact;
@@ -34,7 +35,6 @@ class _CustomerCrmFinanceCardState extends State<CustomerCrmFinanceCard> {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final documents = widget.documentsOpenMinor;
     final summary = CustomerCrmInsights(
       widget.jobs,
       month: _month,
@@ -43,40 +43,25 @@ class _CustomerCrmFinanceCardState extends State<CustomerCrmFinanceCard> {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (documents != null) ...[
-          const SizedBox(height: Space.m),
-          Text(
-            CustomerCrmHe.documentsBalance,
-            style: AppText.body.copyWith(color: p.muted),
-          ),
-          const SizedBox(height: Space.xs),
-          Text(
-            formatMoney(documents, trimZeroAgorot: true),
-            key: const Key('crm-documents-balance'),
-            textDirection: TextDirection.ltr,
-            textAlign: TextAlign.right,
-            style: AppText.title.copyWith(
-              fontSize: 36,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -1,
-            ),
-          ),
-        ],
         const SizedBox(height: Space.m),
         Text(
           CustomerCrmHe.remainingEstimate,
           style: AppText.body.copyWith(color: p.muted),
         ),
         const SizedBox(height: Space.xs),
-        Text(
-          crmMoney(summary.remainingMinor),
-          key: const Key('crm-tracked-remaining'),
-          textDirection: TextDirection.ltr,
-          textAlign: TextAlign.right,
-          style: AppText.title.copyWith(
-            fontSize: documents != null ? 24 : 36,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -1,
+        // Under its label at the row's start (right in RTL); the digits stay
+        // left-to-right inside.
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            crmMoney(summary.remainingMinor),
+            key: const Key('crm-tracked-remaining'),
+            textDirection: TextDirection.ltr,
+            style: AppText.title.copyWith(
+              fontSize: 36,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -1,
+            ),
           ),
         ),
         const SizedBox(height: Space.xs),
@@ -184,12 +169,15 @@ class _CustomerCrmFinanceCardState extends State<CustomerCrmFinanceCard> {
                 ),
                 const SizedBox(width: Space.m),
                 Flexible(
-                  child: Text(
-                    metric.$2,
-                    style: AppText.headline.copyWith(
-                      color: metric.$3 ? p.danger : p.ink,
+                  child: Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: Text(
+                      metric.$2,
+                      style: AppText.headline.copyWith(
+                        color: metric.$3 ? p.danger : p.ink,
+                      ),
+                      textDirection: TextDirection.ltr,
                     ),
-                    textDirection: TextDirection.ltr,
                   ),
                 ),
               ],

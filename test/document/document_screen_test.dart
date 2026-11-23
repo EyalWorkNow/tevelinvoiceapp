@@ -23,6 +23,7 @@ import 'package:invoice/screens/people/person_screen.dart';
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/ui/theme.dart';
+import 'package:invoice/ui/widgets/amount_display.dart';
 import 'package:invoice/ui/widgets/primary_button.dart';
 import 'package:invoice/util/labels/compose_he.dart';
 
@@ -1079,6 +1080,20 @@ void main() {
       await settle(tester);
       expect(find.byKey(const Key('ledger-pay-1')), findsOneWidget);
       expect(find.textContaining('קבלה 9'), findsOneWidget);
+      // The voidable row's ⋯ sits before its amount: both amounts share the
+      // row's end edge (2026-11-23).
+      double amountLeft(String id) => tester
+          .getTopLeft(
+            find.descendant(
+              of: find.byKey(Key(id)),
+              matching: find.byType(AmountText),
+            ),
+          )
+          .dx;
+      expect(
+        amountLeft('ledger-pay-1'),
+        closeTo(amountLeft('ledger-pay-2'), .1),
+      );
       expect(
         find.descendant(
           of: find.byKey(const Key('ledger-pay-2')),
