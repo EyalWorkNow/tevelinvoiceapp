@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import '../../state/customer_crm_store.dart';
@@ -9,6 +8,7 @@ import '../../util/labels/common_he.dart';
 import '../../util/labels/customer_crm_he.dart';
 import 'confirm_discard.dart';
 import 'customer_crm_job_fields.dart';
+import 'person_logic.dart' show dayWithWeekday;
 
 Future<String?> showCustomerNoteEditor(
   BuildContext context, {
@@ -404,13 +404,16 @@ class _WorkEditorState extends State<_WorkEditor> {
                   key: const Key('crm-work-date'),
                   onPressed: _chooseDate,
                   icon: const Icon(Iconsax.calendar),
-                  label: Text(DateFormat('dd.MM.yy').format(_date)),
+                  label: Text(dayWithWeekday(_date)),
                 ),
                 OutlinedButton.icon(
                   key: const Key('crm-work-time'),
                   onPressed: _chooseTime,
                   icon: const Icon(Iconsax.clock),
-                  label: Text(_time.format(context)),
+                  label: Text(
+                    '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
+                    textDirection: TextDirection.ltr,
+                  ),
                 ),
               ],
             ),

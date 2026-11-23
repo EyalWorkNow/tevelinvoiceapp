@@ -25,6 +25,8 @@ import 'calendar_test.dart'
 CalendarSync _sync(FakeDevice device) =>
     CalendarSync(device: device, store: MemoryPrefs(), notice: (_) {});
 
+/// Days 1..4 of December 2026, one free 10:00 slot each (old servers: no
+/// days[]); [_daySlots] serves the v2 shape.
 Map<String, dynamic> _slot(int i) {
   final start = DateTime.utc(2026, 12, 1 + i, 8);
   return {
@@ -40,6 +42,41 @@ void freeSlots(FakeBackend b, {bool enabled = true, int count = 4}) =>
       'enabled': enabled,
       'slots': enabled ? [for (var i = 0; i < count; i++) _slot(i)] : [],
     });
+
+/// A slot on [date] at [hour]:[minute] (Israel = UTC+2 in December).
+Map<String, dynamic> _at(String date, int hour, [int minute = 0]) {
+  final d = DateTime.parse(date);
+  final start = DateTime.utc(d.year, d.month, d.day, hour - 2, minute);
+  return {
+    'start': start.toIso8601String(),
+    'end': start.add(const Duration(minutes: 30)).toIso8601String(),
+    'date': date,
+    'time':
+        '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}',
+  };
+}
+
+/// v2 server: days[] (12-01: 5 times, 12-02 closed → not listed, 12-03: 2),
+/// ?date= → that whole day.
+const _v2Days = {'2026-12-01': 5, '2026-12-03': 2};
+
+void daySlots(FakeBackend b) => b.on('GET', '/calendar/free-slots', (r) {
+  final date = r.query['date'];
+  List<Map<String, dynamic>> day(String d) => [
+    for (var i = 0; i < _v2Days[d]!; i++) _at(d, 9 + i),
+  ];
+  return FakeResponse(200, {
+    'enabled': true,
+    'slots': date == null
+        ? day('2026-12-01')
+        : _v2Days.containsKey(date)
+        ? day(date)
+        : <Object>[],
+    'days': [
+      for (final e in _v2Days.entries) {'date': e.key, 'count': e.value},
+    ],
+  });
+});
 
 /// A page with one button that opens the customer booking sheet.
 Widget _opener({String? phone = '0521234567'}) => Scaffold(
@@ -276,7 +313,7 @@ void main() {
         'starts, then WhatsApp to the customer', (t) async {
       final launcher = FakeLauncher()..install();
       addTearDown(FakeLauncher.uninstall);
-      freeSlots(b);
+      daySlots(b);
       b.json('POST', '/calendar/invites', {
         'link': 'https://invoice.tevel.space/book/i/tok',
         'whatsappText':
@@ -289,11 +326,15 @@ void main() {
       await t.tap(find.byKey(const Key('customer-slot-0')));
       await t.tap(find.byKey(const Key('customer-slot-2')));
       await t.pump();
+      expect(find.byKey(const Key('customer-pick-1')), findsOneWidget);
       await t.tap(find.byKey(const Key('customer-book-primary')));
       await settle(t);
       expect(b.last('POST', '/calendar/invites')!.body, {
         'customerId': 'c1',
-        'slots': [_slot(0)['start'], _slot(2)['start']],
+        'slots': [
+          _at('2026-12-01', 9)['start'],
+          _at('2026-12-01', 11)['start'],
+        ],
       });
       final wa = launcher.last!;
       expect(wa.host, 'wa.me');
@@ -301,13 +342,42 @@ void main() {
       expect(wa.queryParameters['text'], contains('/book/i/tok'));
     });
 
-    testWidgets('at most 3 suggested; "שליחת קישור ליומן" sends no slots and '
-        'shares when there is no phone', (t) async {
+    testWidgets('day strip: the first bookable day is chosen and asked with '
+        '?date=; a closed day is shown but cannot be chosen; another day '
+        'loads its own times', (t) async {
+      daySlots(b);
+      await pumpAs(t, b, Preset.owner, _opener());
+      await t.tap(find.byKey(const Key('open')));
+      await settle(t);
+      final dates = [
+        for (final r in b.calls('GET', '/calendar/free-slots')) r.query['date'],
+      ];
+      expect(dates, [null, '2026-12-01']);
+      expect(find.byKey(const Key('customer-day-2026-12-01')), findsOneWidget);
+      // 12-02 is in the strip (between bookable days) with no times.
+      final closed = find.byKey(const Key('customer-day-2026-12-02'));
+      await t.ensureVisible(closed);
+      expect(t.widget<InkWell>(closed).onTap, isNull);
+      expect(find.byKey(const Key('customer-slot-4')), findsOneWidget);
+      final later = find.byKey(const Key('customer-day-2026-12-03'));
+      await t.ensureVisible(later);
+      await t.tap(later);
+      await settle(t);
+      expect(
+        b.last('GET', '/calendar/free-slots')!.query['date'],
+        '2026-12-03',
+      );
+      expect(find.byKey(const Key('customer-slot-1')), findsOneWidget);
+      expect(find.byKey(const Key('customer-slot-2')), findsNothing);
+    });
+
+    testWidgets('at most 3 suggested, also across days; "קישור ליומן" sends '
+        'no slots and shares when there is no phone', (t) async {
       final shared = <String>[];
       final before = textSharer;
       textSharer = (x) async => shared.add(x);
       addTearDown(() => textSharer = before);
-      freeSlots(b);
+      daySlots(b);
       b.json('POST', '/calendar/invites', {
         'link': 'https://invoice.tevel.space/book/i/tok',
         'whatsappText': 'קישור: https://invoice.tevel.space/book/i/tok',
@@ -316,23 +386,45 @@ void main() {
       await pumpAs(t, b, Preset.owner, _opener(phone: null));
       await t.tap(find.byKey(const Key('open')));
       await settle(t);
-      for (var i = 0; i < 4; i++) {
-        await t.tap(find.byKey(Key('customer-slot-$i')));
-        await t.pump();
-      }
-      final chips = t.widgetList<FilterChip>(find.byType(FilterChip));
-      expect(chips.where((c) => c.selected), hasLength(3));
-      await t.tap(find.text(CalendarHe.modeLink));
+      await t.tap(find.byKey(const Key('customer-slot-0')));
+      await t.tap(find.byKey(const Key('customer-slot-1')));
       await t.pump();
+      final later = find.byKey(const Key('customer-day-2026-12-03'));
+      await t.ensureVisible(later);
+      await t.tap(later);
+      await settle(t);
+      await t.tap(find.byKey(const Key('customer-slot-0')));
+      await t.pump();
+      await t.tap(find.byKey(const Key('customer-slot-1')));
+      await settle(t);
+      expect(find.byKey(const Key('customer-pick-2')), findsOneWidget);
+      expect(find.byKey(const Key('customer-pick-3')), findsNothing);
+      expect(find.text(CalendarHe.maxThree), findsOneWidget);
+      await t.tap(find.text(CalendarHe.modeLinkShort));
+      await t.pump();
+      expect(find.byKey(const Key('customer-book-days')), findsNothing);
+      expect(find.text(CalendarHe.linkShortHint), findsOneWidget);
       await t.tap(find.byKey(const Key('customer-book-primary')));
       await settle(t);
       expect(b.last('POST', '/calendar/invites')!.body, {'customerId': 'c1'});
       expect(shared.single, contains('/book/i/tok'));
     });
 
-    testWidgets('book for them: confirm → POST /calendar/bookings; SLOT_TAKEN '
-        'reloads the free times with a message', (t) async {
+    testWidgets('an older server (no days[]): days come from the slots', (
+      t,
+    ) async {
       freeSlots(b);
+      await pumpAs(t, b, Preset.owner, _opener());
+      await t.tap(find.byKey(const Key('open')));
+      await settle(t);
+      expect(b.calls('GET', '/calendar/free-slots'), hasLength(1));
+      expect(find.byKey(const Key('customer-day-2026-12-01')), findsOneWidget);
+      expect(find.byKey(const Key('customer-slot-0')), findsOneWidget);
+    });
+
+    testWidgets('book for them: note sent; SLOT_TAKEN reloads that day with a '
+        'message', (t) async {
+      daySlots(b);
       b.error('POST', '/calendar/bookings', 409, 'SLOT_TAKEN');
       await pumpAs(t, b, Preset.owner, _opener());
       await t.tap(find.byKey(const Key('open')));
@@ -341,34 +433,106 @@ void main() {
       await t.pump();
       await t.tap(find.byKey(const Key('customer-slot-1')));
       await t.pump();
+      await t.enterText(
+        find.byKey(const Key('customer-book-notes')),
+        'להביא את התוכניות',
+      );
+      await t.ensureVisible(find.byKey(const Key('customer-book-primary')));
       await t.tap(find.byKey(const Key('customer-book-primary')));
       await settle(t);
       await t.tap(find.byKey(const Key('customer-book-confirm')));
       await settle(t);
       expect(b.last('POST', '/calendar/bookings')!.body, {
         'customerId': 'c1',
-        'start': _slot(1)['start'],
+        'start': _at('2026-12-01', 10)['start'],
+        'notes': 'להביא את התוכניות',
       });
-      expect(b.calls('GET', '/calendar/free-slots'), hasLength(2));
+      expect(b.calls('GET', '/calendar/free-slots'), hasLength(3));
+      expect(
+        b.last('GET', '/calendar/free-slots')!.query['date'],
+        '2026-12-01',
+      );
       expect(find.byKey(const Key('customer-book-notice')), findsOneWidget);
     });
 
-    testWidgets('free-slots enabled=false: explains and turns booking on', (
-      t,
-    ) async {
+    testWidgets('book for them without an e-mail: after booking, offers the '
+        'details on WhatsApp', (t) async {
+      final launcher = FakeLauncher()..install();
+      addTearDown(FakeLauncher.uninstall);
+      daySlots(b);
+      b.json('POST', '/calendar/bookings', {
+        'booking': {
+          'id': 'bk1',
+          'startsAt': _at('2026-12-01', 9)['start'],
+          'endsAt': _at('2026-12-01', 9)['end'],
+          'status': 'CONFIRMED',
+          'createdAt': '2026-11-23T10:00:00Z',
+        },
+      }, status: 201);
+      await pumpAs(t, b, Preset.owner, _opener());
+      await t.tap(find.byKey(const Key('open')));
+      await settle(t);
+      await t.tap(find.text(CalendarHe.modeBook));
+      await t.pump();
+      expect(find.text(CalendarHe.confirmByPhone), findsOneWidget);
+      await t.tap(find.byKey(const Key('customer-slot-0')));
+      await t.ensureVisible(find.byKey(const Key('customer-book-primary')));
+      await t.tap(find.byKey(const Key('customer-book-primary')));
+      await settle(t);
+      await t.tap(find.byKey(const Key('customer-book-confirm')));
+      // The button spins while the WhatsApp offer is open: no settle.
+      for (var i = 0; i < 10; i++) {
+        await t.runAsync(() => Future<void>.delayed(Duration.zero));
+        await t.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.text(CalendarHe.offerWhatsappTitle), findsOneWidget);
+      await t.tap(find.byKey(const Key('customer-book-whatsapp')));
+      await settle(t);
+      expect(launcher.last!.host, 'wa.me');
+      expect(launcher.last!.path, '/972521234567');
+    });
+
+    testWidgets('free-slots enabled=false: default hours, then "הפעלה" '
+        'continues in the sheet', (t) async {
       freeSlots(b, enabled: false);
-      b.json('PUT', '/calendar/settings', {'settings': settingsJson()});
+      b
+        ..json('GET', '/calendar/settings', {'settings': settingsJson()})
+        ..json('PUT', '/calendar/settings', {'settings': settingsJson()});
       await pumpAs(t, b, Preset.owner, _opener());
       await t.tap(find.byKey(const Key('open')));
       await settle(t);
       expect(find.byKey(const Key('customer-book-disabled')), findsOneWidget);
+      expect(find.byKey(const Key('customer-book-hours')), findsOneWidget);
       expect(find.text(CalendarHe.sendInvite), findsNothing);
-      freeSlots(b);
+      daySlots(b);
       await t.tap(find.byKey(const Key('customer-book-primary')));
       await settle(t);
       expect(b.last('PUT', '/calendar/settings')!.body, {'enabled': true});
       expect(find.byKey(const Key('customer-book-disabled')), findsNothing);
       expect(find.byKey(const Key('customer-slot-0')), findsOneWidget);
+    });
+
+    test('hoursSummary groups days with the same hours', () {
+      expect(
+        hoursSummary([
+          for (var d = 0; d < 5; d++)
+            DayHours(d, const [TimeRangeHm('09:00', '17:00')]),
+          const DayHours(5, [TimeRangeHm('09:00', '13:00')]),
+          const DayHours(6, []),
+        ]),
+        'א׳–ה׳ \u206609:00–17:00\u2069 · ו׳ \u206609:00–13:00\u2069',
+      );
+    });
+
+    test('dayStrip fills the closed days between bookable ones', () {
+      final strip = dayStrip(const [
+        FreeDay('2026-12-03', 2),
+        FreeDay('2026-12-01', 5),
+      ]);
+      expect(
+        [for (final d in strip) '${d.date}:${d.count}'],
+        ['2026-12-01:5', '2026-12-02:0', '2026-12-03:2'],
+      );
     });
 
     testWidgets('"קביעת פגישה" on the customer card: owner yes, employee no', (
@@ -379,10 +543,9 @@ void main() {
         customers: [customerJson('c1', 'דנה', phone: '050-1234567')],
       );
       await pumpAs(t, b, Preset.owner, const PersonScreen(id: 'c1'));
-      await reveal(t, find.byKey(const Key('person-book')));
-      expect(find.byKey(const Key('person-book')), findsOneWidget);
+      expect(find.byKey(const Key('person-action-book')), findsOneWidget);
       await pumpAs(t, b, Preset.employee, const PersonScreen(id: 'c1'));
-      expect(find.byKey(const Key('person-book')), findsNothing);
+      expect(find.byKey(const Key('person-action-book')), findsNothing);
     });
   });
 }

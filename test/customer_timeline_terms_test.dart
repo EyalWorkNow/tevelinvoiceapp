@@ -179,6 +179,7 @@ void main() {
         await flush(tester, 3);
       }
       await tester.ensureVisible(f);
+      await tester.pump();
       await tester.tap(f);
       await flush(tester);
     }
@@ -488,6 +489,8 @@ void main() {
         ..json('PATCH', '/customers/:id', {'id': 'c1'});
       timeline([]);
       await pump(tester, const PersonScreen(id: 'c1'));
+      // Owner 2026-11-23: terms live in the folded "פרטי הלקוח".
+      await tap(tester, find.byKey(const Key('person-details')));
       expect(
         find.text('שוטף+30 · העברה (ברירת המחדל של העסק)'),
         findsOneWidget,
@@ -533,6 +536,7 @@ void main() {
       );
       backend.json('GET', '/customers/:id', detail(terms: 'IMMEDIATE'));
       await pump(tester, const PersonScreen(id: 'c1'), preset: Preset.employee);
+      await tap(tester, find.byKey(const Key('person-details')));
       expect(find.text('מיידי'), findsOneWidget);
       await tester.tap(find.byKey(const Key('person-terms')));
       await flush(tester);

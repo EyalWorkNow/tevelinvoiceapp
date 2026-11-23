@@ -332,18 +332,48 @@ class FreeSlot {
   final String time;
 }
 
-class FreeSlots {
-  const FreeSlots(this.enabled, this.slots);
-  final bool enabled;
-  final List<FreeSlot> slots;
+/// A bookable day in the horizon and how many free slots it has.
+class FreeDay {
+  const FreeDay(this.date, this.count);
+
+  factory FreeDay.fromJson(Map<String, dynamic> j) =>
+      FreeDay(j['date'] as String? ?? '', jInt(j['count'] ?? 0));
+
+  /// Israel date 'YYYY-MM-DD'.
+  final String date;
+  final int count;
 }
 
-Future<FreeSlots> fetchFreeSlots({int limit = 12}) async {
-  final j = await _api.get('/calendar/free-slots', query: {'limit': '$limit'});
-  return FreeSlots(jBool(j['enabled']), [
-    for (final s in (j['slots'] as List? ?? const []))
-      FreeSlot.fromJson(s as Map<String, dynamic>),
-  ]);
+class FreeSlots {
+  const FreeSlots(this.enabled, this.slots, {this.days = const []});
+  final bool enabled;
+
+  /// Without a date: the next free slots; with a date: that whole day.
+  final List<FreeSlot> slots;
+
+  /// Bookable days with their counts (empty from a server before the day
+  /// strip: then derive them from [slots]).
+  final List<FreeDay> days;
+}
+
+/// GET /calendar/free-slots. [date] ('YYYY-MM-DD') returns that whole day;
+/// without it the next [limit] slots (older callers). Both carry `days`.
+Future<FreeSlots> fetchFreeSlots({int limit = 12, String? date}) async {
+  final j = await _api.get(
+    '/calendar/free-slots',
+    query: {'limit': '$limit', 'date': ?date},
+  );
+  return FreeSlots(
+    jBool(j['enabled']),
+    [
+      for (final s in (j['slots'] as List? ?? const []))
+        FreeSlot.fromJson(s as Map<String, dynamic>),
+    ],
+    days: [
+      for (final d in (j['days'] as List? ?? const []))
+        FreeDay.fromJson(d as Map<String, dynamic>),
+    ],
+  );
 }
 
 class CalendarInvite {
@@ -369,11 +399,15 @@ Future<CalendarInvite> createCalendarInvite(
 }
 
 /// The owner books [start] for the customer (CONFIRMED). 409 SLOT_TAKEN.
-Future<Booking> bookForCustomer(String customerId, String start) async =>
-    Booking.fromJson(
-      (await _api.post('/calendar/bookings', {
-            'customerId': customerId,
-            'start': start,
-          }))['booking']
-          as Map<String, dynamic>,
-    );
+Future<Booking> bookForCustomer(
+  String customerId,
+  String start, {
+  String? notes,
+}) async => Booking.fromJson(
+  (await _api.post('/calendar/bookings', {
+        'customerId': customerId,
+        'start': start,
+        if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+      }))['booking']
+      as Map<String, dynamic>,
+);

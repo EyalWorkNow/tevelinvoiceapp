@@ -22,6 +22,7 @@ import 'package:invoice/screens/people/person_screen.dart';
 import 'package:invoice/screens/reports/daily_summary_view.dart';
 import 'package:invoice/screens/reports/report_view.dart';
 import 'package:invoice/state/caps.dart';
+import 'package:invoice/ui/widgets/more_menu.dart';
 import 'package:invoice/util/labels/people_he.dart';
 
 import 'business/e_harness.dart';
@@ -211,7 +212,14 @@ void main() {
     );
     await tester.tap(find.text('open'));
     await settle(tester);
-    await tester.tap(find.byKey(const Key('person-statement')));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(MoreMenu),
+        matching: find.byType(IconButton),
+      ),
+    );
+    await settle(tester);
+    await tester.tap(find.text('שליחת כרטסת'));
     await tester.pump();
     await leaveThen(
       tester,

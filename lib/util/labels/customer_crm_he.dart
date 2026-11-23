@@ -47,6 +47,9 @@ abstract final class CustomerCrmHe {
   static const manualMoney =
       'מעקב ידני בש״ח, בנפרד מהחשבוניות והקבלות. יש להזין מחיר ועלויות על אותו בסיס מע״מ. הסכום שנשאר אינו רווח נקי ואינו יתרת הבנק.';
   static const price = 'מחיר שסוכם (₪)';
+
+  /// The agreed price next to a value that already shows ₪.
+  static const priceAgreed = 'מחיר שסוכם';
   static const cost = 'חומרים ועלויות (₪)';
   static const minutes = 'זמן עבודה בדקות';
   static const paid = 'התקבל מהלקוח (₪)';
@@ -91,6 +94,7 @@ abstract final class CustomerCrmHe {
   static const openCustomer = 'פתיחת תיק הלקוח';
   static const allJobs = 'כל העבודות';
   static const todayJobs = 'היום';
+  static const tomorrowJobs = 'מחר';
   static const weekJobs = '7 ימים';
   static const noMatchingJobs = 'אין עבודות בטווח הזה.';
   static const title = 'תיק הלקוח';

@@ -1,10 +1,12 @@
 // "קביעת פגישה" from the customer page (calendar v2, owner / partner):
-//   · הצעת מועדים — pick up to 3 of the next free slots; the customer gets a
-//     personal link that offers only those (POST /calendar/invites).
-//   · שליחת קישור ליומן — the same personal link, every free slot.
-//   · קביעה בשמו — the owner books a slot for the customer (CONFIRMED).
-// The invite text goes to WhatsApp when the customer has a phone, else to the
-// share sheet. A switched-off calendar explains itself and can be turned on.
+//   · הצעת מועדים — pick up to 3 free times (also on different days); the
+//     customer gets a personal link that offers only those (POST /calendar/invites).
+//   · קביעה בשמו — the owner books one time for the customer (CONFIRMED), with
+//     an optional note; without an e-mail the details can go out on WhatsApp.
+//   · קישור ליומן — the same personal link, every free slot (7 days).
+// A day strip (GET /calendar/free-slots → days[]) picks the day; that day's
+// times (?date=) sit below in an even 4-per-row grid. A switched-off calendar
+// shows its default hours, "שינוי שעות" and "הפעלה".
 
 import 'dart:async';
 
@@ -18,12 +20,14 @@ import '../../ui/widgets/notch_notice.dart';
 import '../../util/allowed_urls.dart';
 import '../../util/labels/calendar_he.dart';
 import '../../util/labels/common_he.dart';
+import '../../util/labels/person_page_he.dart';
 import '../../util/phone.dart';
 import '../document/dialogs.dart' show toast;
 import '../document/sheets/s6_share.dart' show textSharer;
 import 'calendar_api.dart';
+import 'calendar_settings_screen.dart' show openCalendarSettings;
 
-enum CustomerBookingMode { suggest, link, book }
+enum CustomerBookingMode { suggest, book, link }
 
 const maxSuggestedSlots = 3;
 
@@ -32,11 +36,19 @@ Future<void> showCustomerBookingSheet(
   required String customerId,
   required String name,
   String? phone,
+  String? email,
 }) => showAppSheet<void>(
   context,
-  builder: (_) =>
-      CustomerBookingSheet(customerId: customerId, name: name, phone: phone),
+  builder: (_) => CustomerBookingSheet(
+    customerId: customerId,
+    name: name,
+    phone: phone,
+    email: email,
+  ),
 );
+
+String _dm(DateTime d) =>
+    '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}';
 
 /// "ראשון 23.11 · 10:00" ("היום" / "מחר" for those days).
 String slotLabel(FreeSlot s, {DateTime? now}) {
@@ -50,9 +62,59 @@ String slotLabel(FreeSlot s, {DateTime? now}) {
       : day == today.add(const Duration(days: 1))
       ? CalendarHe.tomorrow
       : CalendarHe.days[day.weekday % 7];
-  final dm =
-      '${day.day.toString().padLeft(2, '0')}.${day.month.toString().padLeft(2, '0')}';
-  return '$name $dm · ${s.time}';
+  return '$name ${_dm(day)} · ${s.time}';
+}
+
+/// The strip's days: every day from the first bookable one to the last;
+/// days the server did not list (closed, full, vacation) have 0 free times
+/// and are shown, not selectable.
+List<FreeDay> dayStrip(List<FreeDay> days) {
+  final parsed = [
+    for (final d in days)
+      if (DateTime.tryParse(d.date) case final DateTime at) (at, d.count),
+  ]..sort((a, b) => a.$1.compareTo(b.$1));
+  if (parsed.isEmpty) return const [];
+  final first = parsed.first.$1;
+  final last = parsed.last.$1;
+  final counts = {for (final p in parsed) ymd(p.$1): p.$2};
+  return [
+    for (
+      var d = DateTime(first.year, first.month, first.day);
+      !d.isAfter(last);
+      d = DateTime(d.year, d.month, d.day + 1)
+    )
+      FreeDay(ymd(d), counts[ymd(d)] ?? 0),
+  ];
+}
+
+/// "א׳–ה׳ 09:00–17:00 · ו׳ 09:00–13:00" (consecutive days with the same
+/// hours together); empty when no day is open.
+String hoursSummary(List<DayHours> week) {
+  final byDay = {for (final d in week) d.day: d};
+  String hours(DayHours d) =>
+      d.ranges.map((r) => '${r.start}–${r.end}').join(', ');
+  final parts = <String>[];
+  var day = 0;
+  while (day < 7) {
+    final d = byDay[day];
+    if (d == null || !d.open) {
+      day++;
+      continue;
+    }
+    var end = day;
+    while (end + 1 < 7 &&
+        byDay[end + 1] != null &&
+        byDay[end + 1]!.open &&
+        hours(byDay[end + 1]!) == hours(d)) {
+      end++;
+    }
+    final w = PersonPageHe.weekdayShort;
+    parts.add(
+      '${end == day ? w[day] : '${w[day]}–${w[end]}'} ${ltrIsolate(hours(d))}',
+    );
+    day = end + 1;
+  }
+  return parts.join(' · ');
 }
 
 class CustomerBookingSheet extends StatefulWidget {
@@ -61,11 +123,13 @@ class CustomerBookingSheet extends StatefulWidget {
     required this.customerId,
     required this.name,
     this.phone,
+    this.email,
   });
 
   final String customerId;
   final String name;
   final String? phone;
+  final String? email;
 
   @override
   State<CustomerBookingSheet> createState() => _CustomerBookingSheetState();
@@ -73,17 +137,33 @@ class CustomerBookingSheet extends StatefulWidget {
 
 class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
   CustomerBookingMode _mode = CustomerBookingMode.suggest;
-  FreeSlots? _slots;
+  bool? _enabled;
+  List<FreeDay> _strip = const [];
+  String? _day;
+  final Map<String, List<FreeSlot>> _byDay = {};
+  bool _dayLoading = false;
   Object? _error;
   String? _notice;
-  final List<String> _selected = [];
-  String? _pick;
+  final List<FreeSlot> _picks = [];
+  FreeSlot? _pick;
+  CalendarSettings? _settings;
   bool _sending = false;
+  final _notes = TextEditingController();
+  final _stripScroll = ScrollController();
+
+  bool get _hasEmail => (widget.email ?? '').trim().isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _notes.dispose();
+    _stripScroll.dispose();
+    super.dispose();
   }
 
   Future<void> _load({String? notice}) async {
@@ -94,15 +174,82 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
     try {
       final s = await fetchFreeSlots();
       if (!mounted) return;
-      final starts = {for (final x in s.slots) x.start};
+      if (!s.enabled) {
+        setState(() => _enabled = false);
+        try {
+          final settings = await fetchCalendarSettings();
+          if (mounted) setState(() => _settings = settings);
+        } on Object {
+          // The hours line is a hint; the switch below still works.
+        }
+        return;
+      }
+      // An older server sends no days[]: derive them from the slots.
+      final derived = s.days.isEmpty;
+      final days = derived
+          ? [
+              for (final e in _groupByDay(s.slots).entries)
+                FreeDay(e.key, e.value.length),
+            ]
+          : s.days;
+      final strip = dayStrip(days);
+      final keep =
+          _day != null && strip.any((d) => d.date == _day && d.count > 0);
+      final first = strip.where((d) => d.count > 0).firstOrNull?.date;
       setState(() {
-        _slots = s;
-        _selected.removeWhere((x) => !starts.contains(x));
-        if (!starts.contains(_pick)) _pick = null;
+        _enabled = true;
+        _strip = strip;
+        _byDay.clear();
+        if (derived) _byDay.addAll(_groupByDay(s.slots));
+        _day = keep ? _day : first;
       });
+      final day = _day;
+      if (!derived && day != null) await _loadDay(day);
     } on Object catch (e) {
       if (mounted) setState(() => _error = e);
     }
+  }
+
+  static Map<String, List<FreeSlot>> _groupByDay(List<FreeSlot> slots) {
+    final out = <String, List<FreeSlot>>{};
+    for (final s in slots) {
+      (out[s.date] ??= []).add(s);
+    }
+    return out;
+  }
+
+  Future<void> _loadDay(String date, {bool force = false}) async {
+    if (!force && _byDay.containsKey(date)) return;
+    setState(() => _dayLoading = true);
+    try {
+      final s = await fetchFreeSlots(date: date);
+      if (!mounted) return;
+      if (!s.enabled) {
+        unawaited(_load());
+        return;
+      }
+      setState(() {
+        _byDay[date] = s.slots.where((x) => x.date == date).toList();
+        // The day's count follows what is free now.
+        _strip = [
+          for (final d in _strip)
+            d.date == date ? FreeDay(date, _byDay[date]!.length) : d,
+        ];
+        final starts = {for (final x in _byDay[date]!) x.start};
+        _picks.removeWhere((p) => p.date == date && !starts.contains(p.start));
+        if (_pick?.date == date && !starts.contains(_pick!.start)) _pick = null;
+      });
+    } on Object catch (e) {
+      if (mounted) showErrorSnack(context, e);
+    } finally {
+      if (mounted) setState(() => _dayLoading = false);
+    }
+  }
+
+  void _selectDay(FreeDay d) {
+    if (d.count == 0 || d.date == _day) return;
+    setState(() => _day = d.date);
+    unawaited(_loadDay(d.date));
   }
 
   Future<void> _enable() async {
@@ -114,22 +261,30 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
     }
   }
 
-  void _toggle(String start) {
+  Future<void> _openHours() async {
+    await openCalendarSettings(context);
+    if (mounted) await _load();
+  }
+
+  void _toggle(FreeSlot s) {
     setState(() {
-      if (_selected.contains(start)) {
-        _selected.remove(start);
-      } else if (_selected.length < maxSuggestedSlots) {
-        _selected.add(start);
+      final i = _picks.indexWhere((p) => p.start == s.start);
+      if (i >= 0) {
+        _picks.removeAt(i);
+      } else if (_picks.length < maxSuggestedSlots) {
+        _picks.add(s);
       } else {
         toast(context, CalendarHe.maxThree);
       }
     });
   }
 
-  /// A slot no longer free (or the calendar went off): show what is free now.
+  /// A time no longer free (or the calendar went off): reload that day.
   bool _recover(ApiException e) {
     if (e.code == 'SLOT_TAKEN' || e.code == 'VALIDATION') {
-      unawaited(_load(notice: CalendarHe.slotTaken));
+      setState(() => _notice = CalendarHe.slotTaken);
+      final day = _day;
+      if (day != null) unawaited(_loadDay(day, force: true));
       return true;
     }
     if (e.code == 'CALENDAR_DISABLED') {
@@ -142,7 +297,7 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
   Future<void> _sendInvite() async {
     if (_sending) return;
     final suggest = _mode == CustomerBookingMode.suggest;
-    if (suggest && _selected.isEmpty) {
+    if (suggest && _picks.isEmpty) {
       toast(context, CalendarHe.pickSlot);
       return;
     }
@@ -150,7 +305,7 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
     try {
       final invite = await createCalendarInvite(
         widget.customerId,
-        slots: suggest ? [..._selected] : const [],
+        slots: suggest ? [for (final p in _picks) p.start] : const [],
       );
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -169,11 +324,16 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
     }
   }
 
+  String get _confirmLine => _hasEmail
+      ? CalendarHe.confirmByEmail(widget.name)
+      : waPhone(widget.phone) != null
+      ? CalendarHe.confirmByPhone
+      : CalendarHe.confirmNoContact;
+
   Future<void> _book() async {
     if (_sending) return;
-    final start = _pick;
-    final slot = _slots?.slots.where((s) => s.start == start).firstOrNull;
-    if (start == null || slot == null) {
+    final slot = _pick;
+    if (slot == null) {
       toast(context, CalendarHe.pickSlot);
       return;
     }
@@ -181,7 +341,7 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
       context: context,
       builder: (c) => AlertDialog(
         title: Text(CalendarHe.bookConfirmTitle(widget.name)),
-        content: Text('${slotLabel(slot)}\n\n${CalendarHe.bookConfirmEmail}'),
+        content: Text('${slotLabel(slot)}\n\n$_confirmLine'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
@@ -198,7 +358,47 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
     if (ok != true || !mounted) return;
     setState(() => _sending = true);
     try {
-      await bookForCustomer(widget.customerId, start);
+      await bookForCustomer(widget.customerId, slot.start, notes: _notes.text);
+      if (!mounted) return;
+      final wa = waPhone(widget.phone);
+      // No e-mail confirmation reaches them: offer the details on WhatsApp.
+      if (!_hasEmail && wa != null) {
+        final send = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: const Text(CalendarHe.offerWhatsappTitle),
+            content: Text(
+              CalendarHe.offerWhatsappBody(widget.name, slotLabel(slot)),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c, false),
+                child: const Text(CalendarHe.notNow),
+              ),
+              TextButton(
+                key: const Key('customer-book-whatsapp'),
+                onPressed: () => Navigator.pop(c, true),
+                child: const Text(CalendarHe.sendWhatsapp),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        if (send == true) {
+          unawaited(
+            launchAllowed(
+              whatsAppUri(
+                phone: wa,
+                text: CalendarHe.whatsappDetails(
+                  widget.name,
+                  slotLabel(slot),
+                  businessContext.displayName,
+                ),
+              ),
+            ),
+          );
+        }
+      }
       if (!mounted) return;
       final messenger = ScaffoldMessenger.maybeOf(context);
       Navigator.of(context).pop();
@@ -219,12 +419,10 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.palette;
-    final slots = _slots;
     final children = <Widget>[
       SheetTitle(CalendarHe.bookFor, subtitle: widget.name),
     ];
-    if (slots == null) {
+    if (_enabled == null) {
       children.add(
         _error != null
             ? ErrorView(error: _error!, onRetry: () => unawaited(_load()))
@@ -233,125 +431,362 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
                 child: Center(child: CircularProgressIndicator.adaptive()),
               ),
       );
-    } else if (!slots.enabled) {
-      children.addAll([
-        AppCard(
-          key: const Key('customer-book-disabled'),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Iconsax.info_circle, color: p.warn),
-                  const SizedBox(width: Space.s),
-                  const Expanded(
-                    child: Text(
-                      CalendarHe.disabledTitle,
-                      style: AppText.headline,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: Space.xs),
-              Text(
-                CalendarHe.disabledBody,
-                style: AppText.secondary.copyWith(color: p.muted),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: Space.m),
-        PrimaryButton(
-          key: const Key('customer-book-primary'),
-          label: CalendarHe.enable,
-          offline: businessContext.offline,
-          onPressed: () => unawaited(_enable()),
-        ),
-      ]);
+    } else if (_enabled == false) {
+      children.addAll(_disabled(context));
     } else {
-      children.addAll([
-        ChipRow<CustomerBookingMode>(
-          key: const Key('customer-book-mode'),
-          padding: EdgeInsets.zero,
-          options: const [
-            ChipOption(CustomerBookingMode.suggest, CalendarHe.modeSuggest),
-            ChipOption(CustomerBookingMode.link, CalendarHe.modeLink),
-            ChipOption(CustomerBookingMode.book, CalendarHe.modeBook),
-          ],
-          selected: _mode,
-          onSelected: (m) => setState(() => _mode = m),
-        ),
-        const SizedBox(height: Space.m),
-        Text(switch (_mode) {
-          CustomerBookingMode.suggest => CalendarHe.suggestHint,
-          CustomerBookingMode.link => CalendarHe.linkHint,
-          CustomerBookingMode.book => CalendarHe.bookHint,
-        }, style: AppText.secondary.copyWith(color: p.muted)),
-        if (_notice != null)
-          Padding(
-            padding: const EdgeInsets.only(top: Space.s),
-            child: Text(
-              _notice!,
-              key: const Key('customer-book-notice'),
-              style: AppText.secondary.copyWith(color: p.warn),
-            ),
-          ),
-        const SizedBox(height: Space.s),
-        if (_mode != CustomerBookingMode.link)
-          if (slots.slots.isEmpty)
-            Text(
-              CalendarHe.noFreeSlots,
-              key: const Key('customer-book-empty'),
-              style: AppText.body.copyWith(color: p.muted),
-            )
-          else
-            Wrap(
-              spacing: Space.s,
-              runSpacing: Space.s,
-              children: [
-                for (final (i, s) in slots.slots.indexed)
-                  _mode == CustomerBookingMode.suggest
-                      ? FilterChip(
-                          key: Key('customer-slot-$i'),
-                          label: Text(slotLabel(s)),
-                          selected: _selected.contains(s.start),
-                          onSelected: (_) => _toggle(s.start),
-                        )
-                      : ChoiceChip(
-                          key: Key('customer-slot-$i'),
-                          label: Text(slotLabel(s)),
-                          selected: _pick == s.start,
-                          onSelected: (_) => setState(() => _pick = s.start),
-                        ),
-              ],
-            ),
-        const SizedBox(height: Space.l),
-        if (_mode == CustomerBookingMode.book)
-          PrimaryButton(
-            key: const Key('customer-book-primary'),
-            label: CalendarHe.bookConfirm,
-            icon: Iconsax.calendar_tick,
-            loadingText: _sending ? CalendarHe.bookConfirm : null,
-            offline: businessContext.offline,
-            onPressed: () => unawaited(_book()),
-          )
-        else
-          PrimaryButton(
-            key: const Key('customer-book-primary'),
-            label: CalendarHe.sendInvite,
-            icon: waPhone(widget.phone) != null
-                ? Iconsax.message
-                : Iconsax.share,
-            loadingText: _sending ? CalendarHe.sendInvite : null,
-            offline: businessContext.offline,
-            onPressed: () => unawaited(_sendInvite()),
-          ),
-      ]);
+      children.addAll(_enabledBody(context));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: children,
+    );
+  }
+
+  List<Widget> _disabled(BuildContext context) {
+    final p = context.palette;
+    final summary = _settings == null
+        ? ''
+        : hoursSummary(_settings!.weeklyHours);
+    return [
+      AppCard(
+        key: const Key('customer-book-disabled'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Iconsax.info_circle, color: p.warn),
+                const SizedBox(width: Space.s),
+                const Expanded(
+                  child: Text(
+                    CalendarHe.disabledTitle,
+                    style: AppText.headline,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: Space.xs),
+            Text(
+              CalendarHe.disabledBody,
+              style: AppText.secondary.copyWith(color: p.muted),
+            ),
+            if (summary.isNotEmpty) ...[
+              const SizedBox(height: Space.m),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      CalendarHe.defaultHours(summary),
+                      key: const Key('customer-book-hours-line'),
+                      style: AppText.body,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton.icon(
+                key: const Key('customer-book-hours'),
+                onPressed: () => unawaited(_openHours()),
+                icon: const Icon(Iconsax.clock, size: 18),
+                label: const Text(CalendarHe.changeHours),
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: Space.m),
+      PrimaryButton(
+        key: const Key('customer-book-primary'),
+        label: CalendarHe.enableShort,
+        offline: businessContext.offline,
+        onPressed: () => unawaited(_enable()),
+      ),
+    ];
+  }
+
+  List<Widget> _enabledBody(BuildContext context) {
+    final p = context.palette;
+    final link = _mode == CustomerBookingMode.link;
+    final day = _day;
+    final slots = day == null ? null : _byDay[day];
+    return [
+      SizedBox(
+        width: double.infinity,
+        child: SegmentedButton<CustomerBookingMode>(
+          key: const Key('customer-book-mode'),
+          showSelectedIcon: false,
+          style: const ButtonStyle(
+            visualDensity: VisualDensity.compact,
+            tapTargetSize: MaterialTapTargetSize.padded,
+          ),
+          segments: [
+            for (final (m, label) in const [
+              (CustomerBookingMode.suggest, CalendarHe.modeSuggest),
+              (CustomerBookingMode.book, CalendarHe.modeBook),
+              (CustomerBookingMode.link, CalendarHe.modeLinkShort),
+            ])
+              ButtonSegment(
+                value: m,
+                label: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.fade,
+                ),
+              ),
+          ],
+          selected: {_mode},
+          onSelectionChanged: (v) => setState(() => _mode = v.first),
+        ),
+      ),
+      const SizedBox(height: Space.m),
+      Text(switch (_mode) {
+        CustomerBookingMode.suggest => CalendarHe.suggestHintDays,
+        CustomerBookingMode.link => CalendarHe.linkShortHint,
+        CustomerBookingMode.book => CalendarHe.bookHintDay,
+      }, style: AppText.secondary.copyWith(color: p.muted)),
+      if (_notice != null)
+        Padding(
+          padding: const EdgeInsets.only(top: Space.s),
+          child: Text(
+            _notice!,
+            key: const Key('customer-book-notice'),
+            style: AppText.secondary.copyWith(color: p.warn),
+          ),
+        ),
+      if (!link) ...[
+        const SizedBox(height: Space.m),
+        if (_strip.every((d) => d.count == 0))
+          Row(
+            key: const Key('customer-book-empty'),
+            children: [
+              Expanded(
+                child: Text(
+                  CalendarHe.noSlotsHorizon,
+                  style: AppText.body.copyWith(color: p.muted),
+                ),
+              ),
+              TextButton(
+                onPressed: () => unawaited(_openHours()),
+                child: const Text(CalendarHe.hoursButton),
+              ),
+            ],
+          )
+        else ...[
+          _dayStripView(context),
+          const SizedBox(height: Space.m),
+          if (_dayLoading && slots == null)
+            const Padding(
+              padding: EdgeInsets.all(Space.l),
+              child: Center(child: CircularProgressIndicator.adaptive()),
+            )
+          else if (slots == null || slots.isEmpty)
+            Text(
+              CalendarHe.noTimesThisDay,
+              style: AppText.body.copyWith(color: p.muted),
+            )
+          else
+            _timeGrid(context, slots),
+        ],
+      ],
+      if (_mode == CustomerBookingMode.suggest && _picks.isNotEmpty) ...[
+        const SizedBox(height: Space.m),
+        Wrap(
+          spacing: Space.s,
+          runSpacing: Space.xs,
+          children: [
+            for (final (i, s) in _picks.indexed)
+              InputChip(
+                key: Key('customer-pick-$i'),
+                label: Text(slotLabel(s)),
+                deleteButtonTooltipMessage: CalendarHe.removePick(slotLabel(s)),
+                onDeleted: () => setState(() => _picks.removeAt(i)),
+              ),
+          ],
+        ),
+      ],
+      if (_mode == CustomerBookingMode.book) ...[
+        const SizedBox(height: Space.m),
+        TextField(
+          key: const Key('customer-book-notes'),
+          controller: _notes,
+          maxLength: 500,
+          minLines: 1,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: CalendarHe.notesLabel,
+            counterText: '',
+          ),
+        ),
+        const SizedBox(height: Space.s),
+        Text(
+          _confirmLine,
+          key: const Key('customer-book-confirm-line'),
+          style: AppText.secondary.copyWith(color: p.muted),
+        ),
+      ],
+      const SizedBox(height: Space.l),
+      if (_mode == CustomerBookingMode.book)
+        PrimaryButton(
+          key: const Key('customer-book-primary'),
+          label: CalendarHe.bookConfirm,
+          icon: Iconsax.calendar_tick,
+          loadingText: _sending ? CalendarHe.bookConfirm : null,
+          offline: businessContext.offline,
+          onPressed: () => unawaited(_book()),
+        )
+      else
+        PrimaryButton(
+          key: const Key('customer-book-primary'),
+          label: CalendarHe.sendInvite,
+          icon: waPhone(widget.phone) != null ? Iconsax.message : Iconsax.share,
+          loadingText: _sending ? CalendarHe.sendInvite : null,
+          offline: businessContext.offline,
+          onPressed: () => unawaited(_sendInvite()),
+        ),
+    ];
+  }
+
+  Widget _dayStripView(BuildContext context) {
+    return SizedBox(
+      child: SingleChildScrollView(
+        key: const Key('customer-book-days'),
+        controller: _stripScroll,
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final (i, d) in _strip.indexed) ...[
+              if (i > 0) const SizedBox(width: Space.s),
+              _dayChip(context, d),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dayChip(BuildContext context, FreeDay d) {
+    final p = context.palette;
+    final at = DateTime.parse(d.date);
+    final selected = d.date == _day;
+    final enabled = d.count > 0;
+    final picked =
+        _mode == CustomerBookingMode.suggest &&
+        _picks.any((x) => x.date == d.date);
+    final fg = selected
+        ? p.accentInk
+        : enabled
+        ? p.ink
+        : p.muted.withValues(alpha: .5);
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      selected: selected,
+      child: InkWell(
+        key: Key('customer-day-${d.date}'),
+        borderRadius: BorderRadius.circular(16),
+        onTap: enabled ? () => _selectDay(d) : null,
+        child: Container(
+          width: 58,
+          padding: const EdgeInsets.symmetric(vertical: Space.s),
+          decoration: BoxDecoration(
+            color: selected ? p.accent : null,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: selected ? p.accent : p.line),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                PersonPageHe.weekdayShort[at.weekday % 7],
+                style: AppText.secondary.copyWith(color: fg),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _dm(at),
+                style: AppText.body.copyWith(
+                  color: fg,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: !enabled
+                      ? Colors.transparent
+                      : picked
+                      ? p.warn
+                      : (selected ? p.accentInk : p.ok),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _timeGrid(BuildContext context, List<FreeSlot> slots) {
+    final p = context.palette;
+    final suggest = _mode == CustomerBookingMode.suggest;
+    Widget cell(int i, FreeSlot s) {
+      final selected = suggest
+          ? _picks.any((x) => x.start == s.start)
+          : _pick?.start == s.start;
+      return Semantics(
+        button: true,
+        selected: selected,
+        child: InkWell(
+          key: Key('customer-slot-$i'),
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => suggest ? _toggle(s) : setState(() => _pick = s),
+          child: Container(
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected ? p.accent : p.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: selected ? p.accent : p.line),
+            ),
+            child: Text(
+              s.time,
+              textDirection: TextDirection.ltr,
+              style: AppText.body.copyWith(
+                color: selected ? p.accentInk : p.ink,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final rows = <Widget>[];
+    for (var start = 0; start < slots.length; start += 4) {
+      if (rows.isNotEmpty) rows.add(const SizedBox(height: Space.s));
+      rows.add(
+        Row(
+          children: [
+            for (var i = start; i < start + 4; i++) ...[
+              if (i > start) const SizedBox(width: Space.s),
+              Expanded(
+                child: i < slots.length ? cell(i, slots[i]) : const SizedBox(),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+    return Column(
+      key: const Key('customer-book-times'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: rows,
     );
   }
 }

@@ -593,7 +593,6 @@ class _CustomerCrmPanelState extends State<CustomerCrmPanel> {
 
 /// The stage shown on the card: a customer that already has documents is not
 /// a "new lead" unless someone chose a later stage.
-@visibleForTesting
 CustomerCrmStage displayStage(
   CustomerCrmStage stored, {
   required bool hasDocuments,

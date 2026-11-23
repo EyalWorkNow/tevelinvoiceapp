@@ -24,7 +24,6 @@ import 'package:invoice/ui/ds.dart';
 import 'package:invoice/util/labels/people_he.dart';
 
 import 'fakes/fake_api.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 void main() {
   late FakeBackend backend;
@@ -331,8 +330,26 @@ void main() {
   });
 
   group('P2 · כרטיס', () {
+    /// The quick-action orbs, in order ('person-action-<id>' → id).
+    List<String> orbs(WidgetTester tester) => [
+      for (final w in tester.widgetList<ActionOrb>(find.byType(ActionOrb)))
+        if ((w.key as ValueKey<String>?)?.value case final String k
+            when k.startsWith('person-action-'))
+          k.substring('person-action-'.length),
+    ];
+
+    Future<void> more(WidgetTester tester, String id) async {
+      await tap(tester, find.byKey(const Key('person-action-more')));
+      await tap(tester, find.byKey(Key('person-more-$id')));
+    }
+
+    Finder headerMenu() => find.descendant(
+      of: find.byType(MoreMenu),
+      matching: find.byType(IconButton),
+    );
+
     testWidgets(
-      'balance > 0 → ONE primary "בקש תשלום"; contact circles via wa.me / tel / mailto',
+      'balance > 0 → "בקשת תשלום" 3rd after call / WhatsApp; wa.me / tel / mailto',
       (tester) async {
         installPeopleFakes(
           backend,
@@ -342,10 +359,17 @@ void main() {
           documents: docs(),
         );
         await pump(tester, const PersonScreen(id: 'c1'));
-        expect(find.byType(PrimaryButton), findsOneWidget);
-        expect(find.text('בקש תשלום'), findsOneWidget);
+        expect(find.byType(PrimaryButton), findsNothing, reason: 'no bar');
+        expect(orbs(tester), [
+          'call',
+          'whatsapp',
+          'payment-request',
+          'book',
+          'paid',
+          'invoice',
+          'more',
+        ]);
         expect(find.byKey(const Key('person-owes')), findsOneWidget);
-        // 0110: the "תנאי תשלום" row sits above the documents.
         await tester.scrollUntilVisible(
           find.byKey(const Key('person-doc-d1')),
           200,
@@ -356,7 +380,6 @@ void main() {
               )
               .first,
         );
-        expect(find.byKey(const Key('person-doc-d1')), findsOneWidget);
         expect(
           find.descendant(
             of: find.byKey(const Key('person-doc-d1')),
@@ -365,26 +388,18 @@ void main() {
           findsWidgets,
           reason: 'title = type · number, not the date',
         );
-        await tester.scrollUntilVisible(
-          find.byKey(const Key('person-whatsapp')),
-          -200,
-          scrollable: find
-              .descendant(
-                of: find.byType(RefreshIndicator),
-                matching: find.byType(Scrollable),
-              )
-              .first,
-        );
-
-        await tap(tester, find.byKey(const Key('person-whatsapp')));
+        await tap(tester, find.byKey(const Key('person-action-whatsapp')));
         expect(launcher.last.toString(), 'https://wa.me/972501234567');
-        await tap(tester, find.byKey(const Key('person-call')));
+        await tap(tester, find.byKey(const Key('person-action-call')));
         expect(launcher.last!.scheme, 'tel');
-        await tap(tester, find.byKey(const Key('person-mail')));
+        await more(tester, 'email');
         expect(launcher.last.toString(), 'mailto:d@x.co');
 
         // Owner 2026-11-18: the short payment-request form, for this customer.
-        await tap(tester, find.text('בקש תשלום'));
+        await tap(
+          tester,
+          find.byKey(const Key('person-action-payment-request')),
+        );
         final c = tester.widget<PaymentRequestScreen>(
           find.byType(PaymentRequestScreen),
         );
@@ -393,18 +408,28 @@ void main() {
     );
 
     testWidgets(
-      'no balance → "מסמך חדש ל-X"; no phone → no call/WhatsApp circles',
+      'no balance → "חשבונית" 3rd, "הצעת מחיר" 6th; no phone and no e-mail → '
+      'one "הוספת טלפון" orb that opens the edit form',
       (tester) async {
         installPeopleFakes(backend, customers: [customerJson('c1', 'דנה')]);
         await pump(tester, const PersonScreen(id: 'c1'));
-        expect(find.text(PeopleHe.newDocFor('דנה')), findsOneWidget);
-        expect(find.byKey(const Key('person-whatsapp')), findsNothing);
-        expect(find.byKey(const Key('person-call')), findsNothing);
-        expect(find.text(PeopleHe.noDocuments), findsOneWidget);
+        expect(orbs(tester), [
+          'add-phone',
+          'invoice',
+          'book',
+          'paid',
+          'quote',
+          'more',
+        ]);
+        expect(find.text(PeopleHe.noDocuments), findsNothing);
+        expect(find.text('עוד אין מסמכים'), findsWidgets);
+        expect(find.byKey(const Key('person-first-invoice')), findsOneWidget);
+        await tap(tester, find.byKey(const Key('person-action-add-phone')));
+        expect(find.text(PeopleHe.editTitle), findsWidgets);
       },
     );
 
-    testWidgets('⋯ "ארכב" with an open balance asks first, then archives', (
+    testWidgets('⋯ "ארכוב" with an open balance asks first, then archives', (
       tester,
     ) async {
       installPeopleFakes(
@@ -415,8 +440,8 @@ void main() {
       await pump(tester, const Scaffold(body: Text('root')));
       unawaited(openPerson(navigatorKey.currentContext!, 'c1'));
       await flush(tester);
-      await tap(tester, find.byIcon(Iconsax.more));
-      await tap(tester, find.text(PeopleHe.archive));
+      await tap(tester, headerMenu());
+      await tap(tester, find.text('ארכוב'));
       expect(find.textContaining('ללקוח יש'), findsOneWidget);
       expect(
         find.textContaining('5,990 פתוח'),
@@ -429,27 +454,32 @@ void main() {
       expect(find.text('root'), findsOneWidget, reason: 'card closes');
     });
 
-    testWidgets('employee: no ⋯, no "פרטים ועריכה", no balance', (
+    testWidgets('employee: no ⋯, no "פרטים ועריכה", no balance, no booking', (
       tester,
     ) async {
       installPeopleFakes(
         backend,
-        customers: [customerJson('c1', 'דנה')],
+        customers: [customerJson('c1', 'דנה', phone: '050-1234567')],
         documents: docs(),
       );
       await pump(tester, const PersonScreen(id: 'c1'), preset: Preset.employee);
-      expect(find.byIcon(Iconsax.more), findsNothing);
+      expect(headerMenu(), findsNothing);
       expect(find.byKey(const Key('person-edit')), findsNothing);
       expect(find.byKey(const Key('person-owes')), findsNothing);
-      expect(find.text(PeopleHe.newDocFor('דנה')), findsOneWidget);
+      final ids = orbs(tester);
+      expect(ids.take(2), ['call', 'whatsapp']);
+      expect(ids, isNot(contains('book')));
+      expect(ids, isNot(contains('reminder')));
+      expect(ids, isNot(contains('add-phone')));
     });
 
-    testWidgets('viewer: no primary button at all (hidden, not disabled)', (
+    testWidgets('viewer without contact details: no actions at all', (
       tester,
     ) async {
       installPeopleFakes(backend, customers: [customerJson('c1', 'דנה')]);
       await pump(tester, const PersonScreen(id: 'c1'), preset: Preset.viewer);
       expect(find.byType(PrimaryButton), findsNothing);
+      expect(find.byType(ActionOrb), findsNothing);
     });
 
     testWidgets(
@@ -463,7 +493,7 @@ void main() {
           be09: true,
         );
         await pump(tester, const PersonScreen(id: 'c1'));
-        await tap(tester, find.byKey(const Key('person-edit')));
+        await more(tester, 'edit');
         expect(find.text(PeopleHe.editTitle), findsWidgets);
         await tester.enterText(find.byKey(const Key('s2-email')), 'dana@x.co');
         await tap(tester, find.text('שוטף+60'));
@@ -475,9 +505,7 @@ void main() {
       },
     );
 
-    testWidgets('supplier card: badge "ספק", primary "הוצאה חדשה מ-X"', (
-      tester,
-    ) async {
+    testWidgets('supplier card: badge "ספק", orb "הוצאה חדשה"', (tester) async {
       installPeopleFakes(
         backend,
         suppliers: [
@@ -493,18 +521,21 @@ void main() {
       );
       await pump(tester, const PersonScreen(id: 's1', isSupplier: true));
       expect(find.text(PeopleHe.supplierBadge), findsOneWidget);
-      expect(find.text(PeopleHe.newExpenseFrom('חשמל')), findsOneWidget);
-      expect(find.byKey(const Key('person-call')), findsOneWidget);
+      expect(orbs(tester), ['call', 'whatsapp', 'expense']);
+      final expense = tester.widget<ActionOrb>(
+        find.byKey(const Key('person-action-expense')),
+      );
+      expect(expense.semanticsLabel, PeopleHe.newExpenseFrom('חשמל'));
       expect(
         find.byKey(const Key('person-edit')),
         findsNothing,
         reason: 'no BE-16: read-only card',
       );
-      expect(find.byIcon(Iconsax.more), findsNothing);
+      expect(headerMenu(), findsNothing);
     });
 
     testWidgets(
-      'J11 (AT-28, BE-17): לקוחות → לקוח → "שלח כרטסת" → אישור = 4 taps; e-mailed for this year',
+      'J11 (AT-28, BE-17): לקוחות → לקוח → ⋯ "שליחת כרטסת" → אישור = 5 taps; e-mailed for this year',
       (tester) async {
         installPeopleFakes(
           backend,
@@ -515,29 +546,15 @@ void main() {
         await pump(tester, const PeopleScreen());
         taps = 1; // (1) the "לקוחות" tab
         await tap(tester, find.byKey(const Key('person-c1')));
-        await tester.scrollUntilVisible(
-          find.byKey(const Key('person-statement')),
-          250,
-          scrollable: find
-              .descendant(
-                of: find.byType(PersonScreen),
-                matching: find.byType(Scrollable),
-              )
-              .first,
-        );
         await flush(tester);
-        expect(find.byKey(const Key('person-statement')), findsOneWidget);
-        expect(
-          find.byType(PrimaryButton),
-          findsOneWidget,
-          reason: 'statement is a row, not a 2nd primary',
-        );
-        await tap(tester, find.byKey(const Key('person-statement')));
+        await tap(tester, headerMenu());
+        await tap(tester, find.text('שליחת כרטסת'));
         // E-mailing the customer asks first (QA 2026-11-16 owner/114).
         expect(backend.calls('POST', '/customers/:id/statement/send'), isEmpty);
         expect(find.text(PeopleHe.statementConfirmTitle), findsOneWidget);
         await tap(tester, find.byKey(const Key('statement-confirm')));
-        expect(taps, lessThanOrEqualTo(4));
+        // Owner spec 2026-11-23: the statement moved into ⋯ (one more tap).
+        expect(taps, lessThanOrEqualTo(5));
         final body = backend
             .last('POST', '/customers/:id/statement/send')!
             .body;
@@ -549,7 +566,7 @@ void main() {
 
     testWidgets(
       'BE-17: no e-mail or accountant (no send) → statement PDF to the share sheet; '
-      'no BE-17 → no row',
+      'no BE-17 → no item',
       (tester) async {
         String? shared;
         final old = pdfSharer;
@@ -571,22 +588,24 @@ void main() {
           findsNothing,
           reason: 'rep: statement only (§4.4)',
         );
-        await tap(tester, find.byKey(const Key('person-statement')));
+        await tap(tester, headerMenu());
+        await tap(tester, find.text('שליחת כרטסת'));
         expect(backend.calls('POST', '/customers/:id/statement/send'), isEmpty);
         expect(shared, 'כרטסת דנה.pdf');
       },
     );
 
     testWidgets(
-      'no BE-17 on the server → "שלח כרטסת" hidden (F5); employee never sees it',
+      'no BE-17 on the server → "שליחת כרטסת" hidden (F5) in ⋯ and in "עוד"',
       (tester) async {
         installPeopleFakes(
           backend,
           customers: [customerJson('c1', 'דנה', email: 'd@x.co')],
         );
         await pump(tester, const PersonScreen(id: 'c1'));
-        expect(find.byKey(const Key('person-edit')), findsOneWidget);
-        expect(find.byKey(const Key('person-statement')), findsNothing);
+        await tap(tester, find.byKey(const Key('person-action-more')));
+        expect(find.byKey(const Key('person-more-edit')), findsOneWidget);
+        expect(find.byKey(const Key('person-more-statement')), findsNothing);
       },
     );
 
@@ -599,7 +618,7 @@ void main() {
           be09: true,
         );
         await pump(tester, const PersonScreen(id: 'c1'));
-        await tap(tester, find.byKey(const Key('person-edit')));
+        await more(tester, 'edit');
         expect(
           find.byKey(const Key('s2-accountkey')),
           findsNothing,
@@ -627,7 +646,7 @@ void main() {
     );
 
     testWidgets(
-      'supplier card with BE-16: "פרטים ועריכה" PATCHes the change; ⋯ "ארכב"',
+      'supplier card with BE-16: "פרטים ועריכה" PATCHes the change; ⋯ "ארכוב"',
       (tester) async {
         installPeopleFakes(
           backend,
@@ -648,7 +667,7 @@ void main() {
           openPerson(navigatorKey.currentContext!, 's1', supplier: true),
         );
         await flush(tester);
-        await tap(tester, find.byKey(const Key('person-edit')));
+        await more(tester, 'edit');
         expect(find.byKey(const Key('s2-consent')), findsNothing);
         await tester.enterText(find.byKey(const Key('s2-phone')), '03-6000000');
         await tap(tester, find.byKey(const Key('s2-save')));
@@ -656,8 +675,8 @@ void main() {
           'phone': '036000000',
         });
 
-        await tap(tester, find.byIcon(Iconsax.more));
-        await tap(tester, find.text(PeopleHe.archive));
+        await tap(tester, headerMenu());
+        await tap(tester, find.text('ארכוב'));
         expect(find.text(PeopleHe.supplierArchiveConfirm), findsOneWidget);
         await tap(tester, find.widgetWithText(TextButton, PeopleHe.archive));
         expect(backend.calls('POST', '/suppliers/:id/archive'), hasLength(1));
@@ -1136,8 +1155,8 @@ void main() {
         brightness: Brightness.dark,
       );
       expect(find.text('דנה'), findsWidgets, reason: 'name in the header');
-      expect(find.byKey(const Key('person-new-invoice')), findsOneWidget);
-      await tap(tester, find.byKey(const Key('person-paid')));
+      expect(find.byKey(const Key('person-action-invoice')), findsOneWidget);
+      await tap(tester, find.byKey(const Key('person-action-paid')));
       final c = tester.widget<ComposeScreen>(find.byType(ComposeScreen));
       expect(c.intent, 'PAID');
       expect(c.customerId, 'c1');

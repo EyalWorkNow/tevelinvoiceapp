@@ -209,6 +209,33 @@ abstract final class CalendarHe {
       'כדי להציע מועדים או לשלוח קישור ליומן, צריך להפעיל קביעת פגישות.';
   static const enable = 'הפעלת קביעת פגישות';
 
+  // ---- v2.1: day strip (free-slots?date=) ----
+  static const modeLinkShort = 'קישור ליומן';
+  static const linkShortHint =
+      'קישור אישי, תקף 7 ימים — הלקוח בוחר בעצמו שעה פנויה.';
+  static const suggestHintDays =
+      'בחרו עד 3 מועדים, גם בימים שונים — הלקוח יקבל קישור לבחירה ביניהם.';
+  static const bookHintDay = 'בחרו יום ושעה — הפגישה תיקבע מיד בשם הלקוח.';
+  static const noTimesThisDay = 'אין שעות פנויות ביום הזה.';
+  static const noSlotsHorizon = 'אין שעות פנויות בימים הקרובים.';
+  static const changeHours = 'שינוי שעות';
+  static const enableShort = 'הפעלה';
+  static String defaultHours(String summary) => 'שעות ברירת מחדל: $summary';
+  static const notesLabel = 'הערה לפגישה (לא חובה)';
+  static String confirmByEmail(String name) =>
+      '$name יקבל/תקבל אישור באימייל עם אפשרות לשנות או לבטל.';
+  static const confirmByPhone =
+      'ללקוח אין אימייל — אחרי הקביעה אפשר לשלוח לו את הפרטים בוואטסאפ.';
+  static const confirmNoContact = 'ללקוח אין אימייל או טלפון לשליחת אישור.';
+  static const offerWhatsappTitle = 'לשלוח את הפרטים בוואטסאפ?';
+  static String offerWhatsappBody(String name, String when) =>
+      'הפגישה עם $name נקבעה ל$when.';
+  static String whatsappDetails(String name, String when, String business) =>
+      'שלום $name, קבענו פגישה ל$when. $business';
+  static const sendWhatsapp = 'שליחה בוואטסאפ';
+  static const notNow = 'לא עכשיו';
+  static String removePick(String label) => 'הסרת $label';
+
   static String error(String? code) => switch (code) {
     'VALIDATION' => 'אחד הערכים לא תקין. נא לבדוק את ההגדרות.',
     'BOOKING_NOT_FOUND' => 'הפגישה לא נמצאה.',

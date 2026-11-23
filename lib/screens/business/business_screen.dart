@@ -18,7 +18,7 @@ import '../../state/caps.dart';
 import '../../state/session.dart';
 import '../../ui/ds.dart' show AppText, Space, showErrorSnack;
 import '../../ui/theme.dart';
-import '../../ui/widgets/design_controls.dart' show ActionOrb;
+import '../../ui/widgets/quick_action_grid.dart';
 import '../../ui/widgets/sheet.dart' show SheetTitle, showAppSheet;
 import '../../util/composer_config.dart'
     show DocKind, configFor, kindAllowedForCaps, moreKinds;
@@ -693,40 +693,27 @@ class _ManagementQuickActions extends StatelessWidget {
         ),
       );
     }
-    Widget actionOrb(_ManagementAction action) => ActionOrb(
-      key: Key('management-action-${action.id}'),
-      label: action.label,
-      icon: action.orb,
-      color: action.color,
-      labelSpacing: 5,
-      onPressed: action.onTap,
-    );
-
-    final rows = <Widget>[];
-    for (var start = 0; start < visible.length; start += 4) {
-      final row = visible.skip(start).take(4).toList(growable: false);
-      rows.add(
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (final action in row) Expanded(child: actionOrb(action)),
-            for (var empty = row.length; empty < 4; empty++)
-              const Expanded(child: SizedBox()),
-          ],
-        ),
-      );
-      if (start + 4 < visible.length) {
-        rows.add(const SizedBox(height: Space.xs));
-      }
-    }
-
     return Column(
       key: const Key('management-quick-actions'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text('פעולות מהירות', style: AppText.title),
         const SizedBox(height: Space.s),
-        ...rows,
+        QuickActionGrid(
+          keyPrefix: 'management-action',
+          actions: [
+            for (final a in visible)
+              QuickAction(
+                id: a.id,
+                label: a.label,
+                icon: a.icon,
+                ink: Colors.transparent,
+                orb: a.orb,
+                color: a.color,
+                onTap: a.onTap,
+              ),
+          ],
+        ),
       ],
     );
   }

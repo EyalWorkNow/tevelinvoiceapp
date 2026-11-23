@@ -2,7 +2,7 @@
 // test FakeBackend, no server). Prints SHOT: markers (same protocol as
 // accountant_shots_test):
 //
-//   U=<sim udid>; OUT=$PWD/docs/qa/customer-page-2026-11-23/before
+//   U=<sim udid>; OUT=$PWD/docs/qa/customer-page-2026-11-23/after
 //   ~/flutter/bin/flutter test integration_test/customer_page_shots_test.dart -d $U 2>&1 |
 //   while IFS= read -r l; do echo "$l"; if [[ $l == *SHOT:* ]]; then
 //     n=${l##*SHOT:}; xcrun simctl io $U screenshot "$OUT/$n.png" >/dev/null 2>&1; fi; done
@@ -12,7 +12,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:invoice/app_shell.dart';
 import 'package:invoice/router.dart';
 import 'package:invoice/screens/debts/reminder_hold_tile.dart';
 import 'package:invoice/screens/people/person_screen.dart';
@@ -105,9 +104,13 @@ String day(int offset) {
 
 String iso(int dayOffset, int hour, [int minute = 0]) {
   final n = DateTime.now();
-  return DateTime(n.year, n.month, n.day + dayOffset, hour, minute)
-      .toUtc()
-      .toIso8601String();
+  return DateTime(
+    n.year,
+    n.month,
+    n.day + dayOffset,
+    hour,
+    minute,
+  ).toUtc().toIso8601String();
 }
 
 // ── data ──────────────────────────────────────────────────────────────────
@@ -168,7 +171,13 @@ Map<String, dynamic> customer(
   },
 };
 
-Map<String, dynamic> listRow(String id, String name, {String? phone, String? email, String balance = '0'}) => {
+Map<String, dynamic> listRow(
+  String id,
+  String name, {
+  String? phone,
+  String? email,
+  String balance = '0',
+}) => {
   'id': id,
   'name': name,
   'tax_id': null,
@@ -330,27 +339,94 @@ CustomerCrmEntry danielCrm() {
   );
 }
 
-List<Map<String, dynamic>> slots(int n) {
+/// Free times of [date] (09:00–16:30 every 30 min, minus a "busy" pattern
+/// so days differ); Fridays short, Saturdays closed, one full day.
+List<Map<String, dynamic>> daySlots(DateTime date) {
   final out = <Map<String, dynamic>>[];
-  final now = DateTime.now();
-  var d = DateTime(now.year, now.month, now.day + 1, 9);
-  while (out.length < n) {
-    if (d.hour >= 17) {
-      d = DateTime(d.year, d.month, d.day + 1, 9);
-      continue;
-    }
+  if (date.weekday == DateTime.saturday) return out;
+  final end = date.weekday == DateTime.friday ? 13 : 17;
+  var d = DateTime(date.year, date.month, date.day, 9);
+  var i = 0;
+  while (d.hour < end) {
     final e = d.add(const Duration(minutes: 30));
-    out.add({
-      'start': d.toUtc().toIso8601String(),
-      'end': e.toUtc().toIso8601String(),
-      'date':
-          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
-      'time':
-          '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}',
-    });
+    if ((i + date.day) % 3 != 0) {
+      out.add({
+        'start': d.toUtc().toIso8601String(),
+        'end': e.toUtc().toIso8601String(),
+        'date':
+            '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
+        'time':
+            '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}',
+      });
+    }
     d = e;
+    i++;
   }
   return out;
+}
+
+String ymdOf(DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+/// The horizon: tomorrow .. +20 days; day +4 is fully booked.
+List<DateTime> horizon() {
+  final n = DateTime.now();
+  return [
+    for (var i = 1; i <= 20; i++)
+      if (i != 4) DateTime(n.year, n.month, n.day + i),
+  ];
+}
+
+FakeResponse freeSlots(FakeRequest r, bool on) {
+  if (!on) {
+    return const FakeResponse(200, {'enabled': false, 'slots': [], 'days': []});
+  }
+  final days = [
+    for (final d in horizon())
+      if (daySlots(d).isNotEmpty) d,
+  ];
+  final date = r.query['date'];
+  final slots = date == null
+      ? daySlots(days.first).take(12).toList()
+      : daySlots(DateTime.parse(date));
+  return FakeResponse(200, {
+    'enabled': true,
+    'slots': slots,
+    'days': [
+      for (final d in days) {'date': ymdOf(d), 'count': daySlots(d).length},
+    ],
+  });
+}
+
+Map<String, dynamic> agendaJson() {
+  final n = DateTime.now();
+  Map<String, dynamic> bk(
+    String id,
+    DateTime at,
+    String status,
+    String cid,
+  ) => {
+    'id': id,
+    'startsAt': at.toUtc().toIso8601String(),
+    'endsAt': at.add(const Duration(minutes: 30)).toUtc().toIso8601String(),
+    'status': status,
+    'clientName': cid == 'c1' ? 'דניאל רוזן' : 'אחר',
+    'clientPhone': '0524718830',
+    'clientEmail': 'daniel.rosen@gmail.com',
+    'sequence': 0,
+    'createdAt': DateTime(n.year, n.month, n.day - 3).toUtc().toIso8601String(),
+    'notes': id == 'bk1' ? 'פגישת תכנון לפרגולה' : null,
+    'customerId': cid,
+  };
+  return {
+    'enabled': true,
+    'busy': <Object>[],
+    'bookings': [
+      bk('bk1', DateTime(n.year, n.month, n.day + 1, 11), 'CONFIRMED', 'c1'),
+      bk('bk2', DateTime(n.year, n.month, n.day + 6, 16), 'PENDING', 'c1'),
+      bk('bk3', DateTime(n.year, n.month, n.day + 1, 13), 'CONFIRMED', 'c9'),
+    ],
+  };
 }
 
 Map<String, dynamic> tl(
@@ -388,7 +464,13 @@ FakeBackend backendFor({bool calendarOn = true}) {
   installPeopleFakes(
     b,
     customers: [
-      listRow('c1', 'דניאל רוזן', phone: '052-4718830', email: 'daniel.rosen@gmail.com', balance: '284000'),
+      listRow(
+        'c1',
+        'דניאל רוזן',
+        phone: '052-4718830',
+        email: 'daniel.rosen@gmail.com',
+        balance: '284000',
+      ),
       listRow('c2', 'משה לוי'),
     ],
     suppliers: [
@@ -429,19 +511,40 @@ FakeBackend backendFor({bool calendarOn = true}) {
         {'customerId': 'c1', 'revision': 3, 'record': entry.toJson()},
       ],
     })
-    ..on('PUT', '/crm/customers/:id', (r) => FakeResponse(200, {
-      'customerId': r.params['id'],
-      'revision': 4,
-      'record': r.body['record'],
-    }))
+    ..on(
+      'PUT',
+      '/crm/customers/:id',
+      (r) => FakeResponse(200, {
+        'customerId': r.params['id'],
+        'revision': 4,
+        'record': r.body['record'],
+      }),
+    )
     ..json('GET', '/settings/payment-terms', {
       'paymentTerms': 'IMMEDIATE',
       'paymentTermsDays': null,
       'preferredPaymentMethod': null,
     })
-    ..json('GET', '/calendar/free-slots', {
-      'enabled': calendarOn,
-      'slots': calendarOn ? slots(12) : <Object>[],
+    ..on('GET', '/calendar/free-slots', (r) => freeSlots(r, calendarOn))
+    ..json('GET', '/calendar/agenda', agendaJson())
+    ..json('GET', '/calendar/settings', {
+      'settings': {
+        'enabled': calendarOn,
+        'slug': 'AbCd',
+        'bookingUrl': 'https://invoice.tevel.space/book/AbCd',
+        'weeklyHours': [
+          for (var d = 0; d < 7; d++)
+            {
+              'day': d,
+              'ranges': d == 6
+                  ? []
+                  : [
+                      {'start': '09:00', 'end': d == 5 ? '13:00' : '17:00'},
+                    ],
+            },
+        ],
+        'slotMinutes': 30,
+      },
     })
     ..json('GET', '/customers/:id/timeline', {
       'nextCursor': null,
@@ -455,23 +558,80 @@ FakeBackend backendFor({bool calendarOn = true}) {
         'calendar',
       ],
       'items': [
-        tl('t1', 'note', -1, 16,
-            data: {'body': 'דיבר איתי, ישלם עד סוף החודש.', 'source': 'customerCard'},
-            actor: 'אייל', mine: true, linkType: 'customerNote', linkId: 'cn1'),
-        tl('t2', 'reminder.sent', -5, 9, data: {'channel': 'WHATSAPP', 'documentNumber': '1057', 'documentType': 'TAX_INVOICE'}),
-        tl('t3', 'quote.sent', -9, 12, amount: '1250000',
-            data: {'quoteNumber': '88', 'channel': 'WHATSAPP'},
-            linkType: 'quote', linkId: 'q88'),
-        tl('t4', 'document.issued', -30, 10, amount: '35000',
-            data: {'documentType': 'CREDIT_DOCUMENT', 'documentNumber': '1061'},
-            linkType: 'document', linkId: 'd-credit'),
-        tl('t5', 'document.sent', -48, 9, amount: '284000',
-            data: {'documentType': 'TAX_INVOICE', 'documentNumber': '1057', 'channel': 'EMAIL'},
-            linkType: 'document', linkId: 'd-open'),
-        tl('t6', 'payment.recorded', -60, 13, amount: '196000',
-            data: {'method': 'BANK_TRANSFER'}),
-        tl('t7', 'calendar.booked', -70, 8,
-            data: {'startsAtIsrael': '${day(-68)} 09:00'}),
+        tl(
+          't1',
+          'note',
+          -1,
+          16,
+          data: {
+            'body': 'דיבר איתי, ישלם עד סוף החודש.',
+            'source': 'customerCard',
+          },
+          actor: 'אייל',
+          mine: true,
+          linkType: 'customerNote',
+          linkId: 'cn1',
+        ),
+        tl(
+          't2',
+          'reminder.sent',
+          -5,
+          9,
+          data: {
+            'channel': 'WHATSAPP',
+            'documentNumber': '1057',
+            'documentType': 'TAX_INVOICE',
+          },
+        ),
+        tl(
+          't3',
+          'quote.sent',
+          -9,
+          12,
+          amount: '1250000',
+          data: {'quoteNumber': '88', 'channel': 'WHATSAPP'},
+          linkType: 'quote',
+          linkId: 'q88',
+        ),
+        tl(
+          't4',
+          'document.issued',
+          -30,
+          10,
+          amount: '35000',
+          data: {'documentType': 'CREDIT_DOCUMENT', 'documentNumber': '1061'},
+          linkType: 'document',
+          linkId: 'd-credit',
+        ),
+        tl(
+          't5',
+          'document.sent',
+          -48,
+          9,
+          amount: '284000',
+          data: {
+            'documentType': 'TAX_INVOICE',
+            'documentNumber': '1057',
+            'channel': 'EMAIL',
+          },
+          linkType: 'document',
+          linkId: 'd-open',
+        ),
+        tl(
+          't6',
+          'payment.recorded',
+          -60,
+          13,
+          amount: '196000',
+          data: {'method': 'BANK_TRANSFER'},
+        ),
+        tl(
+          't7',
+          'calendar.booked',
+          -70,
+          8,
+          data: {'startsAtIsrael': '${day(-68)} 09:00'},
+        ),
       ],
     });
   return b;
@@ -491,9 +651,16 @@ Future<void> openCard(
   await t.pumpWidget(const SizedBox());
   await pumpMs(200);
   await t.pumpWidget(
-    eApp(PersonScreen(id: id, isSupplier: supplier), brightness: brightness),
+    eApp(
+      PersonScreen(id: id, isSupplier: supplier),
+      brightness: brightness,
+    ),
   );
   await pumpMs(2500);
+}
+
+Future<void> openMore() async {
+  await tapIf(find.byKey(const Key('person-action-more')));
 }
 
 void main() {
@@ -504,13 +671,6 @@ void main() {
     await eSetUp();
     loadReminderHold = ({customerId, documentId}) async => false;
 
-    // 0 · Home (owner) for design reference.
-    final hb = backendFor();
-    await signInAs(hb, Preset.owner);
-    await t.pumpWidget(eApp(const AppShell()));
-    await pumpMs(3000);
-    await shot('00-home-top');
-
     // 1 · the full owner card, top → bottom.
     await openCard(Preset.owner, 'c1');
     await shot('01-owner-top');
@@ -520,97 +680,131 @@ void main() {
       i++;
     }
     audit('owner card scroll pages: ${i - 1}');
-    await scrollTop();
 
-    // 2 · CRM tabs.
-    for (final (n, name) in [(0, 'visits'), (1, 'notes-followups'), (2, 'money')]) {
-      final tab = find.byKey(Key('crm-section-$n'));
-      if (await tapIf(tab)) {
-        await t.ensureVisible(tab);
-        await t.drag(find.byType(Scrollable).first, const Offset(0, -120));
-        await pumpMs(500);
-        await shot('20-crm-tab-$n-$name');
-        if (await scrollDown(dy: 480)) await shot('21-crm-tab-$n-$name-p2');
-      }
-      await scrollTop();
+    // Folded sections opened.
+    if (await tapIf(find.byKey(const Key('person-money')))) {
+      await t.ensureVisible(find.byKey(const Key('person-money')));
+      await pumpMs(300);
+      await shot('10-money-open');
     }
-    await tapIf(find.byKey(const Key('crm-section-0')));
-
-    // CRM stage popup.
-    if (await tapIf(find.byIcon(Icons.expand_more).first)) {
-      await shot('22-crm-stage-menu');
-      await back();
+    if (await tapIf(find.byKey(const Key('person-details')))) {
+      await scrollDown(dy: 900);
+      await shot('11-details-open');
     }
-    // A job's ⋯ menu.
-    final jobMenu = find.byKey(const ValueKey('crm-job-menu-j1'));
-    if (await tapIf(jobMenu)) {
-      await shot('23-crm-job-menu');
-      await back();
-    }
-    // Job editor.
-    if (await tapIf(find.byKey(const Key('crm-add-job')))) {
-      await shot('24-crm-new-job-sheet');
-      await closeAll();
-    }
-    await scrollTop();
-
-    // 3 · ⋯ menu (top bar).
-    if (await tapIf(find.byType(MoreMenu))) {
-      await shot('30-more-menu');
-      await back();
-    }
-
-    // 4 · פרטים ועריכה.
-    if (await tapIf(find.byKey(const Key('person-edit')))) {
-      await shot('40-details-edit-sheet');
-      if (await scrollDown()) await shot('41-details-edit-sheet-p2');
-      await closeAll();
-    }
-
-    // 5 · payment terms.
+    // payment terms (only from the details).
     if (await tapIf(find.byKey(const Key('person-terms')))) {
       await shot('50-payment-terms-sheet');
       await closeAll();
     }
+    await scrollTop();
 
-    // 6 · קביעת פגישה (3 modes).
-    if (await tapIf(find.byKey(const Key('person-book')), waitMs: 2000)) {
-      audit('free-slot chips: ${find.byType(FilterChip).evaluate().length}');
+    // Stage menu.
+    if (await tapIf(find.byKey(const Key('person-stage')))) {
+      await shot('22-crm-stage-menu');
+      await back();
+    }
+
+    // "הכל" of the visits → the full page + a job's ⋯ menu.
+    if (await tapIf(find.byKey(const Key('person-visits-all')), waitMs: 1500)) {
+      await shot('20-visits-all');
+      final jobMenu = find.byKey(const ValueKey('crm-job-menu-j1'));
+      if (await tapIf(jobMenu)) {
+        await shot('23-crm-job-menu');
+        await back();
+      }
+      await closeAll();
+    }
+    await openCard(Preset.owner, 'c1');
+
+    // A meeting row → its card.
+    if (await tapIf(find.byKey(const Key('person-visit-booking-bk1')))) {
+      await shot('21-booking-detail');
+      await closeAll();
+    }
+    await scrollTop();
+
+    // 3 · "עוד" sheet + ⋯ menu.
+    await openMore();
+    await shot('30-more-sheet');
+    await closeAll();
+    if (await tapIf(
+      find.descendant(
+        of: find.byType(MoreMenu),
+        matching: find.byType(IconButton),
+      ),
+    )) {
+      await shot('31-header-menu');
+      await back();
+    }
+
+    // "תזכורת לעצמי".
+    if (await tapIf(find.byKey(const Key('person-action-reminder')))) {
+      await shot('32-quick-reminder');
+      await closeAll();
+    }
+
+    // 4 · פרטים ועריכה (from "עוד").
+    await openMore();
+    if (await tapIf(find.byKey(const Key('person-more-edit')))) {
+      await shot('40-details-edit-sheet');
+      await closeAll();
+    }
+
+    // 6 · קביעת פגישה.
+    if (await tapIf(
+      find.byKey(const Key('person-action-book')),
+      waitMs: 2500,
+    )) {
       await shot('60-book-suggest');
       await tapIf(find.byKey(const Key('customer-slot-0')), waitMs: 400);
       await tapIf(find.byKey(const Key('customer-slot-3')), waitMs: 400);
-      await shot('61-book-suggest-2-picked');
-      await tapIf(find.text('שליחת קישור ליומן'));
-      await shot('62-book-link');
+      // A later day: the strip scrolls, its own times load.
+      final later = find.byKey(Key('customer-day-${ymdOf(horizon()[7])}'));
+      if (later.evaluate().isNotEmpty) {
+        await t.ensureVisible(later);
+        await pumpMs(300);
+      }
+      await tapIf(later, waitMs: 1500);
+      await tapIf(find.byKey(const Key('customer-slot-2')), waitMs: 400);
+      await shot('61-book-suggest-3-picked-later-day');
       await tapIf(find.text('קביעה בשמו'));
       await tapIf(find.byKey(const Key('customer-slot-1')), waitMs: 400);
       await shot('63-book-for-them');
+      if (await scrollDown(dy: 400)) await shot('63b-book-for-them-notes');
+      await tapIf(find.text('קישור ליומן'));
+      await shot('62-book-link');
       await closeAll();
     }
 
-    // 7 · statement confirm.
-    if (await tapIf(find.byKey(const Key('person-statement')))) {
-      await shot('70-statement-confirm');
+    // 7 · statement confirm (⋯).
+    if (await tapIf(
+      find.descendant(
+        of: find.byType(MoreMenu),
+        matching: find.byType(IconButton),
+      ),
+    )) {
+      if (await tapIf(find.text('שליחת כרטסת'))) {
+        await shot('70-statement-confirm');
+      }
       await closeAll();
     }
 
-    // 8 · timeline.
+    // 8 · timeline ("הכל" of the documents).
     if (await tapIf(find.byKey(const Key('person-timeline')), waitMs: 2000)) {
       await shot('80-timeline');
-      if (await scrollDown()) await shot('81-timeline-p2');
       await closeAll();
     }
 
-    // Bottom action area (primary + secondary).
-    audit('primary: ${find.byKey(const Key('person-primary')).evaluate().isNotEmpty}, '
-        'secondary: new-invoice=${find.byKey(const Key('person-new-invoice')).evaluate().length} '
-        'debt=${find.byKey(const Key('person-debt')).evaluate().length} '
-        'repeat=${find.byKey(const Key('person-repeat')).evaluate().length} '
-        'paid=${find.byKey(const Key('person-paid')).evaluate().length}');
+    audit(
+      'bottom bar gone: ${find.byKey(const Key('person-primary')).evaluate().isEmpty}',
+    );
 
     // 9 · calendar switched off.
     await openCard(Preset.owner, 'c1', calendarOn: false);
-    if (await tapIf(find.byKey(const Key('person-book')), waitMs: 2000)) {
+    if (await tapIf(
+      find.byKey(const Key('person-action-book')),
+      waitMs: 2500,
+    )) {
       await shot('64-book-calendar-off');
       await closeAll();
     }
@@ -619,7 +813,6 @@ void main() {
     await openCard(Preset.employee, 'c1');
     await shot('90-employee-top');
     if (await scrollDown()) await shot('91-employee-scroll');
-    audit('employee sees crm: ${find.byKey(const Key('person-crm')).evaluate().isNotEmpty}');
 
     // 10b · office manager (money.view, no manage).
     await openCard(Preset.officeManager, 'c1');
@@ -633,14 +826,18 @@ void main() {
     // 12 · supplier card.
     await openCard(Preset.owner, 's1', supplier: true);
     await shot('95-supplier');
-    if (await tapIf(find.byType(MoreMenu))) {
-      await shot('96-supplier-more-menu');
-      await back();
+    if (await tapIf(find.byKey(const Key('person-action-more')))) {
+      await shot('96-supplier-more-sheet');
+      await closeAll();
     }
 
     // 13 · dark mode.
     await openCard(Preset.owner, 'c1', brightness: Brightness.dark);
     await shot('97-dark-top');
     if (await scrollDown()) await shot('98-dark-scroll');
+    await scrollTop();
+    await openMore();
+    await shot('99-dark-more-sheet');
+    await closeAll();
   });
 }
