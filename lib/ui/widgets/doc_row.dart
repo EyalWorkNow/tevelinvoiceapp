@@ -22,6 +22,7 @@ class DocRow extends StatelessWidget {
     this.onLongPress,
     this.swipeLabel,
     this.onSwipe,
+    this.swipeDestructive = false,
     this.meta,
   });
 
@@ -41,6 +42,9 @@ class DocRow extends StatelessWidget {
   final VoidCallback? onLongPress;
   final String? swipeLabel;
   final VoidCallback? onSwipe;
+
+  /// The swipe deletes (a draft): red background instead of the send accent.
+  final bool swipeDestructive;
 
   /// Quiet text beside the single status in the compact row (the date).
   final String? meta;
@@ -139,12 +143,14 @@ class DocRow extends StatelessWidget {
         return false;
       },
       background: Container(
-        color: p.accent,
+        color: swipeDestructive ? p.danger : p.accent,
         alignment: AlignmentDirectional.centerStart,
         padding: const EdgeInsets.symmetric(horizontal: Space.page),
         child: Text(
           swipeLabel!,
-          style: AppText.headline.copyWith(color: p.accentInk),
+          style: AppText.headline.copyWith(
+            color: swipeDestructive ? Colors.white : p.accentInk,
+          ),
         ),
       ),
       child: row,
@@ -290,12 +296,14 @@ class DocRow extends StatelessWidget {
         return false;
       },
       background: Container(
-        color: p.accent,
+        color: swipeDestructive ? p.danger : p.accent,
         alignment: AlignmentDirectional.centerStart,
         padding: const EdgeInsets.symmetric(horizontal: Space.page),
         child: Text(
           swipeLabel!,
-          style: AppText.headline.copyWith(color: p.accentInk),
+          style: AppText.headline.copyWith(
+            color: swipeDestructive ? Colors.white : p.accentInk,
+          ),
         ),
       ),
       child: row,

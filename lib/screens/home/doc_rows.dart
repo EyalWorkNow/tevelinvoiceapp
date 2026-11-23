@@ -82,6 +82,7 @@ Widget docRowFor(
         ? InboxHe.deleteDraft
         : (onSend == null ? null : CommonHe.send),
     onSwipe: draftDelete ?? onSend,
+    swipeDestructive: draftDelete != null,
     onLongPress: draftDelete ?? onSend,
   );
 }
