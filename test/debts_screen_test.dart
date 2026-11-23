@@ -160,6 +160,20 @@ void main() {
         expect(find.byKey(const Key('debt-doc-d1')), findsOneWidget);
         expect(find.byKey(const Key('debt-entry-e1')), findsOneWidget);
         expect(find.textContaining(DebtsHe.bookBadge), findsOneWidget);
+        // The debt line's ⋯ sits before its amount: it hugs the same edge as
+        // the document line above it (2026-11-23).
+        double amountLeft(String key) => tester
+            .getTopLeft(
+              find.descendant(
+                of: find.byKey(Key(key)),
+                matching: find.byType(AmountText),
+              ),
+            )
+            .dx;
+        expect(
+          amountLeft('debt-entry-e1'),
+          closeTo(amountLeft('debt-doc-d1'), .1),
+        );
       },
     );
 

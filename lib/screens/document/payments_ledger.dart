@@ -153,8 +153,9 @@ class _PaymentsLedgerState extends State<PaymentsLedger> {
           : Text(sub, style: AppText.secondary.copyWith(color: p.muted)),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
+        // The menu before the amount: every amount hugs the row's end,
+        // voidable or not (2026-11-23).
         children: [
-          AmountText(r.amountMinor),
           if (canVoid && r.mayVoid)
             _busyId == r.id
                 ? const Padding(
@@ -173,6 +174,7 @@ class _PaymentsLedgerState extends State<PaymentsLedger> {
                       ),
                     ],
                   ),
+          AmountText(r.amountMinor),
         ],
       ),
       onTap: r.receiptDocumentId == null

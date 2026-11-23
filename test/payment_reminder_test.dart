@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/models/models.dart';
 import 'package:invoice/screens/document/sheets/s6_share.dart';
 import 'package:invoice/screens/home/inbox_cards.dart';
+import 'package:invoice/ui/widgets/amount_display.dart';
 import 'package:invoice/state/cache.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/ui/theme.dart';
@@ -285,6 +286,25 @@ void main() {
       expect(find.byKey(const Key('reminder-wa-1')), findsOneWidget);
       expect(find.byKey(const Key('reminder-wa-2')), findsOneWidget);
       expect(find.textContaining('נשלחה תזכורת לפני 3 ימים'), findsOneWidget);
+      // RTL: the checkbox at the start (right), the amount at the row's end
+      // (left), after the WhatsApp button (2026-11-23).
+      final tile = find.byKey(const Key('reminder-1'));
+      final amount = find.descendant(
+        of: tile,
+        matching: find.byType(AmountText),
+      );
+      expect(
+        tester.getTopLeft(amount).dx,
+        closeTo(tester.getTopLeft(tile).dx, .1),
+      );
+      expect(
+        tester
+            .getTopRight(
+              find.descendant(of: tile, matching: find.byType(Checkbox)),
+            )
+            .dx,
+        closeTo(tester.getTopRight(tile).dx, .1),
+      );
     });
 
     testWidgets('no WhatsApp button without doc.send', (tester) async {

@@ -51,7 +51,10 @@ Widget docRowFor(
       dateStr = '$day.$month.$yr';
     }
   }
-  final row = DocRow(
+  final draftDelete = onDelete != null && isDraftStatus(d.status)
+      ? onDelete
+      : null;
+  return DocRow(
     key: key ?? Key('doc-${d.id}'),
     title: (d.customerName == null || d.customerName!.isEmpty)
         ? InboxHe.noCustomer
@@ -72,35 +75,15 @@ Widget docRowFor(
     meta: dateStr.isEmpty ? null : ltrIsolate(dateStr),
     onTap: onTap,
     // Owner 2026-11-17: send any issued document from the list (swipe or
-    // long press → S6).
-    swipeLabel: onSend == null ? null : CommonHe.send,
-    onSwipe: onSend,
-    onLongPress: onSend,
-  );
-  if (onDelete == null || !isDraftStatus(d.status)) return row;
-  return Row(
-    children: [
-      Expanded(child: row),
-      PopupMenuButton<String>(
-        tooltip: InboxHe.draftActions,
-        icon: const Icon(Icons.more_horiz_rounded),
-        onSelected: (action) {
-          if (action == 'delete') onDelete();
-        },
-        itemBuilder: (_) => const [
-          PopupMenuItem(
-            value: 'delete',
-            child: Row(
-              children: [
-                Icon(Icons.delete_outline_rounded, size: 20),
-                SizedBox(width: 10),
-                Text(InboxHe.deleteDraft),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ],
+    // long press → S6). A draft's delete takes the same gestures (and the
+    // VoiceOver action) instead of a trailing menu, so its amount hugs the
+    // row's end like every other row (2026-11-23).
+    swipeLabel: draftDelete != null
+        ? InboxHe.deleteDraft
+        : (onSend == null ? null : CommonHe.send),
+    onSwipe: draftDelete ?? onSend,
+    swipeDestructive: draftDelete != null,
+    onLongPress: draftDelete ?? onSend,
   );
 }
 

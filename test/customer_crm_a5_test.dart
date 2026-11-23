@@ -57,8 +57,8 @@ void main() {
     expect(crmJobInRange(DateTime(2026, 11, 19, 9), 2, now), isFalse);
   });
 
-  testWidgets('money tab: documents balance first; month arrows on both '
-      'sides in RTL', (tester) async {
+  testWidgets('money tab: no duplicate documents balance; month arrows on '
+      'both sides in RTL', (tester) async {
     tester.view.physicalSize = const Size(1170, 2532);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -71,7 +71,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text(CustomerCrmHe.documentsBalance), findsOneWidget);
+    expect(find.text(CustomerCrmHe.documentsBalance), findsNothing);
     expect(find.text(CustomerCrmHe.remainingEstimate), findsOneWidget);
     final previous = tester.getCenter(
       find.byKey(const Key('crm-month-previous')),
