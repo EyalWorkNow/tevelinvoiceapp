@@ -5,7 +5,9 @@ import '../theme.dart';
 
 /// bit-style numeric keypad. Emits '0'–'9', '.', 'del' (and 'clear' on a
 /// long-press of delete) to [onKey]; combine
-/// with `keypadApply` from util/money.dart. Keys are ≥ 64pt, light haptic.
+/// with `keypadApply` from util/money.dart. Light haptic.
+/// 2026-11-19: the keys follow the screen height ([keyHeightFor]: 44–52pt,
+/// was a fixed 64pt) so the fields under the amount stay in view.
 /// Laid out LTR (1 2 3 on top) like every phone keypad, also in RTL.
 class Keypad extends StatelessWidget {
   const Keypad({
@@ -27,7 +29,12 @@ class Keypad extends StatelessWidget {
   final String? doneLabel;
 
   /// Height of the handle row.
-  static const double handleHeight = 34;
+  static const double handleHeight = 30;
+
+  /// One key row for a screen [screenHeight] tall: the four rows take about
+  /// a fifth of the screen (SE 667pt → 44pt, 844pt → 47pt, max 52pt).
+  static double keyHeightFor(double screenHeight) =>
+      (screenHeight * .056).clamp(Hit.min, 52.0);
 
   static const _rows = [
     ['1', '2', '3'],
@@ -38,11 +45,12 @@ class Keypad extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final keyHeight = keyHeightFor(MediaQuery.sizeOf(context).height);
     return Directionality(
       textDirection: TextDirection.ltr,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 13),
-        padding: EdgeInsets.fromLTRB(12, onDone == null ? 12 : 2, 12, 12),
+        padding: EdgeInsets.fromLTRB(12, onDone == null ? 10 : 2, 12, 10),
         decoration: BoxDecoration(
           color: context.isDark ? DesignTokens.keypad : context.palette.surface,
           borderRadius: BorderRadius.circular(40),
@@ -54,7 +62,8 @@ class Keypad extends StatelessWidget {
             for (final row in _rows)
               Row(
                 children: [
-                  for (final key in row) Expanded(child: _key(context, key)),
+                  for (final key in row)
+                    Expanded(child: _key(context, key, keyHeight)),
                 ],
               ),
           ],
@@ -101,9 +110,9 @@ class Keypad extends StatelessWidget {
     );
   }
 
-  Widget _key(BuildContext context, String key) {
+  Widget _key(BuildContext context, String key, double height) {
     if (key == '.' && !allowDecimal) {
-      return const SizedBox(height: Hit.keypad);
+      return SizedBox(height: height);
     }
     final p = context.palette;
     final label = switch (key) {
@@ -127,11 +136,15 @@ class Keypad extends StatelessWidget {
               }
             : null,
         child: SizedBox(
-          height: Hit.keypad,
+          height: height,
           child: Center(
-            child: key == 'del'
-                ? Icon(Icons.backspace_outlined, color: p.ink, size: 26)
-                : Text(key, style: AppText.keypad.copyWith(color: p.ink)),
+            // Large text on a short key: the digit shrinks, never overflows.
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: key == 'del'
+                  ? Icon(Icons.backspace_outlined, color: p.ink, size: 26)
+                  : Text(key, style: AppText.keypad.copyWith(color: p.ink)),
+            ),
           ),
         ),
       ),

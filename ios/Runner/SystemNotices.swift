@@ -285,12 +285,17 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
   }
 
   /// packages/shared/src/push-catalogue.ts PUSH_KINDS (PUSH-001, /mobile/push/devices).
-  static let catalogueKinds: Set<String> = [
+  static let catalogueKinds: Set<String> = Set([
     "ITA_ALLOCATION_APPROVED", "ITA_ALLOCATION_REJECTED", "DOCUMENT_SEND_FAILED",
     "PAYMENT_RECEIVED", "PAYMENTS_OVERDUE", "COLLECTION_REMINDERS_READY",
     "QUOTE_SIGNED", "QUOTE_VIEWED", "TEAM_MEMBER_JOINED", "SUBSCRIPTION_RENEWS_SOON",
     "SUBSCRIPTION_PAYMENT_FAILED", "SUBSCRIPTION_EXPIRED", "EXPORT_READY",
     "EXPORT_FAILED", "NEW_DEVICE_LOGIN", "UPLOAD_BLOCKED",
+  ]).union(accountantKinds)
+  /// Accountant pushes (2026-11-22) carry kind + ids, maybe no link: Dart opens them by business.
+  static let accountantKinds: Set<String> = [
+    "ACCOUNTANT_ACCESS_APPROVED", "ACCOUNTANT_CORRECTION_ANSWERED",
+    "ACCOUNTANT_EXPENSES_DIGEST", "ACCOUNTANT_LEFT",
   ]
   /// Kinds with the server's own text (admin/template announcements, invoice#60): the system
   /// banner stays (also in the foreground); only a tap is forwarded, to open `link`.
@@ -319,10 +324,15 @@ final class SystemNotices: NSObject, FlutterPlugin, FlutterStreamHandler {
       Self.catalogueKinds.contains($0) || Self.openOnlyKinds.contains($0) ? $0 : nil
     }
     let tevelKind = userInfo["tevelKind"] as? String
+    let accountant = catalogueKind.map { Self.accountantKinds.contains($0) } ?? false
+    // The daily digest names its businesses; exactly one → open that one.
+    let digestBusiness = (userInfo["businesses"] as? [String]).flatMap { $0.count == 1 ? $0[0] : nil }
     guard let kind = tevelKind ?? catalogueKind,
-          let route = (userInfo["route"] as? String) ?? (userInfo["link"] as? String),
+          let route = (userInfo["route"] as? String) ?? (userInfo["link"] as? String)
+            ?? (accountant ? "/home" : nil),
           // Account-level catalogue pushes (subscription, new device) have no business.
-          let businessID = (userInfo["businessId"] as? String) ?? (tevelKind == nil ? "" : nil),
+          let businessID = (userInfo["businessId"] as? String) ?? (accountant ? digestBusiness : nil)
+            ?? (tevelKind == nil ? "" : nil),
           route.range(of: Self.allowedRoute, options: .regularExpression) != nil else { return false }
     if Self.openOnlyKinds.contains(kind) && !opened {
       // 0124: the ordinary push of a notch announcement → the in-app notch notice (foreground).

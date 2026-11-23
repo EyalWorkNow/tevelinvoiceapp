@@ -500,10 +500,11 @@ class _DebtorCard extends StatelessWidget {
                 subtitle: Text(
                   '${DebtsHe.bookBadge} · ${DebtsHe.bookSince(daysSince(DateTime.parse(e.debtDate), now))}',
                 ),
+                // The menu before the amount: the amount hugs the row's end
+                // like the document lines above it (2026-11-23).
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    AmountText(e.amountMinor, style: AppText.amountSmall),
                     if (caps.can(Cap.docDraft) || caps.can(Cap.paymentIssue))
                       MoreMenu(
                         items: [
@@ -522,6 +523,7 @@ class _DebtorCard extends StatelessWidget {
                             ),
                         ],
                       ),
+                    AmountText(e.amountMinor, style: AppText.amountSmall),
                   ],
                 ),
                 onTap: caps.can(Cap.docDraft) ? () => onEditEntry(e) : null,

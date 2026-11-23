@@ -30,9 +30,9 @@ abstract final class PeopleHe {
 
   // P2 · כרטיס
   static const call = 'חייג';
-  static const whatsapp = 'ווטסאפ';
-  static const mail = 'מייל';
-  static String newDocFor(String name) => 'חשבונית חדשה ל-$name';
+  static const whatsapp = 'וואטסאפ';
+  static const mail = 'אימייל';
+  static String newDocFor(String name) => 'חשבונית חדשה ל$name';
   static const newInvoice = 'חשבונית חדשה';
   static String newExpenseFrom(String name) => 'הוצאה חדשה מ-$name';
   static const detailsAndEdit = 'פרטים ועריכה';
@@ -84,7 +84,7 @@ abstract final class PeopleHe {
   static const postalCode = 'מיקוד';
   static const cityRequired = 'צריך עיר';
   static const accountKey = 'מפתח חשבון';
-  static const consentSwitch = 'לשלוח לו מסמכים בווטסאפ ובמייל';
+  static const consentSwitch = 'לשלוח לו מסמכים בוואטסאפ ובאימייל';
   static const consentHint = 'דולק = הלקוח הסכים לקבל מסמכים דיגיטליים';
   static const nameRequired = 'צריך שם';
   static const phoneInvalid = 'מספר הטלפון לא נראה תקין';

@@ -31,6 +31,15 @@ import '../../util/allocation_meter.dart' show AllocationHe;
 import 'allocation_scan_view.dart';
 import 'daily_summary_view.dart';
 import '../../api/readiness_api.dart';
+import '../../api/accountant_api.dart'
+    show
+        PeriodReview,
+        fetchPeriodReviews,
+        markPeriodReviewed,
+        periodKeyOf,
+        unmarkPeriodReviewed;
+import '../../state/accountant_store.dart' show accountantFocusTodo;
+import 'clients_summary_row.dart';
 import 'readiness_card.dart';
 import 'report_view.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
@@ -152,7 +161,19 @@ class _ReportsState extends State<_Reports> {
   Object? _error;
   String? _exporting;
 
+  /// Feature 6: reviewed periods (null = not served / not an accountant).
+  List<PeriodReview>? _reviews;
+  bool _reviewBusy = false;
+  final GlobalKey _todoKey = GlobalKey();
+
   ReportPeriod get _period => periodFor(_key);
+
+  /// 'YYYY-MM' of the period's first month; null for the year chip.
+  String? get _reviewPeriod {
+    final p = _period;
+    final months = (p.to.year - p.from.year) * 12 + p.to.month - p.from.month;
+    return months <= 1 ? periodKeyOf(p.from) : null;
+  }
 
   /// "הכנסות החודש" only when the period is this one month; otherwise
   /// "הכנסות החודש בלבד (10.2026)" under '9–10.2026' / '2026'.
@@ -168,7 +189,33 @@ class _ReportsState extends State<_Reports> {
   @override
   void initState() {
     super.initState();
+    accountantFocusTodo.addListener(_focusTodo);
     unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    accountantFocusTodo.removeListener(_focusTodo);
+    super.dispose();
+  }
+
+  /// A client row was tapped (S14): show "לטיפול" once R has loaded.
+  void _focusTodo() {
+    if (!accountantFocusTodo.value || _loading || !widget.embedded) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !accountantFocusTodo.value) return;
+      accountantFocusTodo.value = false;
+      final target = _todoKey.currentContext;
+      if (target != null) {
+        unawaited(
+          Scrollable.ensureVisible(
+            target,
+            duration: context.motion(280),
+            alignment: 0.05,
+          ),
+        );
+      }
+    });
   }
 
   Future<void> _load() async {
@@ -191,6 +238,7 @@ class _ReportsState extends State<_Reports> {
         caps.can(Cap.reportView)
             ? _optionalReadiness()
             : Future<Object?>.value(),
+        caps.homeIsReports ? _optionalReviews() : Future<Object?>.value(),
       ]);
       final cards = results[1] as bool;
       // The headline follows the chip: income of the selected period (BE-18).
@@ -213,8 +261,10 @@ class _ReportsState extends State<_Reports> {
         _cards = cards;
         _todo = results[2] as List<InboxItem>;
         _readiness = results[3] as Readiness?;
+        _reviews = results[4] as List<PeriodReview>?;
         _loading = false;
       });
+      _focusTodo();
     } on Object catch (e) {
       if (mounted) {
         setState(() {
@@ -241,6 +291,98 @@ class _ReportsState extends State<_Reports> {
     } on Object {
       return null;
     }
+  }
+
+  /// Feature 6: never blocks R either.
+  Future<List<PeriodReview>?> _optionalReviews() async {
+    try {
+      return await fetchPeriodReviews();
+    } on Object {
+      return null;
+    }
+  }
+
+  bool get _reviewed {
+    final key = _reviewPeriod;
+    return key != null && (_reviews ?? const []).any((r) => r.period == key);
+  }
+
+  Future<void> _toggleReviewed() async {
+    final key = _reviewPeriod;
+    final before = _reviews;
+    if (key == null || before == null || _reviewBusy) return;
+    final reviewed = _reviewed;
+    setState(() => _reviewBusy = true);
+    try {
+      if (reviewed) {
+        await unmarkPeriodReviewed(key);
+      } else {
+        await markPeriodReviewed(key);
+      }
+      if (!mounted) return;
+      setState(
+        () => _reviews = reviewed
+            ? [
+                for (final r in before)
+                  if (r.period != key) r,
+              ]
+            : [
+                PeriodReview(period: key, reviewedAt: DateTime.now()),
+                ...before,
+              ],
+      );
+      ScaffoldMessenger.of(context).showNotchNotice(
+        SnackBar(
+          content: Text(
+            reviewed
+                ? AccountantHe.reviewedRemoved
+                : AccountantHe.reviewedSaved,
+          ),
+        ),
+        motion: reviewed ? NoticeMotion.sent : NoticeMotion.saved,
+      );
+    } on Object catch (e) {
+      if (mounted) showErrorSnack(context, e);
+    } finally {
+      if (mounted) setState(() => _reviewBusy = false);
+    }
+  }
+
+  Widget _reviewRow(BuildContext context) {
+    final p = context.palette;
+    final reviewed = _reviewed;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Space.m),
+      child: Row(
+        children: [
+          if (reviewed) ...[
+            Icon(Iconsax.tick_circle, color: p.ok, size: 20),
+            const SizedBox(width: Space.xs),
+            Text(
+              AccountantHe.reviewed,
+              key: const Key('period-reviewed'),
+              style: AppText.body.copyWith(color: p.ok),
+            ),
+            const Spacer(),
+            TextButton(
+              key: const Key('period-unreview'),
+              onPressed: session.offline || _reviewBusy
+                  ? null
+                  : () => unawaited(_toggleReviewed()),
+              child: const Text(AccountantHe.unmarkReviewed),
+            ),
+          ] else
+            OutlinedButton.icon(
+              key: const Key('period-review'),
+              onPressed: session.offline || _reviewBusy
+                  ? null
+                  : () => unawaited(_toggleReviewed()),
+              icon: const Icon(Iconsax.tick_square, size: 18),
+              label: const Text(AccountantHe.markReviewed),
+            ),
+        ],
+      ),
+    );
   }
 
   /// "שלח לרו״ח": below the readiness threshold only after an explicit confirm.
@@ -324,6 +466,7 @@ class _ReportsState extends State<_Reports> {
           ),
           const SizedBox(height: Space.m),
         ],
+        if (_reviews != null && _reviewPeriod != null) _reviewRow(context),
         if (_periodIncome != null)
           MoneyCard(
             key: const Key('period-income'),
@@ -361,6 +504,7 @@ class _ReportsState extends State<_Reports> {
         if (_todo.isNotEmpty) ...[
           const SizedBox(height: Space.l),
           Semantics(
+            key: _todoKey,
             header: true,
             child: const Text(ReportsHe.todo, style: AppText.headline),
           ),
@@ -532,6 +676,8 @@ class _ReportsState extends State<_Reports> {
   }
 
   List<Widget> _accountantHeader(BuildContext context) => [
+    // Feature 1: "הלקוחות שלי" — above the existing reports screen.
+    const ClientsSummaryRow(),
     Semantics(
       header: true,
       child: const Text(ReportsHe.myClients, style: AppText.title),

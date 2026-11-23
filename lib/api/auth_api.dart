@@ -53,14 +53,11 @@ Future<SignInResult> signInWithSupabase(String accessToken) async {
   return SignInResult.fromJson(json);
 }
 
-/// Always "ok" (no account enumeration). Without Supabase the reset link
-/// opens the web app; with Supabase a 6-digit recovery code is e-mailed and
-/// the app continues with [verifyRecoveryCode] → [setNewPassword].
+/// Always "ok" (no account enumeration). Tevel's server sends the e-mail
+/// (never Supabase): for a Supabase account a recovery code, and the app
+/// continues with [verifyRecoveryCode] → [setNewPassword]; otherwise a reset
+/// link to the web app.
 Future<void> requestPasswordReset(String email) async {
-  if (supabaseAuth.enabled) {
-    await supabaseAuth.sendRecoveryCode(email);
-    return;
-  }
   await _api.post('/auth/password/forgot', {'email': email.trim()});
 }
 

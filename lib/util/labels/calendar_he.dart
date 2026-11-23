@@ -144,9 +144,105 @@ abstract final class CalendarHe {
     'נקבע דרך תבל',
   ].join('\n');
 
+  // ---- v2: breaks, vacation, approval, blocked clients ----
+  static const hoursButton = 'שעות וימים';
+  static const addBreak = 'הוספת הפסקה';
+  static const removeBreak = 'הסרת ההפסקה';
+  static const blockedDates = 'חסימת תאריכים';
+  static const blockedDatesHint =
+      'חופשה או ימים בלי פגישות — לקוחות לא יראו בהם שעות פנויות.';
+  static const addBlockedDates = 'הוספת תאריכים';
+  static const removeBlockedDates = 'הסרה';
+  static const noBlockedDates = 'אין תאריכים חסומים';
+  static const tooManyBlockedDates = 'אפשר לחסום עד 30 טווחי תאריכים.';
+  static const requireApproval = 'אישור ידני לכל פגישה';
+  static const requireApprovalHint =
+      'פגישה שלקוח קובע תמתין לאישור שלך; השעה שמורה לו עד שתחליט/י.';
+  static const blockedClients = 'לקוחות חסומים';
+  static const blockedClientsHint = 'לקוחות שלא יכולים לקבוע פגישות';
+  static const noBlockedClients = 'אין לקוחות חסומים';
+  static const unblock = 'ביטול חסימה';
+  static const unblocked = 'החסימה בוטלה';
+
+  // ---- v2: pending bookings ----
+  static const pendingGroup = 'ממתינות לאישור';
+  static const pending = 'ממתינה לאישור';
+  static String pendingUntil(String when) => 'שמורה עד $when';
+  static const approve = 'אישור';
+  static const decline = 'דחייה';
+  static const approved = 'הפגישה אושרה והלקוח עודכן';
+  static const declined = 'הבקשה נדחתה והלקוח עודכן';
+  static const declinedLabel = 'נדחתה';
+  static String closedLabel(String status, String? by) =>
+      status == 'DECLINED' ? declinedLabel : cancelledBy(by);
+
+  // ---- v2: block a client ----
+  static const blockClient = 'חסימת הלקוח';
+  static const blockTitle = 'לחסום את הלקוח?';
+  static const blockBody =
+      'הלקוח לא יוכל לקבוע פגישות חדשות, וכל הפגישות הקרובות שלו יבוטלו (הוא יקבל אימייל ביטול רגיל). הלקוח לא יידע שנחסם.';
+  static const blockConfirm = 'כן, לחסום';
+  static const blocked = 'הלקוח נחסם והפגישות הקרובות שלו בוטלו';
+
+  // ---- v2: from the customer page ----
+  static const bookFor = 'קביעת פגישה';
+  static const modeSuggest = 'הצעת מועדים';
+  static const modeLink = 'שליחת קישור ליומן';
+  static const modeBook = 'קביעה בשמו';
+  static const suggestHint =
+      'בחרו עד 3 מועדים — הלקוח יקבל קישור לבחירה ביניהם.';
+  static const linkHint =
+      'הלקוח יקבל קישור אישי ליומן (תקף ל־7 ימים) ויבחר בעצמו שעה פנויה.';
+  static const bookHint = 'בחרו מועד — הפגישה תיקבע מיד בשם הלקוח.';
+  static const pickSlot = 'בחרו מועד מהרשימה';
+  static const maxThree = 'אפשר לבחור עד 3 מועדים';
+  static const noFreeSlots = 'אין כרגע שעות פנויות ביומן.';
+  static const sendInvite = 'שליחה ללקוח';
+  static const bookConfirm = 'קביעת הפגישה';
+  static String bookConfirmTitle(String name) => 'לקבוע פגישה ל$name?';
+  static const bookConfirmEmail =
+      'הלקוח יקבל אימייל אישור עם אפשרות לשנות או לבטל.';
+  static const booked = 'הפגישה נקבעה';
+  static const slotTaken = 'המועד הזה נתפס בינתיים. הנה השעות הפנויות עכשיו.';
+  static const disabledTitle = 'קביעת פגישות כבויה';
+  static const disabledBody =
+      'כדי להציע מועדים או לשלוח קישור ליומן, צריך להפעיל קביעת פגישות.';
+  static const enable = 'הפעלת קביעת פגישות';
+
+  // ---- v2.1: day strip (free-slots?date=) ----
+  static const modeLinkShort = 'קישור ליומן';
+  static const linkShortHint =
+      'קישור אישי, תקף 7 ימים — הלקוח בוחר בעצמו שעה פנויה.';
+  static const suggestHintDays =
+      'בחרו עד 3 מועדים, גם בימים שונים — הלקוח יקבל קישור לבחירה ביניהם.';
+  static const bookHintDay = 'בחרו יום ושעה — הפגישה תיקבע מיד בשם הלקוח.';
+  static const noTimesThisDay = 'אין שעות פנויות ביום הזה.';
+  static const noSlotsHorizon = 'אין שעות פנויות בימים הקרובים.';
+  static const changeHours = 'שינוי שעות';
+  static const enableShort = 'הפעלה';
+  static String defaultHours(String summary) => 'שעות ברירת מחדל: $summary';
+  static const notesLabel = 'הערה לפגישה (לא חובה)';
+  static String confirmByEmail(String name) =>
+      '$name יקבל/תקבל אישור באימייל עם אפשרות לשנות או לבטל.';
+  static const confirmByPhone =
+      'ללקוח אין אימייל — אחרי הקביעה אפשר לשלוח לו את הפרטים בוואטסאפ.';
+  static const confirmNoContact = 'ללקוח אין אימייל או טלפון לשליחת אישור.';
+  static const offerWhatsappTitle = 'לשלוח את הפרטים בוואטסאפ?';
+  static String offerWhatsappBody(String name, String when) =>
+      'הפגישה עם $name נקבעה ל$when.';
+  static String whatsappDetails(String name, String when, String business) =>
+      'שלום $name, קבענו פגישה ל$when. $business';
+  static const sendWhatsapp = 'שליחה בוואטסאפ';
+  static const notNow = 'לא עכשיו';
+  static String removePick(String label) => 'הסרת $label';
+
   static String error(String? code) => switch (code) {
     'VALIDATION' => 'אחד הערכים לא תקין. נא לבדוק את ההגדרות.',
     'BOOKING_NOT_FOUND' => 'הפגישה לא נמצאה.',
+    'BOOKING_NOT_PENDING' => 'הבקשה כבר טופלה.',
+    'SLOT_TAKEN' => slotTaken,
+    'CALENDAR_DISABLED' => disabledTitle,
+    'CUSTOMER_NOT_FOUND' => 'הלקוח לא נמצא.',
     _ => 'משהו השתבש. נסו שוב.',
   };
 }

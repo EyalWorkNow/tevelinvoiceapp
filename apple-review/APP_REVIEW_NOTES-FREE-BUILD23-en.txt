@@ -1,0 +1,21 @@
+Response to Guideline 2.1 — build 23
+
+1. Physical-device testing and video
+Build 23 was tested by the developer on a physical iPhone 16 Pro (iOS 26.7.3): sign-in, navigation, document draft creation and document/PDF viewing; no subscription or purchase prompt appeared. Attached TEVEL-APP-REVIEW-EVIDENCE.zip contains tevel-main-flow.mp4 (83 seconds: Home Screen launch, sign-in, navigation, invoice creation/PDF, customers/reports/profile) and tevel-account-deletion.mp4 (29 seconds: launch, sign-in, account deletion and return to sign-in). Videos predate build 23, which additionally removes purchase prompts.
+
+2. Purpose, audience and business model
+Tevel centralizes customers, business documents, expenses and reports for Israeli business owners and their authorized staff. It reduces duplicate entry and keeps business records together. Businesses/accounts are provisioned by Tevel; the app has no self-service account registration. New customers contact Tevel from the sign-in screen. The app and ALL features are free for all users in this release. No subscription, in-app purchase or external payment is required for access.
+
+3. Review access and instructions
+Use the updated demo credentials in Sign-In Information. The dedicated business/customer records are fictitious. Internet access is required; no accessory or sample file is needed for the main flow. Home (בית): tap +, choose document type, enter amount, select/add a customer, review the summary and issue; open its document/PDF. Customers (לקוחות): manage customers. Management (ניהול): business tools, expenses and reports. Profile (פרופיל): account/business settings. Features follow business-role permissions.
+Account deletion: Profile > account settings > Delete account (מחיקת חשבון); enter the current account password and type מחק, then confirm. No Apple authentication is required. Access is removed and the user is signed out; business records subject to legal retention can remain. Test deletion last because the credentials then stop working.
+The app has private business records and user-directed document sharing, with no public community feed or random-user chat.
+
+4. External services
+Tevel production API: Oracle-hosted PostgreSQL and file storage; Supabase Auth: primary email/password authentication; Gmail SMTP: requested business email; Apple APNs: enabled push notifications; ClamAV: uploaded-file scanning. User-directed sharing can open Mail/WhatsApp or the iOS share sheet. Camera/photos/contacts/calendar permissions relate to the selected feature. No AI provider is active. Apple/Cardcom purchases are disabled.
+
+5. Regions
+The feature set is consistent across storefronts. The interface is Hebrew and the workflows target Israeli businesses, with ILS amounts. Documents are not adapted to other countries' tax systems.
+
+6. Authorization and third-party material
+This release offers business record keeping and invoicing, not banking, lending, investment or payment-processing services. The developer reports registration with SHAAM; no software-registration certificate is supplied with this submission and no government approval is claimed. Automatic Israel Tax Authority submission is disabled. The app does not distribute licensed third-party media.

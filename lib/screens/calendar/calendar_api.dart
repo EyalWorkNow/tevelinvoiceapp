@@ -35,6 +35,22 @@ class DayHours {
   };
 }
 
+/// A vacation / blocked range of Israel dates ('YYYY-MM-DD'), inclusive.
+class BlockedRange {
+  const BlockedRange(this.from, this.to);
+
+  factory BlockedRange.fromJson(Map<String, dynamic> j) =>
+      BlockedRange(j['from'] as String, j['to'] as String);
+
+  final String from;
+  final String to;
+
+  Map<String, dynamic> toJson() => {'from': from, 'to': to};
+}
+
+String ymd(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
 class CalendarSettings {
   const CalendarSettings({
     required this.enabled,
@@ -49,6 +65,8 @@ class CalendarSettings {
     required this.reminderMinutes,
     this.meetingTitle,
     this.busySyncedAt,
+    this.requireApproval = false,
+    this.blockedDates = const [],
   });
 
   factory CalendarSettings.fromJson(Map<String, dynamic> j) => CalendarSettings(
@@ -67,6 +85,11 @@ class CalendarSettings {
     reminderMinutes: jInt(j['reminderMinutes'] ?? 15),
     meetingTitle: jStr(j['meetingTitle']),
     busySyncedAt: DateTime.tryParse(j['busySyncedAt'] as String? ?? ''),
+    requireApproval: j['requireApproval'] == true,
+    blockedDates: [
+      for (final r in (j['blockedDates'] as List? ?? const []))
+        BlockedRange.fromJson(r as Map<String, dynamic>),
+    ],
   );
 
   final bool enabled;
@@ -81,6 +104,8 @@ class CalendarSettings {
   final int reminderMinutes;
   final String? meetingTitle;
   final DateTime? busySyncedAt;
+  final bool requireApproval;
+  final List<BlockedRange> blockedDates;
 }
 
 class Booking {
@@ -96,6 +121,8 @@ class Booking {
     required this.createdAt,
     this.notes,
     this.cancelledBy,
+    this.expiresAt,
+    this.customerId,
   });
 
   factory Booking.fromJson(Map<String, dynamic> j) => Booking(
@@ -110,6 +137,8 @@ class Booking {
     createdAt: DateTime.parse(j['createdAt'] as String),
     notes: jStr(j['notes']),
     cancelledBy: jStr(j['cancelledBy']),
+    expiresAt: DateTime.tryParse(j['expiresAt'] as String? ?? ''),
+    customerId: jStr(j['customerId']),
   );
 
   final String id;
@@ -124,7 +153,15 @@ class Booking {
   final String? notes;
   final String? cancelledBy;
 
+  /// Only for PENDING: the slot is held until then (then DECLINED).
+  final DateTime? expiresAt;
+  final String? customerId;
+
   bool get confirmed => status == 'CONFIRMED';
+  bool get pending => status == 'PENDING';
+
+  /// CANCELLED or DECLINED (a declined request shows like a cancelled one).
+  bool get closed => !confirmed && !pending;
 }
 
 class BusyBlock {
@@ -220,5 +257,157 @@ Future<void> clearBusyBlocks(String source) =>
 
 Future<Booking> cancelBookingAsOwner(String id) async => Booking.fromJson(
   (await _api.post('/calendar/bookings/$id/cancel'))['booking']
+      as Map<String, dynamic>,
+);
+
+Future<Booking> _bookingAction(String id, String action) async =>
+    Booking.fromJson(
+      (await _api.post('/calendar/bookings/$id/$action'))['booking']
+          as Map<String, dynamic>,
+    );
+
+/// PENDING → CONFIRMED (409 BOOKING_NOT_PENDING).
+Future<Booking> approveBooking(String id) => _bookingAction(id, 'approve');
+
+/// PENDING → DECLINED (409 BOOKING_NOT_PENDING).
+Future<Booking> declineBooking(String id) => _bookingAction(id, 'decline');
+
+/// Blocks the booking's phone + e-mail; their upcoming bookings are cancelled.
+Future<Booking> blockBookingClient(String id) => _bookingAction(id, 'block');
+
+class BlockedContact {
+  const BlockedContact({
+    required this.id,
+    required this.name,
+    required this.phone,
+    required this.email,
+    this.createdAt,
+  });
+
+  factory BlockedContact.fromJson(Map<String, dynamic> j) => BlockedContact(
+    id: j['id'] as String,
+    name: j['name'] as String? ?? '',
+    phone: j['phone'] as String? ?? '',
+    email: j['email'] as String? ?? '',
+    createdAt: DateTime.tryParse(j['createdAt'] as String? ?? ''),
+  );
+
+  final String id;
+  final String name;
+  final String phone;
+  final String email;
+  final DateTime? createdAt;
+}
+
+Future<List<BlockedContact>> fetchBlockedContacts() async => [
+  for (final c
+      in ((await _api.get('/calendar/blocked'))['contacts'] as List? ??
+          const []))
+    BlockedContact.fromJson(c as Map<String, dynamic>),
+];
+
+Future<void> unblockContact(String id) => _api.delete('/calendar/blocked/$id');
+
+class FreeSlot {
+  const FreeSlot({
+    required this.start,
+    required this.end,
+    required this.date,
+    required this.time,
+  });
+
+  factory FreeSlot.fromJson(Map<String, dynamic> j) => FreeSlot(
+    start: j['start'] as String,
+    end: j['end'] as String,
+    date: j['date'] as String? ?? '',
+    time: j['time'] as String? ?? '',
+  );
+
+  /// ISO instants (sent back to the server as is).
+  final String start;
+  final String end;
+
+  /// Israel date 'YYYY-MM-DD' and time 'HH:MM'.
+  final String date;
+  final String time;
+}
+
+/// A bookable day in the horizon and how many free slots it has.
+class FreeDay {
+  const FreeDay(this.date, this.count);
+
+  factory FreeDay.fromJson(Map<String, dynamic> j) =>
+      FreeDay(j['date'] as String? ?? '', jInt(j['count'] ?? 0));
+
+  /// Israel date 'YYYY-MM-DD'.
+  final String date;
+  final int count;
+}
+
+class FreeSlots {
+  const FreeSlots(this.enabled, this.slots, {this.days = const []});
+  final bool enabled;
+
+  /// Without a date: the next free slots; with a date: that whole day.
+  final List<FreeSlot> slots;
+
+  /// Bookable days with their counts (empty from a server before the day
+  /// strip: then derive them from [slots]).
+  final List<FreeDay> days;
+}
+
+/// GET /calendar/free-slots. [date] ('YYYY-MM-DD') returns that whole day;
+/// without it the next [limit] slots (older callers). Both carry `days`.
+Future<FreeSlots> fetchFreeSlots({int limit = 12, String? date}) async {
+  final j = await _api.get(
+    '/calendar/free-slots',
+    query: {'limit': '$limit', 'date': ?date},
+  );
+  return FreeSlots(
+    jBool(j['enabled']),
+    [
+      for (final s in (j['slots'] as List? ?? const []))
+        FreeSlot.fromJson(s as Map<String, dynamic>),
+    ],
+    days: [
+      for (final d in (j['days'] as List? ?? const []))
+        FreeDay.fromJson(d as Map<String, dynamic>),
+    ],
+  );
+}
+
+class CalendarInvite {
+  const CalendarInvite(this.link, this.whatsappText);
+  final String link;
+  final String whatsappText;
+}
+
+/// A personal booking link for [customerId] (7 days, one booking), optionally
+/// limited to up to 3 suggested [slots] (ISO starts).
+Future<CalendarInvite> createCalendarInvite(
+  String customerId, {
+  List<String> slots = const [],
+}) async {
+  final j = await _api.post('/calendar/invites', {
+    'customerId': customerId,
+    if (slots.isNotEmpty) 'slots': slots,
+  });
+  return CalendarInvite(
+    j['link'] as String? ?? '',
+    j['whatsappText'] as String? ?? j['link'] as String? ?? '',
+  );
+}
+
+/// The owner books [start] for the customer (CONFIRMED). 409 SLOT_TAKEN.
+Future<Booking> bookForCustomer(
+  String customerId,
+  String start, {
+  String? notes,
+}) async => Booking.fromJson(
+  (await _api.post('/calendar/bookings', {
+        'customerId': customerId,
+        'start': start,
+        if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+      }))['booking']
       as Map<String, dynamic>,
 );

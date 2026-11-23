@@ -7,6 +7,7 @@ import '../../ui/ds.dart';
 import '../../util/labels/customer_crm_he.dart';
 import 'customer_crm_finance_card.dart';
 import 'customer_crm_job_fields.dart';
+import 'person_logic.dart' show dayWithWeekday;
 
 class CustomerCrmJobs extends StatefulWidget {
   const CustomerCrmJobs({
@@ -134,7 +135,7 @@ class _CustomerCrmJobsState extends State<CustomerCrmJobs> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(
-                      width: 64,
+                      width: 84,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -242,7 +243,7 @@ class _CustomerCrmJobsState extends State<CustomerCrmJobs> {
                       const SizedBox(height: Space.s),
                       _moneyLine(
                         context,
-                        CustomerCrmHe.price,
+                        CustomerCrmHe.priceAgreed,
                         crmMoney(job.budget.priceMinor!),
                       ),
                       if (job.budget.paidMinor > 0 ||
@@ -354,10 +355,13 @@ class _CustomerCrmJobsState extends State<CustomerCrmJobs> {
                                 child: Text(CustomerCrmHe.nextWeek),
                               ),
                             ],
-                            const PopupMenuItem(
-                              value: 'repeat',
-                              child: Text(CustomerCrmHe.repeatVisit),
-                            ),
+                            // Owner 2026-11-23: only a finished job gets a
+                            // next visit from here.
+                            if (job.status == CustomerCrmJobStatus.completed)
+                              const PopupMenuItem(
+                                value: 'repeat',
+                                child: Text(CustomerCrmHe.repeatVisit),
+                              ),
                             if (job.status.isOpen)
                               const PopupMenuItem(
                                 value: 'cancel',
@@ -412,8 +416,8 @@ class _CustomerCrmJobsState extends State<CustomerCrmJobs> {
     if (date.year == tomorrow.year &&
         date.month == tomorrow.month &&
         date.day == tomorrow.day) {
-      return 'מחר';
+      return CustomerCrmHe.tomorrowJobs;
     }
-    return DateFormat('dd.MM').format(date);
+    return dayWithWeekday(date);
   }
 }

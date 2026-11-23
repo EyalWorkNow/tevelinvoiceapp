@@ -1065,7 +1065,9 @@ class _BillingCheckoutScreenState extends State<BillingCheckoutScreen>
                             const Row(
                               children: [
                                 Expanded(child: Text('תקופת המסלול')),
-                                Flexible(
+                                // Expanded (not a loose Flexible): the
+                                // value's TextAlign.end reaches the edge.
+                                Expanded(
                                   child: Text('חודש', textAlign: TextAlign.end),
                                 ),
                               ],
@@ -1074,7 +1076,7 @@ class _BillingCheckoutScreenState extends State<BillingCheckoutScreen>
                             const Row(
                               children: [
                                 Expanded(child: Text('מע״מ')),
-                                Flexible(
+                                Expanded(
                                   child: Text(
                                     'כלול במחיר',
                                     textAlign: TextAlign.end,

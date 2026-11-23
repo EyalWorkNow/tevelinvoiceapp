@@ -505,7 +505,9 @@ class TimelineRow extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (onTap != null)
+              // No chevron after an amount: amounts share the row's end
+              // edge whether the row opens something or not (2026-11-23).
+              if (onTap != null && amount == null && !item.amountHidden)
                 Padding(
                   padding: const EdgeInsetsDirectional.only(
                     top: 2,

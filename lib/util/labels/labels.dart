@@ -20,3 +20,4 @@ export 'signature_he.dart';
 export 'sign_he.dart';
 export 'vault_he.dart';
 export 'help_he.dart';
+export 'accountant_he.dart';

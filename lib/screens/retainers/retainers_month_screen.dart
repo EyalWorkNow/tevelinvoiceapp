@@ -328,12 +328,8 @@ class _RunCard extends StatelessWidget {
               ],
             ),
           ),
-          if (total != null)
-            Text(
-              formatMoney(total, trimZeroAgorot: true),
-              key: Key('retainer-total-${run.runId}'),
-              style: AppText.amountRow,
-            ),
+          // The menu before the amount: totals hug the card's end on every
+          // run, waiting or not (2026-11-23).
           if (run.waiting && !busy)
             MoreMenu(
               key: Key('retainer-menu-${run.runId}'),
@@ -346,6 +342,12 @@ class _RunCard extends StatelessWidget {
                   onSelected: onRemove,
                 ),
               ],
+            ),
+          if (total != null)
+            Text(
+              formatMoney(total, trimZeroAgorot: true),
+              key: Key('retainer-total-${run.runId}'),
+              style: AppText.amountRow,
             ),
         ],
       ),

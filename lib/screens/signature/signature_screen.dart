@@ -386,9 +386,9 @@ class _SignatureScreenState extends State<SignatureScreen> {
                         icon: const Icon(Iconsax.eraser_1),
                         label: const Text(SignatureHe.clear),
                       ),
-                      const Spacer(),
                       if (_saved != null)
-                        Flexible(
+                        // Expanded: the hint's TextAlign.end reaches the edge.
+                        Expanded(
                           child: Text(
                             SignatureHe.replaceHint,
                             textAlign: TextAlign.end,

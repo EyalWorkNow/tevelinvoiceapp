@@ -554,12 +554,17 @@ class _ExpenseOverviewScreenState extends State<ExpenseOverviewScreen> {
                                           ),
                                           const SizedBox(width: 8),
                                           Flexible(
-                                            child: AmountText(
-                                              BigInt.parse(
-                                                row['totalMinor'] as String? ??
-                                                    '0',
+                                            child: Align(
+                                              alignment: AlignmentDirectional
+                                                  .centerEnd,
+                                              child: AmountText(
+                                                BigInt.parse(
+                                                  row['totalMinor']
+                                                          as String? ??
+                                                      '0',
+                                                ),
+                                                style: AppText.amountRow,
                                               ),
-                                              style: AppText.amountRow,
                                             ),
                                           ),
                                         ],
@@ -1027,17 +1032,30 @@ class _ExpenseOverviewScreenState extends State<ExpenseOverviewScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Flexible(child: AmountText(amount, style: AppText.secondary)),
+                Flexible(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: AmountText(amount, style: AppText.secondary),
+                  ),
+                ),
                 const SizedBox(width: 10),
-                Text(
-                  '${total > BigInt.zero ? (amount * BigInt.from(100) ~/ total) : 0}%',
-                  textDirection: TextDirection.ltr,
-                  style: AppText.secondary.copyWith(
-                    color: _category == name
-                        ? context.palette.ink
-                        : context.palette.muted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                // One width for "4%" … "100%", so the amounts share an edge.
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 40),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    widthFactor: 1,
+                    child: Text(
+                      '${total > BigInt.zero ? (amount * BigInt.from(100) ~/ total) : 0}%',
+                      textDirection: TextDirection.ltr,
+                      style: AppText.secondary.copyWith(
+                        color: _category == name
+                            ? context.palette.ink
+                            : context.palette.muted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
               ],

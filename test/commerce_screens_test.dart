@@ -160,6 +160,83 @@ void main() {
       expect(find.text('מסדרים את ההוצאה'), findsNothing);
     },
   );
+  // 2026-11-23 space-between pass: values reach the row's end edge.
+  testWidgets(
+    'expense overview: card totals and category amounts share one edge',
+    (tester) async {
+      phone(tester);
+      await tester.pumpWidget(
+        eApp(const ExpenseOverviewScreen(), brightness: Brightness.dark),
+      );
+      await settle(tester);
+      for (final supplier in ['כלי העבודה של העסק', 'הדרך לפגישה הבאה']) {
+        final row = find
+            .ancestor(of: find.text(supplier), matching: find.byType(Row))
+            .first;
+        await tester.ensureVisible(row);
+        await tester.pumpAndSettle();
+        final amount = find.descendant(
+          of: row,
+          matching: find.byType(AmountText),
+        );
+        expect(
+          tester.getTopLeft(amount).dx,
+          closeTo(tester.getTopLeft(row).dx, .1),
+          reason: supplier,
+        );
+      }
+      await tester.ensureVisible(find.text('לאן הכסף הולך?'));
+      await tester.pumpAndSettle();
+      final lefts = [
+        for (final name in ['תוכנה ושירותים', 'נסיעות ורכב', 'ציוד משרדי'])
+          tester
+              .getTopLeft(
+                find.descendant(
+                  of: find
+                      .ancestor(
+                        of: find.text(name).first,
+                        matching: find.byType(Row),
+                      )
+                      .first,
+                  matching: find.byType(AmountText),
+                ),
+              )
+              .dx,
+      ];
+      // 59% / 29% / 11%: different widths, one amount edge.
+      expect(lefts[1], closeTo(lefts[0], .1));
+      expect(lefts[2], closeTo(lefts[0], .1));
+    },
+  );
+  testWidgets('checkout: plan period and VAT values reach the row end', (
+    tester,
+  ) async {
+    phone(tester);
+    await tester.pumpWidget(
+      eApp(
+        const BillingCheckoutScreen(
+          plan: BillingPlan(code: 'START', name: 'מתחילים', monthlyMinor: 800),
+        ),
+        brightness: Brightness.dark,
+      ),
+    );
+    await settle(tester);
+    for (final (label, value) in const [
+      ('תקופת המסלול', 'חודש'),
+      ('מע״מ', 'כלול במחיר'),
+    ]) {
+      final row = find
+          .ancestor(of: find.text(value), matching: find.byType(Row))
+          .first;
+      final text = find.descendant(of: row, matching: find.text(value));
+      // The paragraph spans to the row's end, so TextAlign.end lands there.
+      expect(
+        tester.getTopLeft(text).dx,
+        closeTo(tester.getTopLeft(row).dx, .1),
+        reason: label,
+      );
+    }
+  });
   testWidgets(
     'Stage A · A3: expense overview shows the same approved / review figures as the report',
     (tester) async {

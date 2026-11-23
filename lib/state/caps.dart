@@ -328,3 +328,7 @@ class Caps {
   /// Role tag on H for non-owners ("עובד"); null for the owner.
   Preset? get roleTag => preset == Preset.owner ? null : preset;
 }
+
+/// The accountant access role of a request / toggle ("רו״ח מלא" =
+/// ACCOUNTANT; else "רו״ח מייצג" = ACCOUNTANT_REP).
+bool isFullAccountantRole(String role) => role == 'ACCOUNTANT';

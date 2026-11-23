@@ -16,7 +16,9 @@ import '../api/sign_requests_api.dart' show notifySignRequestsChanged;
 import '../router.dart';
 import '../util/errors_he.dart';
 import '../ui/widgets/notch_notice.dart';
+import '../util/labels/accountant_he.dart';
 import '../util/labels/inbox_he.dart';
+import 'accountant_store.dart';
 import 'session.dart';
 
 const _channel = MethodChannel('tevel/system_notices');
@@ -66,11 +68,27 @@ const _events = EventChannel('tevel/system_notice_events');
   'recurringReady' => ('טיוטות חודשיות מוכנות לאישור', NoticeMotion.document),
   'bookingNew' => ('נקבעה פגישה חדשה', NoticeMotion.calendar),
   'bookingSoon' => ('הפגישה הבאה מתקרבת', NoticeMotion.calendar),
+  // Calendar v2: a request waiting for approval (route /calendar).
+  'bookingPending' => ('בקשה לפגישה ממתינה לאישור', NoticeMotion.calendar),
   // 0116 "מסמך לחתימה" (route /sign-request/:id).
   'signRequestCompleted' => ('המסמך נחתם', NoticeMotion.signed),
   'signRequestViewed' => ('המסמך לחתימה נצפה', NoticeMotion.sent),
   // 0119 "המסמכים של העסק" (route /business/vault).
   'vaultExpiring' => ('מסמך של העסק עומד לפוג', NoticeMotion.reminder),
+  // Accountant multi-business (2026-11-22): opened by business, not by route.
+  'ACCOUNTANT_ACCESS_APPROVED' => (
+    AccountantHe.pushApproved,
+    NoticeMotion.approved,
+  ),
+  'ACCOUNTANT_CORRECTION_ANSWERED' => (
+    AccountantHe.pushCorrection,
+    NoticeMotion.document,
+  ),
+  'ACCOUNTANT_EXPENSES_DIGEST' => (
+    AccountantHe.pushDigest,
+    NoticeMotion.reminder,
+  ),
+  'ACCOUNTANT_LEFT' => (AccountantHe.pushLeft, NoticeMotion.sent),
   _ => null,
 };
 
@@ -392,6 +410,10 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     // Every push is also an item in the Home bell: badge + open list reload.
     notifyNotificationsChanged();
     unawaited(refreshNotificationsUnread());
+    if (raw['type'] == 'opened' && accountantPushKinds.contains(kind)) {
+      unawaited(openAccountantPush(kind, business).catchError(_failure));
+      return;
+    }
     if (raw['type'] == 'opened') {
       final uri = Uri.parse(route);
       final query = {
@@ -405,8 +427,13 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(AppRouter.instance.openDeepLink(link).catchError(_failure));
       return;
     }
+    final accountant = accountantPushKinds.contains(kind);
+    // The accountant's counts follow (list / home row reload on next look).
+    if (accountant && session.status == SessionStatus.signedIn) {
+      unawaited(accountantStore.load());
+    }
     if (session.status != SessionStatus.signedIn ||
-        (business.isNotEmpty && business != _business)) {
+        (business.isNotEmpty && business != _business && !accountant)) {
       return;
     }
     if (raw['type'] != 'notice' || presentation == null) return;
@@ -422,7 +449,11 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
         content: Text(presentation.$1),
         action: SnackBarAction(
           label: InboxHe.actOpen,
-          onPressed: () => unawaited(go(route)),
+          onPressed: () => unawaited(
+            accountantPushKinds.contains(kind)
+                ? openAccountantPush(kind, business)
+                : go(route),
+          ),
         ),
       ),
       motion: presentation.$2,

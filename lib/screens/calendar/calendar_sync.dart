@@ -193,6 +193,12 @@ class CalendarSync extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(sync(force: true));
       return true;
     };
+    // A request waiting for approval: re-sync (the agenda shows it on top)
+    // and the generic notch, whose tap opens the calendar.
+    systemNotices.foregroundHandlers['bookingPending'] = (_) {
+      unawaited(sync(force: true));
+      return false;
+    };
     // While the app is open the in-app timer shows the richer reminder.
     systemNotices.foregroundHandlers['bookingSoon'] = (_) {
       unawaited(sync(force: true));

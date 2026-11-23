@@ -18,10 +18,13 @@ import 'ui/widgets/notch_notice.dart';
 import 'app_shell.dart';
 import 'ui/app_page_route.dart';
 import 'screens/activity/activity_screen.dart';
+import 'screens/auth/access_request_screen.dart';
 import 'screens/auth/invite_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/onboarding_screen.dart';
+import 'screens/business/accountant_clients_screen.dart';
 import 'screens/business/business_screen.dart';
+import 'screens/business/sheets/s14_switch.dart' show showSwitchBusinessSheet;
 import 'screens/business/delete_account_screen.dart';
 import 'screens/compose/compose_screen.dart';
 import 'screens/compose/payment_request_screen.dart';
@@ -42,6 +45,8 @@ import 'screens/sign/sign_editor_screen.dart';
 import 'screens/sign/sign_request_screen.dart';
 import 'screens/sign/sign_requests_screen.dart';
 import 'screens/sign/sign_send_screen.dart';
+import 'api/client.dart' show ApiException;
+import 'state/accountant_store.dart';
 import 'state/business_context.dart';
 import 'state/caps.dart';
 import 'state/session.dart';
@@ -478,10 +483,101 @@ void resetToHome({AppTab tab = AppTab.home}) {
   currentTab.value = tab;
   _resetTo(const AppShell(), '/home');
   _openPendingInvite();
+  _openPendingAccess();
+  final push = _pendingAccountantPush;
+  _pendingAccountantPush = null;
+  if (push != null) {
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(openAccountantPush(push.$1, push.$2)),
+    );
+  }
   final pending = _pendingDeepLink;
   _pendingDeepLink = null;
   if (pending != null) {
     WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(go(pending)));
+  }
+}
+
+/// "הלקוחות שלי" as the whole stack (an accountant with no business yet).
+void resetToAccountantClients() =>
+    _resetTo(const AccountantClientsScreen(), '/gate/accountant');
+
+/// Feature 4: accountant push kinds (deep links by business, not by route).
+const Set<String> accountantPushKinds = {
+  'ACCOUNTANT_ACCESS_APPROVED',
+  'ACCOUNTANT_CORRECTION_ANSWERED',
+  'ACCOUNTANT_EXPENSES_DIGEST',
+  'ACCOUNTANT_LEFT',
+};
+
+(String, String)? _pendingAccountantPush;
+
+/// A tap on an accountant push: one business → switch to it (its "לטיפול");
+/// several / unknown → the clients list (S14). An approval adds a business,
+/// so the session's list is reloaded first.
+Future<void> openAccountantPush(String kind, String businessId) async {
+  if (session.status != SessionStatus.signedIn || !_shellMounted) {
+    if (session.status == SessionStatus.signedIn && session.hasNoBusiness) {
+      await _openAccountantPushNoShell(businessId);
+      return;
+    }
+    _pendingAccountantPush = (kind, businessId);
+    return;
+  }
+  try {
+    await session.refreshAccount();
+  } on Object {
+    // Offline: the cached list.
+  }
+  unawaited(accountantStore.load());
+  final matches = session.businesses.where((b) => b.businessId == businessId);
+  if (matches.isNotEmpty) {
+    final target = matches.first;
+    if (target.businessId != session.business?.businessId ||
+        session.me == null) {
+      try {
+        await session.selectBusiness(target);
+      } on ApiException catch (e) {
+        if (!e.isNetwork) {
+          _refused(InboxHe.routeUnavailable);
+          return;
+        }
+      }
+    }
+    accountantFocusTodo.value = kind != 'ACCOUNTANT_LEFT';
+    resetToHome();
+    return;
+  }
+  if (session.hasNoBusiness) {
+    resetToAccountantClients();
+    return;
+  }
+  final nav = navigatorKey.currentState;
+  if (nav != null) dismissTransientRoutes(nav);
+  final ctx = navigatorKey.currentContext;
+  if (ctx != null && ctx.mounted) unawaited(showSwitchBusinessSheet(ctx));
+}
+
+/// Signed in without a business (the accountant's own screen): reload; an
+/// approval means a business now → the normal routing via home.
+Future<void> _openAccountantPushNoShell(String businessId) async {
+  try {
+    await session.refreshAccount();
+  } on Object {
+    return;
+  }
+  unawaited(accountantStore.load());
+  if (!session.hasNoBusiness) {
+    final matches = session.businesses.where((b) => b.businessId == businessId);
+    final b = matches.isNotEmpty
+        ? matches.first
+        : session.business ?? session.businesses.first;
+    try {
+      await session.selectBusiness(b);
+    } on Object {
+      return;
+    }
+    resetToHome();
   }
 }
 
@@ -746,21 +842,53 @@ final RegExp _inviteToken = RegExp(r'^[A-Za-z0-9_-]{20,128}$');
 /// The invitation token of tevel://invite/:token or
 /// `https://<host>/m/invite/:token` (the universal link; iOS may deliver only
 /// its path). Null for anything else.
-String? inviteTokenOf(String link) {
+String? inviteTokenOf(String link) => _linkToken(link, 'invite');
+
+/// The accountant access-request token of tevel://access/:token or
+/// `https://<host>/m/access/:token` (spec feature 2). Null for anything else.
+String? accessTokenOf(String link) => _linkToken(link, 'access');
+
+String? _linkToken(String link, String kind) {
   final uri = Uri.tryParse(link.trim());
   if (uri == null) return null;
   final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
   String? token;
   if (uri.scheme == deepLinkScheme) {
-    if (uri.host == 'invite' && segments.length == 1) token = segments.first;
+    if (uri.host == kind && segments.length == 1) token = segments.first;
   } else if ((uri.scheme == 'https' || !uri.hasScheme) &&
       segments.length == 3 &&
       segments[0] == 'm' &&
-      segments[1] == 'invite') {
+      segments[1] == kind) {
     token = segments[2];
   }
   return token != null && _inviteToken.hasMatch(token) ? token : null;
 }
+
+/// An access-request link waiting for sign-in (the owner must be signed in).
+String? _pendingAccess;
+
+/// The owner's approval screen; before sign-in it waits for [resetToHome].
+void openAccessRequest(String token) {
+  final nav = navigatorKey.currentState;
+  if (nav == null || session.status != SessionStatus.signedIn) {
+    _pendingAccess = token;
+    return;
+  }
+  unawaited(
+    nav.push(_page<void>(AccessRequestScreen(token: token), '/access')),
+  );
+}
+
+void _openPendingAccess() {
+  final token = _pendingAccess;
+  if (token == null) return;
+  _pendingAccess = null;
+  WidgetsBinding.instance.addPostFrameCallback((_) => openAccessRequest(token));
+}
+
+/// The access link waiting for sign-in (tests).
+@visibleForTesting
+String? get debugPendingAccess => _pendingAccess;
 
 /// Opens the invitation screen on top of whatever is shown; before the
 /// splash has routed, keeps it for [resetToLogin] / [resetToHome].
@@ -799,8 +927,11 @@ class AppRouter with WidgetsBindingObserver {
     // Cold start through a link: the engine's initial route.
     final initial = WidgetsBinding.instance.platformDispatcher.defaultRouteName;
     final invite = inviteTokenOf(initial);
+    final access = accessTokenOf(initial);
     if (invite != null) {
       _pendingInvite = invite;
+    } else if (access != null) {
+      _pendingAccess = access;
     } else if (initial != '/' && AppRoute.parse(initial) != null) {
       _pendingDeepLink = initial;
     }
@@ -814,6 +945,11 @@ class AppRouter with WidgetsBindingObserver {
     final invite = inviteTokenOf(link);
     if (invite != null) {
       openInvite(invite);
+      return true;
+    }
+    final access = accessTokenOf(link);
+    if (access != null) {
+      openAccessRequest(access);
       return true;
     }
     if (AppRoute.parse(link) == null) return false;

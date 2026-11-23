@@ -689,7 +689,8 @@ class _ComposeScreenState extends State<ComposeScreen> {
                   ),
                 )
         else
-          // AT-70: keys are a fixed 64pt; past 150% the 28pt digits would not fit.
+          // AT-70: keys are 44–52pt (Keypad.keyHeightFor); past 150% the 28pt
+          // digits would not fit.
           MediaQuery.withClampedTextScaling(
             maxScaleFactor: 1.5,
             child: Keypad(

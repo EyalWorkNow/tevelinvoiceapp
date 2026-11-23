@@ -133,8 +133,9 @@ void main() {
       await tester.tap(find.text(DailySummaryHe.week));
       await settle(tester);
       final week = backend.last('GET', '/reports/:kind')!;
-      expect(week.query.containsKey('from'), isTrue);
-      expect(week.query.containsKey('to'), isTrue);
+      // On a Sunday the week (Sunday → today) is one day, sent as `date`.
+      final weekRange = DailyRange.week(DateTime.now());
+      expect(week.query, weekRange.query);
 
       await tester.tap(find.byKey(const Key('daily-whatsapp')));
       await settle(tester);
