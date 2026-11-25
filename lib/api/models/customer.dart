@@ -138,6 +138,7 @@ class CustomerDetail {
     this.openMinor,
     this.overdueMinor,
     this.documentsCount,
+    this.marketingConsent,
     this.fromBe09 = false,
   });
 
@@ -170,6 +171,10 @@ class CustomerDetail {
       openMinor: jBigOrNull(s['openMinor']),
       overdueMinor: jBigOrNull(s['overdueMinor']),
       documentsCount: jIntOrNull(s['documentsCount']),
+      // V4 §8 "מאשר דיוור"; null = the server has no such field (row hidden).
+      marketingConsent: c['marketingConsent'] is Map
+          ? jBool(jMap(c['marketingConsent'])['granted'])
+          : null,
       fromBe09: true,
     );
   }
@@ -200,6 +205,9 @@ class CustomerDetail {
   final BigInt? openMinor;
   final BigInt? overdueMinor;
   final int? documentsCount;
+
+  /// "מאשר דיוור" (marketing messages); null before the server has it.
+  final bool? marketingConsent;
 
   /// True when the server has BE-09 (so P1 fields can be edited).
   final bool fromBe09;
