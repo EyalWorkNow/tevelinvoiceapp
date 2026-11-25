@@ -46,6 +46,7 @@ import 'dialogs.dart';
 import 'document_parts.dart';
 import 'next_action.dart';
 import 'pdf_viewer_screen.dart';
+import 'sheets/file_password.dart';
 import 'sheets/s5_payment.dart';
 import 'sheets/s6_share.dart';
 import 'sheets/s8_cancel.dart';
@@ -119,6 +120,9 @@ class _DocumentScreenState extends State<DocumentScreen> {
   /// R1: when this device last opened a payment reminder for the document.
   DateTime? _lastReminded;
   bool _timeline = false;
+
+  /// Bumped after S6 closes: the §7 "הצג סיסמה" row reloads.
+  int _shareRounds = 0;
 
   @override
   void initState() {
@@ -771,6 +775,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
       hasLiveLink: _extras.hasLiveShareLink,
     );
     if (!mounted) return;
+    setState(() => _shareRounds++); // a protected send may be new
     if (message != null && message.isNotEmpty) {
       toast(context, message, motion: NoticeMotion.sent);
     }
@@ -1082,6 +1087,13 @@ class _DocumentScreenState extends State<DocumentScreen> {
                         ReminderHoldTile(
                           key: ValueKey('hold-${doc.id}'),
                           documentId: doc.id,
+                        ),
+                      // §7: sent as a password-protected file → show the password.
+                      if (!widget.isQuote && !doc.isDraft)
+                        ProtectedSendTile(
+                          key: ValueKey('protected-${doc.id}-$_shareRounds'),
+                          documentId: doc.id,
+                          customer: _customer,
                         ),
                       if (_timeline) ...[
                         DocTimeline(
