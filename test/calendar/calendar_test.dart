@@ -425,18 +425,35 @@ void main() {
       b.json('PUT', '/calendar/busy', {'stored': 0});
     });
 
-    Future<CalendarSync> pump(WidgetTester t) async {
+    Future<CalendarSync> pump(
+      WidgetTester t, {
+      CalendarMode? mode,
+      DateTime Function()? clock,
+    }) async {
       final sync = CalendarSync(
         device: device,
         store: MemoryPrefs(),
         notice: (_) {},
       );
-      await pumpAs(t, b, Preset.owner, CalendarScreen(sync: sync));
+      await pumpAs(
+        t,
+        b,
+        Preset.owner,
+        CalendarScreen(sync: sync, initialMode: mode, clock: clock),
+      );
       return sync;
     }
 
-    testWidgets('today\'s bookings and busy blocks, contact actions, the '
-        'connect card while the phone calendar is not connected', (t) async {
+    DateTime nineToday() {
+      final n = DateTime.now();
+      return DateTime(n.year, n.month, n.day, 9);
+    }
+
+    testWidgets('day view: today\'s bookings and busy blocks on the '
+        'timeline; the details sheet has the note and the contact actions; '
+        'the connect card while the phone calendar is not connected', (
+      t,
+    ) async {
       final today = DateTime.now();
       final at = DateTime(today.year, today.month, today.day, 10).toUtc();
       agenda(
@@ -451,22 +468,25 @@ void main() {
           },
         ],
       );
-      await pump(t);
-      expect(find.text('נועה לוי'), findsOneWidget);
-      expect(find.text('שאלה על חוזה'), findsOneWidget);
-      await reveal(t, find.text(CalendarHe.busyBlock));
+      await pump(t, mode: CalendarMode.day, clock: nineToday);
+      expect(find.textContaining('נועה לוי'), findsOneWidget);
       expect(find.text(CalendarHe.busyBlock), findsOneWidget);
-      expect(find.byKey(const Key('booking-cancel-b1')), findsOneWidget);
       expect(find.byKey(const Key('calendar-connect-card')), findsOneWidget);
-      expect(find.byKey(const Key('calendar-share')), findsOneWidget);
+      await t.tap(find.byKey(const Key('calendar-block-b1')));
+      await settle(t);
+      expect(find.byKey(const Key('booking-detail')), findsOneWidget);
+      expect(find.text('שאלה על חוזה'), findsOneWidget);
+      expect(find.byKey(const Key('booking-detail-call')), findsOneWidget);
+      expect(find.byKey(const Key('booking-detail-cancel')), findsOneWidget);
     });
 
-    testWidgets('share sheet: the public link + WhatsApp / share / copy', (
-      t,
-    ) async {
+    testWidgets('share sheet (⋯ menu): the public link + WhatsApp / share / '
+        'copy', (t) async {
       agenda(b, [], reminderMinutes: 0);
       await pump(t);
-      await t.tap(find.byKey(const Key('calendar-share')));
+      await t.tap(find.byKey(const Key('calendar-more')));
+      await settle(t);
+      await t.tap(find.text(CalendarHe.share).last);
       await settle(t);
       expect(
         find.text('https://invoice.tevel.space/book/AbCdEfGhIjKlMnOpQrStUv'),
@@ -477,18 +497,19 @@ void main() {
       expect(find.byKey(const Key('calendar-copy')), findsOneWidget);
     });
 
-    testWidgets('owner cancel asks first, then calls the server once', (
-      t,
-    ) async {
+    testWidgets('owner cancel (details → red "ביטול הפגישה") asks first, then '
+        'calls the server once', (t) async {
       final today = DateTime.now();
       final at = DateTime(today.year, today.month, today.day, 10).toUtc();
       agenda(b, [booking('b1', start: at)], reminderMinutes: 0);
       b.json('POST', '/calendar/bookings/:id/cancel', {
         'booking': booking('b1', start: at, status: 'CANCELLED'),
       });
-      await pump(t);
-      await reveal(t, find.byKey(const Key('booking-cancel-b1')));
-      await t.tap(find.byKey(const Key('booking-cancel-b1')));
+      await pump(t, mode: CalendarMode.day, clock: nineToday);
+      await t.tap(find.byKey(const Key('calendar-block-b1')));
+      await settle(t);
+      await t.ensureVisible(find.byKey(const Key('booking-detail-cancel')));
+      await t.tap(find.byKey(const Key('booking-detail-cancel')));
       await settle(t);
       expect(find.text(CalendarHe.cancelTitle), findsOneWidget);
       await t.tap(find.byKey(const Key('calendar-cancel-confirm')));

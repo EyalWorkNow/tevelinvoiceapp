@@ -258,12 +258,13 @@ void main() {
         'booking': booking('p2', start: at, status: 'DECLINED'),
       });
       await pumpAs(t, b, Preset.owner, CalendarScreen(sync: _sync(device)));
+      // The month view says how many wait; the pill opens the list.
+      expect(find.byKey(const Key('calendar-pending-pill')), findsOneWidget);
+      await t.tap(find.byKey(const Key('calendar-pending-pill')));
+      await settle(t);
 
-      expect(find.byKey(const Key('calendar-settings')), findsOneWidget);
-      expect(find.text(CalendarHe.hoursButton), findsOneWidget);
       expect(find.byKey(const Key('calendar-pending')), findsOneWidget);
       expect(find.byKey(const Key('booking-pending-p1')), findsOneWidget);
-      expect(find.byKey(const Key('booking-cancel-p1')), findsNothing);
 
       await reveal(t, find.byKey(const Key('booking-approve-p1')));
       await t.tap(find.byKey(const Key('booking-approve-p1')));
@@ -296,9 +297,20 @@ void main() {
         'booking': booking('b1', start: at, status: 'CANCELLED'),
         'blocked': {'id': 'k1', 'name': 'דנה כהן'},
       });
-      await pumpAs(t, b, Preset.owner, CalendarScreen(sync: _sync(device)));
-      await reveal(t, find.byKey(const Key('booking-block-b1')));
-      await t.tap(find.byKey(const Key('booking-block-b1')));
+      await pumpAs(
+        t,
+        b,
+        Preset.owner,
+        CalendarScreen(
+          sync: _sync(device),
+          initialMode: CalendarMode.day,
+          clock: () => DateTime(today.year, today.month, today.day, 9),
+        ),
+      );
+      await t.tap(find.byKey(const Key('calendar-block-b1')));
+      await settle(t);
+      await t.ensureVisible(find.byKey(const Key('booking-detail-block')));
+      await t.tap(find.byKey(const Key('booking-detail-block')));
       await settle(t);
       expect(find.text(CalendarHe.blockTitle), findsOneWidget);
       expect(find.textContaining('לא יידע'), findsOneWidget);
