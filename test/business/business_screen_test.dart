@@ -439,6 +439,12 @@ void main() {
     await settle(tester);
     expect(hideAmounts.value, isTrue);
     await tester.runAsync(() => setHideAmounts(false));
+    // מראה: dark by default; "בהיר" switches the whole app.
+    expect(appThemeMode.value, ThemeMode.dark);
+    await tester.tap(find.text(BusinessHe.themeLight));
+    await settle(tester);
+    expect(appThemeMode.value, ThemeMode.light);
+    await tester.runAsync(() => setThemeMode(ThemeMode.dark));
 
     // The help row (0120) moved it past the lazy list.
     await tester.scrollUntilVisible(

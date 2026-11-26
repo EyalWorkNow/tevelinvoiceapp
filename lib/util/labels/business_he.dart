@@ -190,6 +190,10 @@ abstract final class BusinessHe {
   static const signedInAs = 'מחובר כ';
   static const faceId = 'נעילה ב-Face ID';
   static const hideAmounts = 'הסתר סכומים';
+  static const appearance = 'מראה';
+  static const themeDark = 'כהה';
+  static const themeLight = 'בהיר';
+  static const themeSystem = 'לפי הטלפון';
   static const twoFactor = 'אימות דו-שלבי';
   static const twoFactorEmail = 'קוד במייל';
   static const twoFactorApp = 'אפליקציית אימות וקודי שחזור';

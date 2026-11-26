@@ -1,6 +1,6 @@
 // Business settings + account (B, S13 instances §13, B·חשבון) — squad E.
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show ThemeMode, ValueNotifier;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../state/business_context.dart';
@@ -181,6 +181,36 @@ Future<void> setHideAmounts(bool hidden) async {
     await _prefs.write(key: _hideAmountsKey, value: hidden ? '1' : '0');
   } on Object {
     // The switch still works for this run.
+  }
+}
+
+// ---- appearance (owner 2026-11-26) ------------------------------------------
+
+const _themeModeKey = 'theme_mode';
+
+/// "מראה": dark (the default the app always had), light, or as the phone.
+final ValueNotifier<ThemeMode> appThemeMode = ValueNotifier<ThemeMode>(
+  ThemeMode.dark,
+);
+
+Future<void> loadThemeMode() async {
+  try {
+    appThemeMode.value = switch (await _prefs.read(key: _themeModeKey)) {
+      'light' => ThemeMode.light,
+      'system' => ThemeMode.system,
+      _ => ThemeMode.dark,
+    };
+  } on Object {
+    appThemeMode.value = ThemeMode.dark;
+  }
+}
+
+Future<void> setThemeMode(ThemeMode mode) async {
+  appThemeMode.value = mode;
+  try {
+    await _prefs.write(key: _themeModeKey, value: mode.name);
+  } on Object {
+    // The choice still applies for this run.
   }
 }
 
