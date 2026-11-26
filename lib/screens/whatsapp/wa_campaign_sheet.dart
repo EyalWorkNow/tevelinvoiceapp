@@ -40,7 +40,7 @@ Future<WaSendChoice?> showWaSendChoice(BuildContext context) =>
           const SizedBox(height: Space.m),
           _ChoiceCard(
             key: const Key('wa-choice-queue'),
-            icon: Iconsax.finger_cricle,
+            icon: Iconsax.message,
             title: WaHe.choiceQueue,
             hint: WaHe.choiceQueueHint,
             onTap: () => Navigator.of(sheet).pop(WaSendChoice.queue),
@@ -92,7 +92,7 @@ class _ChoiceCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: Space.s),
-              Icon(Iconsax.arrow_left_2, color: p.muted, size: 20),
+              Icon(Icons.chevron_left, color: p.muted, size: 20),
             ],
           ),
         ),

@@ -48,6 +48,8 @@ void main() {
       expect(waErrorText(_api('TEMPLATE_NOT_APPROVED')), WaHe.errNotApproved);
       expect(waErrorText(_api('WHATSAPP_NOT_CONNECTED')), WaHe.errNotConnected);
       expect(waErrorText(_api('DEMO_BUSINESS')), WaHe.errDemo);
+      expect(waBlockText('NO_RECIPIENTS'), WaHe.nobody);
+      expect(waBlockText('TEMPLATE_NOT_FOUND'), WaHe.errTemplateMissing);
       expect(waErrorText(_api('SOMETHING_ELSE')), 'שגיאה מהשרת');
       expect(waErrorText(StateError('x')), WaHe.errorFallback);
       expect(waBlockText(null), isNull);

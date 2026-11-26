@@ -156,6 +156,7 @@ abstract final class WaHe {
   static const errNotApproved = 'התבנית עוד לא אושרה על ידי Meta.';
   static const errNotConnected =
       'מספר הוואטסאפ של העסק לא מחובר. אפשר לשלוח בנגיעה לכל לקוח.';
+  static const errTemplateMissing = 'התבנית לא נמצאה. בחרו תבנית אחרת.';
   static const errDemo = 'בעסק לדוגמה לא שולחים הודעות ללקוחות.';
   static const errDuplicate = 'הקמפיין הזה כבר נשלח עכשיו לקבוצה.';
 }

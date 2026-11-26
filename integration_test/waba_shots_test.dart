@@ -72,26 +72,25 @@ FakeBackend backend({
   bool sending = true,
 }) {
   final b = FakeBackend()..install();
-  b
-    ..json('GET', '/customer-groups/:id', {
-      'group': g('g1', 'לקוחות קבועים', members: 7),
-      'status': {
-        'members': 7,
-        'active': 7,
-        'owing': 0,
-        'owingMinor': '0',
-        'noPhone': 1,
-        'noEmail': 3,
-        'inactive': 0,
-      },
-      'members': [
-        m('c1', 'דנה כהן', '0501234567'),
-        m('c3', 'מיכל ברק', '0527654321'),
-        m('c4', 'יוסי אברהם', '0541112233'),
-        m('c5', 'רונית שלום', '0533334444'),
-      ],
-      'invites': null,
-    });
+  b.json('GET', '/customer-groups/:id', {
+    'group': g('g1', 'לקוחות קבועים', members: 7),
+    'status': {
+      'members': 7,
+      'active': 7,
+      'owing': 0,
+      'owingMinor': '0',
+      'noPhone': 1,
+      'noEmail': 3,
+      'inactive': 0,
+    },
+    'members': [
+      m('c1', 'דנה כהן', '0501234567'),
+      m('c3', 'מיכל ברק', '0527654321'),
+      m('c4', 'יוסי אברהם', '0541112233'),
+      m('c5', 'רונית שלום', '0533334444'),
+    ],
+    'invites': null,
+  });
   final wa = installWhatsAppBusinessFakes(b, connected: connected);
   wa.campaign = waCampaignJson(status: sending ? 'SENDING' : 'DONE');
   if (campaigns) {

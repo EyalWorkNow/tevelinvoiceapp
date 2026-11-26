@@ -355,6 +355,8 @@ String? waCodeText(String code) => switch (code) {
   'TEMPLATE_NOT_APPROVED' => WaHe.errNotApproved,
   'WHATSAPP_NOT_CONNECTED' => WaHe.errNotConnected,
   'DEMO_BUSINESS' => WaHe.errDemo,
+  'TEMPLATE_NOT_FOUND' => WaHe.errTemplateMissing,
+  'NO_RECIPIENTS' => WaHe.nobody,
   'DUPLICATE_CAMPAIGN' || 'CAMPAIGN_DUPLICATE' => WaHe.errDuplicate,
   _ => null,
 };

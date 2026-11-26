@@ -407,7 +407,7 @@ class _WhatsAppBusinessScreenState extends State<WhatsAppBusinessScreen>
             WaValueRow(
               label: WaHe.quotaTitle,
               value: WaHe.quotaLine(s.usedThisMonth, s.monthlyQuota),
-              valueStyle: AppText.headline,
+              valueStyle: AppText.body.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: Space.s),
             ClipRRect(

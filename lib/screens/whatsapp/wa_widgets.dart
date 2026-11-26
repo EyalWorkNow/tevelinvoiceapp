@@ -217,12 +217,7 @@ class WaValueRow extends StatelessWidget {
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Flexible(
-          child: Text(
-            label,
-            style: AppText.body.copyWith(color: context.palette.muted),
-          ),
-        ),
+        Text(label, style: AppText.body.copyWith(color: context.palette.muted)),
         const SizedBox(width: Space.m),
         Flexible(
           child: Text(

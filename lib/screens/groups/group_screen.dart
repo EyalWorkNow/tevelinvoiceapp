@@ -428,7 +428,7 @@ class _GroupScreenState extends State<GroupScreen> {
               style: AppText.body.copyWith(color: p.muted),
             ),
             const SizedBox(width: Space.s),
-            Icon(Iconsax.arrow_left_2, color: p.muted, size: 18),
+            Icon(Icons.chevron_left, color: p.muted, size: 20),
           ],
         ),
       ),
