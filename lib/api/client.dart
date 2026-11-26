@@ -124,6 +124,18 @@ class ApiClient {
   Future<Map<String, dynamic>> get(String path, {Map<String, String>? query}) =>
       _json('GET', path, query: query);
 
+  /// A GET whose body may be a JSON array or object (list endpoints that
+  /// answer `[...]` as well as `{key: [...]}`).
+  Future<Object?> getAny(String path) async {
+    final bytes = (await _send('GET', path)).bodyBytes;
+    if (bytes.isEmpty) return null;
+    try {
+      return _decodeJsonBytes(bytes);
+    } on FormatException {
+      throw ApiException(0, 'BAD_RESPONSE', errorMessageHe('BAD_RESPONSE'));
+    }
+  }
+
   Future<Map<String, dynamic>> post(
     String path, [
     Object? body,

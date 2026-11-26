@@ -48,6 +48,8 @@ import 'employees_screen.dart';
 import 'vault_screen.dart';
 import 'notification_preferences_screen.dart';
 import '../../api/accountant_api.dart' show leaveClient;
+import '../../api/whatsapp_business_api.dart' show refreshWaStatus, waStatus;
+import '../whatsapp/whatsapp_business_screen.dart' show openWaBusiness;
 import '../../state/accountant_store.dart';
 import '../auth/auth_flow.dart' show routeSignedIn;
 
@@ -95,6 +97,8 @@ const Set<String> moreSettingsKeys = {
   'audit',
   // 0134 "עובדים וטופס 101" (B stays ≤ 10 rows; the pushes open it directly).
   'employees',
+  // 0136 וואטסאפ עסקי (only when the platform offers it).
+  'whatsapp',
 };
 
 /// The "עוד הגדרות" row of B.
@@ -116,11 +120,13 @@ List<BusinessRowSpec> businessRows(
   required int memberCount,
   bool? reminders,
   bool exempt = false,
+  bool whatsapp = false,
 }) {
   final all = allBusinessRows(
     caps,
     memberCount: memberCount,
     reminders: reminders,
+    whatsapp: whatsapp,
   );
   final keys = _moreKeys(memberCount: memberCount, exempt: exempt);
   final more = moreSettingsRows(
@@ -128,6 +134,7 @@ List<BusinessRowSpec> businessRows(
     memberCount: memberCount,
     reminders: reminders,
     exempt: exempt,
+    whatsapp: whatsapp,
   );
   if (more.isEmpty) return all;
   return [
@@ -149,6 +156,7 @@ List<BusinessRowSpec> moreSettingsRows(
   required int memberCount,
   bool? reminders,
   bool exempt = false,
+  bool whatsapp = false,
 }) {
   final keys = _moreKeys(memberCount: memberCount, exempt: exempt);
   final more = [
@@ -156,6 +164,7 @@ List<BusinessRowSpec> moreSettingsRows(
       caps,
       memberCount: memberCount,
       reminders: reminders,
+      whatsapp: whatsapp,
     ))
       if (keys.contains(r.key)) r,
   ];
@@ -163,10 +172,12 @@ List<BusinessRowSpec> moreSettingsRows(
 }
 
 /// Every destination of B for [caps], before grouping (§4.4).
+/// [whatsapp]: the server offers וואטסאפ עסקי (`available`, 0136).
 List<BusinessRowSpec> allBusinessRows(
   Caps caps, {
   required int memberCount,
   bool? reminders,
+  bool whatsapp = false,
 }) => [
   // Accountants: R is their home tab; the row takes them there (QA
   // 2026-11-16 accountant/09: "no דוחות in ניהול" read as "no reports").
@@ -215,6 +226,8 @@ List<BusinessRowSpec> allBusinessRows(
     const BusinessRowSpec('numbering', BusinessHe.numbering, Iconsax.hashtag),
   if (caps.can(Cap.settingsBusiness))
     const BusinessRowSpec('integrations', 'חיבורים ושליחה', Iconsax.link),
+  if (caps.can(Cap.settingsBusiness) && whatsapp)
+    const BusinessRowSpec('whatsapp', WaHe.row, Iconsax.whatsapp),
   if (caps.can(Cap.owner))
     const BusinessRowSpec('subscription', 'המסלול של העסק', Iconsax.crown),
   const BusinessRowSpec(
@@ -271,6 +284,8 @@ class _BusinessListState extends State<_BusinessList> {
     }
     _remindersFor = id;
     _reminders = null;
+    waStatus.value = null;
+    unawaited(refreshWaStatus());
     unawaited(() async {
       try {
         final on = await fetchRemindersEnabled();
@@ -401,7 +416,7 @@ class _BusinessListState extends State<_BusinessList> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: businessContext,
+    listenable: Listenable.merge([businessContext, waStatus]),
     builder: (context, _) {
       final caps = businessContext.caps;
       final rows = businessRows(
@@ -409,6 +424,7 @@ class _BusinessListState extends State<_BusinessList> {
         memberCount: businessContext.me?.memberCount ?? 1,
         reminders: _reminders,
         exempt: businessContext.isVatExempt,
+        whatsapp: waStatus.value?.available ?? false,
       );
       final many = businessContext.hasManyBusinesses;
       return BusinessPage(
@@ -814,6 +830,8 @@ void openBusinessRow(BuildContext context, String key) {
       unawaited(openAuditLog(context));
     case 'paymentTerms':
       unawaited(_openBusinessTerms(context));
+    case 'whatsapp':
+      unawaited(openWaBusiness(context));
   }
 }
 
@@ -839,7 +857,7 @@ class _MoreSettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: businessContext,
+    listenable: Listenable.merge([businessContext, waStatus]),
     builder: (context, _) => BusinessPage(
       title: BusinessHe.moreSettings,
       children: [
@@ -847,6 +865,7 @@ class _MoreSettingsPage extends StatelessWidget {
           businessContext.caps,
           memberCount: businessContext.me?.memberCount ?? 1,
           exempt: businessContext.isVatExempt,
+          whatsapp: waStatus.value?.available ?? false,
         ))
           BusinessRow(
             key: Key('brow-${r.key}'),

@@ -11,3 +11,4 @@ export 'inbox_fake.dart';
 export 'issue_fake.dart';
 export 'me_fixtures.dart';
 export 'people_fake.dart';
+export 'whatsapp_business_fake.dart';

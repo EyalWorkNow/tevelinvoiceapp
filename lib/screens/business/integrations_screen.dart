@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../api/client.dart';
+import '../../api/whatsapp_business_api.dart';
+import '../whatsapp/whatsapp_business_screen.dart' show openWaBusiness;
 import '../../router.dart';
 import '../../state/business_context.dart';
 import '../../state/caps.dart';
@@ -26,6 +28,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
   Future<void> _load() async {
     try {
       final j = await ApiClient.instance.get('/integrations/status');
+      if (businessContext.can(Cap.settingsBusiness)) await refreshWaStatus();
       if (mounted) {
         setState(() {
           _status = j;
@@ -117,14 +120,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                                 : 'שליחת מיילים ללקוחות עדיין לא הופעלה. בינתיים אפשר לשתף מסמך בקישור או בוואטסאפ.',
                             null,
                           ),
-                          _card(
-                            'WhatsApp עסקי',
-                            'משלוח אוטומטי ללקוח',
-                            Icons.chat_bubble_outline_rounded,
-                            _connected('whatsapp'),
-                            'נדרשים חשבון WhatsApp Business ותבנית הודעה מאושרת.',
-                            null,
-                          ),
+                          _whatsappCard(),
                           _card(
                             'חתימה דיגיטלית',
                             'חתימה על המקור השמור',
@@ -168,6 +164,38 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
       ),
     ),
   );
+
+  /// 0136: when the platform offers it, the business's own number (tap →
+  /// וואטסאפ עסקי); otherwise the platform-level status as before.
+  Widget _whatsappCard() {
+    final wa = waStatus.value;
+    if (wa == null ||
+        !wa.available ||
+        !businessContext.can(Cap.settingsBusiness)) {
+      return _card(
+        'WhatsApp עסקי',
+        'משלוח אוטומטי ללקוח',
+        Icons.chat_bubble_outline_rounded,
+        _connected('whatsapp'),
+        'נדרשים חשבון WhatsApp Business ותבנית הודעה מאושרת.',
+        null,
+      );
+    }
+    return _card(
+      'WhatsApp עסקי',
+      'הודעות מהמספר של העסק',
+      Icons.chat_bubble_outline_rounded,
+      wa.connected,
+      wa.connected
+          ? 'הודעות לקבוצות יוצאות מ-${wa.phoneDisplay ?? 'המספר של העסק'}, לפי תבניות מאושרות.'
+          : 'חברו את מספר הוואטסאפ של העסק כדי לשלוח הודעות לקבוצות אוטומטית.',
+      () async {
+        await openWaBusiness(context);
+        await _load();
+      },
+    );
+  }
+
   Widget _card(
     String title,
     String subtitle,

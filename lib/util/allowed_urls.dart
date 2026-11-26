@@ -97,3 +97,37 @@ Future<bool> openPaymentPage(Uri uri) {
   }
   return urlOpener(uri, inApp: true);
 }
+
+/// 0136 וואטסאפ עסקי: the server's one-time Embedded Signup page
+/// (`/wa/connect/<token>`) in SFSafariViewController — only on the Tevel API
+/// host ([waConnectHost], or the configured API origin in dev builds).
+const String waConnectHost = 'invoice.crm.tevel.space';
+
+bool isWaConnectUrl(Uri uri, {String? apiOrigin}) {
+  if (uri.userInfo.isNotEmpty || uri.fragment.isNotEmpty) return false;
+  final segments = uri.pathSegments;
+  if (segments.length != 3 ||
+      segments[0] != 'wa' ||
+      segments[1] != 'connect' ||
+      segments[2].isEmpty) {
+    return false;
+  }
+  if (uri.scheme == 'https' &&
+      uri.host == waConnectHost &&
+      (!uri.hasPort || uri.port == 443)) {
+    return true;
+  }
+  final origin = apiOrigin == null ? null : Uri.tryParse(apiOrigin);
+  return origin != null &&
+      origin.host.isNotEmpty &&
+      uri.scheme == origin.scheme &&
+      uri.host == origin.host &&
+      uri.port == origin.port;
+}
+
+Future<bool> openWaConnectPage(Uri uri, {String? apiOrigin}) {
+  if (!isWaConnectUrl(uri, apiOrigin: apiOrigin)) {
+    throw ArgumentError.value(uri, 'uri', 'not a WhatsApp connect page');
+  }
+  return urlOpener(uri, inApp: true);
+}

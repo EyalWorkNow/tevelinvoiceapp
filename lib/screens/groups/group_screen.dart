@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import '../../api/customer_groups_api.dart';
+import '../../api/whatsapp_business_api.dart';
 import '../../router.dart' show openPerson;
 import '../../state/business_context.dart';
 import '../../state/caps.dart';
@@ -26,7 +27,10 @@ import '../../ui/widgets/quick_action_grid.dart';
 import '../../util/labels/common_he.dart';
 import '../../util/labels/groups_he.dart';
 import '../../util/labels/people_he.dart';
+import '../../util/labels/whatsapp_business_he.dart';
 import '../calendar/calendar_screen.dart' show mayUseCalendar;
+import '../whatsapp/wa_campaign_screen.dart';
+import '../whatsapp/wa_campaign_sheet.dart';
 import 'group_actions.dart';
 import 'group_invite_sheet.dart';
 import 'group_sheets.dart';
@@ -113,6 +117,10 @@ class _GroupScreenState extends State<GroupScreen> {
   Object? _error;
   bool _started = false;
 
+  /// 0136: the business's own WhatsApp number (null = unknown / none).
+  WaBusinessStatus? _wa;
+  List<WaCampaign> _campaigns = const [];
+
   Caps get _caps => businessContext.caps;
   bool get _manage => _caps.can(Cap.customerManage);
 
@@ -122,8 +130,36 @@ class _GroupScreenState extends State<GroupScreen> {
     unawaited(_load());
   }
 
+  /// The automatic-send status and this group's campaigns, only for whoever
+  /// may send the group's WhatsApp (the broadcast permission).
+  Future<void> _loadWa() async {
+    if (!groupActionIds(_caps, smart: null).contains('broadcast')) return;
+    final WaBusinessStatus s;
+    try {
+      s = await fetchWaStatus();
+    } on Object {
+      return;
+    }
+    if (!s.available) {
+      if (mounted) setState(() => _wa = s);
+      return;
+    }
+    List<WaCampaign> campaigns = const [];
+    try {
+      campaigns = await fetchGroupWaCampaigns(widget.id);
+    } on Object {
+      // The entry just stays hidden.
+    }
+    if (!mounted) return;
+    setState(() {
+      _wa = s;
+      _campaigns = campaigns;
+    });
+  }
+
   Future<void> _load() async {
     setState(() => _error = null);
+    unawaited(_loadWa());
     try {
       final d = await fetchGroup(widget.id);
       if (!mounted) return;
@@ -157,6 +193,24 @@ class _GroupScreenState extends State<GroupScreen> {
       }
       return;
     }
+    // 0136: with the business's own number connected, WhatsApp may leave
+    // automatically (a Meta template) or by the existing tap queue.
+    if (kind == GroupActionKind.broadcast && (_wa?.connected ?? false)) {
+      final choice = await showWaSendChoice(context);
+      if (choice == null || !mounted) return;
+      if (choice == WaSendChoice.auto) {
+        final id = await showWaCampaignSheet(
+          context,
+          groupId: widget.id,
+          groupName: _name,
+        );
+        if (id == null || id.isEmpty || !mounted) return;
+        await openWaCampaign(context, id);
+        if (mounted) unawaited(_loadWa());
+        return;
+      }
+    }
+    if (!mounted) return;
     final run = await startGroupAction(
       context,
       groupId: widget.id,
@@ -348,8 +402,36 @@ class _GroupScreenState extends State<GroupScreen> {
         _statusCard(context, d),
         if (actions.isNotEmpty) _quickActions(context, actions),
         if (actions.isEmpty) _noActions(context, d),
+        if (_campaigns.isNotEmpty && actions.contains('broadcast'))
+          _campaignsEntry(context),
         ..._members(context, d),
       ],
+    );
+  }
+
+  Widget _campaignsEntry(BuildContext context) {
+    final p = context.palette;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.page, Space.l, Space.page, 0),
+      child: AppCard(
+        key: const Key('group-wa-campaigns'),
+        onTap: () => unawaited(
+          openWaCampaigns(context, groupId: widget.id, groupName: _name),
+        ),
+        child: Row(
+          children: [
+            Icon(Iconsax.whatsapp, color: p.ink, size: 22),
+            const SizedBox(width: Space.m),
+            const Expanded(child: Text(WaHe.previous, style: AppText.body)),
+            Text(
+              WaHe.previousCount(_campaigns.length),
+              style: AppText.body.copyWith(color: p.muted),
+            ),
+            const SizedBox(width: Space.s),
+            Icon(Iconsax.arrow_left_2, color: p.muted, size: 18),
+          ],
+        ),
+      ),
     );
   }
 
