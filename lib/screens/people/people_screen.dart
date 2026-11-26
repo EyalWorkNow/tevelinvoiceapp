@@ -635,7 +635,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
 
   bool get _showGroups =>
       _groups != null &&
-      _chip == PeopleChip.all &&
+      (_chip == PeopleChip.active || _chip == PeopleChip.all) &&
       _search.text.trim().isEmpty &&
       !_selection.active &&
       (_canGroup || _groups!.groups.isNotEmpty || _groups!.smart.isNotEmpty);
