@@ -12,6 +12,7 @@ import '../../api/customer_groups_api.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/groups_he.dart';
 import 'group_actions.dart';
+import 'group_style.dart';
 
 /// Opens the sheet; true when invites were sent.
 Future<bool> showGroupInviteSheet(
@@ -124,6 +125,77 @@ class _GroupInviteSheetState extends State<GroupInviteSheet> {
           ),
           label: const Text(GroupsHe.inviteSend),
         ),
+      ],
+    );
+  }
+}
+
+/// The calendar's "הזמן קבוצה": pick a group (custom or smart), then the
+/// invite sheet above. True when invites were sent.
+Future<bool> pickGroupAndInvite(BuildContext context) async {
+  final g = await showAppSheet<GroupSummary>(
+    context,
+    builder: (_) => const _GroupPicker(),
+  );
+  if (g == null || !context.mounted) return false;
+  return showGroupInviteSheet(context, groupId: g.id, groupName: g.name);
+}
+
+class _GroupPicker extends StatefulWidget {
+  const _GroupPicker();
+
+  @override
+  State<_GroupPicker> createState() => _GroupPickerState();
+}
+
+class _GroupPickerState extends State<_GroupPicker> {
+  List<GroupSummary>? _all;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    setState(() => _error = null);
+    try {
+      final list = await fetchGroups();
+      if (mounted) setState(() => _all = [...list.groups, ...list.smart]);
+    } on Object catch (e) {
+      if (mounted) setState(() => _error = e);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final all = _all;
+    return Column(
+      key: const Key('group-picker-sheet'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SheetTitle(GroupsHe.inviteGroupTitle),
+        if (all == null && _error != null)
+          ErrorView(error: _error!, onRetry: _load)
+        else if (all == null)
+          const SkeletonList(rows: 3)
+        else if (all.isEmpty)
+          Text(
+            GroupsHe.noGroupsYet,
+            style: AppText.body.copyWith(color: context.palette.muted),
+          )
+        else
+          for (final g in all)
+            ListTile(
+              key: Key('group-pick-${g.id}'),
+              contentPadding: EdgeInsets.zero,
+              leading: GroupBadge(group: g, size: 36),
+              title: Text(g.name),
+              trailing: Text('${g.memberCount}'),
+              onTap: () => Navigator.of(context).pop(g),
+            ),
       ],
     );
   }

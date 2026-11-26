@@ -178,6 +178,7 @@ abstract final class GroupsHe {
   static const customerGroups = 'קבוצות';
   static const noGroups = 'אין';
   static const customerGroupsTitle = 'הקבוצות של הלקוח';
+  static const inviteGroupTitle = 'הזמנת קבוצה לקביעת פגישה';
   static const noGroupsYet = 'עוד אין קבוצות. אפשר ליצור במסך הלקוחות.';
   static const marketingConsent = 'מאשר דיוור';
   static const marketingConsentHint = 'יקבל הודעות פרסום ומבצעים';

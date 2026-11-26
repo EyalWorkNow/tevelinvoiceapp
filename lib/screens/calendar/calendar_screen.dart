@@ -25,6 +25,7 @@ import '../../api/client.dart' show ApiException;
 import '../../router.dart' show openPerson;
 import '../../state/business_context.dart';
 import '../../state/caps.dart';
+import '../groups/group_invite_sheet.dart';
 import '../../ui/app_page_route.dart';
 import '../../ui/ds.dart';
 import '../../ui/widgets/notch_notice.dart' show NoticeMotion;
@@ -824,6 +825,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 label: CalendarHe.share,
                 icon: Iconsax.link_21,
                 onSelected: () => unawaited(_share()),
+              ),
+              MoreMenuItem(
+                label: CalendarHe.inviteGroup,
+                icon: Iconsax.people,
+                onSelected: () async {
+                  if (await pickGroupAndInvite(context) && mounted) {
+                    unawaited(_refresh());
+                  }
+                },
               ),
               MoreMenuItem(
                 label: CalendarHe.hoursButton,

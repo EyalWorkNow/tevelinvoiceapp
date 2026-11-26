@@ -480,6 +480,25 @@ void main() {
       expect(find.byKey(const Key('booking-detail-cancel')), findsOneWidget);
     });
 
+    testWidgets('⋯ menu: "הזמן קבוצה" lists the groups, then the invite '
+        'sheet', (t) async {
+      agenda(b, [], reminderMinutes: 0);
+      b.json('GET', '/customer-groups', {
+        'groups': [
+          {'id': 'g1', 'name': 'ועד בית', 'color': 'blue', 'memberCount': 3},
+        ],
+        'smart': <Object>[],
+        'limits': {'maxGroups': 50, 'maxMembers': 500},
+      });
+      await pump(t);
+      await t.tap(find.byKey(const Key('calendar-more')));
+      await settle(t);
+      await t.tap(find.text(CalendarHe.inviteGroup).last);
+      await settle(t);
+      expect(find.byKey(const Key('group-picker-sheet')), findsOneWidget);
+      expect(find.text('ועד בית'), findsOneWidget);
+    });
+
     testWidgets('share sheet (⋯ menu): the public link + WhatsApp / share / '
         'copy', (t) async {
       agenda(b, [], reminderMinutes: 0);

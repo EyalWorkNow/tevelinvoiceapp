@@ -37,6 +37,7 @@ abstract final class CalendarHe {
   static String minutes(int n) => '${ltrIsolate('$n')} דק׳';
 
   // ---- share ----
+  static const inviteGroup = 'הזמן קבוצה';
   static const share = 'שתף קישור לקביעת פגישה';
   static const shareWhatsapp = 'שליחה בוואטסאפ';
   static const shareOther = 'שיתוף…';
