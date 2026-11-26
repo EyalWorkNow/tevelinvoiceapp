@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
+import '../../util/labels/common_he.dart';
 import '../money_text.dart';
 import '../theme.dart';
 import 'amount_display.dart';
@@ -24,6 +25,7 @@ class DocRow extends StatelessWidget {
     this.onSwipe,
     this.swipeDestructive = false,
     this.meta,
+    this.showAvatar = true,
   });
 
   final String title;
@@ -31,7 +33,7 @@ class DocRow extends StatelessWidget {
 
   /// Null = amount hidden (read gating): no amount drawn or spoken.
   /// Negative = money going back to the customer (a credit note, 330): drawn
-  /// with the "−" badge and the expense colour, spoken "מינוס …" — never as
+  /// as the amount with "זיכוי" under it, spoken "מינוס …" — never as
   /// income (walkthrough 2026-11-17 #11).
   final BigInt? amountMinor;
   final StatusPill status;
@@ -49,17 +51,22 @@ class DocRow extends StatelessWidget {
   /// Quiet text beside the single status in the compact row (the date).
   final String? meta;
 
+  /// The initials circle at the start; off where every row is the same
+  /// customer (the customer page).
+  final bool showAvatar;
+
   @override
   Widget build(BuildContext context) {
-    if (context.isDark) {
-      return _buildDark(context);
-    }
+    // One design in both themes (2611 customer page #8): initials · title /
+    // subtitle / one status · the amount at the row end. No "+" / "−" marks:
+    // a credit note shows "זיכוי" under its amount (#16).
     final p = context.palette;
     final amountColor = status.isOverdue
         ? p.danger
         : status.isCancelled
         ? p.muted
         : p.ink;
+    final credit = amountMinor?.isNegative ?? false;
     final row = Semantics(
       button: onTap != null,
       label: [
@@ -81,118 +88,14 @@ class DocRow extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: Space.page,
-              vertical: Space.s + 2,
+              vertical: Space.s,
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.headline,
-                      ),
-                    ),
-                    if (amountMinor != null) ...[
-                      const SizedBox(width: Space.s),
-                      Flexible(
-                        flex: 2,
-                        child: Align(
-                          alignment: AlignmentDirectional.centerEnd,
-                          child: AmountText(amountMinor!, color: amountColor),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: Space.xs),
-                Wrap(
-                  spacing: Space.s,
-                  runSpacing: Space.xs,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      subtitle,
-                      style: AppText.secondary.copyWith(color: p.muted),
-                    ),
-                    status,
-                    for (final a in attributes)
-                      Text(
-                        a,
-                        style: AppText.secondary.copyWith(color: p.muted),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    if (onSwipe == null || swipeLabel == null) return row;
-    return Dismissible(
-      key: ValueKey('$title|$subtitle|$amountMinor'),
-      direction: DismissDirection.startToEnd,
-      confirmDismiss: (_) async {
-        onSwipe!();
-        return false;
-      },
-      background: Container(
-        color: swipeDestructive ? p.danger : p.accent,
-        alignment: AlignmentDirectional.centerStart,
-        padding: const EdgeInsets.symmetric(horizontal: Space.page),
-        child: Text(
-          swipeLabel!,
-          style: AppText.headline.copyWith(
-            color: swipeDestructive ? Colors.white : p.accentInk,
-          ),
-        ),
-      ),
-      child: row,
-    );
-  }
-
-  Widget _buildDark(BuildContext context) {
-    final p = context.palette;
-    final amountColor = status.isOverdue
-        ? p.danger
-        : status.isCancelled
-        ? p.muted
-        : p.ink;
-    final credit = amountMinor?.isNegative ?? false;
-    final isExpense =
-        credit || amountColor == p.danger || amountColor == p.muted;
-    // 1.7: the customer's initials, never a stock face.
-    final avatarWidget = _InitialsAvatar(name: title);
-    final row = Semantics(
-      button: onTap != null,
-      label: [
-        title,
-        subtitle,
-        if (amountMinor != null) moneySpoken(context, amountMinor!),
-        status.label,
-        ...attributes,
-      ].join(', '),
-      customSemanticsActions: onSwipe == null || swipeLabel == null
-          ? null
-          : {CustomSemanticsAction(label: swipeLabel!): onSwipe!},
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: 48),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: Space.page, vertical: 6),
             child: Row(
               children: [
-                avatarWidget,
-                const SizedBox(width: 12),
+                if (showAvatar) ...[
+                  _InitialsAvatar(name: title),
+                  const SizedBox(width: 12),
+                ],
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -213,9 +116,10 @@ class DocRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: AppText.secondary.copyWith(color: p.muted),
                       ),
-                      const SizedBox(height: 2),
-                      // 1.7: one status. Attributes ("נשלח", "נצפה") stay in
-                      // the spoken label and on D, not as a second status.
+                      const SizedBox(height: 4),
+                      // One status. Attributes ("נשלח", "נצפה") stay in the
+                      // spoken label and on the document, not as a second
+                      // status.
                       Wrap(
                         spacing: Space.s,
                         crossAxisAlignment: WrapCrossAlignment.center,
@@ -233,51 +137,26 @@ class DocRow extends StatelessWidget {
                 ),
                 if (amountMinor != null) ...[
                   const SizedBox(width: Space.s),
-                  // Sized by the amount itself, so the type and number keep
-                  // the rest of the line (1.7).
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 140),
-                    child: Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 14,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              color: isExpense
-                                  ? const Color(0xFFFA597D)
-                                  : const Color(0xFF81FFA8),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(
-                              child: Text(
-                                isExpense ? '-' : '+',
-                                style: TextStyle(
-                                  color: isExpense
-                                      ? Colors.white
-                                      : Colors.black,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  height: 1,
-                                ),
-                              ),
-                            ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        AmountText(
+                          amountMinor!.abs(),
+                          style: AppText.body.copyWith(
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(width: 5),
-                          Flexible(
-                            child: AmountText(
-                              // The badge carries the sign.
-                              amountMinor!.abs(),
-                              style: AppText.body.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                              color: p.ink,
-                            ),
+                          color: amountColor,
+                        ),
+                        if (credit)
+                          Text(
+                            CommonHe.creditMark,
+                            key: const Key('doc-row-credit'),
+                            style: AppText.secondary.copyWith(color: p.muted),
                           ),
-                        ],
-                      ),
+                      ],
                     ),
                   ),
                 ],
@@ -302,7 +181,7 @@ class DocRow extends StatelessWidget {
         child: Text(
           swipeLabel!,
           style: AppText.headline.copyWith(
-            color: swipeDestructive ? Colors.white : p.accentInk,
+            color: swipeDestructive ? p.onDanger : p.accentInk,
           ),
         ),
       ),
@@ -328,33 +207,24 @@ class _InitialsAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = [
-      DesignTokens.yellow,
-      DesignTokens.green,
-      DesignTokens.coral,
-      DesignTokens.lavender,
-    ];
+    const hues = [Pastel.yellow, Pastel.green, Pastel.peach, Pastel.lavender];
+    final (circle, ink) = context.palette.pastel(
+      hues[name.hashCode.abs() % hues.length],
+    );
     final initials = initialsOf(name);
     return Container(
       key: const Key('doc-row-initials'),
       width: 38,
       height: 38,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: colors[name.hashCode.abs() % colors.length],
-      ),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: circle),
       alignment: Alignment.center,
       child: initials.isEmpty
-          ? const Icon(
-              Icons.person_outline_rounded,
-              size: 20,
-              color: Colors.black87,
-            )
+          ? Icon(Icons.person_outline_rounded, size: 20, color: ink)
           : Text(
               initials,
               maxLines: 1,
               style: AppText.secondary.copyWith(
-                color: const Color(0xFF302139),
+                color: ink,
                 fontWeight: FontWeight.w700,
               ),
             ),

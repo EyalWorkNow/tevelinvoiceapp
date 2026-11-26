@@ -216,6 +216,7 @@ class CustomerDetail {
   /// 2611 §2: WEEKLY | BIWEEKLY | MONTHLY | NONE (no reminders) | null = as
   /// the business.
   final String? reminderCadence;
+
   /// "מאשר דיוור" (marketing messages); null before the server has it.
   final bool? marketingConsent;
 

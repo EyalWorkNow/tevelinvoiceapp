@@ -72,17 +72,21 @@ abstract final class CustomerCrmHe {
   static const repeatHint =
       'קביעת ביקור נוסף יוצרת עבודה חדשה לאישור, לפי התדירות שנבחרה.';
   static const remaining = 'נותר לגבייה';
-  static const remainingEstimate = 'נותר לגבייה לפי המעקב (הערכה)';
+
+  /// Owner 2611: a different thing from "חייב לך" (issued documents only).
+  static const remainingEstimate = 'עבודות שעוד לא הופקה להן חשבונית';
+  static const remainingHint =
+      'הערכה לפי מחירי העבודות שהסתיימו ומה שסימנת כשולם. לא נכלל ב״חייב לך״.';
   static const documentsBalance = 'יתרה פתוחה לפי המסמכים';
-  static const contribution = 'נשאר אחרי עלויות ישירות';
-  static const hourly = 'לשעת עבודה, אחרי עלויות';
+  static const contribution = 'נשאר לך אחרי הוצאות על העבודות';
+  static const hourly = 'כמה נשאר לך לכל שעת עבודה';
   static const missingCost = 'יש להשלים עלות כדי לחשב כמה נשאר';
   static const thisMonth = 'החודש';
   static const previousMonth = 'החודש הקודם';
   static const nextMonth = 'החודש הבא';
-  static const completedPrice = 'מחיר עבודות שהושלמו';
-  static const upcomingPrice = 'מחיר עבודות פתוחות';
-  static const collected = 'התקבל במעקב לעבודות החודש';
+  static const completedPrice = 'עבודות שסיימת החודש';
+  static const upcomingPrice = 'עבודות שעוד פתוחות החודש';
+  static const collected = 'שולם לך על עבודות החודש';
   static const missingPrices = 'עבודות ללא מחיר';
   static const partialContribution =
       'החישוב כולל רק עבודות שהושלמו עם מחיר ועלות ידועים.';

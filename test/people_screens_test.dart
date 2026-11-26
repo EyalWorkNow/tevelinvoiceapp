@@ -391,6 +391,18 @@ void main() {
       matching: find.byType(IconButton),
     );
 
+    /// "פרטים ועריכה" lives in the header ⋯ (2611 #11).
+    Future<void> edit(WidgetTester tester) async {
+      await tap(tester, headerMenu());
+      await tap(
+        tester,
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('פרטים ועריכה'),
+        ),
+      );
+    }
+
     testWidgets(
       'balance > 0 → "בקשת תשלום" 3rd after call / WhatsApp; wa.me / tel / mailto',
       (tester) async {
@@ -566,7 +578,8 @@ void main() {
     });
 
     testWidgets(
-      '"פרטים ועריכה" (BE-09): S2 edit form PATCHes only changes incl. payment terms',
+      '"פרטים ועריכה" (BE-09): S2 edit form PATCHes only changes; no terms '
+      'picker of its own (terms live in "תנאי תשלום ותזכורות")',
       (tester) async {
         installPeopleFakes(
           backend,
@@ -576,14 +589,14 @@ void main() {
           be09: true,
         );
         await pump(tester, const PersonScreen(id: 'c1'));
-        await more(tester, 'edit');
+        await edit(tester);
         expect(find.text(PeopleHe.editTitle), findsWidgets);
+        expect(find.text('שוטף+60'), findsNothing);
+        expect(find.text(PeopleHe.paymentTerms), findsNothing);
         await tester.enterText(find.byKey(const Key('s2-email')), 'dana@x.co');
-        await tap(tester, find.text('שוטף+60'));
         await tap(tester, find.byKey(const Key('s2-save')));
         expect(backend.last('PATCH', '/customers/:id')!.body, {
           'email': 'dana@x.co',
-          'paymentTerms': 'EOM_60',
         });
       },
     );
@@ -618,7 +631,7 @@ void main() {
     });
 
     testWidgets(
-      'J11 (AT-28, BE-17): לקוחות → לקוח → ⋯ "שליחת כרטסת" → אישור = 5 taps; e-mailed for this year',
+      'J11 (AT-28, BE-17): לקוחות → לקוח → עוד → "שליחת כרטסת" → אישור = 5 taps; e-mailed for this year',
       (tester) async {
         installPeopleFakes(
           backend,
@@ -630,13 +643,12 @@ void main() {
         taps = 1; // (1) the "לקוחות" tab
         await tap(tester, find.byKey(const Key('person-c1')));
         await flush(tester);
-        await tap(tester, headerMenu());
-        await tap(tester, find.text('שליחת כרטסת'));
+        await more(tester, 'statement');
         // E-mailing the customer asks first (QA 2026-11-16 owner/114).
         expect(backend.calls('POST', '/customers/:id/statement/send'), isEmpty);
         expect(find.text(PeopleHe.statementConfirmTitle), findsOneWidget);
         await tap(tester, find.byKey(const Key('statement-confirm')));
-        // Owner spec 2026-11-23: the statement moved into ⋯ (one more tap).
+        // 2611 #11: the statement is an action — in "עוד" only.
         expect(taps, lessThanOrEqualTo(5));
         final body = backend
             .last('POST', '/customers/:id/statement/send')!
@@ -671,8 +683,7 @@ void main() {
           findsNothing,
           reason: 'rep: statement only (§4.4)',
         );
-        await tap(tester, headerMenu());
-        await tap(tester, find.text('שליחת כרטסת'));
+        await more(tester, 'statement');
         expect(backend.calls('POST', '/customers/:id/statement/send'), isEmpty);
         expect(shared, 'כרטסת דנה.pdf');
       },
@@ -687,8 +698,12 @@ void main() {
         );
         await pump(tester, const PersonScreen(id: 'c1'));
         await tap(tester, find.byKey(const Key('person-action-more')));
-        expect(find.byKey(const Key('person-more-edit')), findsOneWidget);
+        expect(find.byKey(const Key('person-more-email')), findsOneWidget);
         expect(find.byKey(const Key('person-more-statement')), findsNothing);
+        // Each action in one place: edit / archive are not in "עוד".
+        expect(find.byKey(const Key('person-more-edit')), findsNothing);
+        expect(find.byKey(const Key('person-more-archive')), findsNothing);
+        expect(find.byKey(const Key('person-more-terms')), findsNothing);
       },
     );
 
@@ -701,11 +716,32 @@ void main() {
           be09: true,
         );
         await pump(tester, const PersonScreen(id: 'c1'));
-        await more(tester, 'edit');
+        await edit(tester);
         expect(
           find.byKey(const Key('s2-accountkey')),
           findsNothing,
           reason: 'BE-04 cap only',
+        );
+        // 2611 #2 #3: every field's name sits above it (never on the
+        // border); street on its own line, number / postal wide enough.
+        for (final label in [
+          PeopleHe.name,
+          PeopleHe.street,
+          PeopleHe.city,
+          PeopleHe.houseNumber,
+          PeopleHe.postalCode,
+        ]) {
+          expect(find.text(label), findsOneWidget, reason: label);
+        }
+        final street = tester.getRect(find.byKey(const Key('s2-street')));
+        final house = tester.getRect(find.byKey(const Key('s2-house')));
+        final postal = tester.getRect(find.byKey(const Key('s2-postal')));
+        expect(house.top, greaterThan(street.bottom));
+        expect(house.width, greaterThanOrEqualTo(120));
+        expect(postal.width, greaterThanOrEqualTo(street.width - 1));
+        expect(
+          tester.getRect(find.text(PeopleHe.street)).bottom,
+          lessThanOrEqualTo(street.top),
         );
         await tester.enterText(find.byKey(const Key('s2-street')), 'הרצל');
         await tap(tester, find.byKey(const Key('s2-save')));
@@ -750,7 +786,7 @@ void main() {
           openPerson(navigatorKey.currentContext!, 's1', supplier: true),
         );
         await flush(tester);
-        await more(tester, 'edit');
+        await edit(tester);
         expect(find.byKey(const Key('s2-consent')), findsNothing);
         await tester.enterText(find.byKey(const Key('s2-phone')), '03-6000000');
         await tap(tester, find.byKey(const Key('s2-save')));

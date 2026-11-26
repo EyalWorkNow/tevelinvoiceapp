@@ -238,7 +238,6 @@ class _CustomerSheetState extends State<CustomerSheet> {
   final _city = TextEditingController();
   final _postal = TextEditingController();
   final _accountKey = TextEditingController();
-  String? _terms;
   bool _consent = false;
 
   /// "הלקוח עוסק מורשה / חברה?" ([dealerYes] / [dealerNo] / [dealerUnknown]).
@@ -282,7 +281,6 @@ class _CustomerSheetState extends State<CustomerSheet> {
       _taxId.text = c.taxId ?? '';
       _contact.text = widget.detail?.contactPerson ?? '';
       _notes.text = widget.detail?.notes ?? '';
-      _terms = widget.detail?.paymentTerms;
       final a = widget.detail?.address;
       _street.text = a?.street ?? '';
       _houseNumber.text = a?.number ?? '';
@@ -333,7 +331,6 @@ class _CustomerSheetState extends State<CustomerSheet> {
       _street, _houseNumber, _city, _postal, _accountKey,
     ])
       c.text.trim(),
-    _terms,
     _consent,
     _dealer,
   ].join('\u0000');
@@ -764,7 +761,6 @@ class _CustomerSheetState extends State<CustomerSheet> {
             if (_clean(_contact) != d.contactPerson)
               'contactPerson': _clean(_contact),
             if (_clean(_notes) != d.notes) 'notes': _clean(_notes),
-            if (_terms != d.paymentTerms) 'paymentTerms': _terms,
             if (_addressChanged(d)) 'address': _addressValue?.toJson(),
             if (_showAccountKey && _clean(_accountKey) != d.accountKey)
               'accountKey': _clean(_accountKey),
@@ -905,21 +901,23 @@ class _CustomerSheetState extends State<CustomerSheet> {
               ),
             ),
           if (!_isEdit) const SizedBox(height: Space.m),
-          TextFormField(
-            key: const Key('s2-name'),
-            controller: _name,
-            autofocus: !_isEdit && _name.text.isEmpty,
-            enabled: !_busy,
-            textInputAction: TextInputAction.next,
-            maxLength: 200,
-            decoration: InputDecoration(
-              labelText: PeopleHe.name,
-              prefixIcon: const Icon(Icons.person_outline_rounded),
-              counterText: '',
-              errorText: _serverErrors['name'],
+          _labeled(
+            PeopleHe.name,
+            TextFormField(
+              key: const Key('s2-name'),
+              controller: _name,
+              autofocus: !_isEdit && _name.text.isEmpty,
+              enabled: !_busy,
+              textInputAction: TextInputAction.next,
+              maxLength: 200,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.person_outline_rounded),
+                counterText: '',
+                errorText: _serverErrors['name'],
+              ),
+              validator: (v) =>
+                  (v ?? '').trim().isEmpty ? PeopleHe.nameRequired : null,
             ),
-            validator: (v) =>
-                (v ?? '').trim().isEmpty ? PeopleHe.nameRequired : null,
           ),
           const SizedBox(height: Space.m),
           _ltr(
@@ -983,117 +981,110 @@ class _CustomerSheetState extends State<CustomerSheet> {
           ],
           if (be09) ...[
             const SizedBox(height: Space.m),
-            TextFormField(
-              controller: _contact,
-              enabled: !_busy,
-              decoration: const InputDecoration(
-                labelText: PeopleHe.contactPerson,
-                prefixIcon: Icon(Icons.contact_phone_outlined),
+            _labeled(
+              PeopleHe.contactPerson,
+              TextFormField(
+                controller: _contact,
+                enabled: !_busy,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.contact_phone_outlined),
+                ),
               ),
-            ),
-            const SizedBox(height: Space.l),
-            Text(
-              PeopleHe.paymentTerms,
-              style: AppText.secondary.copyWith(color: p.muted),
-            ),
-            const SizedBox(height: Space.s),
-            ChipRow<String>(
-              padding: EdgeInsets.zero,
-              options: [
-                for (final e in PeopleHe.paymentTermsLabels.entries)
-                  ChipOption(e.key, e.value, icon: Icons.schedule_outlined),
-              ],
-              selected: _terms,
-              onSelected: (v) => setState(() => _terms = v),
             ),
             const SizedBox(height: Space.m),
-            TextFormField(
-              controller: _notes,
-              enabled: !_busy,
-              maxLines: 3,
-              minLines: 1,
-              decoration: const InputDecoration(
-                labelText: PeopleHe.notes,
-                prefixIcon: Icon(Icons.notes_rounded),
+            _labeled(
+              PeopleHe.notes,
+              TextFormField(
+                controller: _notes,
+                enabled: !_busy,
+                maxLines: 3,
+                minLines: 1,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.notes_rounded),
+                ),
               ),
             ),
             const SizedBox(height: Space.l),
+            // The address: street on its own line, then city + number, then
+            // the postal code — every value fits (2611 customer page #2).
             Text(
               PeopleHe.address,
-              style: AppText.secondary.copyWith(color: p.muted),
+              style: AppText.headline.copyWith(color: p.ink),
             ),
+            const SizedBox(height: Space.s),
+            _labeled(
+              PeopleHe.street,
+              TextFormField(
+                key: const Key('s2-street'),
+                controller: _street,
+                enabled: !_busy,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.signpost_outlined),
+                ),
+              ),
+            ),
+            const SizedBox(height: Space.m),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   flex: 3,
-                  child: TextFormField(
-                    key: const Key('s2-street'),
-                    controller: _street,
-                    enabled: !_busy,
-                    decoration: const InputDecoration(
-                      labelText: PeopleHe.street,
-                      prefixIcon: Icon(Icons.signpost_outlined),
+                  child: _labeled(
+                    PeopleHe.city,
+                    TextFormField(
+                      key: const Key('s2-city'),
+                      controller: _city,
+                      enabled: !_busy,
+                      decoration: const InputDecoration(),
+                      validator: (v) =>
+                          _addressValue != null && (v ?? '').trim().isEmpty
+                          ? PeopleHe.cityRequired
+                          : null,
                     ),
                   ),
                 ),
                 const SizedBox(width: Space.s),
                 Expanded(
-                  child: TextFormField(
-                    key: const Key('s2-house'),
-                    controller: _houseNumber,
-                    enabled: !_busy,
-                    decoration: const InputDecoration(
-                      labelText: PeopleHe.houseNumber,
-                      prefixIcon: Icon(Icons.home_outlined),
+                  flex: 2,
+                  child: _labeled(
+                    PeopleHe.houseNumber,
+                    TextFormField(
+                      key: const Key('s2-house'),
+                      controller: _houseNumber,
+                      enabled: !_busy,
+                      decoration: const InputDecoration(),
                     ),
                   ),
                 ),
               ],
             ),
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: TextFormField(
-                    key: const Key('s2-city'),
-                    controller: _city,
-                    enabled: !_busy,
-                    decoration: const InputDecoration(
-                      labelText: PeopleHe.city,
-                      prefixIcon: Icon(Icons.location_city_outlined),
-                    ),
-                    validator: (v) =>
-                        _addressValue != null && (v ?? '').trim().isEmpty
-                        ? PeopleHe.cityRequired
-                        : null,
-                  ),
+            const SizedBox(height: Space.m),
+            _labeled(
+              PeopleHe.postalCode,
+              TextFormField(
+                key: const Key('s2-postal'),
+                controller: _postal,
+                enabled: !_busy,
+                keyboardType: TextInputType.number,
+                textDirection: TextDirection.ltr,
+                textAlign: TextAlign.right,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.markunread_mailbox_outlined),
                 ),
-                const SizedBox(width: Space.s),
-                Expanded(
-                  child: TextFormField(
-                    key: const Key('s2-postal'),
-                    controller: _postal,
-                    enabled: !_busy,
-                    keyboardType: TextInputType.number,
-                    textDirection: TextDirection.ltr,
-                    decoration: const InputDecoration(
-                      labelText: PeopleHe.postalCode,
-                      prefixIcon: Icon(Icons.markunread_mailbox_outlined),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
             if (_showAccountKey) ...[
               const SizedBox(height: Space.m),
-              TextFormField(
-                key: const Key('s2-accountkey'),
-                controller: _accountKey,
-                enabled: !_busy,
-                textDirection: TextDirection.ltr,
-                decoration: const InputDecoration(
-                  labelText: PeopleHe.accountKey,
-                  prefixIcon: Icon(Icons.key_outlined),
+              _labeled(
+                PeopleHe.accountKey,
+                TextFormField(
+                  key: const Key('s2-accountkey'),
+                  controller: _accountKey,
+                  enabled: !_busy,
+                  textDirection: TextDirection.ltr,
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.key_outlined),
+                  ),
                 ),
               ),
             ],
@@ -1222,23 +1213,45 @@ class _CustomerSheetState extends State<CustomerSheet> {
     String serverField,
     FormFieldValidator<String> validator,
   ) {
-    return TextFormField(
-      key: Key(key),
-      controller: c,
-      enabled: !_busy,
-      keyboardType: keyboard,
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.right,
-      autocorrect: false,
-      textInputAction: TextInputAction.next,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        errorText: _serverErrors[serverField],
+    return _labeled(
+      label,
+      TextFormField(
+        key: Key(key),
+        controller: c,
+        enabled: !_busy,
+        keyboardType: keyboard,
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.right,
+        autocorrect: false,
+        textInputAction: TextInputAction.next,
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon),
+          errorText: _serverErrors[serverField],
+        ),
+        validator: validator,
       ),
-      validator: validator,
     );
   }
+
+  /// A field with its name above it, always fully visible (the pill border
+  /// clipped a floating label — 2611 customer page #3).
+  Widget _labeled(String label, Widget field) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Padding(
+        padding: const EdgeInsetsDirectional.only(start: Space.l, bottom: 6),
+        child: Text(
+          label,
+          style: AppText.secondary.copyWith(
+            color: context.palette.muted,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      field,
+    ],
+  );
 
   /// Back from the form: "לצאת בלי לשמור?" when something was typed (06·9),
   /// then page 1 (opened from it) or close.

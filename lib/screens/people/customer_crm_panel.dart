@@ -286,9 +286,10 @@ class _CustomerCrmPanelState extends State<CustomerCrmPanel> {
                 onSelected: (stage) => unawaited(
                   _run(() => _store.setStage(widget.customerId, stage)),
                 ),
+                initialValue: stage,
                 itemBuilder: (_) => [
-                  for (final stage in CustomerCrmStage.values)
-                    PopupMenuItem(value: stage, child: Text(stage.label)),
+                  for (final s in CustomerCrmStage.values)
+                    stageMenuItem(context, s, current: s == stage),
                 ],
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -593,6 +594,44 @@ class _CustomerCrmPanelState extends State<CustomerCrmPanel> {
 
 /// The stage shown on the card: a customer that already has documents is not
 /// a "new lead" unless someone chose a later stage.
+/// A stage in the stage menu; the current one is marked with a check.
+PopupMenuItem<CustomerCrmStage> stageMenuItem(
+  BuildContext context,
+  CustomerCrmStage stage, {
+  required bool current,
+}) {
+  final p = context.palette;
+  return PopupMenuItem(
+    key: Key('stage-item-${stage.name}'),
+    value: stage,
+    child: Row(
+      children: [
+        SizedBox(
+          width: 28,
+          child: current
+              ? Icon(
+                  Icons.check_rounded,
+                  key: const Key('stage-current'),
+                  size: 20,
+                  color: p.ink,
+                )
+              : null,
+        ),
+        Flexible(
+          child: Text(
+            stage.label,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.body.copyWith(
+              color: p.ink,
+              fontWeight: current ? FontWeight.w700 : FontWeight.w400,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 CustomerCrmStage displayStage(
   CustomerCrmStage stored, {
   required bool hasDocuments,

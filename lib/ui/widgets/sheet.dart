@@ -7,11 +7,14 @@ import '../theme.dart';
 ///
 /// [frame] wraps the scroll view (inside the sheet route), e.g. an
 /// unsaved-changes guard whose drag blocker must not out-rank the scrolling.
+/// [scroll] false: the builder scrolls by itself (a sheet with a pinned
+/// [PinnedSheetFooter] action).
 Future<T?> showAppSheet<T>(
   BuildContext context, {
   required WidgetBuilder builder,
   bool isDismissible = true,
   Widget Function(BuildContext context, Widget child)? frame,
+  bool scroll = true,
 }) {
   return showModalBottomSheet<T>(
     context: context,
@@ -20,15 +23,22 @@ Future<T?> showAppSheet<T>(
     isDismissible: isDismissible,
     enableDrag: isDismissible,
     builder: (context) {
-      final scroll = SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(Space.page, 0, Space.page, Space.xl),
-        child: builder(context),
-      );
+      final body = scroll
+          ? SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                Space.page,
+                0,
+                Space.page,
+                Space.xl,
+              ),
+              child: builder(context),
+            )
+          : builder(context);
       return Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
-        child: frame == null ? scroll : frame(context, scroll),
+        child: frame == null ? body : frame(context, body),
       );
     },
   );
@@ -58,6 +68,57 @@ class SheetTitle extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// A sheet body whose [content] scrolls while [action] (the primary button)
+/// stays pinned at the bottom, above the home indicator. Open it with
+/// `showAppSheet(..., scroll: false)`.
+class PinnedSheetFooter extends StatelessWidget {
+  const PinnedSheetFooter({
+    super.key,
+    required this.content,
+    required this.action,
+  });
+
+  final Widget content;
+  final Widget action;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewPaddingOf(context).bottom;
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Flexible(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              Space.page,
+              0,
+              Space.page,
+              Space.m,
+            ),
+            child: content,
+          ),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: context.palette.line)),
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              Space.page,
+              Space.m,
+              Space.page,
+              keyboard || bottom < Space.l ? Space.l : bottom,
+            ),
+            child: action,
+          ),
+        ),
+      ],
     );
   }
 }

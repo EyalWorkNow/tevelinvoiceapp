@@ -128,10 +128,12 @@ List<String> personRowActions(PersonActionFacts f) {
 }
 
 /// The "עוד" sheet, in its fixed order, without what is already in [row]
-/// and what the member may not do. "ארכוב" is always last.
+/// and what the member may not do. Only actions: "פרטים ועריכה" and
+/// "ארכוב" / "החזר לפעיל" live in the header ⋯ (rare / admin), and payment
+/// terms + reminders in "פרטי הלקוח" — each in one place.
 List<String> personMoreActions(PersonActionFacts f, List<String> row) {
   final all = f.supplier
-      ? <String>[if (f.canManage) 'edit', if (f.canManage) 'archive']
+      ? const <String>[]
       : <String>[
           if (f.hasEmail) 'email',
           if (!f.archived && f.canRepeat && (f.canDraft || f.canPaymentIssue))
@@ -144,10 +146,6 @@ List<String> personMoreActions(PersonActionFacts f, List<String> row) {
           // 0135: the customer's personal area (the code goes to the e-mail).
           if (!f.archived && f.canManage && f.canMoneyView && f.hasEmail)
             'portal',
-          if (f.canManage) 'edit',
-          if (f.canManage) 'terms',
-          if (f.canManage) 'archive',
-          if (f.archived && f.canRestore) 'restore',
         ];
   return [
     for (final id in all)

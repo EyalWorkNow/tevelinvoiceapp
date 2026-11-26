@@ -22,7 +22,11 @@ class ChipRow<T> extends StatelessWidget {
     required this.selected,
     required this.onSelected,
     this.padding = const EdgeInsets.symmetric(horizontal: Space.page),
+    this.scroll = false,
   });
+
+  /// One horizontally scrolling line instead of wrapping (filters).
+  final bool scroll;
 
   final List<ChipOption<T>> options;
   final T? selected;
@@ -31,24 +35,35 @@ class ChipRow<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final chips = [
+      for (final o in options)
+        _Chip(
+          option: o,
+          selected: o.value == selected,
+          onTap: () {
+            if (o.value == selected) return;
+            HapticFeedback.selectionClick();
+            onSelected(o.value);
+          },
+        ),
+    ];
+    if (scroll) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: padding,
+        child: Row(
+          children: [
+            for (final (i, c) in chips.indexed) ...[
+              if (i > 0) const SizedBox(width: Space.s),
+              c,
+            ],
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: padding,
-      child: Wrap(
-        spacing: Space.s,
-        runSpacing: Space.s,
-        children: [
-          for (final o in options)
-            _Chip(
-              option: o,
-              selected: o.value == selected,
-              onTap: () {
-                if (o.value == selected) return;
-                HapticFeedback.selectionClick();
-                onSelected(o.value);
-              },
-            ),
-        ],
-      ),
+      child: Wrap(spacing: Space.s, runSpacing: Space.s, children: chips),
     );
   }
 }

@@ -179,6 +179,31 @@ class AppPalette extends ThemeExtension<AppPalette> {
       t < 0.5 ? this : (other ?? this);
 }
 
+/// The ניהול pastel hues (quick-action orbs, avatars).
+enum Pastel { blue, green, mint, purple, lavender, peach, yellow, pink }
+
+const _pastelLight = <Pastel, (Color, Color)>{
+  Pastel.blue: (Color(0xFFD6EDF5), Color(0xFF385D6E)),
+  Pastel.green: (Color(0xFFD8EFE2), Color(0xFF3E6250)),
+  Pastel.mint: (Color(0xFFCFF5DE), Color(0xFF2F5B47)),
+  Pastel.purple: (Color(0xFFE8D9EF), Color(0xFF614A68)),
+  Pastel.lavender: (Color(0xFFE6D4F4), Color(0xFF624D73)),
+  Pastel.peach: (Color(0xFFFFE1D2), Color(0xFF7A4630)),
+  Pastel.yellow: (Color(0xFFF3E9A9), Color(0xFF58623B)),
+  Pastel.pink: (Color(0xFFF8D7E3), Color(0xFF7A3E55)),
+};
+
+extension PastelPalette on AppPalette {
+  /// (circle, ink) for [hue]. Light: the pastel circle with a deep ink. Dark:
+  /// a low-saturation tint of the hue over [surface] (it sits in the purple
+  /// dark palette) with the pastel itself as the ink.
+  (Color, Color) pastel(Pastel hue) {
+    final (circle, ink) = _pastelLight[hue]!;
+    if (canvas.computeLuminance() > .2) return (circle, ink);
+    return (Color.alphaBlend(circle.withValues(alpha: .16), surface), circle);
+  }
+}
+
 extension AppThemeContext on BuildContext {
   AppPalette get palette => Theme.of(this).extension<AppPalette>()!;
 
@@ -390,6 +415,22 @@ ThemeData buildTheme(Brightness brightness) {
         borderRadius: BorderRadius.circular(Radii.button),
         borderSide: BorderSide(color: p.ink, width: 1.5),
       ),
+    ),
+    // Menus open under their button (never over it) on a framed card, so
+    // they read as a layer above the page in both themes.
+    popupMenuTheme: PopupMenuThemeData(
+      position: PopupMenuPosition.under,
+      color: dark
+          ? Color.alphaBlend(p.line.withValues(alpha: .5), p.surface)
+          : p.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: dark ? .6 : .18),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: p.line),
+      ),
+      textStyle: AppText.body.copyWith(color: p.ink),
     ),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: p.surface,
