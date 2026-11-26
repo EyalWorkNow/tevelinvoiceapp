@@ -97,10 +97,7 @@ Future<void> refreshNotificationsUnread() async {
   }
 }
 
-Future<void> markNotificationsRead({
-  List<String>? ids,
-  bool all = false,
-}) async {
+Future<void> markNotificationsRead({List<String>? ids, bool all = false}) async {
   final json = await _api.post('/mobile/notifications/read', {
     if (all) 'all': true else 'ids': ids,
   });
