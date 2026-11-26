@@ -43,6 +43,7 @@ class PersonActionFacts {
     this.canMoneyView = false,
     this.canCalendar = false,
     this.canManage = false,
+    this.canRestore = false,
     this.crmReady = false,
     this.canRepeat = false,
     this.statement = false,
@@ -63,6 +64,9 @@ class PersonActionFacts {
 
   /// customer.manage (supplier.manage + BE-16 for a supplier).
   final bool canManage;
+
+  /// 2611 §4: "החזר לפעיל" (an inactive customer, customer.manage).
+  final bool canRestore;
 
   /// The CRM store is loaded and accepts edits.
   final bool crmReady;
@@ -85,8 +89,10 @@ const serverActions = {
   'repeat',
   'debt',
   'statement',
+  'portal',
   'terms',
   'archive',
+  'restore',
   'expense',
 };
 
@@ -135,9 +141,13 @@ List<String> personMoreActions(PersonActionFacts f, List<String> row) {
           if (!f.archived && f.canManage && f.crmReady) 'note',
           if (f.hasAddress) 'navigate',
           if (f.statement && !f.archived) 'statement',
+          // 0135: the customer's personal area (the code goes to the e-mail).
+          if (!f.archived && f.canManage && f.canMoneyView && f.hasEmail)
+            'portal',
           if (f.canManage) 'edit',
           if (f.canManage) 'terms',
           if (f.canManage) 'archive',
+          if (f.archived && f.canRestore) 'restore',
         ];
   return [
     for (final id in all)

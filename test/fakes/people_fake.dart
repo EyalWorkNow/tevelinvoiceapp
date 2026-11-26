@@ -1,7 +1,7 @@
 // Fakes owned by squad D (SPEC-v2 §18.1). Register this domain's endpoints on
 // a [FakeBackend] with sensible defaults; tests override single routes after.
 // Endpoints: GET/POST /customers, GET/PATCH /customers/:id, /customers/:id/
-// consent|archive, GET/POST /suppliers, GET/POST /items, /expenses/inbox,
+// consent|archive|restore, PUT /customers/:id/reminder-cadence, GET/POST /suppliers, GET/POST /items, /expenses/inbox,
 // /expense-categories, /expenses/:id/{draft,extract,approve,reject,duplicate,
 // undo-duplicate,source}. P2 switches: [be16] GET/PATCH /suppliers/:id +
 // archive, [be17] /customers/:id/statement{,.pdf,/send}, [be44] GET /expenses,
@@ -170,6 +170,24 @@ PeopleFakeState installPeopleFakes(
         }
       }
       return const FakeResponse(200, {'archived': true});
+    })
+    ..on('POST', '/customers/:id/restore', (r) {
+      for (final c in s.customers) {
+        if (c['id'] == r.params['id']) c['archived_at'] = null;
+      }
+      return const FakeResponse(200, {'archived': false});
+    })
+    ..on('PUT', '/customers/:id/reminder-cadence', (r) {
+      final cadence = r.body['cadence'];
+      for (final c in s.customers) {
+        if (c['id'] == r.params['id']) {
+          c['reminderCadence'] = cadence == 'BUSINESS' ? null : cadence;
+        }
+      }
+      return FakeResponse(200, {
+        'id': r.params['id'],
+        'reminderCadence': cadence == 'BUSINESS' ? null : cadence,
+      });
     })
     ..on(
       'POST',

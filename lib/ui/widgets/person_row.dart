@@ -59,9 +59,13 @@ class PersonRow extends StatelessWidget {
     this.amountMinor,
     this.subtitleOnLeft,
     this.onTap,
+    this.dimmed = false,
   });
 
   final String name;
+
+  /// 2611 §4: an inactive customer — the row is shown in grey.
+  final bool dimmed;
 
   /// Phone or e-mail; rendered as an LTR isolate.
   final String? subtitle;
@@ -186,7 +190,7 @@ class PersonRow extends StatelessWidget {
               horizontal: Space.page,
               vertical: Space.s,
             ),
-            child: content,
+            child: dimmed ? Opacity(opacity: .55, child: content) : content,
           ),
         ),
       ),

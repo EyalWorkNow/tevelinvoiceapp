@@ -4,8 +4,9 @@
 // Header "לקוחות" + text button "+ לקוח" → search → chips הכל · חייבים
 // (money.view) · ספקים (§4.4: supplier.manage, expense capture or approve —
 // employee and accountant view; "+ ספק" stays supplier.manage) → rows: recent first, then א–ת.
-// Row: name · phone · "חייב לך ₪X" (money.view). Archived customers appear
-// only in search, tagged "בארכיון". Balances come from BE-09 rows, else one
+// Row: name · phone · "חייב לך ₪X" (money.view). 2611 §4: chips פעילים ·
+// לא פעילים · הכול with counts; an inactive customer is grey, tagged "לא פעיל"
+// (under פעילים it appears only in search). Balances come from BE-09 rows, else one
 // GET /documents?unpaid=1&limit=500; a capped answer hides them (no partial
 // number). No primary button (list screen).
 
@@ -29,12 +30,24 @@ import '../../util/labels/customer_import_he.dart';
 import '../../util/labels/people_he.dart';
 import '../../util/phone.dart';
 import 'import/customer_import_screen.dart';
+import '../../api/customer_groups_api.dart';
+import '../../ui/widgets/notch_notice.dart';
+import '../../util/labels/groups_he.dart';
+import '../groups/group_screen.dart';
+import '../groups/group_sheets.dart';
+import '../groups/groups_strip.dart';
 import 'sheets/s2_customer.dart';
+import '../tutorial/coach_mark.dart';
+import '../tutorial/tutorial_state.dart';
+import '../../util/labels/tutorial_he.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
-enum PeopleChip { all, debtors, suppliers }
+/// 2611 §4: פעילים (default) · לא פעילים · הכול, then חייבים · ספקים.
+enum PeopleChip { active, inactive, all, debtors, suppliers }
 
 PeopleChip? peopleChipFrom(String? s) => switch (s) {
+  'active' => PeopleChip.active,
+  'inactive' => PeopleChip.inactive,
   'all' => PeopleChip.all,
   'debtors' => PeopleChip.debtors,
   'suppliers' => PeopleChip.suppliers,
@@ -53,7 +66,7 @@ class PeopleScreen extends StatefulWidget {
 
 class _PeopleScreenState extends State<PeopleScreen> {
   final _search = TextEditingController();
-  PeopleChip _chip = PeopleChip.all;
+  PeopleChip _chip = PeopleChip.active;
   CustomerList? _list;
   Map<String, BigInt>? _balances;
   List<Supplier>? _suppliers;
@@ -64,10 +77,15 @@ class _PeopleScreenState extends State<PeopleScreen> {
   Timer? _debounce;
   String? _business;
 
+  /// V4 §8: the groups row (null = not loaded / no groups server) and the
+  /// long-press multi-select.
+  GroupList? _groups;
+  final CustomerSelection _selection = CustomerSelection();
+
   @override
   void initState() {
     super.initState();
-    _chip = peopleChipFrom(widget.chip) ?? PeopleChip.all;
+    _chip = peopleChipFrom(widget.chip) ?? PeopleChip.active;
     _search.addListener(_onSearch);
     businessContext.addListener(_onContext);
     _business = businessContext.business?.businessId;
@@ -100,6 +118,8 @@ class _PeopleScreenState extends State<PeopleScreen> {
       _suppliers = null;
       _serverHits = null;
       _error = null;
+      _groups = null;
+      _selection.clear();
     });
     _load();
   }
@@ -113,10 +133,98 @@ class _PeopleScreenState extends State<PeopleScreen> {
       _caps.can(Cap.expenseApprove);
 
   List<PeopleChip> get _chips => [
+    PeopleChip.active,
+    PeopleChip.inactive,
     PeopleChip.all,
     if (_caps.can(Cap.moneyView) && _balances != null) PeopleChip.debtors,
     if (_seesSuppliers) PeopleChip.suppliers,
   ];
+
+  Future<void> _loadGroups() async {
+    final business = _business;
+    try {
+      final g = await fetchGroups();
+      if (mounted && business == _business) setState(() => _groups = g);
+    } on Object {
+      // Offline / no groups on the server yet: the row stays hidden.
+    }
+  }
+
+  bool get _canGroup => _caps.can(Cap.customerManage);
+
+  void _toggle(String id) => setState(() => _selection.toggle(id));
+
+  void _toastText(String text) => ScaffoldMessenger.maybeOf(
+    context,
+  )?.showNotchNotice(SnackBar(content: Text(text)));
+
+  Future<void> _openGroup(String id, {GroupActionKind? startAction}) async {
+    await openGroup(context, id, startAction: startAction);
+    if (mounted) _load();
+  }
+
+  Future<void> _newGroup() async {
+    final g = await showGroupEditorSheet(context);
+    if (g == null || !mounted) return;
+    await _openGroup(g.id);
+  }
+
+  /// The selection → a group (picked or new). Null = cancelled / failed.
+  Future<GroupSummary?> _selectionToGroup() async {
+    final ids = _selection.ids.toList();
+    final g = await showPickGroupSheet(
+      context,
+      groups: _groups?.groups ?? const [],
+      subtitle: GroupsHe.selected(ids.length),
+    );
+    if (g == null || !mounted) return null;
+    try {
+      await addGroupMembers(g.id, ids);
+    } on Object catch (e) {
+      if (mounted) showErrorSnack(context, e);
+      return null;
+    }
+    if (!mounted) return g;
+    setState(_selection.clear);
+    unawaited(_loadGroups());
+    _toastText(GroupsHe.addedToGroup(ids.length, g.name));
+    return g;
+  }
+
+  Future<void> _selectionQuickAction() async {
+    final ids = groupActionIds(_caps, smart: null).where((a) => a != 'add');
+    final chosen = await showAppSheet<String>(
+      context,
+      builder: (sheet) => Column(
+        key: const Key('people-quick-sheet'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SheetTitle(
+            GroupsHe.quickActionTitle,
+            subtitle: GroupsHe.quickActionHint,
+          ),
+          for (final id in ids)
+            ListTile(
+              key: Key('people-quick-$id'),
+              contentPadding: EdgeInsets.zero,
+              title: Text(switch (id) {
+                'payment' => GroupsHe.actPayment,
+                'broadcast' => GroupsHe.actBroadcast,
+                'document' => GroupsHe.actDocument,
+                'invite' => GroupsHe.actInvite,
+                _ => GroupsHe.actStatement,
+              }),
+              onTap: () => Navigator.of(sheet).pop(id),
+            ),
+        ],
+      ),
+    );
+    final kind = chosen == null ? null : groupActionKind(chosen);
+    if (kind == null || !mounted) return;
+    final g = await _selectionToGroup();
+    if (g != null && mounted) await _openGroup(g.id, startAction: kind);
+  }
 
   Future<void> _load() async {
     final business = _business;
@@ -141,6 +249,18 @@ class _PeopleScreenState extends State<PeopleScreen> {
         _error = null;
         _offline = false;
       });
+      // 2611 §1: the first time here (after the tutorial), "+ לקוח חדש".
+      if (_canAdd) {
+        unawaited(
+          maybeShowCoachMark(
+            context,
+            id: CoachIds.people,
+            target: const Key('people-add'),
+            text: TutorialHe.coachPeople,
+          ),
+        );
+      }
+      unawaited(_loadGroups());
     } on Object catch (e) {
       if (!mounted || business != _business) return;
       final network = e is ApiException && e.isNetwork;
@@ -228,72 +348,75 @@ class _PeopleScreenState extends State<PeopleScreen> {
   Widget build(BuildContext context) {
     final p = context.palette;
     final chips = _chips;
-    if (!chips.contains(_chip)) _chip = PeopleChip.all;
+    if (!chips.contains(_chip)) _chip = PeopleChip.active;
+    final counts = _list?.statusCounts;
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Space.page,
-                Space.l,
-                Space.s,
-                Space.s,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Semantics(
-                      header: true,
-                      child: const Text(
-                        PeopleHe.title,
-                        style: AppText.displayTitle,
-                      ),
-                    ),
-                  ),
-                  if (_canImport)
-                    // Header-sized "⋯" (the shared MoreMenu button is 46pt and
-                    // would push P's list when the keyboard is up).
-                    IconButton(
-                      key: const Key('people-more'),
-                      tooltip: CommonHe.more,
-                      onPressed: () => MoreMenu.show(context, [
-                        MoreMenuItem(
-                          label: ImportHe.menuImport,
-                          icon: Iconsax.document_download,
-                          onSelected: _import,
+            if (_selection.active) _selectionBar(context),
+            if (!_selection.active)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Space.page,
+                  Space.l,
+                  Space.s,
+                  Space.s,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Semantics(
+                        header: true,
+                        child: const Text(
+                          PeopleHe.title,
+                          style: AppText.displayTitle,
                         ),
-                        if ((_list?.active.length ?? 0) > 0)
-                          MoreMenuItem(
-                            label: ImportHe.menuExport,
-                            icon: Iconsax.document_upload,
-                            onSelected: _export,
-                          ),
-                      ]),
-                      style: IconButton.styleFrom(
-                        minimumSize: const Size(Hit.min, Hit.min),
-                        padding: EdgeInsets.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      icon: const Icon(Iconsax.more, size: 22),
                     ),
-                  if (widget.onBack != null)
-                    IconButton(
-                      key: const Key('people-back'),
-                      tooltip: MaterialLocalizations.of(
-                        context,
-                      ).backButtonTooltip,
-                      onPressed: widget.onBack,
-                      icon: const Icon(Iconsax.arrow_right_3),
-                    ),
-                ],
+                    if (_canImport)
+                      // Header-sized "⋯" (the shared MoreMenu button is 46pt and
+                      // would push P's list when the keyboard is up).
+                      IconButton(
+                        key: const Key('people-more'),
+                        tooltip: CommonHe.more,
+                        onPressed: () => MoreMenu.show(context, [
+                          MoreMenuItem(
+                            label: ImportHe.menuImport,
+                            icon: Iconsax.document_download,
+                            onSelected: _import,
+                          ),
+                          if ((_list?.active.length ?? 0) > 0)
+                            MoreMenuItem(
+                              label: ImportHe.menuExport,
+                              icon: Iconsax.document_upload,
+                              onSelected: _export,
+                            ),
+                        ]),
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(Hit.min, Hit.min),
+                          padding: EdgeInsets.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        icon: const Icon(Iconsax.more, size: 22),
+                      ),
+                    if (widget.onBack != null)
+                      IconButton(
+                        key: const Key('people-back'),
+                        tooltip: MaterialLocalizations.of(
+                          context,
+                        ).backButtonTooltip,
+                        onPressed: widget.onBack,
+                        icon: const Icon(Iconsax.arrow_right_3),
+                      ),
+                  ],
+                ),
               ),
-            ),
             // Tester 2026-11-18: a clear, full-width "+ לקוח חדש" right
             // under the title (was a small text link in the corner).
-            if (_canAdd)
+            if (_canAdd && !_selection.active)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   Space.page,
@@ -349,15 +472,23 @@ class _PeopleScreenState extends State<PeopleScreen> {
                     ChipOption(
                       c,
                       switch (c) {
-                        PeopleChip.all => PeopleHe.chipAll,
+                        PeopleChip.active => PeopleHe.chipActive(
+                          counts?.active ?? 0,
+                        ),
+                        PeopleChip.inactive => PeopleHe.chipInactive(
+                          counts?.inactive ?? 0,
+                        ),
+                        PeopleChip.all => PeopleHe.chipAllCustomers(
+                          counts?.all ?? 0,
+                        ),
                         PeopleChip.debtors => PeopleHe.chipDebtors,
                         PeopleChip.suppliers => PeopleHe.chipSuppliers,
                       },
                       icon: switch (c) {
-                        PeopleChip.all => Icons.people_alt_outlined,
                         PeopleChip.debtors =>
                           Icons.account_balance_wallet_outlined,
                         PeopleChip.suppliers => Icons.local_shipping_outlined,
+                        _ => null,
                       },
                     ),
                 ],
@@ -366,6 +497,14 @@ class _PeopleScreenState extends State<PeopleScreen> {
               ),
             ],
             const SizedBox(height: Space.s),
+            if (_showGroups) ...[
+              GroupsStrip(
+                groups: _groups!,
+                onOpen: (g) => unawaited(_openGroup(g.id)),
+                onNew: _canGroup ? () => unawaited(_newGroup()) : null,
+              ),
+              const SizedBox(height: Space.xs),
+            ],
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _load,
@@ -420,16 +559,19 @@ class _PeopleScreenState extends State<PeopleScreen> {
               : Iconsax.search_status,
           title: _chip == PeopleChip.debtors
               ? PeopleHe.emptyDebtors
+              : _chip == PeopleChip.inactive && q.isEmpty
+              ? PeopleHe.emptyInactive
               : PeopleHe.noMatches,
           // Not found → add them right here (tester 2026-11-18).
-          actionLabel: _chip != PeopleChip.debtors && _canAdd
+          actionLabel: _chip == PeopleChip.active && _canAdd
               ? PeopleHe.addCustomer
               : null,
-          onAction: _chip != PeopleChip.debtors && _canAdd ? _add : null,
+          onAction: _chip == PeopleChip.active && _canAdd ? _add : null,
         ),
       );
     }
-    final showCap = list.capped && _chip == PeopleChip.all;
+    final showCap =
+        list.capped && (_chip == PeopleChip.active || _chip == PeopleChip.all);
     return ListView.builder(
       key: const Key('people-list'),
       physics: const AlwaysScrollableScrollPhysics(),
@@ -450,20 +592,121 @@ class _PeopleScreenState extends State<PeopleScreen> {
         }
         final c = rows[i];
         final owed = _balances?[c.id];
-        return PersonRow(
+        final selecting = _selection.active;
+        final row = PersonRow(
           key: Key('person-${c.id}'),
           name: c.name,
           subtitle: (c.phone != null && c.phone!.isNotEmpty)
               ? formatPhoneHe(c.phone)
               : null,
-          badge: c.isArchived ? PeopleHe.archivedBadge : null,
+          badge: c.isArchived ? PeopleHe.inactiveBadge : null,
+          dimmed: c.isArchived,
           amountLabel: owed != null ? PeopleHe.owesYou : null,
           amountMinor: owed,
-          onTap: () => _open(c.id),
+          onTap: selecting ? () => _toggle(c.id) : () => _open(c.id),
+        );
+        if (!_canGroup) return row;
+        return GestureDetector(
+          key: Key('person-select-${c.id}'),
+          onLongPress: () => _toggle(c.id),
+          child: !selecting
+              ? row
+              : Row(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(
+                        start: Space.page,
+                      ),
+                      child: Icon(
+                        _selection.contains(c.id)
+                            ? Icons.check_circle
+                            : Icons.radio_button_unchecked,
+                        key: Key('person-check-${c.id}'),
+                        color: _selection.contains(c.id) ? p.accent : p.muted,
+                      ),
+                    ),
+                    Expanded(child: row),
+                  ],
+                ),
         );
       },
     );
   }
+
+  bool get _showGroups =>
+      _groups != null &&
+      (_chip == PeopleChip.active || _chip == PeopleChip.all) &&
+      _search.text.trim().isEmpty &&
+      !_selection.active &&
+      (_canGroup || _groups!.groups.isNotEmpty || _groups!.smart.isNotEmpty);
+
+  Widget _selectionBar(BuildContext context) => Padding(
+    key: const Key('people-selection'),
+    padding: const EdgeInsets.fromLTRB(Space.page, Space.l, Space.s, Space.s),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Semantics(
+                header: true,
+                liveRegion: true,
+                child: Text(
+                  GroupsHe.selected(_selection.count),
+                  style: AppText.displayTitle,
+                ),
+              ),
+            ),
+            IconButton(
+              key: const Key('people-selection-cancel'),
+              tooltip: GroupsHe.cancelSelection,
+              onPressed: () => setState(_selection.clear),
+              icon: const Icon(Iconsax.close_circle),
+            ),
+          ],
+        ),
+        const SizedBox(height: Space.s),
+        Padding(
+          padding: const EdgeInsetsDirectional.only(end: Space.page - Space.s),
+          child: Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  key: const Key('people-add-to-group'),
+                  onPressed: () => unawaited(_selectionToGroup()),
+                  icon: const Icon(Iconsax.profile_add, size: 20),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    shape: const StadiumBorder(),
+                  ),
+                  label: const Text(GroupsHe.addToGroup),
+                ),
+              ),
+              if (groupActionIds(
+                _caps,
+                smart: null,
+              ).any((a) => a != 'add')) ...[
+                const SizedBox(width: Space.s),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('people-quick-action'),
+                    onPressed: () => unawaited(_selectionQuickAction()),
+                    icon: const Icon(Iconsax.flash_1, size: 20),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      shape: const StadiumBorder(),
+                    ),
+                    label: const Text(GroupsHe.quickAction),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 
   List<Customer> _rows(CustomerList list, String q) {
     if (_chip == PeopleChip.debtors) {
@@ -474,15 +717,26 @@ class _PeopleScreenState extends State<PeopleScreen> {
       ]..sort((a, z) => b[z.id]!.compareTo(b[a.id]!));
       return debtors;
     }
-    if (q.isEmpty) return sortForPeople(list.active, recentIds: _recent);
+    // 2611 §4: each chip is its own list; a search under "פעילים" still finds
+    // an inactive customer (grey, tagged), as the archive did.
+    final base = switch (_chip) {
+      PeopleChip.inactive => list.inactive,
+      PeopleChip.active when q.isEmpty => list.active,
+      _ => list.customers,
+    };
+    if (q.isEmpty) return sortForPeople(base, recentIds: _recent);
     final local = [
-      for (final c in list.customers)
+      for (final c in base)
         if (customerMatches(c, q)) c,
     ];
     final ids = {for (final c in local) c.id};
     return sortForPeople([
       ...local,
-      ...?_serverHits?.where((c) => !ids.contains(c.id)),
+      ...?_serverHits?.where(
+        (c) =>
+            !ids.contains(c.id) &&
+            (_chip != PeopleChip.inactive || c.isArchived),
+      ),
     ], recentIds: _recent);
   }
 

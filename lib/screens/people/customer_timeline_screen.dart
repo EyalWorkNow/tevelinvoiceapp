@@ -415,6 +415,7 @@ class TimelineRow extends StatelessWidget {
   IconData get _icon {
     final k = item.kind;
     if (k == 'note') return Iconsax.note_2;
+    if (k == 'portal.message') return Iconsax.message_text;
     if (k.startsWith('quote.')) return Iconsax.document_favorite;
     if (k.startsWith('payment.')) return Iconsax.money_recive;
     if (k.startsWith('debt.')) return Iconsax.note_add;
@@ -473,7 +474,10 @@ class TimelineRow extends StatelessWidget {
                     Text(
                       sentence,
                       style: AppText.body,
-                      maxLines: item.kind == 'note' ? 6 : 2,
+                      maxLines:
+                          item.kind == 'note' || item.kind == 'portal.message'
+                          ? 6
+                          : 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (detail.isNotEmpty)

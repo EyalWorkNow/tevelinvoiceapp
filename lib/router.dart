@@ -128,6 +128,9 @@ enum BusinessSection {
   /// "סוגי התראות": per-category notification on/off (owner 2026-11-18).
   alerts,
 
+  /// 0134 "עובדים וטופס 101" (also the form-101 pushes' route /business/employees).
+  employees,
+
   /// "עוד הגדרות": the rarely used rows of B (≤ 10 rows, §6.B).
   more,
 }
@@ -146,6 +149,7 @@ Cap? sectionCap(BusinessSection s) => switch (s) {
   BusinessSection.desktop || BusinessSection.more => null,
   BusinessSection.numbering => Cap.settingsNumbering,
   BusinessSection.vault => Cap.vaultView,
+  BusinessSection.employees => Cap.employeeForms,
 };
 
 /// Query keys that carry an entity id into an API path.

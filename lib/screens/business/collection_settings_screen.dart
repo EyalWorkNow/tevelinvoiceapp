@@ -40,6 +40,9 @@ class _CollectionSettingsScreenState extends State<CollectionSettingsScreen> {
   bool _saving = false;
   bool _backlogLater = false;
 
+  /// 2611 §2: the ladder lives under "מתקדם" (open when the cadence is it).
+  bool? _advancedOpen;
+
   @override
   void initState() {
     super.initState();
@@ -196,64 +199,109 @@ class _CollectionSettingsScreenState extends State<CollectionSettingsScreen> {
           ),
           ..._backlogCard(s, locked),
           const RowGroupGap(),
-          _SectionTitle(CollectionHe.whenTitle),
-          for (var i = 0; i < s.steps.length; i++)
-            BusinessRow(
-              key: Key('collection-step-$i'),
-              label: CollectionHe.stepLabel(s.steps[i].offsetDays),
-              value: s.steps[i].template == null
-                  ? CollectionHe.stepDefaultText
-                  : CollectionHe.stepCustomText,
-              icon: s.steps[i].offsetDays < 0
-                  ? Iconsax.calendar_1
-                  : s.steps[i].offsetDays == 0
-                  ? Iconsax.calendar_tick
-                  : Iconsax.calendar_remove,
-              onTap: locked ? null : () => unawaited(_editStep(i)),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    key: Key('collection-step-edit-$i'),
-                    tooltip: CollectionHe.editStep,
-                    onPressed: locked ? null : () => unawaited(_editStep(i)),
-                    icon: Icon(Iconsax.edit_2, color: p.muted),
-                  ),
-                  Switch.adaptive(
-                    key: Key('collection-step-switch-$i'),
-                    value: s.steps[i].enabled,
-                    onChanged: locked
-                        ? null
-                        : (v) {
-                            final steps = [...s.steps]
-                              ..[i] = s.steps[i].copyWith(enabled: v);
-                            unawaited(
-                              _save(() => saveCollectionSettings(steps: steps)),
-                            );
-                          },
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: Space.m),
-          _SectionTitle(CollectionHe.maxTitle),
-          SegmentedButton<int>(
-            key: const Key('collection-max'),
-            showSelectedIcon: false,
-            segments: [
-              for (var n = 1; n <= 5; n++)
-                ButtonSegment(value: n, label: Text('$n')),
+          _SectionTitle(CollectionHe.cadenceTitle),
+          ChipRow<String>(
+            key: const Key('collection-cadence'),
+            padding: EdgeInsets.zero,
+            options: [
+              for (final c in businessCadences)
+                ChipOption(c, CollectionHe.cadenceLabel(c)),
             ],
-            selected: {s.maxPerDocument.clamp(1, 5)},
-            onSelectionChanged: locked
-                ? null
-                : (v) => unawaited(
-                    _save(
-                      () => saveCollectionSettings(maxPerDocument: v.first),
-                    ),
-                  ),
+            selected: s.cadence,
+            onSelected: (c) {
+              if (locked) return;
+              unawaited(_save(() => saveCollectionSettings(cadence: c)));
+            },
           ),
-          const SizedBox(height: Space.m),
+          Padding(
+            padding: const EdgeInsets.only(top: Space.s),
+            child: Text(
+              s.cadence == 'LADDER'
+                  ? CollectionHe.cadenceHint(s.cadence)
+                  : '${CollectionHe.cadenceHint(s.cadence)}. '
+                        '${CollectionHe.cadenceCeiling}',
+              key: const Key('collection-cadence-hint'),
+              style: AppText.secondary.copyWith(color: p.muted),
+            ),
+          ),
+          const RowGroupGap(),
+          BusinessRow(
+            key: const Key('collection-advanced'),
+            label: CollectionHe.advancedTitle,
+            value: CollectionHe.advancedHint,
+            icon: Iconsax.setting_4,
+            onTap: () => setState(
+              () => _advancedOpen = !(_advancedOpen ?? s.cadence == 'LADDER'),
+            ),
+            trailing: Icon(
+              (_advancedOpen ?? s.cadence == 'LADDER')
+                  ? Iconsax.arrow_up_2
+                  : Iconsax.arrow_down_1,
+              color: p.muted,
+            ),
+          ),
+          if (_advancedOpen ?? s.cadence == 'LADDER') ...[
+            _SectionTitle(CollectionHe.whenTitle),
+            for (var i = 0; i < s.steps.length; i++)
+              BusinessRow(
+                key: Key('collection-step-$i'),
+                label: CollectionHe.stepLabel(s.steps[i].offsetDays),
+                value: s.steps[i].template == null
+                    ? CollectionHe.stepDefaultText
+                    : CollectionHe.stepCustomText,
+                icon: s.steps[i].offsetDays < 0
+                    ? Iconsax.calendar_1
+                    : s.steps[i].offsetDays == 0
+                    ? Iconsax.calendar_tick
+                    : Iconsax.calendar_remove,
+                onTap: locked ? null : () => unawaited(_editStep(i)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      key: Key('collection-step-edit-$i'),
+                      tooltip: CollectionHe.editStep,
+                      onPressed: locked ? null : () => unawaited(_editStep(i)),
+                      icon: Icon(Iconsax.edit_2, color: p.muted),
+                    ),
+                    Switch.adaptive(
+                      key: Key('collection-step-switch-$i'),
+                      value: s.steps[i].enabled,
+                      onChanged: locked
+                          ? null
+                          : (v) {
+                              final steps = [...s.steps]
+                                ..[i] = s.steps[i].copyWith(enabled: v);
+                              unawaited(
+                                _save(
+                                  () => saveCollectionSettings(steps: steps),
+                                ),
+                              );
+                            },
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: Space.m),
+            _SectionTitle(CollectionHe.maxTitle),
+            SegmentedButton<int>(
+              key: const Key('collection-max'),
+              showSelectedIcon: false,
+              segments: [
+                for (var n = 1; n <= 5; n++)
+                  ButtonSegment(value: n, label: Text('$n')),
+              ],
+              selected: {s.maxPerDocument.clamp(1, 5)},
+              onSelectionChanged: locked
+                  ? null
+                  : (v) => unawaited(
+                      _save(
+                        () => saveCollectionSettings(maxPerDocument: v.first),
+                      ),
+                    ),
+            ),
+            const SizedBox(height: Space.m),
+          ],
           const RowGroupGap(),
           _SectionTitle(CollectionHe.channelsTitle),
           BusinessRow(

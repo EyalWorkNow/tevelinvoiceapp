@@ -40,6 +40,12 @@ class _PdfPreviewState extends State<_PdfPreview> {
   Widget build(BuildContext context) => PdfViewPinch(
     controller: _c,
     backgroundDecoration: BoxDecoration(color: context.palette.canvas),
+    // A broken file shows a Hebrew line, never the raw PlatformException.
+    builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
+      options: const DefaultBuilderOptions(),
+      errorBuilder: (_, _) =>
+          const Center(child: Text(DocumentHe.pdfLoadFailed)),
+    ),
   );
 }
 

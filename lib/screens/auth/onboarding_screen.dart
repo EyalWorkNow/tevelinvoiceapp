@@ -23,6 +23,7 @@ import '../../state/session.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/labels.dart';
 import 'auth_flow.dart' show becomeAccountant;
+import '../tutorial/tutorial_state.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 /// S14 "+ עסק נוסף" (BE-40): A setup for another business (route /setup).
@@ -251,6 +252,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       } on ApiException {
         // Saved on the server; home refreshes on its own.
       }
+      // 2611 §1: a brand-new owner gets the tutorial on Home (not "+ עסק נוסף").
+      if (!widget.newBusiness) await tutorialState.arm();
       if (!mounted) return;
       final nav = Navigator.of(context);
       if (widget.newBusiness) {

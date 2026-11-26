@@ -114,6 +114,19 @@ String auditSentence(AuditEvent e, {required MoneyFormat money}) {
     'sign_request.viewed' => '${AuditHe.customerSide} פתח/ה את המסמך לחתימה',
     'sign_request.completed' => '${AuditHe.customerSide} חתם/ה על המסמך',
     'sign_request.cancelled' => '$n ביטל/ה בקשת חתימה',
+    // 0134 "טופס 101" (no employee details in the log).
+    'employee.created' => '$n הוסיף/ה עובד/ת',
+    'employee.updated' => '$n עדכן/ה פרטי עובד/ת',
+    'form101.sent' => '$n שלח/ה טופס 101',
+    'form101.resent' => '$n שלח/ה שוב טופס 101',
+    'form101.code_renewed' => '$n יצר/ה קוד כניסה חדש לטופס 101',
+    'form101.verified' => 'עובד/ת אימת/ה את הכניסה לטופס 101',
+    'form101.completed' => 'עובד/ת חתם/ה על טופס 101',
+    'form101.cancelled' => '$n ביטל/ה טופס 101',
+    'form101.owner_viewed' => '$n צפה/תה בטופס 101',
+    'form101.pdf_viewed' => '$n פתח/ה טופס 101 חתום',
+    'form101.attachment_viewed' => '$n פתח/ה צרופה של טופס 101',
+    'form101.sent_to_accountant' => '$n שלח/ה טופס 101 לרואה החשבון',
     'payment.recorded' =>
       '$n רשם/ה תשלום${amount == null ? '' : ' של $amount'}'
           '${e.documentId == null ? '' : ' על ${_doc(e)}'}',
@@ -166,7 +179,10 @@ String auditSentence(AuditEvent e, {required MoneyFormat money}) {
     'signing.identity_created' => '$n יצר/ה זהות לחתימה דיגיטלית',
     'signing.identity_revoked' => '$n ביטל/ה זהות לחתימה דיגיטלית',
     'customer.updated' => '$n עדכן/ה את הפרטים של ${e.customerName ?? 'לקוח'}',
-    'customer.archived' => '$n העביר/ה לארכיון את ${e.customerName ?? 'הלקוח'}',
+    'customer.archived' => '$n סימן/ה את ${e.customerName ?? 'הלקוח'} כלא פעיל',
+    'customer.restored' => '$n החזיר/ה את ${e.customerName ?? 'הלקוח'} לפעיל',
+    'customer.reminder_cadence_set' =>
+      '$n שינה/תה את תדירות התזכורות של ${e.customerName ?? 'לקוח'}',
     'customer.erased' => '$n מחק/ה את הפרטים האישיים של לקוח',
     'expense.approved' => '$n אישר/ה הוצאה',
     'expense.rejected' => '$n דחה/תה הוצאה',

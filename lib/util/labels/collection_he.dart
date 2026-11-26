@@ -3,6 +3,38 @@
 
 abstract final class CollectionHe {
   // ---- settings -------------------------------------------------------------
+  // 2611 §2 "תדירות".
+  static const cadenceTitle = 'תדירות';
+  static String cadenceLabel(String cadence) => switch (cadence) {
+    'WEEKLY' => 'כל שבוע',
+    'BIWEEKLY' => 'כל שבועיים',
+    'MONTHLY' => 'פעם בחודש',
+    'LADDER' => 'לפי שלבים',
+    'BUSINESS' => 'כמו בעסק',
+    'NONE' => 'בלי תזכורות',
+    _ => cadence,
+  };
+  static String cadenceHint(String cadence) => switch (cadence) {
+    'WEEKLY' => 'ביום הפירעון, ואז כל 7 ימים',
+    'BIWEEKLY' => 'ביום הפירעון, ואז כל 14 יום',
+    'MONTHLY' => 'ביום הפירעון, ואז כל 30 יום',
+    'LADDER' => 'לפי השלבים שב"מתקדם"',
+    'BUSINESS' => 'התדירות שנקבעה בהגדרות ← תזכורות',
+    'NONE' => 'לא יישלחו ללקוח הזה תזכורות אוטומטיות',
+    _ => '',
+  };
+  static const cadenceCeiling =
+      'עד 6 תזכורות למסמך, ואז הוא עובר ל"לטיפול ידני" במסך החובות.';
+  static const advancedTitle = 'מתקדם';
+  static const advancedHint = 'שלבי התזכורת, הנוסח ומספר התזכורות';
+  static const customerCadenceTitle = 'תזכורות ללקוח הזה';
+  static const termsAndReminders = 'תנאי תשלום ותזכורות';
+  static String nextReminder(String day) => 'תזכורת הבאה: $day';
+  static const manualHandling = 'לטיפול ידני';
+  static const manualHandlingHint =
+      'נשלחו כל התזכורות האוטומטיות. כדאי לפנות ללקוח בעצמך.';
+  static const remindersPaused = 'תזכורות מושהות';
+
   static const settingsTitle = 'תזכורות גבייה אוטומטיות';
   static const settingsRowHint = 'מתי, באיזה ערוץ ובאיזה נוסח';
   static const master = 'שליחה אוטומטית';

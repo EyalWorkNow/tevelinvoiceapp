@@ -27,6 +27,7 @@ import '../../util/labels/collection_he.dart';
 import 'collection_batch_screen.dart';
 import 'debt_entry_sheet.dart';
 import 'debt_reminder.dart';
+import 'next_reminder.dart';
 
 /// Loads the list (tests replace it).
 Future<WhoOwesMe> Function() loadWhoOwesMe = fetchWhoOwesMe;
@@ -428,6 +429,14 @@ class _DebtorCard extends StatelessWidget {
       ? DebtsHe.neverReminded
       : ReminderHe.lastReminded(daysSince(debtor.lastRemindedAt!, now));
 
+  /// 2611 §2: "לטיפול ידני" first, else "תזכורת הבאה: יום ב׳ 1.12".
+  String? get _next => debtor.manualCount > 0
+      ? CollectionHe.manualHandling
+      : nextReminderLine(
+          state: debtor.nextReminderDate == null ? null : 'SCHEDULED',
+          date: debtor.nextReminderDate,
+        );
+
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
@@ -461,6 +470,17 @@ class _DebtorCard extends StatelessWidget {
                       key: Key('debtor-reminded-$key'),
                       style: AppText.caption.copyWith(color: p.muted),
                     ),
+                    if (_next case final next?)
+                      Text(
+                        next,
+                        key: Key('debtor-next-$key'),
+                        style: AppText.caption.copyWith(
+                          color: d.manualCount > 0 ? p.warn : p.muted,
+                          fontWeight: d.manualCount > 0
+                              ? FontWeight.w600
+                              : null,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -483,9 +503,15 @@ class _DebtorCard extends StatelessWidget {
                   DebtsHe.documentLine(doc.documentType, doc.documentNumber),
                 ),
                 subtitle: Text(
-                  doc.overdueDays > 0
-                      ? DebtsHe.overdueDays(doc.overdueDays)
-                      : DebtsHe.notOverdue,
+                  [
+                    doc.overdueDays > 0
+                        ? DebtsHe.overdueDays(doc.overdueDays)
+                        : DebtsHe.notOverdue,
+                    ?nextReminderLine(
+                      state: doc.nextReminderState,
+                      date: doc.nextReminderDate,
+                    ),
+                  ].join(' · '),
                 ),
                 trailing: AmountText(doc.openMinor, style: AppText.amountSmall),
                 onTap: () => onOpenDocument(doc.id),

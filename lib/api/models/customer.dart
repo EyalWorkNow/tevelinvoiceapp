@@ -138,6 +138,9 @@ class CustomerDetail {
     this.openMinor,
     this.overdueMinor,
     this.documentsCount,
+    this.erased = false,
+    this.reminderCadence,
+    this.marketingConsent,
     this.fromBe09 = false,
   });
 
@@ -170,6 +173,12 @@ class CustomerDetail {
       openMinor: jBigOrNull(s['openMinor']),
       overdueMinor: jBigOrNull(s['overdueMinor']),
       documentsCount: jIntOrNull(s['documentsCount']),
+      erased: c['erased'] == true,
+      reminderCadence: jStr(c['reminderCadence']),
+      // V4 §8 "מאשר דיוור"; null = the server has no such field (row hidden).
+      marketingConsent: c['marketingConsent'] is Map
+          ? jBool(jMap(c['marketingConsent'])['granted'])
+          : null,
       fromBe09: true,
     );
   }
@@ -200,6 +209,15 @@ class CustomerDetail {
   final BigInt? openMinor;
   final BigInt? overdueMinor;
   final int? documentsCount;
+
+  /// QA 3.3: erased — never restored to active (2611 §4).
+  final bool erased;
+
+  /// 2611 §2: WEEKLY | BIWEEKLY | MONTHLY | NONE (no reminders) | null = as
+  /// the business.
+  final String? reminderCadence;
+  /// "מאשר דיוור" (marketing messages); null before the server has it.
+  final bool? marketingConsent;
 
   /// True when the server has BE-09 (so P1 fields can be edited).
   final bool fromBe09;

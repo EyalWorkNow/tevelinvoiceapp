@@ -37,6 +37,7 @@ abstract final class CalendarHe {
   static String minutes(int n) => '${ltrIsolate('$n')} דק׳';
 
   // ---- share ----
+  static const inviteGroup = 'הזמן קבוצה';
   static const share = 'שתף קישור לקביעת פגישה';
   static const shareWhatsapp = 'שליחה בוואטסאפ';
   static const shareOther = 'שיתוף…';
@@ -44,6 +45,36 @@ abstract final class CalendarHe {
   static const copied = 'הקישור הועתק';
   static String shareText(String business, String url) =>
       'לקביעת פגישה עם $business — בחרו מועד פנוי ביומן:\n$url';
+
+  // ---- 2611 §3א: "חבר יומן גוגל" (through the iPhone's accounts) ----
+  static const googleConnect = 'חבר יומן גוגל';
+  static const googleConnectHint =
+      'השעות התפוסות ביומן גוגל ייחסמו בקישור, והפגישות ייכנסו אליו';
+  static const googleTitle = 'חיבור יומן גוגל';
+  static const googleIntro =
+      'יומן גוגל מתחבר דרך האייפון: מוסיפים את חשבון הגוגל להגדרות של האייפון, ותבל רואה אותו כמו כל יומן אחר בטלפון.';
+  static const googleStep1Title = 'פותחים את ההגדרות של האייפון';
+  static const googleStep1Body =
+      'הגדרות ← יומן ← חשבונות ← הוספת חשבון ← Google.';
+  static const googleStep2Title = 'מתחברים לחשבון הגוגל';
+  static const googleStep2Body =
+      'מזינים את כתובת הג׳ימייל והסיסמה, ומדליקים את "יומנים".';
+  static const googleStep3Title = 'חוזרים לתבל ומסמנים את היומן';
+  static const googleStep3Body =
+      'היומן מופיע כאן מיד. מסמנים אותו, ותבל תחסום את השעות התפוסות בו.';
+  static const googleOpenSettings = 'פתח את ההגדרות';
+  static const googleAllowAccess = 'אישור גישה ליומנים';
+  static const googleDenied =
+      'אין לתבל גישה ליומנים. בהגדרות ← תבל ← יומנים בוחרים "גישה מלאה".';
+  static const googleFound = 'יומן גוגל נמצא באייפון';
+  static const googleFoundHint =
+      'מסמנים את היומנים שתבל תבדוק בהם שעות תפוסות:';
+  static const googleNotFound =
+      'עוד לא מצאנו יומן גוגל באייפון. אחרי שמוסיפים את החשבון, חוזרים לכאן.';
+  static const googleUnsupported = 'חיבור יומן גוגל זמין באפליקציה לאייפון.';
+  static const googleDone = 'סיום';
+  static const googleTeam =
+      'בעסק עם כמה אנשים: כל אחד מוסיף את חשבון הגוגל שלו מהטלפון שלו.';
 
   // ---- sync ----
   static const connect = 'חיבור היומן של האייפון';
@@ -236,6 +267,60 @@ abstract final class CalendarHe {
   static const notNow = 'לא עכשיו';
   static String removePick(String label) => 'הסרת $label';
 
+  // ---- 2611 §9: iOS-style calendar (month / day / list) ----
+  static const months = [
+    'ינואר',
+    'פברואר',
+    'מרץ',
+    'אפריל',
+    'מאי',
+    'יוני',
+    'יולי',
+    'אוגוסט',
+    'ספטמבר',
+    'אוקטובר',
+    'נובמבר',
+    'דצמבר',
+  ];
+  static const weekdayLetters = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+  static String monthYear(DateTime m) => '${months[m.month - 1]} ${m.year}';
+
+  /// "יום שלישי, 25 בנובמבר 2026".
+  static String longDay(DateTime d) =>
+      'יום ${days[d.weekday % 7]}, ${d.day} ב${months[d.month - 1]} ${d.year}';
+  static const listView = 'רשימה';
+  static const monthView = 'חודש';
+  static const newMeeting = 'פגישה חדשה';
+  static const add = 'הוספה';
+  static const cancelSheet = 'ביטול';
+  static const customer = 'לקוח';
+  static const pickCustomer = 'בחירת לקוח';
+  static const date = 'תאריך';
+  static const time = 'שעה';
+  static const pickDate = 'בחרו תאריך';
+  static const pickTime = 'בחרו שעה';
+  static const notes = 'הערה';
+  static const notesHint = 'לא חובה';
+  static const noCustomer = 'קודם בוחרים לקוח';
+  static String pendingCount(int n) => '$pendingGroup · ${ltrIsolate('$n')}';
+  static const busyTitle = 'תפוס';
+  static const noMeetingsDay = 'אין פגישות ביום הזה';
+  static const upcoming = 'הפגישות הקרובות';
+  static const openCustomer = 'דף הלקוח';
+  static const fromLink = 'נקבעה מהקישור — לא מקושרת ללקוח ברשימה';
+  static const statusConfirmed = 'מאושרת';
+  static const moveTitle = 'לעדכן את הלקוח?';
+  static String moveBody(String name, String when) =>
+      'הפגישה עם $name תועבר ל$when.';
+  static const moveNotify = 'כן, לעדכן באימייל';
+  static const moveQuiet = 'להעביר בלי לעדכן';
+  static const moveBack = 'ביטול';
+  static const moved = 'הפגישה הועברה';
+  static const movedNotified = 'הפגישה הועברה והלקוח עודכן';
+  static const slotBusy = 'השעה הזאת תפוסה. נסו שעה אחרת.';
+  static const now = 'עכשיו';
+  static const dragHint = 'לחיצה ארוכה וגרירה מזיזה את הפגישה';
+
   static String error(String? code) => switch (code) {
     'VALIDATION' => 'אחד הערכים לא תקין. נא לבדוק את ההגדרות.',
     'BOOKING_NOT_FOUND' => 'הפגישה לא נמצאה.',
@@ -243,6 +328,9 @@ abstract final class CalendarHe {
     'SLOT_TAKEN' => slotTaken,
     'CALENDAR_DISABLED' => disabledTitle,
     'CUSTOMER_NOT_FOUND' => 'הלקוח לא נמצא.',
+    'CUSTOMER_NO_CONTACT' =>
+      'ללקוח אין טלפון או אימייל — הוסיפו אחד בדף הלקוח.',
+    'BOOKING_NOT_CHANGEABLE' => 'את הפגישה הזאת כבר אי אפשר להזיז.',
     _ => 'משהו השתבש. נסו שוב.',
   };
 }

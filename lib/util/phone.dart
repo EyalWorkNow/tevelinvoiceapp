@@ -36,6 +36,11 @@ bool _validIsraeli(String national) =>
 Uri whatsAppUri({String? phone, required String text}) =>
     Uri.parse('https://wa.me/${phone ?? ''}?text=${Uri.encodeComponent(text)}');
 
+/// SMS composer to [phone] (from [waPhone]) with [text] (iOS `sms:+972…&body=`).
+/// 0134 טופס 101: the one-time code goes by SMS, apart from the link.
+Uri smsUri({required String phone, required String text}) =>
+    Uri.parse('sms:+$phone&body=${Uri.encodeComponent(text)}');
+
 /// Israeli display format: '0521807547' → '052-1807547'.
 String formatPhoneHe(String? raw) {
   if (raw == null || raw.isEmpty) return '';

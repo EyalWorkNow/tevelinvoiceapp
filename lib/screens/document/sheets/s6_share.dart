@@ -3,6 +3,7 @@
 // revoke link (BE-12). Without doc.send (accountant, viewer): PDF and PDF
 // copy only — a local share sheet, nothing is sent from the server.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -15,10 +16,12 @@ import '../../../api/actions_api.dart';
 import '../../../api/commerce_api.dart';
 import '../../../api/client.dart';
 import '../../../api/models/models.dart';
+import '../../../api/protected_files_api.dart';
 import '../../../state/business_context.dart';
 import '../../../state/caps.dart';
 import '../../../ui/ds.dart';
 import '../../../util/allowed_urls.dart';
+import '../../../util/file_password.dart';
 import '../../../util/labels/labels.dart';
 import '../../../util/payment_reminder.dart';
 import '../../../util/phone.dart';
@@ -26,6 +29,7 @@ import '../../../util/sms_composer.dart';
 import '../../../util/status_map.dart' show isCollectionType;
 import '../../../util/still_here.dart';
 import '../dialogs.dart';
+import 'file_password.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 // ---- seams (tests replace these; no share sheet in a widget test) ----------
@@ -103,12 +107,15 @@ String get _businessName => businessContext.displayName;
 ///
 /// [alive]: false once the caller's screen is gone (late navigation): then
 /// nothing opens.
+///
+/// [password] (§7): the link asks for it and serves the AES-256 copy.
 Future<void> sendDocumentWhatsApp(
   DocumentDetail doc,
   Customer? customer, {
   bool Function()? alive,
+  String? password,
 }) async {
-  final link = await createShareLink(doc);
+  final link = await createShareLink(doc, password: password);
   final payUrl = await paymentUrlForSend(doc);
   if (alive?.call() == false) return;
   final text = whatsAppMessage(
@@ -124,7 +131,9 @@ Future<void> sendDocumentWhatsApp(
   final opened = await launchAllowed(
     whatsAppUri(phone: waPhone(customer?.phone), text: text),
   );
-  if (!opened) await sharePdf(doc, text: text, alive: alive);
+  if (!opened) {
+    await sharePdf(doc, text: text, alive: alive, password: password);
+  }
 }
 
 /// R1 one-tap payment reminder ("שלח תזכורת" in D, "הזכר בווטסאפ" in the
@@ -188,19 +197,23 @@ Future<void> sendPaymentReminder({
   );
 }
 
-/// The original (or [copy]) PDF through the iOS share sheet.
+/// The original (or [copy]) PDF through the iOS share sheet. [password]
+/// (§7): a new AES-256 copy of the original that opens only with it.
 Future<void> sharePdf(
   DocumentDetail doc, {
   bool copy = false,
   String? text,
   bool Function()? alive,
+  String? password,
 }) async {
   final Uint8List bytes;
   if (copy) {
     bytes = await fetchCopyPdf(doc.id);
   } else {
     await ensureOriginal(doc);
-    bytes = await fetchOriginalPdf(doc.id);
+    bytes = password == null
+        ? await fetchOriginalPdf(doc.id)
+        : await fetchProtectedCopy(doc.id, password);
   }
   if (alive?.call() == false) return;
   final name = docTitle(doc.documentType, doc.documentNumber);
@@ -279,6 +292,15 @@ class _ShareSheetState extends State<ShareSheet> {
   /// Kept after a successful /send so a retry only re-runs /process.
   String? _deliveryId;
 
+  // §7 "קובץ מוגן בסיסמה": the server can protect (and the customer's
+  // default); the toggle; this send's password; non-null after a protected
+  // send = the "send the password" step.
+  DocumentProtection? _protection;
+  bool _protect = false;
+  String? _password;
+  bool _alwaysBusy = false;
+  String? _sentMessage;
+
   @override
   void initState() {
     super.initState();
@@ -315,10 +337,61 @@ class _ShareSheetState extends State<ShareSheet> {
         _loadError = null;
         if (_email.text.isEmpty) _email.text = customer?.email ?? '';
       });
+      unawaited(_loadProtection(doc.id));
     } on Object catch (e) {
       if (mounted) setState(() => _loadError = e);
     }
   }
+
+  /// §7: whether the toggle is offered, and on by default ("תמיד ללקוח הזה").
+  Future<void> _loadProtection(String documentId) async {
+    if (!_canSend) return;
+    try {
+      final state = await fetchDocumentProtection(documentId);
+      if (!mounted || !state.available) return;
+      setState(() {
+        _protection = state;
+        if (state.customerAlwaysProtect) _setProtect(true);
+      });
+    } on Object {
+      // Older server / offline: no toggle (sending works as before).
+    }
+  }
+
+  /// On → a NEW password (one per send); off → none.
+  void _setProtect(bool on) {
+    _protect = on;
+    _password = on ? generateFilePassword() : null;
+    _qrLink =
+        null; // a QR made before the switch points at the other kind of link
+  }
+
+  Future<void> _setAlways(bool always) async {
+    final state = _protection;
+    final customerId = state?.customerId;
+    if (state == null || customerId == null) return;
+    setState(() => _alwaysBusy = true);
+    try {
+      final saved = await setCustomerFileProtection(customerId, always);
+      if (!mounted) return;
+      setState(() {
+        _protection = DocumentProtection(
+          available: state.available,
+          customerId: customerId,
+          customerAlwaysProtect: saved,
+          sends: state.sends,
+        );
+        if (saved && !_protect) _setProtect(true);
+      });
+    } on Object catch (e) {
+      if (mounted) setState(() => _error = e);
+    } finally {
+      if (mounted) setState(() => _alwaysBusy = false);
+    }
+  }
+
+  /// The password of this send, or null when the toggle is off.
+  String? get _pw => _protect ? _password : null;
 
   @override
   void dispose() {
@@ -337,8 +410,14 @@ class _ShareSheetState extends State<ShareSheet> {
       _error = null;
     });
     try {
+      final protectedSend = _pw != null;
       final done = await work();
       if (!mounted) return;
+      // §7: a protected send stays open for the separate password message.
+      if (done != null && protectedSend && action != _Busy.revoke) {
+        setState(() => _sentMessage = done);
+        return;
+      }
       if (done != null) Navigator.of(context).pop(done);
     } on Object catch (e) {
       if (mounted) setState(() => _error = e);
@@ -364,6 +443,7 @@ class _ShareSheetState extends State<ShareSheet> {
           doc.id,
           recipient,
           paymentUrl: payUrl,
+          password: _pw,
         );
       } on ApiException catch (e) {
         if (e.code != 'CONSENT_REQUIRED' ||
@@ -374,7 +454,12 @@ class _ShareSheetState extends State<ShareSheet> {
         final agreed = await askEmailConsent(context);
         if (agreed == null) return null;
         if (!agreed) {
-          await sendDocumentWhatsApp(doc, _customer, alive: _alive);
+          await sendDocumentWhatsApp(
+            doc,
+            _customer,
+            alive: _alive,
+            password: _pw,
+          );
           return '';
         }
         await recordConsent(doc.customerId!);
@@ -382,6 +467,7 @@ class _ShareSheetState extends State<ShareSheet> {
           doc.id,
           recipient,
           paymentUrl: payUrl,
+          password: _pw,
         );
       }
     }
@@ -407,12 +493,17 @@ class _ShareSheetState extends State<ShareSheet> {
     final p = context.palette;
     final subtitle =
         '${docTitle(doc.documentType, doc.documentNumber)} · ${moneyText(context, doc.totalMinor)}';
+    if (_sentMessage != null && _password != null) {
+      return _afterProtectedSend(subtitle);
+    }
+    final protecting = _pw != null;
     return PopScope(
       canPop: _busy == null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SheetTitle(DocumentHe.shareTitle, subtitle: subtitle),
+          if (_canSend && _protection != null) ..._protectRows(),
           if (_canSend) ...[
             // QA 1.2: three main ways + "עוד" (nothing removed, only folded).
             PrimaryButton(
@@ -424,7 +515,12 @@ class _ShareSheetState extends State<ShareSheet> {
                   ? DocumentHe.sendWhatsApp
                   : null,
               onPressed: () => _run(_Busy.whatsapp, () async {
-                await sendDocumentWhatsApp(doc, _customer, alive: _alive);
+                await sendDocumentWhatsApp(
+                  doc,
+                  _customer,
+                  alive: _alive,
+                  password: _pw,
+                );
                 return '';
               }),
             ),
@@ -434,7 +530,9 @@ class _ShareSheetState extends State<ShareSheet> {
               const Key('s6-copy'),
               () => _run(_Busy.copy, () async {
                 await Clipboard.setData(
-                  ClipboardData(text: await createShareLink(doc)),
+                  ClipboardData(
+                    text: await createShareLink(doc, password: _pw),
+                  ),
                 );
                 _linkMade = true;
                 return DocumentHe.linkCopied;
@@ -446,7 +544,7 @@ class _ShareSheetState extends State<ShareSheet> {
               DocumentHe.pdf,
               const Key('s6-pdf'),
               () => _run(_Busy.pdf, () async {
-                await sharePdf(doc, alive: _alive);
+                await sharePdf(doc, alive: _alive, password: _pw);
                 return '';
               }),
               busy: _busy == _Busy.pdf,
@@ -463,7 +561,8 @@ class _ShareSheetState extends State<ShareSheet> {
                 BusinessHe.scanInvoiceAction,
                 const Key('s6-qr'),
                 () => _run(_Busy.qr, () async {
-                  final link = _qrLink ?? await createShareLink(doc);
+                  final link =
+                      _qrLink ?? await createShareLink(doc, password: _pw);
                   _linkMade = true;
                   if (mounted) setState(() => _qrLink = link);
                   return null;
@@ -507,7 +606,10 @@ class _ShareSheetState extends State<ShareSheet> {
                                   BusinessHe.validPhoneRequired,
                                 );
                               }
-                              final link = await createShareLink(doc);
+                              final link = await createShareLink(
+                                doc,
+                                password: _pw,
+                              );
                               if (!_alive()) return null;
                               final result = await smsComposer(
                                 '+$number',
@@ -536,17 +638,21 @@ class _ShareSheetState extends State<ShareSheet> {
                     ),
                   ],
                 ),
-              _row(
-                Icons.send_rounded,
-                'שליחה אוטומטית ללקוח',
-                const Key('s6-automatic'),
-                () => _run(_Busy.automatic, () async {
-                  final result = await dispatchDocument(doc.id);
-                  return result.message;
-                }),
-                busy: _busy == _Busy.automatic,
-                subtitle: 'במייל או ב־WhatsApp, לפי פרטי הלקוח',
-              ),
+              // The automatic send follows the customer's own setting, and the
+              // "העתק נאמן למקור" is a separate copy: not offered while the
+              // toggle is on (they would go out unprotected).
+              if (!protecting)
+                _row(
+                  Icons.send_rounded,
+                  'שליחה אוטומטית ללקוח',
+                  const Key('s6-automatic'),
+                  () => _run(_Busy.automatic, () async {
+                    final result = await dispatchDocument(doc.id);
+                    return result.message;
+                  }),
+                  busy: _busy == _Busy.automatic,
+                  subtitle: 'במייל או ב־WhatsApp, לפי פרטי הלקוח',
+                ),
               _row(
                 Iconsax.sms,
                 DocumentHe.email,
@@ -569,16 +675,17 @@ class _ShareSheetState extends State<ShareSheet> {
                   }),
                   busy: _busy == _Busy.paymentLink,
                 ),
-              _row(
-                Iconsax.copy,
-                DocumentHe.pdfCopy,
-                const Key('s6-pdf-copy'),
-                () => _run(_Busy.pdfCopy, () async {
-                  await sharePdf(doc, copy: true, alive: _alive);
-                  return '';
-                }),
-                busy: _busy == _Busy.pdfCopy,
-              ),
+              if (!protecting)
+                _row(
+                  Iconsax.copy,
+                  DocumentHe.pdfCopy,
+                  const Key('s6-pdf-copy'),
+                  () => _run(_Busy.pdfCopy, () async {
+                    await sharePdf(doc, copy: true, alive: _alive);
+                    return '';
+                  }),
+                  busy: _busy == _Busy.pdfCopy,
+                ),
               if (_linkMade)
                 _row(
                   Iconsax.link_circle,
@@ -628,6 +735,90 @@ class _ShareSheetState extends State<ShareSheet> {
             ),
         ],
       ),
+    );
+  }
+
+  /// §7 toggle (+ card and "תמיד ללקוח הזה" while on).
+  List<Widget> _protectRows() {
+    final p = context.palette;
+    final state = _protection!;
+    return [
+      SwitchListTile.adaptive(
+        key: const Key('s6-protect'),
+        contentPadding: EdgeInsets.zero,
+        secondary: Icon(Iconsax.lock_1, color: p.ink),
+        title: Text(
+          ProtectedHe.toggle,
+          style: AppText.body.copyWith(color: p.ink),
+        ),
+        subtitle: Text(
+          ProtectedHe.toggleHint,
+          style: AppText.secondary.copyWith(color: p.muted),
+        ),
+        value: _protect,
+        onChanged: _busy != null
+            ? null
+            : (on) => setState(() => _setProtect(on)),
+      ),
+      if (_pw != null) ...[
+        FilePasswordCard(
+          key: ValueKey('s6-card-$_password'),
+          password: _password!,
+          hint: ProtectedHe.cardHint,
+        ),
+        if (state.customerId != null)
+          CheckboxListTile.adaptive(
+            key: const Key('s6-protect-always'),
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            title: Text(ProtectedHe.always, style: AppText.body),
+            value: state.customerAlwaysProtect,
+            onChanged: _alwaysBusy || _offline || _busy != null
+                ? null
+                : (v) => _setAlways(v ?? false),
+          ),
+        const SizedBox(height: Space.m),
+      ],
+    ];
+  }
+
+  /// After a protected send: the password goes in its own message.
+  Widget _afterProtectedSend(String subtitle) {
+    final p = context.palette;
+    final done = _sentMessage!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SheetTitle(DocumentHe.shareTitle, subtitle: subtitle),
+        PasswordSendPanel(
+          key: const Key('s6-password-panel'),
+          password: _password!,
+          phone: _customer?.phone ?? _phone.text,
+          header: Padding(
+            padding: const EdgeInsets.only(bottom: Space.m),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  ProtectedHe.sentTitle,
+                  key: const Key('s6-protected-sent'),
+                  style: AppText.title.copyWith(color: p.ink),
+                ),
+                if (done.isNotEmpty) ...[
+                  const SizedBox(height: Space.xs),
+                  Text(done, style: AppText.secondary.copyWith(color: p.muted)),
+                ],
+                const SizedBox(height: Space.xs),
+                Text(
+                  ProtectedHe.sentHint,
+                  style: AppText.body.copyWith(color: p.ink),
+                ),
+              ],
+            ),
+          ),
+          onDone: (_) => Navigator.of(context).pop(done),
+        ),
+      ],
     );
   }
 

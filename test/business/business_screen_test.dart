@@ -68,6 +68,7 @@ void main() {
         ]);
         // Nothing deleted: the rarely used rows are one tap further (§6.B).
         expect(await moreFor(Preset.owner), [
+          if (form101Released) 'employees', // 0134 טופס 101 (hidden until released)
           'paymentTerms', // 0110 default payment terms
           'integrations',
           'subscription',
@@ -99,9 +100,9 @@ void main() {
         expect(await rowsFor(Preset.partner), await rowsFor(Preset.owner));
         expect(
           await moreFor(Preset.partner),
-          (await moreFor(
-            Preset.owner,
-          )).where((row) => row != 'subscription').toList(),
+          (await moreFor(Preset.owner))
+              .where((row) => row != 'subscription' && row != 'employees')
+              .toList(),
         );
         expect(await rowsFor(Preset.employee), [
           'expenses',
@@ -128,6 +129,7 @@ void main() {
           'more',
         ]);
         expect(await moreFor(Preset.accountantRep), [
+          if (form101Released) 'employees', // 0134: the accountant reads the 101 forms
           'notifications',
           'desktop',
           // C5: no "יומן פעולות" — this P0 member is READ_ONLY (no audit:read).

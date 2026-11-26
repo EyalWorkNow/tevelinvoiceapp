@@ -116,7 +116,7 @@ void main() {
 
   group('P · לקוחות', () {
     testWidgets(
-      'owner: chips הכל·חייבים·ספקים, "חייב לך", archived only in search',
+      'owner: chips פעילים·לא פעילים·הכול·חייבים·ספקים, "חייב לך", inactive only in search',
       (tester) async {
         installPeopleFakes(
           backend,
@@ -141,12 +141,16 @@ void main() {
 
         for (
           var i = 0;
-          i < 20 && find.text(PeopleHe.chipDebtors).evaluate().isEmpty;
+          i < 20 &&
+              (find.text(PeopleHe.chipDebtors).evaluate().isEmpty ||
+                  find.text(PeopleHe.chipActive(2)).evaluate().isEmpty);
           i++
         ) {
           await flush(tester, 3);
         }
-        expect(find.text(PeopleHe.chipAll), findsOneWidget);
+        expect(find.text(PeopleHe.chipActive(2)), findsOneWidget);
+        expect(find.text(PeopleHe.chipInactive(1)), findsOneWidget);
+        expect(find.text(PeopleHe.chipAllCustomers(3)), findsOneWidget);
         expect(find.text(PeopleHe.chipDebtors), findsOneWidget);
         expect(find.text(PeopleHe.chipSuppliers), findsOneWidget);
         expect(find.byKey(const Key('person-c1')), findsOneWidget);
@@ -165,7 +169,7 @@ void main() {
         await tester.enterText(find.byKey(const Key('people-search')), 'ישן');
         await flush(tester);
         expect(find.byKey(const Key('person-c3')), findsOneWidget);
-        expect(find.text(PeopleHe.archivedBadge), findsOneWidget);
+        expect(find.text(PeopleHe.inactiveBadge), findsOneWidget);
 
         await tester.enterText(find.byKey(const Key('people-search')), '');
         await tap(tester, find.text(PeopleHe.chipDebtors));
@@ -177,6 +181,45 @@ void main() {
         expect(find.text(PeopleHe.addSupplier), findsOneWidget);
       },
     );
+
+    testWidgets('2611 §4: chips filter פעילים / לא פעילים / הכול with counts', (
+      tester,
+    ) async {
+      installPeopleFakes(
+        backend,
+        customers: [
+          customerJson('c1', 'דנה'),
+          customerJson('c2', 'אבי'),
+          customerJson('c3', 'ישן', archived: true),
+        ],
+      );
+      await pump(tester, const PeopleScreen());
+      expect(find.byKey(const Key('person-c3')), findsNothing);
+      await tap(tester, find.text(PeopleHe.chipInactive(1)));
+      expect(find.byKey(const Key('person-c3')), findsOneWidget);
+      expect(find.byKey(const Key('person-c1')), findsNothing);
+      await tap(tester, find.text(PeopleHe.chipAllCustomers(3)));
+      for (final id in ['c1', 'c2', 'c3']) {
+        expect(find.byKey(Key('person-$id')), findsOneWidget);
+      }
+      // The server's counts win (more than the 500 rows on the phone).
+      backend.json('GET', '/customers', {
+        'customers': [customerJson('c1', 'דנה')],
+        'total': 1,
+        'counts': {'active': 640, 'inactive': 12, 'all': 652},
+      });
+      await tester.pumpWidget(const SizedBox());
+      await pump(tester, const PeopleScreen());
+      for (
+        var i = 0;
+        i < 20 && find.text(PeopleHe.chipActive(640)).evaluate().isEmpty;
+        i++
+      ) {
+        await flush(tester, 3);
+      }
+      expect(find.text(PeopleHe.chipActive(640)), findsOneWidget);
+      expect(find.text(PeopleHe.chipInactive(12)), findsOneWidget);
+    });
 
     testWidgets(
       'employee: no balances, no debtors chip; viewer: no "+ לקוח", no chips',
@@ -429,29 +472,69 @@ void main() {
       },
     );
 
-    testWidgets('⋯ "ארכוב" with an open balance asks first, then archives', (
+    testWidgets(
+      '⋯ "סמן כלא פעיל" with an open balance asks first, then marks',
+      (tester) async {
+        installPeopleFakes(
+          backend,
+          customers: [customerJson('c1', 'דנה')],
+          documents: docs(),
+        );
+        await pump(tester, const Scaffold(body: Text('root')));
+        unawaited(openPerson(navigatorKey.currentContext!, 'c1'));
+        await flush(tester);
+        await tap(tester, headerMenu());
+        await tap(tester, find.text(PeopleHe.markInactive));
+        expect(find.text(PeopleHe.markInactiveConfirm), findsOneWidget);
+        expect(find.textContaining('ללקוח יתרה של'), findsOneWidget);
+        expect(
+          find.textContaining('₪5,990\u2069, התזכורות ימשיכו'),
+          findsOneWidget,
+          reason: 'amount is an LTR isolate',
+        );
+        await tap(
+          tester,
+          find.widgetWithText(TextButton, PeopleHe.markInactive),
+        );
+        expect(backend.calls('POST', '/customers/:id/archive'), hasLength(1));
+        expect(find.text('root'), findsOneWidget, reason: 'card closes');
+      },
+    );
+
+    testWidgets(
+      '2611 §4: an inactive customer — grey strip "לקוח לא פעיל · החזר לפעיל"',
+      (tester) async {
+        installPeopleFakes(
+          backend,
+          customers: [customerJson('c1', 'דנה', archived: true, be09: true)],
+          be09: true,
+        );
+        await pump(tester, const PersonScreen(id: 'c1'));
+        expect(find.byKey(const Key('person-inactive-banner')), findsOneWidget);
+        expect(find.text(PeopleHe.inactiveBanner), findsOneWidget);
+        expect(find.text(PeopleHe.inactiveBadge), findsOneWidget);
+        await tap(tester, find.byKey(const Key('person-restore')));
+        expect(backend.calls('POST', '/customers/:id/restore'), hasLength(1));
+        expect(find.text(PeopleHe.restored), findsOneWidget);
+        expect(
+          find.byKey(const Key('person-inactive-banner')),
+          findsNothing,
+          reason: 'reloaded: active again',
+        );
+      },
+    );
+
+    testWidgets('2611 §4: an employee sees the strip but cannot restore', (
       tester,
     ) async {
       installPeopleFakes(
         backend,
-        customers: [customerJson('c1', 'דנה')],
-        documents: docs(),
+        customers: [customerJson('c1', 'דנה', archived: true, be09: true)],
+        be09: true,
       );
-      await pump(tester, const Scaffold(body: Text('root')));
-      unawaited(openPerson(navigatorKey.currentContext!, 'c1'));
-      await flush(tester);
-      await tap(tester, headerMenu());
-      await tap(tester, find.text('ארכוב'));
-      expect(find.textContaining('ללקוח יש'), findsOneWidget);
-      expect(
-        find.textContaining('5,990 פתוח'),
-        findsNothing,
-        reason: 'amount is an LTR isolate',
-      );
-      expect(find.textContaining('₪5,990\u2069 פתוח'), findsOneWidget);
-      await tap(tester, find.widgetWithText(TextButton, PeopleHe.archive));
-      expect(backend.calls('POST', '/customers/:id/archive'), hasLength(1));
-      expect(find.text('root'), findsOneWidget, reason: 'card closes');
+      await pump(tester, const PersonScreen(id: 'c1'), preset: Preset.employee);
+      expect(find.byKey(const Key('person-inactive-banner')), findsOneWidget);
+      expect(find.byKey(const Key('person-restore')), findsNothing);
     });
 
     testWidgets('employee: no ⋯, no "פרטים ועריכה", no balance, no booking', (

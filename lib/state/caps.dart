@@ -100,6 +100,13 @@ enum Cap {
 
   /// Delete business, sole-owner warning. `/me.isOwner`.
   owner,
+
+  /// 0134 "עובדים וטופס 101": read employees' forms — the owner and the
+  /// accountants only (server access.ts `ownerOrAccountant`).
+  employeeForms,
+
+  /// 0134: add employees and send / resend / cancel forms — the owner only.
+  employeeFormsManage,
 }
 
 /// What the owner picks in an invitation (§4.3), derived from role + grants.
@@ -263,6 +270,11 @@ class Caps {
       if (has('membership:manage')) Cap.teamManage,
       if (has('business_documents:read')) Cap.vaultView,
       if (me.isOwner ?? role == 'OWNER') Cap.owner,
+      if (role == 'OWNER' ||
+          preset == Preset.accountantFull ||
+          preset == Preset.accountantRep)
+        Cap.employeeForms,
+      if (role == 'OWNER') Cap.employeeFormsManage,
     };
     return Caps._(caps, preset, me.approvalPolicy, !me.hasEffectivePermissions);
   }

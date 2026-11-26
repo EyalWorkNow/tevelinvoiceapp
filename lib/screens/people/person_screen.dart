@@ -40,8 +40,13 @@ import '../../util/labels/common_he.dart';
 import '../../util/labels/compose_he.dart';
 import '../../util/labels/customer_crm_he.dart';
 import '../../util/labels/document_he.dart';
+import '../../util/labels/collection_he.dart';
+import '../../util/labels/tutorial_he.dart';
+import '../tutorial/coach_mark.dart';
+import '../tutorial/tutorial_state.dart';
 import '../../util/labels/people_he.dart';
 import '../../util/labels/person_page_he.dart';
+import '../../util/labels/portal_he.dart';
 import '../../util/labels/status_he.dart';
 import '../../util/labels/timeline_he.dart';
 import '../../util/payment_terms.dart' show paymentTermsLabel;
@@ -54,6 +59,7 @@ import '../compose/compose_repeat.dart' show lastRepeatable, openRepeat;
 import '../debts/debt_entry_sheet.dart';
 import '../document/sheets/s6_share.dart' show pdfSharer;
 import '../expense/expense_capture_screen.dart' show nextCaptureSupplier;
+import '../groups/person_group_rows.dart';
 import 'customer_crm_finance_card.dart';
 import 'customer_crm_panel.dart' show displayStage;
 import 'customer_crm_sync_status.dart';
@@ -63,6 +69,7 @@ import 'person_logic.dart';
 import 'person_sections.dart';
 import 'person_visits_page.dart';
 import 'sheets/payment_terms_sheet.dart';
+import 'sheets/portal_link_sheet.dart';
 import 'sheets/s2_customer.dart';
 
 /// Orb colours: (circle, icon) — the ניהול pastel set.
@@ -100,9 +107,11 @@ const _icons = <String, IconData>{
   'note': Iconsax.note_text,
   'navigate': Iconsax.location,
   'statement': Iconsax.receipt_item,
+  'portal': Iconsax.user_square,
   'edit': Iconsax.edit,
   'terms': Iconsax.calendar_2,
   'archive': Iconsax.archive_1,
+  'restore': Iconsax.refresh_circle,
 };
 
 String _label(String id) => switch (id) {
@@ -124,9 +133,11 @@ String _label(String id) => switch (id) {
   'note' => PersonPageHe.note,
   'navigate' => PersonPageHe.navigate,
   'statement' => PersonPageHe.statement,
+  'portal' => PortalHe.sendLink,
   'edit' => PersonPageHe.details,
   'terms' => PersonPageHe.terms,
   'archive' => PersonPageHe.archive,
+  'restore' => PeopleHe.restore,
   _ => id,
 };
 
@@ -205,6 +216,16 @@ class _PersonScreenState extends State<PersonScreen> {
           _docs = docs;
           _open = open;
         });
+        // 2611 §1: the first customer page (after the tutorial) → the
+        // quick actions.
+        unawaited(
+          maybeShowCoachMark(
+            context,
+            id: CoachIds.person,
+            target: const Key('person-actions'),
+            text: TutorialHe.coachPerson,
+          ),
+        );
       }
     } on ParallelWaitError<
       (List<DocumentSummary>?, BigInt?),
@@ -249,6 +270,18 @@ class _PersonScreenState extends State<PersonScreen> {
 
   bool get _archived =>
       _supplier?.isArchived ?? _detail?.customer.isArchived ?? false;
+
+  /// 2611 §4: "החזר לפעיל" — an inactive (not erased) customer.
+  bool get _canRestore =>
+      !widget.isSupplier &&
+      _archived &&
+      !(_detail?.erased ?? false) &&
+      _caps.can(Cap.customerManage);
+
+  /// "ארכוב" for a supplier, "סמן כלא פעיל" for a customer.
+  String _actionLabel(String id) => id == 'archive' && !widget.isSupplier
+      ? PeopleHe.markInactive
+      : _label(id);
 
   bool get _manage =>
       !_archived &&
@@ -307,6 +340,10 @@ class _PersonScreenState extends State<PersonScreen> {
         days: d.paymentTermsDays,
         method: d.preferredPaymentMethod,
       ),
+      // 2611 §2: the cadence is the owner's / partner's (business:configure).
+      cadence: _caps.can(Cap.settingsBusiness) && d.fromBe09
+          ? (d.reminderCadence ?? 'BUSINESS')
+          : null,
     );
     if (saved == null || !mounted) return;
     ScaffoldMessenger.of(
@@ -398,12 +435,16 @@ class _PersonScreenState extends State<PersonScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        title: widget.isSupplier
+            ? null
+            : const Text(PeopleHe.markInactiveConfirm),
         content: Text(
           widget.isSupplier
               ? PeopleHe.supplierArchiveConfirm
               : open > BigInt.zero
-              ? PeopleHe.archiveWithBalance(moneyInline(open))
-              : PeopleHe.archiveConfirm,
+              ? '${PeopleHe.markInactiveBody}\n\n'
+                    '${PeopleHe.markInactiveWithBalance(moneyInline(open))}'
+              : PeopleHe.markInactiveBody,
         ),
         actions: [
           TextButton(
@@ -415,7 +456,9 @@ class _PersonScreenState extends State<PersonScreen> {
             style: TextButton.styleFrom(
               foregroundColor: context.palette.danger,
             ),
-            child: const Text(PeopleHe.archive),
+            child: Text(
+              widget.isSupplier ? PeopleHe.archive : PeopleHe.markInactive,
+            ),
           ),
         ],
       ),
@@ -434,7 +477,9 @@ class _PersonScreenState extends State<PersonScreen> {
       messenger.showNotchNotice(
         SnackBar(
           content: Text(
-            widget.isSupplier ? PeopleHe.supplierArchived : PeopleHe.archived,
+            widget.isSupplier
+                ? PeopleHe.supplierArchived
+                : PeopleHe.markedInactive,
           ),
         ),
       );
@@ -443,6 +488,66 @@ class _PersonScreenState extends State<PersonScreen> {
       setState(() => _busy = false);
       showErrorSnack(context, e);
     }
+  }
+
+  /// 2611 §4 "החזר לפעיל": the customer is back in the list and pickers.
+  Future<void> _restore() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await restoreCustomer(widget.id);
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showNotchNotice(const SnackBar(content: Text(PeopleHe.restored)));
+      await _load();
+    } on Object catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      showErrorSnack(context, e);
+    }
+  }
+
+  /// The grey strip on top of an inactive customer's page.
+  Widget _inactiveBanner(BuildContext context) {
+    final p = context.palette;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.page, 0, Space.page, Space.s),
+      child: Material(
+        key: const Key('person-inactive-banner'),
+        color: p.line.withValues(alpha: .45),
+        borderRadius: BorderRadius.circular(Radii.button),
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            Space.m,
+            Space.xs,
+            Space.xs,
+            Space.xs,
+          ),
+          child: Row(
+            children: [
+              Icon(Iconsax.user_minus, size: 20, color: p.muted),
+              const SizedBox(width: Space.s),
+              Expanded(
+                child: Text(
+                  PeopleHe.inactiveBanner,
+                  style: AppText.body.copyWith(color: p.muted),
+                ),
+              ),
+              if (_canRestore)
+                TextButton(
+                  key: const Key('person-restore'),
+                  onPressed: _busy || businessContext.offline
+                      ? null
+                      : () => unawaited(_restore()),
+                  child: const Text(PeopleHe.restore),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ---- actions ----
@@ -460,6 +565,7 @@ class _PersonScreenState extends State<PersonScreen> {
     canMoneyView: _caps.can(Cap.moneyView),
     canCalendar: !widget.isSupplier && mayUseCalendar(_caps),
     canManage: _manage,
+    canRestore: _canRestore,
     crmReady: _crmLoaded && _store.readyForEdits,
     canRepeat: lastRepeatable(_docs ?? const []) != null,
     statement: _statement,
@@ -521,10 +627,20 @@ class _PersonScreenState extends State<PersonScreen> {
         }
       case 'statement':
         await _sendStatement();
+      case 'portal':
+        await showPortalLinkSheet(
+          context,
+          customerId: widget.id,
+          name: _name,
+          phone: _phone,
+          email: _email,
+        );
       case 'terms':
         await _editTerms();
       case 'archive':
         await _archive();
+      case 'restore':
+        await _restore();
       case 'expense':
         nextCaptureSupplier = _supplier;
         await openExpenseCapture(context);
@@ -556,7 +672,7 @@ class _PersonScreenState extends State<PersonScreen> {
                 color: id == 'archive' ? p.danger : p.ink,
               ),
               title: Text(
-                _label(id),
+                _actionLabel(id),
                 style: AppText.body.copyWith(
                   color: id == 'archive' ? p.danger : null,
                 ),
@@ -589,7 +705,7 @@ class _PersonScreenState extends State<PersonScreen> {
               for (final id in row)
                 QuickAction(
                   id: id,
-                  label: _label(id),
+                  label: _actionLabel(id),
                   semanticsLabel: id == 'expense'
                       ? PeopleHe.newExpenseFrom(_name)
                       : null,
@@ -686,16 +802,26 @@ class _PersonScreenState extends State<PersonScreen> {
         ),
       if (_manage)
         MoreMenuItem(
-          label: PersonPageHe.archive,
+          label: _actionLabel('archive'),
           icon: Iconsax.archive_1,
           destructive: true,
           onSelected: () => unawaited(_archive()),
+        ),
+      if (_canRestore)
+        MoreMenuItem(
+          label: PeopleHe.restore,
+          icon: Iconsax.refresh_circle,
+          onSelected: () => unawaited(_restore()),
         ),
     ];
     final badges = <Widget>[
       if (_crmLoaded) _stage(context),
       if (widget.isSupplier) PersonTag(PeopleHe.supplierBadge, color: p.muted),
-      if (_archived) PersonTag(PeopleHe.archivedBadge, color: p.muted),
+      if (_archived)
+        PersonTag(
+          widget.isSupplier ? PeopleHe.archivedBadge : PeopleHe.inactiveBadge,
+          color: p.muted,
+        ),
     ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -789,6 +915,7 @@ class _PersonScreenState extends State<PersonScreen> {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(top: Space.m, bottom: Space.xxl),
       children: [
+        if (!widget.isSupplier && _archived) _inactiveBanner(context),
         if (!widget.isSupplier)
           _statusCard(context, nextThing(visits, reminders, now)),
         _quickActions(context),
@@ -802,6 +929,21 @@ class _PersonScreenState extends State<PersonScreen> {
               key: const Key('person-money'),
               title: PersonPageHe.money,
               children: [
+                // 2611 §2 "תנאי תשלום ותזכורות": both choices for this customer.
+                if (_detail case final d?)
+                  PersonDetailRow(
+                    key: const Key('person-terms-reminders'),
+                    valueKey: const Key('person-terms-reminders-value'),
+                    label: CollectionHe.termsAndReminders,
+                    value: [
+                      _termsLine(d),
+                      if (_caps.can(Cap.settingsBusiness))
+                        CollectionHe.cadenceLabel(
+                          d.reminderCadence ?? 'BUSINESS',
+                        ),
+                    ].join(' · '),
+                    onTap: _manage ? () => unawaited(_editTerms()) : null,
+                  ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: Space.page),
                   child: CustomerCrmFinanceCard(
@@ -1255,7 +1397,31 @@ class _PersonScreenState extends State<PersonScreen> {
               onTap: _manage ? () => unawaited(_editTerms()) : null,
             ),
           if (!widget.isSupplier && !_archived)
-            PersonAutoRemindersRow(customerId: widget.id),
+            PersonAutoRemindersRow(
+              // Rebuilt after the cadence changes (NONE = the hold).
+              key: ValueKey('hold-${_detail?.reminderCadence}'),
+              customerId: widget.id,
+            ),
+          // V4 §8: the customer's groups + "מאשר דיוור".
+          if (!widget.isSupplier)
+            PersonGroupsRow(
+              customerId: widget.id,
+              customerName: _name,
+              canEdit: _manage && !_archived,
+            ),
+          if (d?.marketingConsent != null)
+            PersonMarketingRow(
+              customerId: widget.id,
+              initial: d!.marketingConsent!,
+              canEdit: _manage,
+            ),
+          if (!widget.isSupplier && _manage && _caps.can(Cap.moneyView))
+            PersonPortalRow(
+              customerId: widget.id,
+              name: _name,
+              phone: _phone,
+              email: _email,
+            ),
           if (_manage)
             PersonDetailRow(
               key: const Key('person-edit'),

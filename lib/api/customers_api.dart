@@ -32,7 +32,12 @@ bool isMissingRoute(Object e) =>
 
 /// The customer list as P / S2 show it.
 class CustomerList {
-  const CustomerList(this.customers, {this.capped = false, this.be09 = false});
+  const CustomerList(
+    this.customers, {
+    this.capped = false,
+    this.be09 = false,
+    this.counts,
+  });
 
   /// Active AND archived (archived appear only in search, §6.P).
   final List<Customer> customers;
@@ -43,10 +48,53 @@ class CustomerList {
   /// Rows carry BE-09 fields (balance, lastDocumentAt, consent…).
   final bool be09;
 
+  /// 2611 §4: the server's counts for the list chips (all customers, not
+  /// only the returned page); null from an older server.
+  final CustomerCounts? counts;
+
+  List<Customer> get inactive => [
+    for (final c in customers)
+      if (c.isArchived) c,
+  ];
+
+  /// The chips' numbers: the server's, else counted from the rows.
+  CustomerCounts get statusCounts =>
+      counts ??
+      CustomerCounts(
+        active: active.length,
+        inactive: inactive.length,
+        all: customers.length,
+      );
+
   List<Customer> get active => [
     for (final c in customers)
       if (!c.isArchived) c,
   ];
+}
+
+/// "פעילים 30 · לא פעילים 10 · הכול 40".
+class CustomerCounts {
+  const CustomerCounts({
+    required this.active,
+    required this.inactive,
+    required this.all,
+  });
+
+  static CustomerCounts? fromJson(Object? j) {
+    if (j is! Map) return null;
+    final a = (j['active'] as num?)?.toInt();
+    final i = (j['inactive'] as num?)?.toInt();
+    if (a == null || i == null) return null;
+    return CustomerCounts(
+      active: a,
+      inactive: i,
+      all: (j['all'] as num?)?.toInt() ?? a + i,
+    );
+  }
+
+  final int active;
+  final int inactive;
+  final int all;
 }
 
 List<Customer> _parse(Object? list) => [
@@ -54,7 +102,7 @@ List<Customer> _parse(Object? list) => [
     Customer.fromJson(Map<String, dynamic>.from(c as Map)),
 ];
 
-CustomerList _listFrom(List raw, {int? total}) {
+CustomerList _listFrom(List raw, {int? total, CustomerCounts? counts}) {
   final customers = _parse(raw);
   final be09 =
       raw.isNotEmpty &&
@@ -63,7 +111,7 @@ CustomerList _listFrom(List raw, {int? total}) {
   final capped = total != null
       ? total > customers.length
       : customers.length >= customerListCap;
-  return CustomerList(customers, capped: capped, be09: be09);
+  return CustomerList(customers, capped: capped, be09: be09, counts: counts);
 }
 
 /// Last list of this business from the cache, or null.
@@ -90,7 +138,11 @@ Future<CustomerList> fetchCustomerList() async {
   } on Object {
     // The cache is a convenience; never fail the screen on it.
   }
-  return _listFrom(raw, total: (json['total'] as num?)?.toInt());
+  return _listFrom(
+    raw,
+    total: (json['total'] as num?)?.toInt(),
+    counts: CustomerCounts.fromJson(json['counts']),
+  );
 }
 
 /// Active customers (cache when offline is the caller's choice).
@@ -172,7 +224,18 @@ Future<void> updateCustomer(String id, Map<String, Object?> changes) async {
   await _api.patch('/customers/$id', changes);
 }
 
-/// POST /customers/:id/archive (idempotent).
+/// POST /customers/:id/restore — 2611 §4 "החזר לפעיל" (idempotent).
+Future<void> restoreCustomer(String id) async {
+  await _api.post('/customers/$id/restore');
+}
+
+/// PUT /customers/:id/reminder-cadence — 2611 §2. [cadence]: BUSINESS |
+/// WEEKLY | BIWEEKLY | MONTHLY | NONE.
+Future<void> saveCustomerReminderCadence(String id, String cadence) async {
+  await _api.put('/customers/$id/reminder-cadence', {'cadence': cadence});
+}
+
+/// POST /customers/:id/archive — "סמן כלא פעיל" (idempotent).
 Future<void> archiveCustomer(String id) async {
   await _api.post('/customers/$id/archive');
 }

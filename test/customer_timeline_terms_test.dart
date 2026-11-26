@@ -22,6 +22,7 @@ import 'package:invoice/ui/theme.dart';
 import 'package:invoice/util/composer_config.dart';
 import 'package:invoice/util/israel_date.dart';
 import 'package:invoice/util/labels/common_he.dart' show formatDateHe;
+import 'package:invoice/util/labels/collection_he.dart';
 import 'package:invoice/util/labels/timeline_he.dart';
 import 'package:invoice/util/payment_terms.dart';
 
@@ -527,6 +528,32 @@ void main() {
       await tap(tester, find.byKey(const Key('person-timeline')));
       expect(find.byType(CustomerTimelineScreen), findsOneWidget);
     });
+
+    testWidgets(
+      '2611 §2: "תנאי תשלום ותזכורות" — the customer\'s cadence (owner)',
+      (tester) async {
+        installPeopleFakes(
+          backend,
+          customers: [customerJson('c1', 'דנה', be09: true)],
+          be09: true,
+        );
+        backend
+          ..json('GET', '/customers/:id', {...detail(terms: 'EOM_30')})
+          ..json('PATCH', '/customers/:id', {'id': 'c1'});
+        timeline([]);
+        await pump(tester, const PersonScreen(id: 'c1'));
+        await tap(tester, find.byKey(const Key('person-details')));
+        await tap(tester, find.byKey(const Key('person-terms')));
+        expect(find.text(CollectionHe.termsAndReminders), findsOneWidget);
+        expect(find.byKey(const Key('terms-cadence')), findsOneWidget);
+        await tap(tester, find.text(CollectionHe.cadenceLabel('WEEKLY')));
+        expect(find.text(CollectionHe.cadenceHint('WEEKLY')), findsOneWidget);
+        await tap(tester, find.byKey(const Key('terms-save')));
+        expect(backend.last('PUT', '/customers/:id/reminder-cadence')!.body, {
+          'cadence': 'WEEKLY',
+        });
+      },
+    );
 
     testWidgets('employee: sees the terms, cannot edit them', (tester) async {
       installPeopleFakes(
