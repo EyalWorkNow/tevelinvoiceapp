@@ -6,6 +6,8 @@ import '../../api/form101_api.dart';
 abstract final class Form101He {
   static const title = 'עובדים וטופס 101';
   static const row = 'עובדים · טופס 101';
+  static const signEntry = 'טופס 101 לעובד';
+  static const signEntryHint = 'העובד ממלא בטלפון וחותם, והטופס חוזר אליך';
   static const intro =
       'שולחים לעובד קישור, הוא ממלא בטלפון שאלון קצר וחותם — והטופס חוזר אליך במבנה הרשמי.';
   static const viewOnly = 'צפייה בלבד: את הטפסים שולח בעל העסק.';

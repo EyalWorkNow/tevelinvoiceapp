@@ -51,9 +51,6 @@ import '../../api/accountant_api.dart' show leaveClient;
 import '../../state/accountant_store.dart';
 import '../auth/auth_flow.dart' show routeSignedIn;
 
-/// טופס 101 is built but not released yet (see the row below).
-const form101Released = bool.fromEnvironment('FORM101');
-
 class BusinessScreen extends StatelessWidget {
   const BusinessScreen({super.key, this.section});
 
@@ -189,9 +186,7 @@ List<BusinessRowSpec> allBusinessRows(
   if (caps.can(Cap.vaultView))
     const BusinessRowSpec('vault', VaultHe.title, Iconsax.folder_open),
   // 0134 (spec §10): salaried employees + their טופס 101 (owner + accountants).
-  // Hidden until the Tax Authority system approval + accountant check (owner 2026-11-26);
-  // build with --dart-define=FORM101=true to show it.
-  if (form101Released && caps.can(Cap.employeeForms))
+  if (caps.can(Cap.employeeForms))
     const BusinessRowSpec('employees', Form101He.row, Iconsax.people),
   if (caps.can(Cap.settingsDesign))
     const BusinessRowSpec('branding', BusinessHe.branding, Iconsax.colorfilter),

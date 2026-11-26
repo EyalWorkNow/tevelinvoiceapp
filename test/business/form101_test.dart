@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice/api/form101_api.dart';
 import 'package:invoice/screens/business/employees_screen.dart';
 import 'package:invoice/screens/business/form101_screen.dart';
+import 'package:invoice/screens/sign/sign_requests_screen.dart';
 import 'package:invoice/state/caps.dart';
 import 'package:invoice/util/allowed_urls.dart';
 import 'package:invoice/util/labels/labels.dart';
@@ -382,5 +383,35 @@ void main() {
       expect(isAllowedLaunch(uri), isTrue);
       expect(uri.toString(), startsWith('sms:+972501234567&body='));
     });
+  });
+
+  testWidgets('מסמכים לחתימה → "+" offers "טופס 101 לעובד" to the owner only, '
+      'and it opens the employees screen', (tester) async {
+    backend.json('GET', '/sign-requests', {'items': [], 'total': 0});
+    await pumpAs(tester, backend, Preset.owner, const SignRequestsScreen());
+    await tester.tap(find.byKey(const Key('sign-new')));
+    await tester.pumpAndSettle();
+    expect(find.text(Form101He.signEntry), findsOneWidget);
+    await tester.tap(find.byKey(const Key('sign-source-form101')));
+    await tester.pumpAndSettle();
+    expect(find.byType(EmployeesScreen), findsOneWidget);
+  });
+
+  testWidgets('an employee sees no "טופס 101 לעובד" in מסמכים לחתימה', (
+    tester,
+  ) async {
+    backend.json('GET', '/sign-requests', {'items': [], 'total': 0});
+    await pumpAs(
+      tester,
+      backend,
+      Preset.employeeIssuer,
+      const SignRequestsScreen(),
+    );
+    final add = find.byKey(const Key('sign-new'));
+    if (add.evaluate().isNotEmpty) {
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+    }
+    expect(find.byKey(const Key('sign-source-form101')), findsNothing);
   });
 }
