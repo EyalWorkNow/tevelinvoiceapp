@@ -11,6 +11,7 @@ import 'package:integration_test/integration_test.dart';
 
 import '../test/business/e_harness.dart';
 import '../test/calendar/calendar_shots_scenario.dart';
+import 'host_shot.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +30,7 @@ void main() {
       waitMs: pumpMs,
       shot: (name) async {
         await pumpMs(1000);
-        print('SHOT:$name');
+        await hostShot(name);
         await pumpMs(1200);
       },
     );

@@ -18,6 +18,7 @@ import 'package:invoice/state/caps.dart';
 
 import '../test/business/e_harness.dart';
 import '../test/fakes/fake_api.dart';
+import 'host_shot.dart';
 
 late WidgetTester t;
 
@@ -30,7 +31,7 @@ Future<void> pumpMs(int ms) async {
 
 Future<void> shot(String name) async {
   await pumpMs(1200);
-  print('SHOT:$name');
+  await hostShot(name);
   await pumpMs(1300);
 }
 

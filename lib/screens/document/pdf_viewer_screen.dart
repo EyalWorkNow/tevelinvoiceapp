@@ -47,6 +47,12 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           controller: _controller,
           padding: Space.s,
           backgroundDecoration: BoxDecoration(color: context.palette.canvas),
+          // A broken file shows a Hebrew line, never the raw PlatformException.
+          builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
+            options: const DefaultBuilderOptions(),
+            errorBuilder: (_, _) =>
+                const Center(child: Text(DocumentHe.pdfLoadFailed)),
+          ),
         ),
       ),
     );
