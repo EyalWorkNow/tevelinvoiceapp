@@ -26,8 +26,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:invoice/api/client.dart';
+import 'package:invoice/screens/calendar/calendar_api.dart' show ymd;
 import 'package:invoice/screens/calendar/calendar_screen.dart';
 import 'package:invoice/screens/calendar/calendar_sync.dart';
+import 'package:invoice/util/labels/calendar_he.dart';
 
 import 'crash_sweep_test.dart' show t, pumpMs, waitFor;
 import 'persona_screens_test.dart'
@@ -169,12 +171,14 @@ Future<void> _setup() async {
   print('BUSY:${start.toUtc().toIso8601String()}');
   await calendarSync.sync(force: true);
   await pumpMs(2500);
-  // Tomorrow, day view.
-  await t.tap(find.byKey(const Key('calendar-next')));
+  // Tomorrow, day view (month grid → tap the day).
+  await t.tap(find.byKey(Key('calendar-day-${ymd(_tomorrowAt(0))}')));
   await pumpMs(1500);
   await shot('agenda-busy-from-phone');
 
-  await t.tap(find.byKey(const Key('calendar-settings')));
+  await t.tap(find.byKey(const Key('calendar-more')));
+  await pumpMs(800);
+  await t.tap(find.text(CalendarHe.hoursButton).last);
   await pumpMs(3500);
   await shot('settings-top');
   await t.drag(find.byType(Scrollable).first, const Offset(0, -700));
@@ -186,7 +190,9 @@ Future<void> _setup() async {
   Navigator.of(ctx).pop();
   await pumpMs(2000);
 
-  await t.tap(find.byKey(const Key('calendar-share')));
+  await t.tap(find.byKey(const Key('calendar-more')));
+  await pumpMs(800);
+  await t.tap(find.text(CalendarHe.share).last);
   await pumpMs(1800);
   await shot('share-sheet');
   Navigator.of(ctx).pop();
@@ -216,9 +222,9 @@ Future<void> _after() async {
   await shot('notch-new-booking', settleMs: 900);
   await pumpMs(5000);
   await _openCalendar();
-  await t.tap(find.text('שבוע').first);
+  await t.tap(find.byKey(const Key('calendar-list-toggle')));
   await pumpMs(1500);
-  await shot('agenda-week-with-bookings');
+  await shot('agenda-list-with-bookings');
   print('WRITTEN-EVENTS:${calendarSync.prefs?.events.length ?? 0}');
 
   // Reminder before a meeting: the booking that starts soonest (the one just

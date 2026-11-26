@@ -411,3 +411,18 @@ Future<Booking> bookForCustomer(
       }))['booking']
       as Map<String, dynamic>,
 );
+
+/// The owner moves a confirmed meeting to [start] (same length). [notify]
+/// sends the client the "המועד עודכן" e-mail. 409 SLOT_TAKEN /
+/// BOOKING_NOT_CHANGEABLE.
+Future<Booking> moveBooking(
+  String id,
+  DateTime start, {
+  required bool notify,
+}) async => Booking.fromJson(
+  (await _api.post('/calendar/bookings/$id/move', {
+        'start': start.toUtc().toIso8601String(),
+        'notify': notify,
+      }))['booking']
+      as Map<String, dynamic>,
+);
