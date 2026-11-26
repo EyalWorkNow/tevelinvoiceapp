@@ -296,7 +296,16 @@ class _GroupScreenState extends State<GroupScreen> {
               children: [
                 Semantics(
                   header: true,
-                  child: Text(_name, style: AppText.displayTitle),
+                  // A long name shrinks to one line, never wraps under the badge.
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      _name,
+                      style: AppText.displayTitle,
+                      maxLines: 1,
+                    ),
+                  ),
                 ),
                 if (d != null && d.group.isSmart)
                   Text(

@@ -81,11 +81,11 @@ abstract final class GroupsHe {
       'שליחת תפוצה ובקשות תשלום לקבוצה — לבעלי העסק בלבד.';
 
   // Actions
-  static const actPayment = 'בקשת תשלום לכולם';
+  static const actPayment = 'בקשת תשלום';
   static const actBroadcast = 'הודעת תפוצה';
   static const actDocument = 'מסמך לכולם';
-  static const actInvite = 'קישור לקביעת פגישה';
-  static const actStatement = 'שליחת כרטסת';
+  static const actInvite = 'קביעת פגישה';
+  static const actStatement = 'כרטסת';
 
   // Confirm (preview)
   static const confirmSend = 'שליחה';
