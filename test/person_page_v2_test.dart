@@ -170,6 +170,7 @@ void main() {
         'note',
         'navigate',
         'statement',
+        'portal',
         'edit',
         'terms',
         'archive',

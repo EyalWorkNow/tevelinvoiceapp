@@ -32,6 +32,7 @@ abstract final class TimelineHe {
     'corrections': 'בקשות תיקון',
     'notes': 'הערות',
     'calendar': 'פגישות',
+    'portal': 'הודעות מהלקוח',
   };
 
   // Notes.
@@ -161,6 +162,7 @@ String timelineSentence(String kind, Map<String, dynamic> d) {
           ? _meeting('הלקוח ביטל פגישה', d)
           : _meeting('בוטלה פגישה', d),
     'note' => (d['body'] as String?) ?? '',
+    'portal.message' => 'הודעה מהלקוח: ${(d['text'] as String?) ?? ''}',
     _ => 'עדכון',
   };
 }

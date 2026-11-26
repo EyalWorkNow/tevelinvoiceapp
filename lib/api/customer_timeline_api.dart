@@ -26,6 +26,9 @@ enum TimelineSource {
 
   /// Integration 2026-11-17: client self-bookings (0106), owner / partner only.
   calendar,
+
+  /// 0135: the customer's messages from the personal area (customer.manage).
+  portal,
 }
 
 class TimelineItem {

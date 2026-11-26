@@ -9,15 +9,20 @@ import 'package:flutter/material.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import '../../api/collection_reminders_api.dart' show saveReminderHold;
+import '../../api/customer_portal_api.dart';
 import '../../state/business_context.dart';
 import '../../state/caps.dart';
 import '../../state/customer_crm_store.dart';
 import '../../state/session.dart';
 import '../../ui/ds.dart';
+import '../../ui/widgets/notch_notice.dart';
+import '../../util/labels/common_he.dart';
 import '../../util/labels/customer_crm_he.dart';
 import '../../util/labels/person_page_he.dart';
+import '../../util/labels/portal_he.dart';
 import '../debts/reminder_hold_tile.dart' show loadReminderHold;
 import 'person_logic.dart';
+import 'sheets/portal_link_sheet.dart';
 
 /// "מסמכים ············ הכל".
 class PersonSectionTitle extends StatelessWidget {
@@ -521,6 +526,176 @@ class _PersonAutoRemindersRowState extends State<PersonAutoRemindersRow> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 0135 "אזור אישי": shown once the customer has a live link — status, last
+/// sign-in, and (tap) send again · new link · revoke. Loads when the folded
+/// "פרטי הלקוח" opens; hidden while loading, without a link, or on error.
+class PersonPortalRow extends StatefulWidget {
+  const PersonPortalRow({
+    super.key,
+    required this.customerId,
+    required this.name,
+    this.phone,
+    this.email,
+  });
+
+  final String customerId;
+  final String name;
+  final String? phone;
+  final String? email;
+
+  @override
+  State<PersonPortalRow> createState() => _PersonPortalRowState();
+}
+
+class _PersonPortalRowState extends State<PersonPortalRow> {
+  PortalLink? _link;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final link = await fetchPortalLink(widget.customerId);
+      if (mounted) setState(() => _link = link);
+    } on Object {
+      // Offline / older server: the row stays hidden.
+    }
+  }
+
+  Future<bool> _confirm(String title, String body, String action) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: Text(title),
+          content: Text(body),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text(CommonHe.cancel),
+            ),
+            TextButton(
+              key: const Key('portal-confirm'),
+              onPressed: () => Navigator.pop(c, true),
+              style: TextButton.styleFrom(
+                foregroundColor: context.palette.danger,
+              ),
+              child: Text(action),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+
+  Future<void> _manage() async {
+    if (_busy) return;
+    final p = context.palette;
+    final chosen = await showAppSheet<String>(
+      context,
+      builder: (sheet) => Column(
+        key: const Key('portal-manage-sheet'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SheetTitle(PortalHe.manageTitle, subtitle: widget.name),
+          for (final (id, icon, label, hint) in [
+            ('resend', Iconsax.send_2, PortalHe.resend, null),
+            (
+              'regenerate',
+              Iconsax.refresh,
+              PortalHe.regenerate,
+              PortalHe.regenerateHint,
+            ),
+            ('revoke', Iconsax.link_1, PortalHe.revoke, null),
+          ])
+            ListTile(
+              key: Key('portal-$id'),
+              minTileHeight: Hit.row - 8,
+              contentPadding: EdgeInsets.zero,
+              enabled: !session.offline,
+              leading: Icon(icon, color: id == 'revoke' ? p.danger : p.ink),
+              title: Text(
+                label,
+                style: AppText.body.copyWith(
+                  color: id == 'revoke' ? p.danger : null,
+                ),
+              ),
+              subtitle: hint == null
+                  ? null
+                  : Text(
+                      hint,
+                      style: AppText.secondary.copyWith(color: p.muted),
+                    ),
+              onTap: () => Navigator.of(sheet).pop(id),
+            ),
+        ],
+      ),
+    );
+    if (chosen == null || !mounted) return;
+    if (chosen == 'revoke') {
+      if (!await _confirm(
+        PortalHe.revokeConfirmTitle,
+        PortalHe.revokeConfirmBody,
+        PortalHe.revoke,
+      )) {
+        return;
+      }
+      setState(() => _busy = true);
+      try {
+        await revokePortalLink(widget.customerId);
+        if (!mounted) return;
+        setState(() => _link = null);
+        ScaffoldMessenger.of(
+          context,
+        ).showNotchNotice(const SnackBar(content: Text(PortalHe.revoked)));
+      } on Object catch (e) {
+        if (mounted) showErrorSnack(context, e);
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+      return;
+    }
+    final regenerate = chosen == 'regenerate';
+    if (regenerate &&
+        !await _confirm(
+          PortalHe.regenerateConfirmTitle,
+          PortalHe.regenerateConfirmBody,
+          PortalHe.regenerate,
+        )) {
+      return;
+    }
+    if (!mounted) return;
+    await showPortalLinkSheet(
+      context,
+      customerId: widget.customerId,
+      name: widget.name,
+      phone: widget.phone,
+      email: widget.email,
+      regenerate: regenerate,
+    );
+    if (mounted) unawaited(_load());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final link = _link;
+    if (link == null) return const SizedBox.shrink();
+    final last = link.lastLoginAt;
+    return PersonDetailRow(
+      key: const Key('person-portal'),
+      valueKey: const Key('person-portal-value'),
+      label: PortalHe.rowLabel,
+      value: last == null
+          ? '${PortalHe.rowActive} · ${PortalHe.neverLoggedIn}'
+          : '${PortalHe.rowActive} · ${PortalHe.lastLogin(PortalHe.when(last))}',
+      onTap: _busy ? null : () => unawaited(_manage()),
     );
   }
 }

@@ -56,6 +56,8 @@ String validationMessageHe(String? raw) {
 }
 
 const Map<String, String> _mobileMessages = {
+  // 0135 "האזור האישי של הלקוח".
+  'PORTAL_UNAVAILABLE': 'האזור האישי אינו זמין כרגע. נסו שוב מאוחר יותר.',
   // Accountant access requests (2026-11-22).
   'TOO_MANY_PENDING':
       'יש לך כבר 10 בקשות שממתינות לאישור. אפשר לבטל אחת או לחכות לתשובה.',
