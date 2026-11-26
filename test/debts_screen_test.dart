@@ -177,6 +177,35 @@ void main() {
       },
     );
 
+    testWidgets(
+      '2611 §2: "תזכורת הבאה: יום ב׳ 1.12" per customer and document; '
+      '"לטיפול ידני" at the ceiling',
+      (tester) async {
+        final j = debtsJson();
+        final yossi = (j['customers'] as List).first as Map<String, dynamic>;
+        yossi['nextReminderDate'] = '2026-11-30';
+        yossi['manualCount'] = 0;
+        ((yossi['documents'] as List).first as Map)['nextReminder'] = {
+          'state': 'SCHEDULED',
+          'date': '2026-11-30',
+          'count': 2,
+        };
+        final dana = (j['customers'] as List)[1] as Map<String, dynamic>;
+        dana['manualCount'] = 1;
+        backend.json('GET', '/debts', j);
+        await pumpDebts(tester);
+        expect(find.byKey(const Key('debtor-next-c-yossi')), findsOneWidget);
+        expect(find.text('תזכורת הבאה: יום ב׳ 30.11'), findsOneWidget);
+        expect(find.text('לטיפול ידני'), findsOneWidget);
+        await tester.tap(find.text('יוסי'));
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('תזכורת הבאה: יום ב׳ 30.11', findRichText: true),
+          findsNWidgets(2),
+        );
+      },
+    );
+
     testWidgets('empty state', (tester) async {
       backend.json('GET', '/debts', {
         'documentsOpenMinor': '0',

@@ -166,7 +166,10 @@ String auditSentence(AuditEvent e, {required MoneyFormat money}) {
     'signing.identity_created' => '$n יצר/ה זהות לחתימה דיגיטלית',
     'signing.identity_revoked' => '$n ביטל/ה זהות לחתימה דיגיטלית',
     'customer.updated' => '$n עדכן/ה את הפרטים של ${e.customerName ?? 'לקוח'}',
-    'customer.archived' => '$n העביר/ה לארכיון את ${e.customerName ?? 'הלקוח'}',
+    'customer.archived' => '$n סימן/ה את ${e.customerName ?? 'הלקוח'} כלא פעיל',
+    'customer.restored' => '$n החזיר/ה את ${e.customerName ?? 'הלקוח'} לפעיל',
+    'customer.reminder_cadence_set' =>
+      '$n שינה/תה את תדירות התזכורות של ${e.customerName ?? 'לקוח'}',
     'customer.erased' => '$n מחק/ה את הפרטים האישיים של לקוח',
     'expense.approved' => '$n אישר/ה הוצאה',
     'expense.rejected' => '$n דחה/תה הוצאה',

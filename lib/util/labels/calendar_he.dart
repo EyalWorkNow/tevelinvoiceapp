@@ -45,6 +45,36 @@ abstract final class CalendarHe {
   static String shareText(String business, String url) =>
       'לקביעת פגישה עם $business — בחרו מועד פנוי ביומן:\n$url';
 
+  // ---- 2611 §3א: "חבר יומן גוגל" (through the iPhone's accounts) ----
+  static const googleConnect = 'חבר יומן גוגל';
+  static const googleConnectHint =
+      'השעות התפוסות ביומן גוגל ייחסמו בקישור, והפגישות ייכנסו אליו';
+  static const googleTitle = 'חיבור יומן גוגל';
+  static const googleIntro =
+      'יומן גוגל מתחבר דרך האייפון: מוסיפים את חשבון הגוגל להגדרות של האייפון, ותבל רואה אותו כמו כל יומן אחר בטלפון.';
+  static const googleStep1Title = 'פותחים את ההגדרות של האייפון';
+  static const googleStep1Body =
+      'הגדרות ← יומן ← חשבונות ← הוספת חשבון ← Google.';
+  static const googleStep2Title = 'מתחברים לחשבון הגוגל';
+  static const googleStep2Body =
+      'מזינים את כתובת הג׳ימייל והסיסמה, ומדליקים את "יומנים".';
+  static const googleStep3Title = 'חוזרים לתבל ומסמנים את היומן';
+  static const googleStep3Body =
+      'היומן מופיע כאן מיד. מסמנים אותו, ותבל תחסום את השעות התפוסות בו.';
+  static const googleOpenSettings = 'פתח את ההגדרות';
+  static const googleAllowAccess = 'אישור גישה ליומנים';
+  static const googleDenied =
+      'אין לתבל גישה ליומנים. בהגדרות ← תבל ← יומנים בוחרים "גישה מלאה".';
+  static const googleFound = 'יומן גוגל נמצא באייפון';
+  static const googleFoundHint =
+      'מסמנים את היומנים שתבל תבדוק בהם שעות תפוסות:';
+  static const googleNotFound =
+      'עוד לא מצאנו יומן גוגל באייפון. אחרי שמוסיפים את החשבון, חוזרים לכאן.';
+  static const googleUnsupported = 'חיבור יומן גוגל זמין באפליקציה לאייפון.';
+  static const googleDone = 'סיום';
+  static const googleTeam =
+      'בעסק עם כמה אנשים: כל אחד מוסיף את חשבון הגוגל שלו מהטלפון שלו.';
+
   // ---- sync ----
   static const connect = 'חיבור היומן של האייפון';
   static const connectBody =

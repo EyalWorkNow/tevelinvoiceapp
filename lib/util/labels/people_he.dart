@@ -15,6 +15,22 @@ abstract final class PeopleHe {
   static const addSupplier = '+ ספק חדש';
   static const search = 'חיפוש';
   static const chipAll = 'הכל';
+  // 2611 §4: "לא פעיל" replaces "ארכוב" for customers.
+  static String chipActive(int n) => 'פעילים $n';
+  static String chipInactive(int n) => 'לא פעילים $n';
+  static String chipAllCustomers(int n) => 'הכול $n';
+  static const inactiveBadge = 'לא פעיל';
+  static const emptyInactive = 'אין לקוחות לא פעילים';
+  static const markInactive = 'סמן כלא פעיל';
+  static const markInactiveConfirm = 'לסמן את הלקוח כלא פעיל?';
+  static const markInactiveBody =
+      'הלקוח לא יופיע ברשימה ובבחירת לקוח (רק בחיפוש). שום דבר לא נמחק, ואפשר להחזיר אותו לפעיל בכל רגע.';
+  static String markInactiveWithBalance(String amount) =>
+      'ללקוח יתרה של $amount, התזכורות ימשיכו.';
+  static const markedInactive = 'הלקוח סומן כלא פעיל';
+  static const restore = 'החזר לפעיל';
+  static const restored = 'הלקוח חזר להיות פעיל';
+  static const inactiveBanner = 'לקוח לא פעיל';
   static const chipDebtors = 'חייבים';
   static const chipSuppliers = 'ספקים';
   static const owesYou = 'חייב לך';

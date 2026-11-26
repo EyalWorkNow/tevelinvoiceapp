@@ -30,6 +30,26 @@ const List<String> reminderPlaceholders = [
   '{קישור}',
 ];
 
+/// 2611 §2: the business cadences (server BUSINESS_CADENCES).
+const List<String> businessCadences = [
+  'WEEKLY',
+  'BIWEEKLY',
+  'MONTHLY',
+  'LADDER',
+];
+
+/// A customer's choice: as the business, a cadence of its own, or none.
+const List<String> customerCadences = [
+  'BUSINESS',
+  'WEEKLY',
+  'BIWEEKLY',
+  'MONTHLY',
+  'NONE',
+];
+
+/// The ceiling of a periodic cadence (server CADENCE_MAX_REMINDERS).
+const int cadenceMaxReminders = 6;
+
 class LadderStep {
   const LadderStep({
     required this.offsetDays,
@@ -76,6 +96,7 @@ class CollectionSettings {
     required this.email,
     required this.whatsapp,
     required this.dailySummary,
+    this.cadence = 'LADDER',
     this.backlogDocuments = 0,
     this.backlogDebts = 0,
     this.backlogCustomers = 0,
@@ -108,6 +129,9 @@ class CollectionSettings {
       email: channels['email'] != false,
       whatsapp: channels['whatsapp'] != false,
       dailySummary: j['dailySummary'] != false,
+      cadence: businessCadences.contains(j['cadence'])
+          ? j['cadence'] as String
+          : 'LADDER',
       backlogDocuments: jIntOrNull(backlog['documents']) ?? 0,
       backlogDebts: jIntOrNull(backlog['debts']) ?? 0,
       backlogCustomers: jIntOrNull(backlog['customers']) ?? 0,
@@ -130,6 +154,11 @@ class CollectionSettings {
   final bool email;
   final bool whatsapp;
   final bool dailySummary;
+
+  /// 2611 §2 "תדירות": LADDER (the steps below, "מתקדם") | WEEKLY | BIWEEKLY |
+  /// MONTHLY (on the due date, then every 7 / 14 / 30 days; at most
+  /// [cadenceMaxReminders] per document, then "לטיפול ידני").
+  final String cadence;
 
   /// Walkthrough 2026-11-17 #9b: open debts due BEFORE the switch was turned
   /// on. The ladder leaves them alone; the owner may remind them once
@@ -171,6 +200,7 @@ Future<CollectionSettings> saveCollectionSettings({
   bool? whatsapp,
   bool? dailySummary,
   bool? sendBacklog,
+  String? cadence,
 }) async => CollectionSettings.fromJson(
   await _api.put('/settings/reminders', {
     'enabled': ?enabled,
@@ -180,6 +210,7 @@ Future<CollectionSettings> saveCollectionSettings({
       'channels': {'email': ?email, 'whatsapp': ?whatsapp},
     'dailySummary': ?dailySummary,
     'sendBacklog': ?sendBacklog,
+    'cadence': ?cadence,
   }),
 );
 

@@ -31,6 +31,7 @@ import '../../router.dart';
 import '../../ui/ds.dart';
 import '../../util/labels/labels.dart';
 import 'auth_flow.dart';
+import '../tutorial/tutorial_state.dart';
 import 'login_screen.dart' show TevelLogo, showForgotPasswordSheet;
 import 'password_recovery.dart' show passwordPolicyErrorHe;
 
@@ -107,6 +108,9 @@ class _InviteScreenState extends State<InviteScreen> {
     try {
       if (!await step() || !mounted) return;
       _pendingPassword = null;
+      // 2611 §1: a member who just joined gets the tutorial (their version).
+      await tutorialState.arm();
+      if (!mounted) return;
       await finishSignIn(
         context,
         const SignInResult(mfaRequired: false, businesses: []),

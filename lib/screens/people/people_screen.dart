@@ -4,8 +4,9 @@
 // Header "לקוחות" + text button "+ לקוח" → search → chips הכל · חייבים
 // (money.view) · ספקים (§4.4: supplier.manage, expense capture or approve —
 // employee and accountant view; "+ ספק" stays supplier.manage) → rows: recent first, then א–ת.
-// Row: name · phone · "חייב לך ₪X" (money.view). Archived customers appear
-// only in search, tagged "בארכיון". Balances come from BE-09 rows, else one
+// Row: name · phone · "חייב לך ₪X" (money.view). 2611 §4: chips פעילים ·
+// לא פעילים · הכול with counts; an inactive customer is grey, tagged "לא פעיל"
+// (under פעילים it appears only in search). Balances come from BE-09 rows, else one
 // GET /documents?unpaid=1&limit=500; a capped answer hides them (no partial
 // number). No primary button (list screen).
 
@@ -30,11 +31,17 @@ import '../../util/labels/people_he.dart';
 import '../../util/phone.dart';
 import 'import/customer_import_screen.dart';
 import 'sheets/s2_customer.dart';
+import '../tutorial/coach_mark.dart';
+import '../tutorial/tutorial_state.dart';
+import '../../util/labels/tutorial_he.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
-enum PeopleChip { all, debtors, suppliers }
+/// 2611 §4: פעילים (default) · לא פעילים · הכול, then חייבים · ספקים.
+enum PeopleChip { active, inactive, all, debtors, suppliers }
 
 PeopleChip? peopleChipFrom(String? s) => switch (s) {
+  'active' => PeopleChip.active,
+  'inactive' => PeopleChip.inactive,
   'all' => PeopleChip.all,
   'debtors' => PeopleChip.debtors,
   'suppliers' => PeopleChip.suppliers,
@@ -53,7 +60,7 @@ class PeopleScreen extends StatefulWidget {
 
 class _PeopleScreenState extends State<PeopleScreen> {
   final _search = TextEditingController();
-  PeopleChip _chip = PeopleChip.all;
+  PeopleChip _chip = PeopleChip.active;
   CustomerList? _list;
   Map<String, BigInt>? _balances;
   List<Supplier>? _suppliers;
@@ -67,7 +74,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
   @override
   void initState() {
     super.initState();
-    _chip = peopleChipFrom(widget.chip) ?? PeopleChip.all;
+    _chip = peopleChipFrom(widget.chip) ?? PeopleChip.active;
     _search.addListener(_onSearch);
     businessContext.addListener(_onContext);
     _business = businessContext.business?.businessId;
@@ -113,6 +120,8 @@ class _PeopleScreenState extends State<PeopleScreen> {
       _caps.can(Cap.expenseApprove);
 
   List<PeopleChip> get _chips => [
+    PeopleChip.active,
+    PeopleChip.inactive,
     PeopleChip.all,
     if (_caps.can(Cap.moneyView) && _balances != null) PeopleChip.debtors,
     if (_seesSuppliers) PeopleChip.suppliers,
@@ -141,6 +150,17 @@ class _PeopleScreenState extends State<PeopleScreen> {
         _error = null;
         _offline = false;
       });
+      // 2611 §1: the first time here (after the tutorial), "+ לקוח חדש".
+      if (_canAdd) {
+        unawaited(
+          maybeShowCoachMark(
+            context,
+            id: CoachIds.people,
+            target: const Key('people-add'),
+            text: TutorialHe.coachPeople,
+          ),
+        );
+      }
     } on Object catch (e) {
       if (!mounted || business != _business) return;
       final network = e is ApiException && e.isNetwork;
@@ -228,7 +248,8 @@ class _PeopleScreenState extends State<PeopleScreen> {
   Widget build(BuildContext context) {
     final p = context.palette;
     final chips = _chips;
-    if (!chips.contains(_chip)) _chip = PeopleChip.all;
+    if (!chips.contains(_chip)) _chip = PeopleChip.active;
+    final counts = _list?.statusCounts;
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -349,15 +370,23 @@ class _PeopleScreenState extends State<PeopleScreen> {
                     ChipOption(
                       c,
                       switch (c) {
-                        PeopleChip.all => PeopleHe.chipAll,
+                        PeopleChip.active => PeopleHe.chipActive(
+                          counts?.active ?? 0,
+                        ),
+                        PeopleChip.inactive => PeopleHe.chipInactive(
+                          counts?.inactive ?? 0,
+                        ),
+                        PeopleChip.all => PeopleHe.chipAllCustomers(
+                          counts?.all ?? 0,
+                        ),
                         PeopleChip.debtors => PeopleHe.chipDebtors,
                         PeopleChip.suppliers => PeopleHe.chipSuppliers,
                       },
                       icon: switch (c) {
-                        PeopleChip.all => Icons.people_alt_outlined,
                         PeopleChip.debtors =>
                           Icons.account_balance_wallet_outlined,
                         PeopleChip.suppliers => Icons.local_shipping_outlined,
+                        _ => null,
                       },
                     ),
                 ],
@@ -420,16 +449,19 @@ class _PeopleScreenState extends State<PeopleScreen> {
               : Iconsax.search_status,
           title: _chip == PeopleChip.debtors
               ? PeopleHe.emptyDebtors
+              : _chip == PeopleChip.inactive && q.isEmpty
+              ? PeopleHe.emptyInactive
               : PeopleHe.noMatches,
           // Not found → add them right here (tester 2026-11-18).
-          actionLabel: _chip != PeopleChip.debtors && _canAdd
+          actionLabel: _chip == PeopleChip.active && _canAdd
               ? PeopleHe.addCustomer
               : null,
-          onAction: _chip != PeopleChip.debtors && _canAdd ? _add : null,
+          onAction: _chip == PeopleChip.active && _canAdd ? _add : null,
         ),
       );
     }
-    final showCap = list.capped && _chip == PeopleChip.all;
+    final showCap =
+        list.capped && (_chip == PeopleChip.active || _chip == PeopleChip.all);
     return ListView.builder(
       key: const Key('people-list'),
       physics: const AlwaysScrollableScrollPhysics(),
@@ -456,7 +488,8 @@ class _PeopleScreenState extends State<PeopleScreen> {
           subtitle: (c.phone != null && c.phone!.isNotEmpty)
               ? formatPhoneHe(c.phone)
               : null,
-          badge: c.isArchived ? PeopleHe.archivedBadge : null,
+          badge: c.isArchived ? PeopleHe.inactiveBadge : null,
+          dimmed: c.isArchived,
           amountLabel: owed != null ? PeopleHe.owesYou : null,
           amountMinor: owed,
           onTap: () => _open(c.id),
@@ -474,15 +507,26 @@ class _PeopleScreenState extends State<PeopleScreen> {
       ]..sort((a, z) => b[z.id]!.compareTo(b[a.id]!));
       return debtors;
     }
-    if (q.isEmpty) return sortForPeople(list.active, recentIds: _recent);
+    // 2611 §4: each chip is its own list; a search under "פעילים" still finds
+    // an inactive customer (grey, tagged), as the archive did.
+    final base = switch (_chip) {
+      PeopleChip.inactive => list.inactive,
+      PeopleChip.active when q.isEmpty => list.active,
+      _ => list.customers,
+    };
+    if (q.isEmpty) return sortForPeople(base, recentIds: _recent);
     final local = [
-      for (final c in list.customers)
+      for (final c in base)
         if (customerMatches(c, q)) c,
     ];
     final ids = {for (final c in local) c.id};
     return sortForPeople([
       ...local,
-      ...?_serverHits?.where((c) => !ids.contains(c.id)),
+      ...?_serverHits?.where(
+        (c) =>
+            !ids.contains(c.id) &&
+            (_chip != PeopleChip.inactive || c.isArchived),
+      ),
     ], recentIds: _recent);
   }
 

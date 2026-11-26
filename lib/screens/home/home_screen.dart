@@ -38,6 +38,10 @@ import '../business/sheets/s14_switch.dart';
 import 'doc_rows.dart';
 import 'home_controller.dart';
 import 'inbox_cards.dart';
+import '../tutorial/coach_mark.dart';
+import '../tutorial/tutorial_screen.dart';
+import '../tutorial/tutorial_state.dart';
+import '../../util/labels/tutorial_he.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 /// Tab "בית" for everyone except the accountant presets (they get R).
@@ -71,6 +75,23 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_owned) unawaited(_c.load());
     _refreshBell();
     unawaited(_loadProfileAvatar());
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_tutorial()));
+  }
+
+  /// 2611 §1: a new owner / member — the cards, then the coach mark on
+  /// "חשבונית" (the navbar's create button, found by its key).
+  Future<void> _tutorial() async {
+    if (!mounted) return;
+    if (await tutorialState.takeCards() && mounted) {
+      await openTutorial(context);
+    }
+    if (!mounted) return;
+    await maybeShowCoachMark(
+      context,
+      id: CoachIds.home,
+      target: const Key('tab-create'),
+      text: TutorialHe.coachHome,
+    );
   }
 
   @override
@@ -537,9 +558,7 @@ class _Bell extends StatelessWidget {
       child: IconButton(
         key: const Key('home-bell'),
         tooltip: NotificationsHe.bellTooltip,
-        style: IconButton.styleFrom(
-          minimumSize: const Size(Hit.min, Hit.min),
-        ),
+        style: IconButton.styleFrom(minimumSize: const Size(Hit.min, Hit.min)),
         onPressed: () => unawaited(openNotifications(context)),
         icon: Badge(
           key: const Key('home-bell-badge'),

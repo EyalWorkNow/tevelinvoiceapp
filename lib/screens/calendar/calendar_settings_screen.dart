@@ -19,6 +19,7 @@ import '../document/dialogs.dart' show toast;
 import 'blocked_contacts_screen.dart';
 import 'calendar_api.dart';
 import 'calendar_sync.dart';
+import 'google_calendar_guide.dart';
 import 'device_calendar.dart';
 
 Future<void> openCalendarSettings(BuildContext context, {CalendarSync? sync}) =>
@@ -523,6 +524,22 @@ class _CalendarSettingsScreenState extends State<CalendarSettingsScreen> {
         if (_sync.device.supported) ...[
           const RowGroupGap(),
           _Label(CalendarHe.calendars),
+          // 2611 §3א: a clear way to Google Calendar (via the iPhone).
+          ListTile(
+            key: const Key('calendar-google-connect'),
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Iconsax.calendar_add),
+            title: const Text(CalendarHe.googleConnect),
+            subtitle: Text(
+              CalendarHe.googleConnectHint,
+              style: AppText.secondary.copyWith(color: p.muted),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              await openGoogleCalendarGuide(context, sync: widget.sync);
+              await _load();
+            },
+          ),
           if (prefs == null || !prefs.connected)
             Align(
               alignment: AlignmentDirectional.centerStart,

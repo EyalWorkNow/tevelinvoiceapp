@@ -7,7 +7,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../api/collection_reminders_api.dart' show customerCadences;
 import '../../../api/customer_timeline_api.dart';
+import '../../../api/customers_api.dart' show saveCustomerReminderCadence;
+import '../../../util/labels/collection_he.dart';
 import '../../../ui/ds.dart';
 import '../../../util/labels/common_he.dart' show formatDateHe;
 import '../../../util/labels/payment_he.dart';
@@ -16,13 +19,21 @@ import '../../../util/payment_terms.dart';
 import '../../../util/still_here.dart';
 
 /// Returns the saved value, or null when dismissed.
+/// 2611 §2: with [cadence] (a customer, owner/partner) the sheet is "תנאי
+/// תשלום ותזכורות" and also sets the customer's reminder cadence
+/// (BUSINESS | WEEKLY | BIWEEKLY | MONTHLY | NONE).
 Future<PaymentTermsValue?> showPaymentTermsSheet(
   BuildContext context, {
   String? customerId,
   required PaymentTermsValue initial,
+  String? cadence,
 }) => showAppSheet<PaymentTermsValue>(
   context,
-  builder: (_) => PaymentTermsSheet(customerId: customerId, initial: initial),
+  builder: (_) => PaymentTermsSheet(
+    customerId: customerId,
+    initial: initial,
+    cadence: cadence,
+  ),
 );
 
 /// The methods a customer may prefer (server PREFERRED_PAYMENT_METHODS).
@@ -38,11 +49,19 @@ const List<String> preferredPaymentChoices = [
 ];
 
 class PaymentTermsSheet extends StatefulWidget {
-  const PaymentTermsSheet({super.key, this.customerId, required this.initial});
+  const PaymentTermsSheet({
+    super.key,
+    this.customerId,
+    required this.initial,
+    this.cadence,
+  });
 
   /// null = the business default.
   final String? customerId;
   final PaymentTermsValue initial;
+
+  /// The customer's reminder cadence; null = the section is not shown.
+  final String? cadence;
 
   @override
   State<PaymentTermsSheet> createState() => _PaymentTermsSheetState();
@@ -64,6 +83,7 @@ class _PaymentTermsSheetState extends State<PaymentTermsSheet> {
         : '',
   );
   late String _method = widget.initial.method ?? _none;
+  late String? _cadence = widget.cadence;
   String? _error;
   bool _saving = false;
 
@@ -119,6 +139,10 @@ class _PaymentTermsSheetState extends State<PaymentTermsSheet> {
       final saved = id == null
           ? await saveBusinessPaymentTerms(value)
           : await saveCustomerPaymentTerms(id, value).then((_) => value);
+      final cadence = _cadence;
+      if (id != null && cadence != null && cadence != widget.cadence) {
+        await saveCustomerReminderCadence(id, cadence);
+      }
       if (mounted && stillHere(context)) Navigator.of(context).pop(saved);
     } on Object catch (e) {
       if (mounted) {
@@ -139,7 +163,11 @@ class _PaymentTermsSheetState extends State<PaymentTermsSheet> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SheetTitle(
-          business ? TimelineHe.businessTermsTitle : TimelineHe.terms,
+          business
+              ? TimelineHe.businessTermsTitle
+              : widget.cadence != null
+              ? CollectionHe.termsAndReminders
+              : TimelineHe.terms,
           subtitle: business
               ? TimelineHe.businessTermsSubtitle
               : TimelineHe.termsSheetSubtitle,
@@ -216,6 +244,32 @@ class _PaymentTermsSheetState extends State<PaymentTermsSheet> {
           selected: _method,
           onSelected: (v) => setState(() => _method = v),
         ),
+        if (_cadence != null) ...[
+          const SizedBox(height: Space.l),
+          Text(
+            CollectionHe.customerCadenceTitle,
+            style: AppText.secondary.copyWith(color: p.muted),
+          ),
+          const SizedBox(height: Space.s),
+          ChipRow<String>(
+            key: const Key('terms-cadence'),
+            padding: EdgeInsets.zero,
+            options: [
+              for (final c in customerCadences)
+                ChipOption(c, CollectionHe.cadenceLabel(c)),
+            ],
+            selected: _cadence,
+            onSelected: (v) => setState(() => _cadence = v),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: Space.s),
+            child: Text(
+              CollectionHe.cadenceHint(_cadence!),
+              key: const Key('terms-cadence-hint'),
+              style: AppText.secondary.copyWith(color: p.muted),
+            ),
+          ),
+        ],
         const SizedBox(height: Space.l),
         PrimaryButton(
           key: const Key('terms-save'),

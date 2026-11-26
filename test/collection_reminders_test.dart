@@ -316,6 +316,46 @@ void main() {
       });
     });
 
+    testWidgets(
+      '2611 §2: "תדירות" on top; a periodic cadence folds the ladder under '
+      '"מתקדם"',
+      (tester) async {
+        var cadence = 'LADDER';
+        backend
+          ..on(
+            'GET',
+            '/settings/reminders',
+            (r) => FakeResponse(200, {...settingsJson(), 'cadence': cadence}),
+          )
+          ..on('PUT', '/settings/reminders', (r) {
+            cadence = (r.body['cadence'] as String?) ?? cadence;
+            return FakeResponse(200, {...settingsJson(), 'cadence': cadence});
+          });
+        await pump(tester, const CollectionSettingsScreen());
+        expect(find.byKey(const Key('collection-cadence')), findsOneWidget);
+        // LADDER: the steps are open under "מתקדם".
+        expect(find.text(CollectionHe.stepLabel(-3)), findsOneWidget);
+        await tester.tap(find.text(CollectionHe.cadenceLabel('BIWEEKLY')));
+        await tester.pumpAndSettle();
+        expect(backend.last('PUT', '/settings/reminders')!.body, {
+          'cadence': 'BIWEEKLY',
+        });
+        expect(
+          find.textContaining(CollectionHe.cadenceHint('BIWEEKLY')),
+          findsOneWidget,
+        );
+        expect(find.textContaining('עד 6 תזכורות'), findsOneWidget);
+        expect(
+          find.text(CollectionHe.stepLabel(-3)),
+          findsNothing,
+          reason: 'the ladder is folded under "מתקדם"',
+        );
+        await tester.tap(find.byKey(const Key('collection-advanced')));
+        await tester.pumpAndSettle();
+        expect(find.text(CollectionHe.stepLabel(-3)), findsOneWidget);
+      },
+    );
+
     testWidgets('edit a step: days + wording with a placeholder chip', (
       tester,
     ) async {

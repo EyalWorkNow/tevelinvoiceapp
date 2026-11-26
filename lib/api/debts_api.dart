@@ -57,6 +57,8 @@ class DebtDocument {
     required this.openMinor,
     required this.overdueDays,
     this.lastRemindedAt,
+    this.nextReminderState,
+    this.nextReminderDate,
   });
 
   factory DebtDocument.fromJson(Map<String, dynamic> j) => DebtDocument(
@@ -67,6 +69,8 @@ class DebtDocument {
     openMinor: jBig(j['openMinor']),
     overdueDays: jIntOrNull(j['overdueDays']) ?? 0,
     lastRemindedAt: _time(j['lastRemindedAt']),
+    nextReminderState: jStr(jMap(j['nextReminder'])['state']),
+    nextReminderDate: jStr(jMap(j['nextReminder'])['date']),
   );
 
   final String id;
@@ -78,6 +82,12 @@ class DebtDocument {
   /// > 0 = days past the due date.
   final int overdueDays;
   final DateTime? lastRemindedAt;
+
+  /// 2611 §2: SCHEDULED | MANUAL | PAUSED | OFF | NONE (null: older server).
+  final String? nextReminderState;
+
+  /// YYYY-MM-DD (Israel) of the next automatic reminder (SCHEDULED).
+  final String? nextReminderDate;
 }
 
 class Debtor {
@@ -92,6 +102,8 @@ class Debtor {
     this.oldestEntryDays,
     this.lastRemindedAt,
     this.reminderCount = 0,
+    this.nextReminderDate,
+    this.manualCount = 0,
     this.documents = const [],
     this.debtEntries = const [],
   });
@@ -107,6 +119,8 @@ class Debtor {
     oldestEntryDays: jIntOrNull(j['oldestEntryDays']),
     lastRemindedAt: _time(j['lastRemindedAt']),
     reminderCount: jIntOrNull(j['reminderCount']) ?? 0,
+    nextReminderDate: jStr(j['nextReminderDate']),
+    manualCount: jIntOrNull(j['manualCount']) ?? 0,
     documents: [
       for (final d in (j['documents'] as List? ?? const []))
         DebtDocument.fromJson(Map<String, dynamic>.from(d as Map)),
@@ -130,6 +144,12 @@ class Debtor {
 
   /// Reminders already sent for what is open now (drives the tone).
   final int reminderCount;
+
+  /// 2611 §2: the earliest automatic reminder of this customer's documents.
+  final String? nextReminderDate;
+
+  /// Documents that reached the ceiling — "לטיפול ידני".
+  final int manualCount;
   final List<DebtDocument> documents;
   final List<DebtEntry> debtEntries;
 }

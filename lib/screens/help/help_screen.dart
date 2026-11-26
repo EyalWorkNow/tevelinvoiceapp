@@ -18,6 +18,9 @@ import '../../ui/ds.dart';
 import '../../ui/widgets/notch_notice.dart';
 import '../../util/labels/help_he.dart';
 import 'help_links.dart';
+import '../tutorial/tutorial_screen.dart';
+import '../tutorial/tutorial_state.dart';
+import '../../util/labels/tutorial_he.dart';
 
 /// Replaceable in tests.
 Future<HelpStatus> Function() loadHelpStatus = fetchHelpStatus;
@@ -249,6 +252,11 @@ class _HelpScreenState extends State<HelpScreen> {
     }
   }
 
+  Future<void> _replayTutorial() async {
+    await tutorialState.replay();
+    if (mounted) await openTutorial(context);
+  }
+
   void _notice(String text) =>
       messengerKey.currentState?.showNotchNotice(SnackBar(content: Text(text)));
 
@@ -291,6 +299,16 @@ class _HelpScreenState extends State<HelpScreen> {
                 ),
                 children: [
                   const _Bubble(kind: _Kind.assistant, text: HelpHe.greeting),
+                  // 2611 §1 "הצג שוב את ההדרכה".
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: TextButton.icon(
+                      key: const Key('help-tutorial'),
+                      onPressed: () => unawaited(_replayTutorial()),
+                      icon: const Icon(Iconsax.play_circle, size: 20),
+                      label: const Text(TutorialHe.replay),
+                    ),
+                  ),
                   if (_messages.isEmpty) _Starters(onTap: _ask),
                   for (final m in _messages)
                     _Bubble(
