@@ -68,7 +68,7 @@ void main() {
         ]);
         // Nothing deleted: the rarely used rows are one tap further (§6.B).
         expect(await moreFor(Preset.owner), [
-          'employees', // 0134 טופס 101 (owner + accountants)
+          if (form101Released) 'employees', // 0134 טופס 101 (hidden until released)
           'paymentTerms', // 0110 default payment terms
           'integrations',
           'subscription',
@@ -129,7 +129,7 @@ void main() {
           'more',
         ]);
         expect(await moreFor(Preset.accountantRep), [
-          'employees', // 0134: the accountant reads the 101 forms
+          if (form101Released) 'employees', // 0134: the accountant reads the 101 forms
           'notifications',
           'desktop',
           // C5: no "יומן פעולות" — this P0 member is READ_ONLY (no audit:read).
