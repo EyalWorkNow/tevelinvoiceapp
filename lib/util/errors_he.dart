@@ -169,6 +169,15 @@ const Map<String, String> _mobileMessages = {
       'התחברות עם Apple עדיין לא זמינה. אפשר להתחבר עם מייל וסיסמה.',
   'APPLE_IDENTITY_MISMATCH': 'החשבון מקושר לזהות Apple אחרת — פנו למנהל העסק',
   'CUSTOMER_NOT_FOUND': 'הלקוח לא נמצא',
+  // V4 §8 customer groups.
+  'GROUP_NOT_FOUND': 'הקבוצה לא נמצאה',
+  'GROUP_RUN_NOT_FOUND': 'הפעולה לא נמצאה',
+  'GROUP_LIMIT': 'אפשר עד 50 קבוצות',
+  'GROUP_FULL': 'בקבוצה אפשר עד 500 לקוחות',
+  'GROUP_NAME_TAKEN': 'כבר יש קבוצה בשם הזה',
+  'GROUP_SMART_READONLY': 'קבוצה חכמה מתעדכנת לבד ואי אפשר לערוך אותה',
+  'GROUP_NO_RECIPIENTS': 'אין בקבוצה לקוח שיקבל את זה',
+  'IDEMPOTENCY_KEY_REQUIRED': 'משהו השתבש בשליחה — נסו שוב',
   'EXEMPT_BUSINESS_VAT_FORBIDDEN':
       'עוסק פטור אינו רשאי לגבות מע״מ — הסכום יופק ללא מע״מ',
   'DOCUMENT_TYPE_NOT_ALLOWED_FOR_BUSINESS':

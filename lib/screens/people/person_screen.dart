@@ -58,6 +58,7 @@ import '../compose/compose_repeat.dart' show lastRepeatable, openRepeat;
 import '../debts/debt_entry_sheet.dart';
 import '../document/sheets/s6_share.dart' show pdfSharer;
 import '../expense/expense_capture_screen.dart' show nextCaptureSupplier;
+import '../groups/person_group_rows.dart';
 import 'customer_crm_finance_card.dart';
 import 'customer_crm_panel.dart' show displayStage;
 import 'customer_crm_sync_status.dart';
@@ -1388,6 +1389,19 @@ class _PersonScreenState extends State<PersonScreen> {
               // Rebuilt after the cadence changes (NONE = the hold).
               key: ValueKey('hold-${_detail?.reminderCadence}'),
               customerId: widget.id,
+            ),
+          // V4 §8: the customer's groups + "מאשר דיוור".
+          if (!widget.isSupplier)
+            PersonGroupsRow(
+              customerId: widget.id,
+              customerName: _name,
+              canEdit: _manage && !_archived,
+            ),
+          if (d?.marketingConsent != null)
+            PersonMarketingRow(
+              customerId: widget.id,
+              initial: d!.marketingConsent!,
+              canEdit: _manage,
             ),
           if (_manage)
             PersonDetailRow(

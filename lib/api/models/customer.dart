@@ -140,6 +140,7 @@ class CustomerDetail {
     this.documentsCount,
     this.erased = false,
     this.reminderCadence,
+    this.marketingConsent,
     this.fromBe09 = false,
   });
 
@@ -174,6 +175,10 @@ class CustomerDetail {
       documentsCount: jIntOrNull(s['documentsCount']),
       erased: c['erased'] == true,
       reminderCadence: jStr(c['reminderCadence']),
+      // V4 §8 "מאשר דיוור"; null = the server has no such field (row hidden).
+      marketingConsent: c['marketingConsent'] is Map
+          ? jBool(jMap(c['marketingConsent'])['granted'])
+          : null,
       fromBe09: true,
     );
   }
@@ -211,6 +216,8 @@ class CustomerDetail {
   /// 2611 §2: WEEKLY | BIWEEKLY | MONTHLY | NONE (no reminders) | null = as
   /// the business.
   final String? reminderCadence;
+  /// "מאשר דיוור" (marketing messages); null before the server has it.
+  final bool? marketingConsent;
 
   /// True when the server has BE-09 (so P1 fields can be edited).
   final bool fromBe09;
