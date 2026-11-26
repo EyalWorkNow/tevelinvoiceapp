@@ -29,6 +29,8 @@ Future<PaymentTermsValue?> showPaymentTermsSheet(
   String? cadence,
 }) => showAppSheet<PaymentTermsValue>(
   context,
+  // The "שמור" button stays pinned; the choices scroll above it.
+  scroll: false,
   builder: (_) => PaymentTermsSheet(
     customerId: customerId,
     initial: initial,
@@ -157,127 +159,128 @@ class _PaymentTermsSheetState extends State<PaymentTermsSheet> {
     final p = context.palette;
     final business = widget.customerId == null;
     final example = _example;
-    return Column(
+    return PinnedSheetFooter(
       key: const Key('terms-sheet'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SheetTitle(
-          business
-              ? TimelineHe.businessTermsTitle
-              : widget.cadence != null
-              ? CollectionHe.termsAndReminders
-              : TimelineHe.terms,
-          subtitle: business
-              ? TimelineHe.businessTermsSubtitle
-              : TimelineHe.termsSheetSubtitle,
-        ),
-        Text(
-          TimelineHe.terms,
-          style: AppText.secondary.copyWith(color: p.muted),
-        ),
-        const SizedBox(height: Space.s),
-        ChipRow<String>(
-          key: const Key('terms-chips'),
-          padding: EdgeInsets.zero,
-          options: [
-            const ChipOption(_none, TimelineHe.termsNoTerms),
-            for (final c in presetPaymentTerms)
-              ChipOption(c, paymentTermsLabel(c)!),
-            const ChipOption(_custom, TimelineHe.termsCustom),
-          ],
-          selected: _choice,
-          onSelected: (v) => setState(() {
-            _choice = v;
-            _error = null;
-          }),
-        ),
-        if (_choice == _custom) ...[
-          const SizedBox(height: Space.m),
-          TextField(
-            key: const Key('terms-days'),
-            controller: _days,
-            keyboardType: TextInputType.number,
-            textDirection: TextDirection.ltr,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(
-              labelText: TimelineHe.termsCustomDays,
-              errorText: _error,
-            ),
-            onChanged: (_) => setState(() => _error = null),
+      action: PrimaryButton(
+        key: const Key('terms-save'),
+        label: TimelineHe.termsSave,
+        loadingText: _saving ? TimelineHe.termsSave : null,
+        onPressed: _save,
+      ),
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SheetTitle(
+            business
+                ? TimelineHe.businessTermsTitle
+                : widget.cadence != null
+                ? CollectionHe.termsAndReminders
+                : TimelineHe.terms,
+            subtitle: business
+                ? TimelineHe.businessTermsSubtitle
+                : TimelineHe.termsSheetSubtitle,
           ),
-          const SizedBox(height: Space.s),
-          ChipRow<bool>(
-            key: const Key('terms-base'),
-            padding: EdgeInsets.zero,
-            options: const [
-              ChipOption(true, TimelineHe.termsFromEom),
-              ChipOption(false, TimelineHe.termsFromIssue),
-            ],
-            selected: _fromEom,
-            onSelected: (v) => setState(() => _fromEom = v),
-          ),
-        ],
-        if (example != null)
-          Padding(
-            padding: const EdgeInsets.only(top: Space.s),
-            child: Text(
-              example,
-              key: const Key('terms-example'),
-              style: AppText.secondary.copyWith(color: p.muted),
-            ),
-          ),
-        const SizedBox(height: Space.l),
-        Text(
-          TimelineHe.preferredMethod,
-          style: AppText.secondary.copyWith(color: p.muted),
-        ),
-        const SizedBox(height: Space.s),
-        ChipRow<String>(
-          key: const Key('terms-method'),
-          padding: EdgeInsets.zero,
-          options: [
-            const ChipOption(_none, TimelineHe.preferredNone),
-            for (final m in preferredPaymentChoices)
-              ChipOption(m, paymentMethodLabel(m)),
-          ],
-          selected: _method,
-          onSelected: (v) => setState(() => _method = v),
-        ),
-        if (_cadence != null) ...[
-          const SizedBox(height: Space.l),
           Text(
-            CollectionHe.customerCadenceTitle,
+            TimelineHe.terms,
             style: AppText.secondary.copyWith(color: p.muted),
           ),
           const SizedBox(height: Space.s),
           ChipRow<String>(
-            key: const Key('terms-cadence'),
+            key: const Key('terms-chips'),
             padding: EdgeInsets.zero,
             options: [
-              for (final c in customerCadences)
-                ChipOption(c, CollectionHe.cadenceLabel(c)),
+              const ChipOption(_none, TimelineHe.termsNoTerms),
+              for (final c in presetPaymentTerms)
+                ChipOption(c, paymentTermsLabel(c)!),
+              const ChipOption(_custom, TimelineHe.termsCustom),
             ],
-            selected: _cadence,
-            onSelected: (v) => setState(() => _cadence = v),
+            selected: _choice,
+            onSelected: (v) => setState(() {
+              _choice = v;
+              _error = null;
+            }),
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: Space.s),
-            child: Text(
-              CollectionHe.cadenceHint(_cadence!),
-              key: const Key('terms-cadence-hint'),
+          if (_choice == _custom) ...[
+            const SizedBox(height: Space.m),
+            TextField(
+              key: const Key('terms-days'),
+              controller: _days,
+              keyboardType: TextInputType.number,
+              textDirection: TextDirection.ltr,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                labelText: TimelineHe.termsCustomDays,
+                errorText: _error,
+              ),
+              onChanged: (_) => setState(() => _error = null),
+            ),
+            const SizedBox(height: Space.s),
+            ChipRow<bool>(
+              key: const Key('terms-base'),
+              padding: EdgeInsets.zero,
+              options: const [
+                ChipOption(true, TimelineHe.termsFromEom),
+                ChipOption(false, TimelineHe.termsFromIssue),
+              ],
+              selected: _fromEom,
+              onSelected: (v) => setState(() => _fromEom = v),
+            ),
+          ],
+          if (example != null)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.s),
+              child: Text(
+                example,
+                key: const Key('terms-example'),
+                style: AppText.secondary.copyWith(color: p.muted),
+              ),
+            ),
+          const SizedBox(height: Space.l),
+          Text(
+            TimelineHe.preferredMethod,
+            style: AppText.secondary.copyWith(color: p.muted),
+          ),
+          const SizedBox(height: Space.s),
+          ChipRow<String>(
+            key: const Key('terms-method'),
+            padding: EdgeInsets.zero,
+            options: [
+              const ChipOption(_none, TimelineHe.preferredNone),
+              for (final m in preferredPaymentChoices)
+                ChipOption(m, paymentMethodLabel(m)),
+            ],
+            selected: _method,
+            onSelected: (v) => setState(() => _method = v),
+          ),
+          if (_cadence != null) ...[
+            const SizedBox(height: Space.l),
+            Text(
+              CollectionHe.customerCadenceTitle,
               style: AppText.secondary.copyWith(color: p.muted),
             ),
-          ),
+            const SizedBox(height: Space.s),
+            ChipRow<String>(
+              key: const Key('terms-cadence'),
+              padding: EdgeInsets.zero,
+              options: [
+                for (final c in customerCadences)
+                  ChipOption(c, CollectionHe.cadenceLabel(c)),
+              ],
+              selected: _cadence,
+              onSelected: (v) => setState(() => _cadence = v),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: Space.s),
+              child: Text(
+                CollectionHe.cadenceHint(_cadence!),
+                key: const Key('terms-cadence-hint'),
+                style: AppText.secondary.copyWith(color: p.muted),
+              ),
+            ),
+          ],
         ],
-        const SizedBox(height: Space.l),
-        PrimaryButton(
-          key: const Key('terms-save'),
-          label: TimelineHe.termsSave,
-          loadingText: _saving ? TimelineHe.termsSave : null,
-          onPressed: _save,
-        ),
-      ],
+      ),
     );
   }
 }

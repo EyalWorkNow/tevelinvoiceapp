@@ -333,4 +333,9 @@ abstract final class CalendarHe {
     'BOOKING_NOT_CHANGEABLE' => 'את הפגישה הזאת כבר אי אפשר להזיז.',
     _ => 'משהו השתבש. נסו שוב.',
   };
+
+  /// Customer booking without a phone or e-mail (2611 customer page #21).
+  static const inviteNeedsContact =
+      'הצעת מועדים וקישור ליומן נשלחים בטלפון או באימייל — ללקוח אין אף אחד מהם';
+  static const moveInCalendar = 'להזזת הפגישה: לחיצה ארוכה וגרירה ביומן';
 }

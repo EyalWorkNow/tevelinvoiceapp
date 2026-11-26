@@ -61,7 +61,7 @@ import '../document/sheets/s6_share.dart' show pdfSharer;
 import '../expense/expense_capture_screen.dart' show nextCaptureSupplier;
 import '../groups/person_group_rows.dart';
 import 'customer_crm_finance_card.dart';
-import 'customer_crm_panel.dart' show displayStage;
+import 'customer_crm_panel.dart' show displayStage, stageMenuItem;
 import 'customer_crm_sync_status.dart';
 import 'customer_timeline_screen.dart';
 import 'person_crm_ops.dart';
@@ -72,20 +72,20 @@ import 'sheets/payment_terms_sheet.dart';
 import 'sheets/portal_link_sheet.dart';
 import 'sheets/s2_customer.dart';
 
-/// Orb colours: (circle, icon) — the ניהול pastel set.
-const _orbColors = <String, (Color, Color)>{
-  'call': (Color(0xFFD6EDF5), Color(0xFF385D6E)),
-  'whatsapp': (Color(0xFFD8EFE2), Color(0xFF3E6250)),
-  'add-phone': (Color(0xFFD6EDF5), Color(0xFF385D6E)),
-  'email': (Color(0xFFE8D9EF), Color(0xFF614A68)),
-  'payment-request': (Color(0xFFCFF5DE), Color(0xFF2F5B47)),
-  'invoice': (Color(0xFFE8D9EF), Color(0xFF614A68)),
-  'book': (Color(0xFFD6EDF5), Color(0xFF385D6E)),
-  'paid': (Color(0xFFFFE1D2), Color(0xFF7A4630)),
-  'quote': (Color(0xFFF3E9A9), Color(0xFF58623B)),
-  'reminder': (Color(0xFFF8D7E3), Color(0xFF7A3E55)),
-  'expense': (Color(0xFFF3E9A9), Color(0xFF58623B)),
-  'more': (Color(0xFFE6D4F4), Color(0xFF624D73)),
+/// Orb hues (the ניהול pastel set, theme-aware via [PastelPalette]).
+const _orbHues = <String, Pastel>{
+  'call': Pastel.blue,
+  'whatsapp': Pastel.green,
+  'add-phone': Pastel.blue,
+  'email': Pastel.purple,
+  'payment-request': Pastel.mint,
+  'invoice': Pastel.purple,
+  'book': Pastel.blue,
+  'paid': Pastel.peach,
+  'quote': Pastel.yellow,
+  'reminder': Pastel.pink,
+  'expense': Pastel.yellow,
+  'more': Pastel.lavender,
 };
 
 const _icons = <String, IconData>{
@@ -162,6 +162,9 @@ class _PersonScreenState extends State<PersonScreen> {
   Object? _error;
   bool _busy = false;
   bool _notesAll = false;
+
+  /// The list is scrolled: the header is compact with a bottom edge.
+  bool _scrolled = false;
   final CustomerCrmStore _store = CustomerCrmStore.instance;
 
   Caps get _caps => businessContext.caps;
@@ -277,6 +280,14 @@ class _PersonScreenState extends State<PersonScreen> {
       _archived &&
       !(_detail?.erased ?? false) &&
       _caps.can(Cap.customerManage);
+
+  /// The orb's one-line label (the full name stays for VoiceOver).
+  String _orbLabel(String id) => switch (id) {
+    'book' => PersonPageHe.orbBook,
+    'reminder' => PersonPageHe.orbReminder,
+    'add-phone' => PersonPageHe.orbAddPhone,
+    _ => _actionLabel(id),
+  };
 
   /// "ארכוב" for a supplier, "סמן כלא פעיל" for a customer.
   String _actionLabel(String id) => id == 'archive' && !widget.isSupplier
@@ -691,6 +702,7 @@ class _PersonScreenState extends State<PersonScreen> {
     if (row.isEmpty) return const SizedBox.shrink();
     final more = personMoreActions(facts, row);
     final offline = businessContext.offline;
+    final p = context.palette;
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.page, Space.l, Space.page, 0),
       child: Column(
@@ -701,17 +713,18 @@ class _PersonScreenState extends State<PersonScreen> {
           QuickActionGrid(
             key: const Key('person-actions'),
             keyPrefix: 'person-action',
+            balanced: true,
             actions: [
               for (final id in row)
                 QuickAction(
                   id: id,
-                  label: _actionLabel(id),
+                  label: _orbLabel(id),
                   semanticsLabel: id == 'expense'
                       ? PeopleHe.newExpenseFrom(_name)
-                      : null,
+                      : _actionLabel(id),
                   icon: _icons[id]!,
-                  color: _orbColors[id]!.$1,
-                  ink: _orbColors[id]!.$2,
+                  color: p.pastel(_orbHues[id]!).$1,
+                  ink: p.pastel(_orbHues[id]!).$2,
                   enabled: !(offline && serverActions.contains(id)),
                   onTap: () => id == 'more'
                       ? unawaited(_showMore(more))
@@ -764,7 +777,19 @@ class _PersonScreenState extends State<PersonScreen> {
                                   await _load();
                                   await _loadBookings();
                                 },
-                                child: _content(context),
+                                child: NotificationListener<ScrollNotification>(
+                                  onNotification: (n) {
+                                    final v = ScrollEdgeHeader.next(
+                                      _scrolled,
+                                      n,
+                                    );
+                                    if (v != _scrolled) {
+                                      setState(() => _scrolled = v);
+                                    }
+                                    return false;
+                                  },
+                                  child: _content(context),
+                                ),
                               ),
                             ),
                           ],
@@ -794,12 +819,6 @@ class _PersonScreenState extends State<PersonScreen> {
           icon: Iconsax.edit,
           onSelected: () => unawaited(_edit()),
         ),
-      if (!widget.isSupplier && _statement && !_archived)
-        MoreMenuItem(
-          label: PersonPageHe.statement,
-          icon: Iconsax.receipt_item,
-          onSelected: () => unawaited(_sendStatement()),
-        ),
       if (_manage)
         MoreMenuItem(
           label: _actionLabel('archive'),
@@ -823,40 +842,56 @@ class _PersonScreenState extends State<PersonScreen> {
           color: p.muted,
         ),
     ];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        Space.page,
-        Space.m,
-        Space.page,
-        Space.s,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Semantics(
-                  header: true,
-                  child: Text(_name, style: AppText.displayTitle),
+    final compact = _scrolled && loaded;
+    return ScrollEdgeHeader(
+      scrolled: compact,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          Space.page,
+          compact ? Space.xs : Space.s,
+          Space.page,
+          compact ? Space.xs : Space.s,
+        ),
+        child: Row(
+          crossAxisAlignment: compact
+              ? CrossAxisAlignment.center
+              : CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: AnimatedSize(
+                duration: context.motion(180),
+                alignment: AlignmentDirectional.topStart,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        _name,
+                        key: const Key('person-name'),
+                        maxLines: compact ? 1 : 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: compact ? AppText.title : AppText.displayTitle,
+                      ),
+                    ),
+                    if (!compact && loaded && badges.isNotEmpty) ...[
+                      const SizedBox(height: Space.xs),
+                      Wrap(
+                        spacing: Space.s,
+                        runSpacing: Space.xs,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: badges,
+                      ),
+                    ],
+                  ],
                 ),
-                if (loaded && badges.isNotEmpty) ...[
-                  const SizedBox(height: Space.xs),
-                  Wrap(
-                    spacing: Space.s,
-                    runSpacing: Space.xs,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: badges,
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
-          if (loaded) MoreMenu(items: menu),
-          const SizedBox(width: 8),
-          const DesignBackButton(),
-        ],
+            if (loaded) MoreMenu(items: menu),
+            const SizedBox(width: 8),
+            const DesignBackButton(),
+          ],
+        ),
       ),
     );
   }
@@ -892,9 +927,10 @@ class _PersonScreenState extends State<PersonScreen> {
       tooltip: CustomerCrmHe.stage,
       onSelected: (s) =>
           unawaited(ops.run(context, () => _store.setStage(widget.id, s))),
+      initialValue: stage,
       itemBuilder: (_) => [
         for (final s in CustomerCrmStage.values)
-          PopupMenuItem(value: s, child: Text(s.label)),
+          stageMenuItem(context, s, current: s == stage),
       ],
       child: chip,
     );
@@ -919,6 +955,7 @@ class _PersonScreenState extends State<PersonScreen> {
         if (!widget.isSupplier)
           _statusCard(context, nextThing(visits, reminders, now)),
         _quickActions(context),
+        if (widget.isSupplier) ..._supplierExpenses(context),
         if (!widget.isSupplier) ...[
           if (_caps.can(Cap.docView)) ..._documents(context),
           if (crm || _bookings.isNotEmpty) ..._visits(context, entry, visits),
@@ -929,21 +966,6 @@ class _PersonScreenState extends State<PersonScreen> {
               key: const Key('person-money'),
               title: PersonPageHe.money,
               children: [
-                // 2611 §2 "תנאי תשלום ותזכורות": both choices for this customer.
-                if (_detail case final d?)
-                  PersonDetailRow(
-                    key: const Key('person-terms-reminders'),
-                    valueKey: const Key('person-terms-reminders-value'),
-                    label: CollectionHe.termsAndReminders,
-                    value: [
-                      _termsLine(d),
-                      if (_caps.can(Cap.settingsBusiness))
-                        CollectionHe.cadenceLabel(
-                          d.reminderCadence ?? 'BUSINESS',
-                        ),
-                    ].join(' · '),
-                    onTap: _manage ? () => unawaited(_editTerms()) : null,
-                  ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: Space.page),
                   child: CustomerCrmFinanceCard(
@@ -961,6 +983,45 @@ class _PersonScreenState extends State<PersonScreen> {
         _details(context),
       ],
     );
+  }
+
+  /// A supplier's expenses: the server has no per-supplier list (GET
+  /// /expenses filters by text only), so the page says where they are and
+  /// offers a new one — never a made-up list (2611 customer page #20).
+  List<Widget> _supplierExpenses(BuildContext context) {
+    final p = context.palette;
+    final capture = _caps.can(Cap.expenseCapture);
+    final list = capture || _caps.can(Cap.expenseApprove);
+    if (!list) return const [];
+    return [
+      PersonSectionTitle(
+        title: PersonPageHe.supplierExpenses,
+        allKey: const Key('person-supplier-expenses-all'),
+        onAll: () => unawaited(openExpenses(context)),
+      ),
+      Padding(
+        key: const Key('person-supplier-expenses'),
+        padding: const EdgeInsets.symmetric(horizontal: Space.page),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                PersonPageHe.supplierExpensesHint,
+                style: AppText.body.copyWith(color: p.muted),
+              ),
+            ),
+            if (capture && !_archived)
+              TextButton(
+                key: const Key('person-supplier-new-expense'),
+                onPressed: businessContext.offline
+                    ? null
+                    : () => unawaited(_run('expense')),
+                child: const Text(PersonPageHe.newExpense),
+              ),
+          ],
+        ),
+      ),
+    ];
   }
 
   // ---- status card ----
@@ -1191,7 +1252,8 @@ class _PersonScreenState extends State<PersonScreen> {
     final type = docTypeLabels[d.documentType] ?? d.documentType;
     final n = d.documentNumber;
     final date = relativeDateHe(d.issueDate);
-    // A credit note reduces what the customer owes: shown with a minus.
+    // A credit note reduces what the customer owes: negative, so the row
+    // marks it "זיכוי" (never as a debt).
     final credit = d.documentType == 'CREDIT_DOCUMENT';
     return DocRow(
       key: Key('person-doc-${d.id}'),
@@ -1202,6 +1264,7 @@ class _PersonScreenState extends State<PersonScreen> {
           : (credit ? -d.totalMinor.abs() : d.totalMinor),
       status: StatusPill.doc(st.status),
       attributes: [for (final a in st.attributes) docAttributeLabels[a]!],
+      showAvatar: false,
       onTap: () => openDocument(context, d.id),
     );
   }
@@ -1214,7 +1277,6 @@ class _PersonScreenState extends State<PersonScreen> {
     final p = context.palette;
     final now = DateTime.now();
     final ops = _ops;
-    final pinned = entry.notes.where((n) => n.pinned).toList();
     final canBook = mayUseCalendar(_caps) && !_archived;
     final canJob = _manage && _crmLoaded && _store.readyForEdits;
     return [
@@ -1263,9 +1325,8 @@ class _PersonScreenState extends State<PersonScreen> {
             ],
           ),
         ),
-      for (final (i, v) in visits.take(3).indexed) ...[
-        if (i == 0)
-          for (final n in pinned) PersonBeforeArrival(note: n),
+      // The pinned note ("לפני שמגיעים") shows once, on top of the notes.
+      for (final v in visits.take(3))
         PersonVisitRow(
           item: v,
           now: now,
@@ -1273,7 +1334,6 @@ class _PersonScreenState extends State<PersonScreen> {
               ? () => unawaited(_openVisit(v))
               : null,
         ),
-      ],
     ];
   }
 
@@ -1294,7 +1354,16 @@ class _PersonScreenState extends State<PersonScreen> {
             ? -1
             : 1,
       );
+    Widget noteRow(CustomerCrmNote n) => PersonNoteRow(
+      note: n,
+      onTap: edit ? () => unawaited(ops.editNote(context, n)) : null,
+      onPin: edit ? () => unawaited(ops.pinNote(context, n)) : null,
+      onDelete: edit ? () => unawaited(ops.deleteNote(context, n)) : null,
+    );
+    // The pinned note ("לפני שמגיעים") on top of the section, once.
     final rows = <Widget>[
+      for (final n in notes)
+        if (n.pinned) noteRow(n),
       for (final r in reminders)
         PersonReminderRow(
           reminder: r,
@@ -1308,12 +1377,7 @@ class _PersonScreenState extends State<PersonScreen> {
               : null,
         ),
       for (final n in notes)
-        PersonNoteRow(
-          note: n,
-          onTap: edit ? () => unawaited(ops.editNote(context, n)) : null,
-          onPin: edit ? () => unawaited(ops.pinNote(context, n)) : null,
-          onDelete: edit ? () => unawaited(ops.deleteNote(context, n)) : null,
-        ),
+        if (!n.pinned) noteRow(n),
     ];
     return [
       PersonSectionTitle(
@@ -1388,19 +1452,22 @@ class _PersonScreenState extends State<PersonScreen> {
             value: v(taxId),
             ltr: (taxId ?? '').trim().isNotEmpty,
           ),
+          // 2611 §2 "תנאי תשלום ותזכורות": the one place to see and edit
+          // the customer's terms and reminder cadence ("בלי תזכורות" is the
+          // hold — no separate switch).
           if (d != null)
             PersonDetailRow(
               key: const Key('person-terms'),
               valueKey: const Key('person-terms-value'),
-              label: PersonPageHe.terms,
-              value: _termsLine(d),
+              label: d.fromBe09 && _caps.can(Cap.settingsBusiness)
+                  ? CollectionHe.termsAndReminders
+                  : PersonPageHe.terms,
+              value: [
+                _termsLine(d),
+                if (d.fromBe09 && _caps.can(Cap.settingsBusiness))
+                  CollectionHe.cadenceLabel(d.reminderCadence ?? 'BUSINESS'),
+              ].join(' · '),
               onTap: _manage ? () => unawaited(_editTerms()) : null,
-            ),
-          if (!widget.isSupplier && !_archived)
-            PersonAutoRemindersRow(
-              // Rebuilt after the cadence changes (NONE = the hold).
-              key: ValueKey('hold-${_detail?.reminderCadence}'),
-              customerId: widget.id,
             ),
           // V4 §8: the customer's groups + "מאשר דיוור".
           if (!widget.isSupplier)

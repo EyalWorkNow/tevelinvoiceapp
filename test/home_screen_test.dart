@@ -456,7 +456,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300)); // banner grows in
       expect(fresh.error?.isNetwork, isTrue);
-      expect(find.text('יתרה לגבייה'), findsOneWidget); // painted from the cache
+      expect(
+        find.text('יתרה לגבייה'),
+        findsOneWidget,
+      ); // painted from the cache
       expect(find.text('אין חיבור – מציג נתונים אחרונים'), findsOneWidget);
       expect(c.data, isNotNull);
     },

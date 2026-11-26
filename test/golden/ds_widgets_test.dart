@@ -354,7 +354,8 @@ void main() {
 
   for (final brightness in Brightness.values) {
     testWidgets(
-      'walkthrough #11: a credit note row is a minus, never a green "+" '
+      'walkthrough #11 / 2611 #16: a credit note row says "זיכוי", never a '
+      'debt or a green "+"'
       '(${brightness.name})',
       (tester) async {
         Widget row(BigInt amount) => DocRow(
@@ -380,17 +381,27 @@ void main() {
             .join('|');
         final credit = texts(rows.at(0));
         final income = texts(rows.at(1));
+        // One design in both themes: no +/− marks; the credit says so.
         expect(credit, isNot(contains('+')));
-        expect(credit, contains('-'));
-        expect(income, isNot(contains('-₪')));
-        if (brightness == Brightness.dark) {
-          // The badge carries the sign: "−" badge + "₪180", never "-₪180" twice.
-          expect(credit, contains('₪180'));
-          expect(credit, isNot(contains('-₪')));
-          expect(income, contains('+'));
-        } else {
-          expect(credit, contains('-₪180'));
-        }
+        expect(credit, isNot(contains('-')));
+        expect(credit, contains('₪180'));
+        expect(credit, contains('זיכוי'));
+        expect(income, isNot(contains('-')));
+        expect(income, isNot(contains('+')));
+        expect(
+          find.descendant(
+            of: rows.at(1),
+            matching: find.byKey(const Key('doc-row-credit')),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.descendant(
+            of: rows.at(0),
+            matching: find.byKey(const Key('doc-row-credit')),
+          ),
+          findsOneWidget,
+        );
         expect(tester.getSemantics(rows.at(0)).label, contains('מינוס'));
       },
     );

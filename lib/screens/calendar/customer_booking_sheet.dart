@@ -155,9 +155,14 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
 
   bool get _hasEmail => (widget.email ?? '').trim().isNotEmpty;
 
+  /// No phone and no e-mail: an invite or link cannot reach them, so only
+  /// "קביעה בשמו" is offered.
+  bool get _noContact => !_hasEmail && (widget.phone ?? '').trim().isEmpty;
+
   @override
   void initState() {
     super.initState();
+    if (_noContact) _mode = CustomerBookingMode.book;
     unawaited(_load());
   }
 
@@ -533,6 +538,7 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
             ])
               ButtonSegment(
                 value: m,
+                enabled: !_noContact || m == CustomerBookingMode.book,
                 label: Text(
                   label,
                   maxLines: 1,
@@ -545,6 +551,15 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
           onSelectionChanged: (v) => setState(() => _mode = v.first),
         ),
       ),
+      if (_noContact)
+        Padding(
+          padding: const EdgeInsets.only(top: Space.s),
+          child: Text(
+            CalendarHe.inviteNeedsContact,
+            key: const Key('customer-book-no-contact'),
+            style: AppText.secondary.copyWith(color: p.muted),
+          ),
+        ),
       const SizedBox(height: Space.m),
       Text(switch (_mode) {
         CustomerBookingMode.suggest => CalendarHe.suggestHintDays,
@@ -656,8 +671,7 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
   /// The same month calendar as "פגישה חדשה" (owner 2026-11-26): days with
   /// free times are tinted; tapping one shows its times below.
   Widget _dayStripView(BuildContext context) {
-    final month =
-        _month ?? monthOf(DateTime.parse(_day ?? _strip.first.date));
+    final month = _month ?? monthOf(DateTime.parse(_day ?? _strip.first.date));
     return CalendarMonthPicker(
       key: const Key('customer-book-days'),
       month: month,

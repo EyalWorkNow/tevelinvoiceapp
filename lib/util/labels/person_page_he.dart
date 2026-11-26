@@ -48,6 +48,15 @@ abstract final class PersonPageHe {
   static const addPhone = 'הוספת טלפון';
   static const newExpense = 'הוצאה חדשה';
 
+  // ---- supplier ----
+  static const supplierExpenses = 'הוצאות';
+  static const supplierExpensesHint = 'הוצאות שקלטת מהספק נמצאות במסך ההוצאות.';
+
+  /// One-line orb labels (the full names above stay for VoiceOver / "עוד").
+  static const orbBook = 'פגישה';
+  static const orbReminder = 'תזכורת';
+  static const orbAddPhone = 'הוספת טלפון';
+
   // ---- "עוד" sheet ----
   static const moreTitle = 'עוד פעולות';
   static const repeatLast = 'כמו בפעם הקודמת';

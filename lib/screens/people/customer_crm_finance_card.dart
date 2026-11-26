@@ -66,6 +66,12 @@ class _CustomerCrmFinanceCardState extends State<CustomerCrmFinanceCard> {
         ),
         const SizedBox(height: Space.xs),
         Text(
+          CustomerCrmHe.remainingHint,
+          key: const Key('crm-remaining-hint'),
+          style: AppText.secondary.copyWith(color: p.muted),
+        ),
+        const SizedBox(height: Space.xs),
+        Text(
           summary.collections.length == 1
               ? 'עבודה אחת שהסתיימה · כל התקופות'
               : '${summary.collections.length} עבודות שהסתיימו · כל התקופות',
@@ -131,7 +137,8 @@ class _CustomerCrmFinanceCardState extends State<CustomerCrmFinanceCard> {
           ],
         ),
         Divider(color: p.line, height: 1),
-        for (final metric in [
+        // Plain words; a row with nothing to show is left out (no "—").
+        for (final metric in <(String, String?, bool)>[
           (
             CustomerCrmHe.completedPrice,
             crmMoney(summary.completedPriceMinor),
@@ -146,43 +153,44 @@ class _CustomerCrmFinanceCardState extends State<CustomerCrmFinanceCard> {
           (
             CustomerCrmHe.contribution,
             summary.costedCount == 0
-                ? '—'
+                ? null
                 : crmMoney(summary.contributionMinor),
             summary.contributionMinor < 0,
           ),
           (
             CustomerCrmHe.hourly,
-            summary.hourlyMinor == null ? '—' : crmMoney(summary.hourlyMinor!),
+            summary.hourlyMinor == null ? null : crmMoney(summary.hourlyMinor!),
             (summary.hourlyMinor ?? 0) < 0,
           ),
         ])
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: Space.m),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    metric.$1,
-                    style: AppText.body.copyWith(color: p.muted),
-                  ),
-                ),
-                const SizedBox(width: Space.m),
-                Flexible(
-                  child: Align(
-                    alignment: AlignmentDirectional.centerEnd,
+          if (metric.$2 != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: Space.m),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
                     child: Text(
-                      metric.$2,
-                      style: AppText.headline.copyWith(
-                        color: metric.$3 ? p.danger : p.ink,
-                      ),
-                      textDirection: TextDirection.ltr,
+                      metric.$1,
+                      style: AppText.body.copyWith(color: p.muted),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: Space.m),
+                  Flexible(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: Text(
+                        metric.$2!,
+                        style: AppText.headline.copyWith(
+                          color: metric.$3 ? p.danger : p.ink,
+                        ),
+                        textDirection: TextDirection.ltr,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
         if (summary.unpricedCount > 0)
           Padding(
             padding: const EdgeInsets.only(top: Space.s),

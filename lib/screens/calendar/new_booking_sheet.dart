@@ -537,25 +537,35 @@ class CalendarMonthPicker extends StatelessWidget {
                                 width: 36,
                                 height: 36,
                                 alignment: Alignment.center,
+                                // Selected = the accent (both themes); a free
+                                // day = an ok tint, bold; today = a ring.
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: sel
-                                      ? (isToday ? p.accent : p.charcoal)
+                                      ? p.accent
                                       : free
-                                      ? p.tint(p.ok)
+                                      ? Color.alphaBlend(
+                                          p.ok.withValues(
+                                            alpha: context.isDark ? .22 : .16,
+                                          ),
+                                          p.surface,
+                                        )
+                                      : null,
+                                  border: isToday && !sel
+                                      ? Border.all(color: p.ink, width: 1.5)
                                       : null,
                                 ),
                                 child: Text(
                                   '$n',
                                   style: AppText.body.copyWith(
-                                    fontWeight: free || isToday
+                                    fontWeight: free || isToday || sel
                                         ? FontWeight.w700
                                         : FontWeight.w400,
                                     color: sel
-                                        ? (isToday ? p.accentInk : p.onCharcoal)
+                                        ? p.accentInk
                                         : free
                                         ? p.ink
-                                        : p.muted.withValues(alpha: .6),
+                                        : p.muted.withValues(alpha: .55),
                                   ),
                                 ),
                               ),

@@ -205,49 +205,50 @@ void main() {
   });
 
   group('global search', () {
-    testWidgets('groups hits by kind; amounts only when the server sends them', (
-      tester,
-    ) async {
-      final queries = <String>[];
-      await tester.pumpWidget(
-        _app(
-          GlobalSearchScreen(
-            search: (q) async {
-              queries.add(q);
-              return [
-                const SearchHit(
-                  kind: SearchHitKind.quote,
-                  id: 'q1',
-                  name: 'משה כהן',
-                  number: '7',
-                  date: '2026-11-17',
-                ),
-                SearchHit(
-                  kind: SearchHitKind.document,
-                  id: 'd1',
-                  name: 'משה כהן',
-                  documentType: 'TRANSACTION_INVOICE',
-                  number: '12',
-                  totalMinor: BigInt.from(59000),
-                ),
-              ];
-            },
+    testWidgets(
+      'groups hits by kind; amounts only when the server sends them',
+      (tester) async {
+        final queries = <String>[];
+        await tester.pumpWidget(
+          _app(
+            GlobalSearchScreen(
+              search: (q) async {
+                queries.add(q);
+                return [
+                  const SearchHit(
+                    kind: SearchHitKind.quote,
+                    id: 'q1',
+                    name: 'משה כהן',
+                    number: '7',
+                    date: '2026-11-17',
+                  ),
+                  SearchHit(
+                    kind: SearchHitKind.document,
+                    id: 'd1',
+                    name: 'משה כהן',
+                    documentType: 'TRANSACTION_INVOICE',
+                    number: '12',
+                    totalMinor: BigInt.from(59000),
+                  ),
+                ];
+              },
+            ),
           ),
-        ),
-      );
-      await tester.enterText(
-        find.byKey(const Key('global-search-field')),
-        'הצעת מחיר של כהן',
-      );
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.pumpAndSettle();
-      expect(queries, ['הצעת מחיר של כהן']);
-      expect(find.text('הצעות מחיר'), findsOneWidget);
-      expect(find.text('מסמכים'), findsOneWidget);
-      expect(find.text('הצעת מחיר 7'), findsOneWidget);
-      expect(find.text('חשבון עסקה 12'), findsOneWidget);
-      expect(find.textContaining('590'), findsOneWidget);
-    });
+        );
+        await tester.enterText(
+          find.byKey(const Key('global-search-field')),
+          'הצעת מחיר של כהן',
+        );
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
+        expect(queries, ['הצעת מחיר של כהן']);
+        expect(find.text('הצעות מחיר'), findsOneWidget);
+        expect(find.text('מסמכים'), findsOneWidget);
+        expect(find.text('הצעת מחיר 7'), findsOneWidget);
+        expect(find.text('חשבון עסקה 12'), findsOneWidget);
+        expect(find.textContaining('590'), findsOneWidget);
+      },
+    );
 
     testWidgets('no results → a hint, not a blank screen', (tester) async {
       await tester.pumpWidget(
@@ -386,9 +387,7 @@ void main() {
       expect(find.text('0'), findsNothing);
     });
 
-    testWidgets('search field on Home opens the global search', (
-      tester,
-    ) async {
+    testWidgets('search field on Home opens the global search', (tester) async {
       await pumpHome(tester);
       expect(find.byKey(const Key('home-search')), findsOneWidget);
       await tester.tap(find.byKey(const Key('home-search')));
@@ -404,10 +403,7 @@ void main() {
         final doc = find.byKey(const Key('doc-d1'));
         expect(event, findsOneWidget);
         expect(doc, findsOneWidget);
-        expect(
-          tester.getTopLeft(event).dy < tester.getTopLeft(doc).dy,
-          isTrue,
-        );
+        expect(tester.getTopLeft(event).dy < tester.getTopLeft(doc).dy, isTrue);
         expect(find.textContaining('אישר/ה הצעת מחיר'), findsOneWidget);
       },
     );

@@ -54,10 +54,10 @@ void main() {
     List<String> more(PersonActionFacts f) =>
         personMoreActions(f, personRowActions(f));
 
-    test('owner with money + an e-mail on file sees it, before פרטים', () {
+    test('owner with money + an e-mail on file sees it (last action)', () {
       final ids = more(_facts());
       expect(ids, contains('portal'));
-      expect(ids.indexOf('portal'), lessThan(ids.indexOf('edit')));
+      expect(ids.last, 'portal');
       expect(serverActions, contains('portal'));
     });
 

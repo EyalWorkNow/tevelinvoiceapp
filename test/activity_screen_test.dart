@@ -157,7 +157,9 @@ void main() {
     expect(find.text('באיחור'), findsOneWidget); // issue + 30 < today
     expect(find.text('שולם'), findsNWidgets(2)); // filter chip + paid row
     expect(find.text('טיוטה'), findsOneWidget);
-    expect(find.text('נשלח'), findsOneWidget); // attribute, not status
+    // Attribute, not status: spoken, not a second visible status (one
+    // DocRow design in both themes).
+    expect(find.bySemanticsLabel(RegExp('נשלח')), findsOneWidget);
     expect(find.byType(PrimaryButton), findsNothing);
     expect(find.byKey(const Key('activity-capped')), findsNothing);
     // One page; the 500 cap only for a server that does not page (2.5).
