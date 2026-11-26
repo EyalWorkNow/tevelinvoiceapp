@@ -8,6 +8,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../api/client.dart';
 import '../api/documents_api.dart' show notifyDocumentsChanged;
+import '../api/form101_api.dart' show notifyForm101Changed;
 import '../api/notifications_api.dart'
     show notifyNotificationsChanged, refreshNotificationsUnread;
 import '../api/push_preferences_api.dart' show reportPushOpened;
@@ -75,6 +76,9 @@ const _events = EventChannel('tevel/system_notice_events');
   'signRequestViewed' => ('המסמך לחתימה נצפה', NoticeMotion.sent),
   // 0119 "המסמכים של העסק" (route /business/vault).
   'vaultExpiring' => ('מסמך של העסק עומד לפוג', NoticeMotion.reminder),
+  // 0134 "טופס 101" (route /business/employees).
+  'form101Completed' => ('טופס 101 התקבל', NoticeMotion.signed),
+  'form101Season' => ('הגיע הזמן ל-101 חדשים', NoticeMotion.reminder),
   // Accountant multi-business (2026-11-22): opened by business, not by route.
   'ACCOUNTANT_ACCESS_APPROVED' => (
     AccountantHe.pushApproved,
@@ -403,6 +407,7 @@ class SystemNotices extends ChangeNotifier with WidgetsBindingObserver {
     if (refreshesDocuments(kind, route)) notifyDocumentsChanged();
     // Open lists / the detail reload on any sign-request push; Home's
     // "מסמכים אחרונים" shows the signed document too (tester 2026-11-18).
+    if (kind.startsWith('form101')) notifyForm101Changed();
     if (kind.startsWith('signRequest')) {
       notifySignRequestsChanged();
       if (kind == 'signRequestCompleted') notifyDocumentsChanged();
