@@ -107,6 +107,13 @@ void main() {
       Cap.settingsNumbering: {},
       Cap.customerAccountKey: {},
       Cap.owner: {Preset.owner},
+      // 0134 טופס 101: the owner + the accountants read; the owner sends.
+      Cap.employeeForms: {
+        Preset.owner,
+        Preset.accountantRep,
+        Preset.accountantFull,
+      },
+      Cap.employeeFormsManage: {Preset.owner},
     };
     for (final e in expected.entries) {
       final actual = {

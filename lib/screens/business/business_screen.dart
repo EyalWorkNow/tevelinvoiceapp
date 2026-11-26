@@ -44,6 +44,7 @@ import '../calendar/calendar_screen.dart';
 import '../people/sheets/payment_terms_sheet.dart';
 import '../../api/customer_timeline_api.dart' show fetchBusinessPaymentTerms;
 import '../../util/labels/timeline_he.dart';
+import 'employees_screen.dart';
 import 'vault_screen.dart';
 import 'notification_preferences_screen.dart';
 import '../../api/accountant_api.dart' show leaveClient;
@@ -76,6 +77,7 @@ class BusinessScreen extends StatelessWidget {
     ),
     'more' => const _MoreSettingsPage(),
     'vault' => const VaultScreen(),
+    'employees' => const EmployeesScreen(),
     'alerts' => const NotificationPreferencesScreen(),
     _ => const _BusinessList(),
   };
@@ -91,6 +93,8 @@ const Set<String> moreSettingsKeys = {
   'desktop',
   // C5: the activity log (owner, partner, accountants).
   'audit',
+  // 0134 "עובדים וטופס 101" (B stays ≤ 10 rows; the pushes open it directly).
+  'employees',
 };
 
 /// The "עוד הגדרות" row of B.
@@ -181,6 +185,9 @@ List<BusinessRowSpec> allBusinessRows(
   // 0119 (tester 2026-11-18): עוסק מורשה, ניהול ספרים, ניכוי במקור …
   if (caps.can(Cap.vaultView))
     const BusinessRowSpec('vault', VaultHe.title, Iconsax.folder_open),
+  // 0134 (spec §10): salaried employees + their טופס 101 (owner + accountants).
+  if (caps.can(Cap.employeeForms))
+    const BusinessRowSpec('employees', Form101He.row, Iconsax.people),
   if (caps.can(Cap.settingsDesign))
     const BusinessRowSpec('branding', BusinessHe.branding, Iconsax.colorfilter),
   // §13.6: only when the business has another member.
@@ -793,6 +800,8 @@ void openBusinessRow(BuildContext context, String key) {
       openBusinessSection(context, BusinessSection.more);
     case 'vault':
       openBusinessSection(context, BusinessSection.vault);
+    case 'employees':
+      openBusinessSection(context, BusinessSection.employees);
     case 'branding':
       openBusinessSection(context, BusinessSection.branding);
     case 'approvals':

@@ -1,5 +1,5 @@
 // F6 / AT-95 (INT). The app opens only these:
-// * launchUrl: wa.me, fixed Apple Maps searches, mailto:, tel: ([isAllowedLaunch]);
+// * launchUrl: wa.me, fixed Apple Maps searches, mailto:, tel:, sms: ([isAllowedLaunch]);
 // * in-app Safari (SFSafariViewController): the legal/support whitelist below.
 // Hosted subscription checkout is separately pinned to Cardcom below.
 
@@ -56,6 +56,8 @@ bool isAllowedLaunch(Uri uri) =>
         uri.fragment.isEmpty) ||
     uri.scheme == 'mailto' ||
     uri.scheme == 'tel' ||
+    // 0134 טופס 101: the one-time code by SMS (the owner's own composer).
+    uri.scheme == 'sms' ||
     uri.toString() == 'app-settings:';
 
 /// The one door to url_launcher. Tests replace it (test/fakes FakeLauncher
