@@ -20,6 +20,8 @@ import '../../ui/widgets/notch_notice.dart';
 import '../../util/allowed_urls.dart';
 import '../../util/labels/calendar_he.dart';
 import '../../util/labels/common_he.dart';
+import 'calendar_layout.dart' show monthOf;
+import 'new_booking_sheet.dart' show CalendarMonthPicker;
 import '../../util/labels/person_page_he.dart';
 import '../../util/phone.dart';
 import '../document/dialogs.dart' show toast;
@@ -140,6 +142,7 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
   bool? _enabled;
   List<FreeDay> _strip = const [];
   String? _day;
+  DateTime? _month;
   final Map<String, List<FreeSlot>> _byDay = {};
   bool _dayLoading = false;
   Object? _error;
@@ -149,7 +152,6 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
   CalendarSettings? _settings;
   bool _sending = false;
   final _notes = TextEditingController();
-  final _stripScroll = ScrollController();
 
   bool get _hasEmail => (widget.email ?? '').trim().isNotEmpty;
 
@@ -162,7 +164,6 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
   @override
   void dispose() {
     _notes.dispose();
-    _stripScroll.dispose();
     super.dispose();
   }
 
@@ -202,6 +203,8 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
         _byDay.clear();
         if (derived) _byDay.addAll(_groupByDay(s.slots));
         _day = keep ? _day : first;
+        final d = _day;
+        _month = d == null ? null : monthOf(DateTime.parse(d));
       });
       final day = _day;
       if (!derived && day != null) await _loadDay(day);
@@ -650,85 +653,24 @@ class _CustomerBookingSheetState extends State<CustomerBookingSheet> {
     ];
   }
 
+  /// The same month calendar as "פגישה חדשה" (owner 2026-11-26): days with
+  /// free times are tinted; tapping one shows its times below.
   Widget _dayStripView(BuildContext context) {
-    return SizedBox(
-      child: SingleChildScrollView(
-        key: const Key('customer-book-days'),
-        controller: _stripScroll,
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (final (i, d) in _strip.indexed) ...[
-              if (i > 0) const SizedBox(width: Space.s),
-              _dayChip(context, d),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _dayChip(BuildContext context, FreeDay d) {
-    final p = context.palette;
-    final at = DateTime.parse(d.date);
-    final selected = d.date == _day;
-    final enabled = d.count > 0;
-    final picked =
-        _mode == CustomerBookingMode.suggest &&
-        _picks.any((x) => x.date == d.date);
-    final fg = selected
-        ? p.accentInk
-        : enabled
-        ? p.ink
-        : p.muted.withValues(alpha: .5);
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      selected: selected,
-      child: InkWell(
-        key: Key('customer-day-${d.date}'),
-        borderRadius: BorderRadius.circular(16),
-        onTap: enabled ? () => _selectDay(d) : null,
-        child: Container(
-          width: 58,
-          padding: const EdgeInsets.symmetric(vertical: Space.s),
-          decoration: BoxDecoration(
-            color: selected ? p.accent : null,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: selected ? p.accent : p.line),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                PersonPageHe.weekdayShort[at.weekday % 7],
-                style: AppText.secondary.copyWith(color: fg),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                _dm(at),
-                style: AppText.body.copyWith(
-                  color: fg,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: !enabled
-                      ? Colors.transparent
-                      : picked
-                      ? p.warn
-                      : (selected ? p.accentInk : p.ok),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    final month =
+        _month ?? monthOf(DateTime.parse(_day ?? _strip.first.date));
+    return CalendarMonthPicker(
+      key: const Key('customer-book-days'),
+      month: month,
+      days: {
+        for (final d in _strip)
+          if (d.count > 0) d.date,
+      },
+      selected: _day,
+      onMonth: (m) => setState(() => _month = m),
+      onDay: (date) {
+        final d = _strip.firstWhere((x) => x.date == date);
+        _selectDay(d);
+      },
     );
   }
 

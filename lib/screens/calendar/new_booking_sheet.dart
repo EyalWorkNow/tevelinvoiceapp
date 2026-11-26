@@ -233,7 +233,8 @@ class _NewBookingSheetState extends State<NewBookingSheet> {
               duration: context.motion(220),
               curve: Curves.easeOut,
               child: _open == _Open.date
-                  ? _PickerMonth(
+                  ? CalendarMonthPicker(
+                      key: const Key('new-booking-month'),
                       month: _month,
                       days: {
                         for (final d in _days ?? const <FreeDay>[]) d.date,
@@ -438,8 +439,9 @@ class _FieldRow extends StatelessWidget {
 }
 
 /// The inline date picker: one month, bookable days bold, the rest grey.
-class _PickerMonth extends StatelessWidget {
-  const _PickerMonth({
+class CalendarMonthPicker extends StatelessWidget {
+  const CalendarMonthPicker({
+    super.key,
     required this.month,
     required this.days,
     required this.selected,
@@ -465,7 +467,6 @@ class _PickerMonth extends StatelessWidget {
     final blanks = leadingBlanks(month);
     final length = daysInMonth(month);
     return Padding(
-      key: const Key('new-booking-month'),
       padding: const EdgeInsets.fromLTRB(Space.s, 0, Space.s, Space.m),
       child: Column(
         children: [

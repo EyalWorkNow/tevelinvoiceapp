@@ -760,7 +760,7 @@ void main() {
       await tapIf(find.byKey(const Key('customer-slot-0')), waitMs: 400);
       await tapIf(find.byKey(const Key('customer-slot-3')), waitMs: 400);
       // A later day: the strip scrolls, its own times load.
-      final later = find.byKey(Key('customer-day-${ymdOf(horizon()[7])}'));
+      final later = find.byKey(Key('new-booking-day-${ymdOf(horizon()[7])}'));
       if (later.evaluate().isNotEmpty) {
         await t.ensureVisible(later);
         await pumpMs(300);

@@ -354,7 +354,7 @@ void main() {
       expect(wa.queryParameters['text'], contains('/book/i/tok'));
     });
 
-    testWidgets('day strip: the first bookable day is chosen and asked with '
+    testWidgets('month calendar: the first bookable day is chosen and asked with '
         '?date=; a closed day is shown but cannot be chosen; another day '
         'loads its own times', (t) async {
       daySlots(b);
@@ -365,13 +365,13 @@ void main() {
         for (final r in b.calls('GET', '/calendar/free-slots')) r.query['date'],
       ];
       expect(dates, [null, '2026-12-01']);
-      expect(find.byKey(const Key('customer-day-2026-12-01')), findsOneWidget);
-      // 12-02 is in the strip (between bookable days) with no times.
-      final closed = find.byKey(const Key('customer-day-2026-12-02'));
+      expect(find.byKey(const Key('new-booking-day-2026-12-01')), findsOneWidget);
+      // 12-02 (no free times) is in the month but cannot be chosen.
+      final closed = find.byKey(const Key('new-booking-day-2026-12-02'));
       await t.ensureVisible(closed);
-      expect(t.widget<InkWell>(closed).onTap, isNull);
+      expect(t.widget<GestureDetector>(closed).onTap, isNull);
       expect(find.byKey(const Key('customer-slot-4')), findsOneWidget);
-      final later = find.byKey(const Key('customer-day-2026-12-03'));
+      final later = find.byKey(const Key('new-booking-day-2026-12-03'));
       await t.ensureVisible(later);
       await t.tap(later);
       await settle(t);
@@ -401,7 +401,7 @@ void main() {
       await t.tap(find.byKey(const Key('customer-slot-0')));
       await t.tap(find.byKey(const Key('customer-slot-1')));
       await t.pump();
-      final later = find.byKey(const Key('customer-day-2026-12-03'));
+      final later = find.byKey(const Key('new-booking-day-2026-12-03'));
       await t.ensureVisible(later);
       await t.tap(later);
       await settle(t);
@@ -430,7 +430,7 @@ void main() {
       await t.tap(find.byKey(const Key('open')));
       await settle(t);
       expect(b.calls('GET', '/calendar/free-slots'), hasLength(1));
-      expect(find.byKey(const Key('customer-day-2026-12-01')), findsOneWidget);
+      expect(find.byKey(const Key('new-booking-day-2026-12-01')), findsOneWidget);
       expect(find.byKey(const Key('customer-slot-0')), findsOneWidget);
     });
 
