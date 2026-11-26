@@ -109,15 +109,19 @@ Future<void> ensureOriginal(DocumentDetail doc) async {
 
 /// POST /documents/:id/share-link → public URL (`/d/<token>`, 30 days).
 /// Creates the original first when the server says it is missing.
-Future<String> createShareLink(DocumentDetail doc) async {
+/// [password] (§7): the link asks for it and serves an AES-256 copy.
+Future<String> createShareLink(DocumentDetail doc, {String? password}) async {
   await ensureOriginal(doc);
+  final body = password == null
+      ? null
+      : {'protect': true, 'password': password};
   Map<String, dynamic> json;
   try {
-    json = await _api.post('/documents/${doc.id}/share-link');
+    json = await _api.post('/documents/${doc.id}/share-link', body);
   } on ApiException catch (e) {
     if (e.code != 'ARTIFACT_REQUIRED' || doc.isDraft) rethrow;
     await createOriginalArtifact(doc.id);
-    json = await _api.post('/documents/${doc.id}/share-link');
+    json = await _api.post('/documents/${doc.id}/share-link', body);
   }
   notifyDocumentsChanged(); // sentAt (BE-10a) counts the first share link
   return json['url'] as String;
@@ -133,15 +137,18 @@ Future<void> revokeShareLink(String documentId) async {
 // ---- e-mail (S6, §6.6 of API-MOBILE) ------------------------------------------
 
 /// POST /documents/:id/send → deliveryId. Throws CONSENT_REQUIRED (409) when
-/// the customer must agree to computerized documents first.
+/// the customer must agree to computerized documents first. [password] (§7):
+/// the attachment is an AES-256 copy that opens only with it.
 Future<String> sendDocumentEmail(
   String documentId,
   String recipient, {
   String? paymentUrl,
+  String? password,
 }) async {
   final json = await _api.post('/documents/$documentId/send', {
     'recipient': recipient,
     if (paymentUrl != null && paymentUrl.isNotEmpty) 'paymentUrl': paymentUrl,
+    if (password != null) ...{'protect': true, 'password': password},
   });
   return json['deliveryId'] as String;
 }

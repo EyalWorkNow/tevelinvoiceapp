@@ -312,6 +312,10 @@ const Map<String, String> _webMessages = {
   'PARTY_REQUIRED': 'יש לבחור לקוח או ספק',
   'ARTIFACT_REQUIRED': 'חסר קובץ מקור לפעולה זו',
   'CONSENT_REQUIRED': 'נדרשת הסכמה לפני ביצוע הפעולה',
+  // §7 password-protected files.
+  'FILE_PROTECTION_UNAVAILABLE': 'קובץ מוגן בסיסמה אינו זמין כרגע',
+  'FILE_PASSWORD_INVALID': 'הסיסמה לקובץ אינה תקינה',
+  'PROTECTED_SEND_NOT_FOUND': 'השליחה המוגנת לא נמצאה',
   'IDEMPOTENCY_CONFLICT': 'הפעולה כבר בוצעה — רעננו את המסך',
   'IDEMPOTENCY_KEY_REQUIRED': 'שגיאה טכנית בבקשה — נסה שוב',
   'ALLOCATION_REJECTED': 'רשות המסים דחתה את בקשת ההקצאה',
