@@ -163,6 +163,9 @@ String timelineSentence(String kind, Map<String, dynamic> d) {
           : _meeting('בוטלה פגישה', d),
     'note' => (d['body'] as String?) ?? '',
     'portal.message' => 'הודעה מהלקוח: ${(d['text'] as String?) ?? ''}',
+    'whatsapp.sent' =>
+      'נשלחה הודעת וואטסאפ${d['templateName'] is String ? ': ${d['templateName']}' : ''}',
+    'whatsapp.opted_out' => 'הלקוח ביקש הסרה מרשימת התפוצה בוואטסאפ',
     _ => 'עדכון',
   };
 }

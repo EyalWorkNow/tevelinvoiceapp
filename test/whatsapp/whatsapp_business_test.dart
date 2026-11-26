@@ -16,6 +16,7 @@ import 'package:invoice/api/client.dart';
 import 'package:invoice/api/models/me.dart';
 import 'package:invoice/api/whatsapp_business_api.dart';
 import 'package:invoice/router.dart';
+import 'package:invoice/util/labels/timeline_he.dart';
 import 'package:invoice/screens/business/business_screen.dart';
 import 'package:invoice/screens/groups/group_screen.dart';
 import 'package:invoice/screens/whatsapp/wa_campaign_screen.dart';
@@ -606,5 +607,16 @@ void main() {
       expect(find.byKey(const Key('group-status')), findsOneWidget);
       expect(find.byKey(const Key('group-wa-campaigns')), findsNothing);
     });
+  });
+
+  test('timeline sentences for WhatsApp campaign events', () {
+    expect(
+      timelineSentence('whatsapp.sent', {'templateName': 'מבצע'}),
+      'נשלחה הודעת וואטסאפ: מבצע',
+    );
+    expect(
+      timelineSentence('whatsapp.opted_out', {'source': 'BUTTON'}),
+      'הלקוח ביקש הסרה מרשימת התפוצה בוואטסאפ',
+    );
   });
 }
