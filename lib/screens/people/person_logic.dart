@@ -85,6 +85,7 @@ const serverActions = {
   'repeat',
   'debt',
   'statement',
+  'portal',
   'terms',
   'archive',
   'expense',
@@ -135,6 +136,9 @@ List<String> personMoreActions(PersonActionFacts f, List<String> row) {
           if (!f.archived && f.canManage && f.crmReady) 'note',
           if (f.hasAddress) 'navigate',
           if (f.statement && !f.archived) 'statement',
+          // 0135: the customer's personal area (the code goes to the e-mail).
+          if (!f.archived && f.canManage && f.canMoneyView && f.hasEmail)
+            'portal',
           if (f.canManage) 'edit',
           if (f.canManage) 'terms',
           if (f.canManage) 'archive',

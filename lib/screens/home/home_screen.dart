@@ -537,9 +537,7 @@ class _Bell extends StatelessWidget {
       child: IconButton(
         key: const Key('home-bell'),
         tooltip: NotificationsHe.bellTooltip,
-        style: IconButton.styleFrom(
-          minimumSize: const Size(Hit.min, Hit.min),
-        ),
+        style: IconButton.styleFrom(minimumSize: const Size(Hit.min, Hit.min)),
         onPressed: () => unawaited(openNotifications(context)),
         icon: Badge(
           key: const Key('home-bell-badge'),

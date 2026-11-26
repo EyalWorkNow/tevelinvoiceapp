@@ -42,6 +42,7 @@ import '../../util/labels/customer_crm_he.dart';
 import '../../util/labels/document_he.dart';
 import '../../util/labels/people_he.dart';
 import '../../util/labels/person_page_he.dart';
+import '../../util/labels/portal_he.dart';
 import '../../util/labels/status_he.dart';
 import '../../util/labels/timeline_he.dart';
 import '../../util/payment_terms.dart' show paymentTermsLabel;
@@ -63,6 +64,7 @@ import 'person_logic.dart';
 import 'person_sections.dart';
 import 'person_visits_page.dart';
 import 'sheets/payment_terms_sheet.dart';
+import 'sheets/portal_link_sheet.dart';
 import 'sheets/s2_customer.dart';
 
 /// Orb colours: (circle, icon) — the ניהול pastel set.
@@ -100,6 +102,7 @@ const _icons = <String, IconData>{
   'note': Iconsax.note_text,
   'navigate': Iconsax.location,
   'statement': Iconsax.receipt_item,
+  'portal': Iconsax.user_square,
   'edit': Iconsax.edit,
   'terms': Iconsax.calendar_2,
   'archive': Iconsax.archive_1,
@@ -124,6 +127,7 @@ String _label(String id) => switch (id) {
   'note' => PersonPageHe.note,
   'navigate' => PersonPageHe.navigate,
   'statement' => PersonPageHe.statement,
+  'portal' => PortalHe.sendLink,
   'edit' => PersonPageHe.details,
   'terms' => PersonPageHe.terms,
   'archive' => PersonPageHe.archive,
@@ -521,6 +525,14 @@ class _PersonScreenState extends State<PersonScreen> {
         }
       case 'statement':
         await _sendStatement();
+      case 'portal':
+        await showPortalLinkSheet(
+          context,
+          customerId: widget.id,
+          name: _name,
+          phone: _phone,
+          email: _email,
+        );
       case 'terms':
         await _editTerms();
       case 'archive':
@@ -1256,6 +1268,13 @@ class _PersonScreenState extends State<PersonScreen> {
             ),
           if (!widget.isSupplier && !_archived)
             PersonAutoRemindersRow(customerId: widget.id),
+          if (!widget.isSupplier && _manage && _caps.can(Cap.moneyView))
+            PersonPortalRow(
+              customerId: widget.id,
+              name: _name,
+              phone: _phone,
+              email: _email,
+            ),
           if (_manage)
             PersonDetailRow(
               key: const Key('person-edit'),
