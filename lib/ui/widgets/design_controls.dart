@@ -61,8 +61,12 @@ class ActionOrb extends StatelessWidget {
     required this.color,
     required this.onPressed,
     this.labelSpacing = 13,
+    this.singleLineLabel = false,
   });
   final String label;
+
+  /// One line (shrunk to fit), so a row of orbs lines up evenly.
+  final bool singleLineLabel;
   final String? semanticsLabel;
   final Widget icon;
   final Color color;
@@ -95,19 +99,37 @@ class ActionOrb extends StatelessWidget {
               child: Center(child: icon),
             ),
             SizedBox(height: labelSpacing),
-            SizedBox(
-              height: 40,
-              child: Center(
-                child: Text(
-                  label,
-                  maxLines: 2,
-                  softWrap: true,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: AppText.body.copyWith(color: context.palette.ink),
+            if (singleLineLabel)
+              SizedBox(
+                height: 24,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    textAlign: TextAlign.center,
+                    style: AppText.secondary.copyWith(
+                      color: context.palette.ink,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              )
+            else
+              SizedBox(
+                height: 40,
+                child: Center(
+                  child: Text(
+                    label,
+                    maxLines: 2,
+                    softWrap: true,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: AppText.body.copyWith(color: context.palette.ink),
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),

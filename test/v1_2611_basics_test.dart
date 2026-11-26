@@ -133,23 +133,20 @@ void main() {
 
   group('§4 inactive customer actions (pure)', () {
     const base = PersonActionFacts(canManage: false, canRestore: true);
-    test(
-      '"החזר לפעיל" only for an inactive customer the member may manage',
-      () {
-        expect(
-          personMoreActions(
-            const PersonActionFacts(archived: true, canRestore: true),
-            const [],
-          ),
-          contains('restore'),
-        );
-        expect(personMoreActions(base, const []), isNot(contains('restore')));
-        expect(
-          personMoreActions(const PersonActionFacts(archived: true), const []),
-          isNot(contains('restore')),
-        );
-      },
-    );
+    test('"החזר לפעיל" is never in "עוד" (header ⋯ + the inactive banner)', () {
+      expect(
+        personMoreActions(
+          const PersonActionFacts(archived: true, canRestore: true),
+          const [],
+        ),
+        isNot(contains('restore')),
+      );
+      expect(personMoreActions(base, const []), isNot(contains('restore')));
+      expect(
+        personMoreActions(const PersonActionFacts(archived: true), const []),
+        isNot(contains('restore')),
+      );
+    });
   });
 
   group('§3א Google calendars on the iPhone', () {

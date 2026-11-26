@@ -7,7 +7,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'ui/widgets/dismiss_keyboard.dart';
 import 'ui/widgets/notch_notice.dart';
-import 'api/settings_api.dart' show hideAmounts, loadHideAmounts;
+import 'api/settings_api.dart'
+    show appThemeMode, hideAmounts, loadHideAmounts, loadThemeMode;
 import 'router.dart';
 import 'screens/auth/app_lock.dart';
 import 'screens/auth/splash_screen.dart';
@@ -35,6 +36,7 @@ void main() {
   // #10a: a 402 "plan required" at the moment of issuing opens the plans sheet.
   PlanGate.install();
   loadHideAmounts();
+  loadThemeMode();
   if (kDebugMode) {
     _startDevServer();
   }
@@ -113,33 +115,36 @@ class _TevelAppState extends State<TevelApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: navigatorKey,
-      scaffoldMessengerKey: messengerKey,
-      navigatorObservers: [AppRouter.instance.observer],
-      title: 'תבל',
-      debugShowCheckedModeBanner: false,
-      locale: const Locale('he', 'IL'),
-      supportedLocales: const [Locale('he', 'IL')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: buildTheme(Brightness.light),
-      darkTheme: buildTheme(Brightness.dark),
-      themeMode: ThemeMode.dark,
-      builder: (context, child) => ValueListenableBuilder<bool>(
-        valueListenable: hideAmounts,
-        builder: (context, hidden, _) => AppBackground(
-          child: AmountPrivacy(
-            hidden: hidden,
-            child: NotchNoticeHost(
-              key: notchNoticeKey,
-              child: DismissKeyboardOnTapOutside(
-                child: AppLockGate(child: child!),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: appThemeMode,
+      builder: (context, mode, _) => MaterialApp(
+        navigatorKey: navigatorKey,
+        scaffoldMessengerKey: messengerKey,
+        navigatorObservers: [AppRouter.instance.observer],
+        title: 'תבל',
+        debugShowCheckedModeBanner: false,
+        locale: const Locale('he', 'IL'),
+        supportedLocales: const [Locale('he', 'IL')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        theme: buildTheme(Brightness.light),
+        darkTheme: buildTheme(Brightness.dark),
+        themeMode: mode,
+        builder: (context, child) => ValueListenableBuilder<bool>(
+          valueListenable: hideAmounts,
+          builder: (context, hidden, _) => AppBackground(
+            child: AmountPrivacy(
+              hidden: hidden,
+              child: NotchNoticeHost(
+                key: notchNoticeKey,
+                child: DismissKeyboardOnTapOutside(
+                  child: AppLockGate(child: child!),
+                ),
               ),
             ),
           ),
         ),
+        home: const SplashScreen(),
       ),
-      home: const SplashScreen(),
     );
   }
 }

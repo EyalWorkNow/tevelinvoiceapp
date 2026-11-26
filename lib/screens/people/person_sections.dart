@@ -1,6 +1,5 @@
 // Building blocks of the customer page (כרטיס לקוח v2): section titles with
-// "הכל", visit / note / follow-up rows, label-value detail rows and the
-// "תזכורות תשלום אוטומטיות" switch. Rows put the label at the start (right)
+// "הכל", visit / note / follow-up rows and label-value detail rows. Rows put the label at the start (right)
 // and the value / amount at the end (left) of the row.
 
 import 'dart:async';
@@ -8,10 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
-import '../../api/collection_reminders_api.dart' show saveReminderHold;
 import '../../api/customer_portal_api.dart';
-import '../../state/business_context.dart';
-import '../../state/caps.dart';
 import '../../state/customer_crm_store.dart';
 import '../../state/session.dart';
 import '../../ui/ds.dart';
@@ -20,7 +16,6 @@ import '../../util/labels/common_he.dart';
 import '../../util/labels/customer_crm_he.dart';
 import '../../util/labels/person_page_he.dart';
 import '../../util/labels/portal_he.dart';
-import '../debts/reminder_hold_tile.dart' show loadReminderHold;
 import 'person_logic.dart';
 import 'sheets/portal_link_sheet.dart';
 
@@ -165,39 +160,6 @@ class PersonVisitRow extends StatelessWidget {
       ),
     );
   }
-}
-
-/// "לפני שמגיעים": a pinned note, shown above the nearest visit only.
-class PersonBeforeArrival extends StatelessWidget {
-  const PersonBeforeArrival({super.key, required this.note});
-  final CustomerCrmNote note;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(Space.page, Space.xs, Space.page, 0),
-    child: Container(
-      key: ValueKey('crm-pinned-${note.id}'),
-      padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 12, 10),
-      decoration: BoxDecoration(
-        color: context.palette.warn.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(12),
-        border: BorderDirectional(
-          start: BorderSide(color: context.palette.warn, width: 3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            CustomerCrmHe.beforeArrival,
-            style: AppText.secondary.copyWith(color: context.palette.muted),
-          ),
-          const SizedBox(height: 2),
-          Text(note.text, style: AppText.body),
-        ],
-      ),
-    ),
-  );
 }
 
 /// An open follow-up: ◯ (complete) · title / when · "באיחור".
@@ -377,7 +339,14 @@ class _RowMenu extends StatelessWidget {
         ),
       if (onEdit != null)
         const PopupMenuItem(value: 'edit', child: Text(CustomerCrmHe.edit)),
-      const PopupMenuItem(value: 'delete', child: Text(CustomerCrmHe.delete)),
+      const PopupMenuDivider(),
+      PopupMenuItem(
+        value: 'delete',
+        child: Text(
+          CustomerCrmHe.delete,
+          style: TextStyle(color: context.palette.danger),
+        ),
+      ),
     ],
   );
 }
@@ -437,94 +406,6 @@ class PersonDetailRow extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// "תזכורות תשלום אוטומטיות" (on = the customer gets the automatic
-/// collection reminders). Owner / partner only; hidden when the server has
-/// no automatic reminders (0111). The stored value is the opposite ("hold").
-class PersonAutoRemindersRow extends StatefulWidget {
-  const PersonAutoRemindersRow({super.key, required this.customerId});
-  final String customerId;
-
-  @override
-  State<PersonAutoRemindersRow> createState() => _PersonAutoRemindersRowState();
-}
-
-class _PersonAutoRemindersRowState extends State<PersonAutoRemindersRow> {
-  bool? _onHold;
-  bool _busy = false;
-
-  bool get _allowed => businessContext.caps.can(Cap.settingsBusiness);
-
-  @override
-  void initState() {
-    super.initState();
-    if (_allowed) unawaited(_load());
-  }
-
-  Future<void> _load() async {
-    try {
-      final v = await loadReminderHold(customerId: widget.customerId);
-      if (mounted) setState(() => _onHold = v);
-    } on Object {
-      // Offline / no 0111: the row stays hidden.
-    }
-  }
-
-  Future<void> _set(bool on) async {
-    final before = _onHold;
-    setState(() {
-      _onHold = !on;
-      _busy = true;
-    });
-    try {
-      await saveReminderHold(customerId: widget.customerId, onHold: !on);
-    } on Object catch (e) {
-      if (!mounted) return;
-      setState(() => _onHold = before);
-      showErrorSnack(context, e);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final hold = _onHold;
-    if (!_allowed || hold == null) return const SizedBox.shrink();
-    final p = context.palette;
-    return Padding(
-      key: const Key('reminder-hold-customer'),
-      padding: const EdgeInsets.symmetric(
-        horizontal: Space.page,
-        vertical: Space.xs,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  PersonPageHe.autoReminders,
-                  style: AppText.body.copyWith(color: p.muted),
-                ),
-                Text(
-                  PersonPageHe.autoRemindersHint,
-                  style: AppText.secondary.copyWith(color: p.muted),
-                ),
-              ],
-            ),
-          ),
-          Switch.adaptive(
-            key: const Key('person-auto-reminders-switch'),
-            value: !hold,
-            onChanged: _busy || session.offline ? null : _set,
-          ),
-        ],
       ),
     );
   }
@@ -726,4 +607,47 @@ class PersonFold extends StatelessWidget {
       children: children,
     ),
   );
+}
+
+/// A page header that stays on top: once the list below scrolls it turns
+/// compact and gets a bottom hairline, so the content never looks cut
+/// under it (2611 customer page #4).
+class ScrollEdgeHeader extends StatelessWidget {
+  const ScrollEdgeHeader({
+    super.key,
+    required this.scrolled,
+    required this.child,
+  });
+
+  final bool scrolled;
+  final Widget child;
+
+  /// Collapses after [_collapseAt] px, opens again only back at the top, so
+  /// the header's own size change never flips it back and forth.
+  static bool next(bool scrolled, ScrollNotification n) {
+    if (n.depth != 0 || n.metrics.axis != Axis.vertical) return scrolled;
+    final px = n.metrics.pixels;
+    if (!scrolled && px > _collapseAt) return true;
+    if (scrolled && px <= 1) return false;
+    return scrolled;
+  }
+
+  static const double _collapseAt = 16;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return AnimatedContainer(
+      key: const Key('scroll-edge-header'),
+      duration: context.motion(180),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: scrolled ? p.line : p.line.withValues(alpha: 0),
+          ),
+        ),
+      ),
+      child: child,
+    );
+  }
 }

@@ -277,6 +277,8 @@ class _CustomerTimelineScreenState extends State<CustomerTimelineScreen> {
             if (_sources.length > 1)
               ChipRow<TimelineSource?>(
                 key: const Key('timeline-chips'),
+                // One scrolling line, not three rows of chips.
+                scroll: true,
                 options: [
                   const ChipOption(null, TimelineHe.chipAll),
                   for (final s in TimelineSource.values)

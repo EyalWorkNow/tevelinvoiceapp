@@ -11,10 +11,13 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../api/sign_requests_api.dart';
 import '../../router.dart';
+import '../../state/business_context.dart';
+import '../../state/caps.dart';
 import '../../ui/ds.dart';
 import '../../ui/widgets/notch_notice.dart';
 import '../../util/image_to_pdf.dart';
 import '../../util/labels/common_he.dart';
+import '../../util/labels/form101_he.dart';
 import '../../util/labels/sign_he.dart';
 import 'sign_common.dart';
 
@@ -130,6 +133,23 @@ class _SignRequestsScreenState extends State<SignRequestsScreen> {
               minTileHeight: Hit.min + 8,
               onTap: () => Navigator.of(context).pop(s),
             ),
+          // 0134: the employee fills טופס 101 on the phone and signs it.
+          if (businessContext.caps.can(Cap.employeeFormsManage)) ...[
+            const Divider(),
+            ListTile(
+              key: const Key('sign-source-form101'),
+              leading: const Icon(Iconsax.profile_2user),
+              title: const Text(Form101He.signEntry, style: AppText.body),
+              subtitle: const Text(Form101He.signEntryHint),
+              minTileHeight: Hit.min + 8,
+              onTap: () {
+                Navigator.of(context).pop();
+                unawaited(
+                  openBusinessSection(this.context, BusinessSection.employees),
+                );
+              },
+            ),
+          ],
         ],
       ),
     );

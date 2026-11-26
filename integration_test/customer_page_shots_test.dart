@@ -744,10 +744,22 @@ void main() {
       await closeAll();
     }
 
-    // 4 · פרטים ועריכה (from "עוד").
-    await openMore();
-    if (await tapIf(find.byKey(const Key('person-more-edit')))) {
-      await shot('40-details-edit-sheet');
+    // 4 · פרטים ועריכה (header ⋯ — rare / admin actions live there).
+    if (await tapIf(
+      find.descendant(
+        of: find.byType(MoreMenu),
+        matching: find.byType(IconButton),
+      ),
+    )) {
+      if (await tapIf(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('פרטים ועריכה'),
+        ),
+      )) {
+        await shot('40-details-edit-sheet');
+        if (await scrollDown(dy: 700)) await shot('41-details-edit-address');
+      }
       await closeAll();
     }
 
@@ -760,7 +772,7 @@ void main() {
       await tapIf(find.byKey(const Key('customer-slot-0')), waitMs: 400);
       await tapIf(find.byKey(const Key('customer-slot-3')), waitMs: 400);
       // A later day: the strip scrolls, its own times load.
-      final later = find.byKey(Key('customer-day-${ymdOf(horizon()[7])}'));
+      final later = find.byKey(Key('new-booking-day-${ymdOf(horizon()[7])}'));
       if (later.evaluate().isNotEmpty) {
         await t.ensureVisible(later);
         await pumpMs(300);
@@ -777,18 +789,12 @@ void main() {
       await closeAll();
     }
 
-    // 7 · statement confirm (⋯).
-    if (await tapIf(
-      find.descendant(
-        of: find.byType(MoreMenu),
-        matching: find.byType(IconButton),
-      ),
-    )) {
-      if (await tapIf(find.text('שליחת כרטסת'))) {
-        await shot('70-statement-confirm');
-      }
-      await closeAll();
+    // 7 · statement confirm ("עוד").
+    await openMore();
+    if (await tapIf(find.byKey(const Key('person-more-statement')))) {
+      await shot('70-statement-confirm');
     }
+    await closeAll();
 
     // 8 · timeline ("הכל" of the documents).
     if (await tapIf(find.byKey(const Key('person-timeline')), waitMs: 2000)) {
@@ -823,12 +829,25 @@ void main() {
     await openCard(Preset.owner, 'c2');
     await shot('93-no-contact-top');
     if (await scrollDown()) await shot('94-no-contact-scroll');
+    await scrollTop();
+    if (await tapIf(
+      find.byKey(const Key('person-action-book')),
+      waitMs: 2500,
+    )) {
+      await shot('65-book-no-contact');
+      await closeAll();
+    }
 
     // 12 · supplier card.
     await openCard(Preset.owner, 's1', supplier: true);
     await shot('95-supplier');
-    if (await tapIf(find.byKey(const Key('person-action-more')))) {
-      await shot('96-supplier-more-sheet');
+    if (await tapIf(
+      find.descendant(
+        of: find.byType(MoreMenu),
+        matching: find.byType(IconButton),
+      ),
+    )) {
+      await shot('96-supplier-header-menu');
       await closeAll();
     }
 

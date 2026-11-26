@@ -79,7 +79,7 @@ void daySlots(FakeBackend b) => b.on('GET', '/calendar/free-slots', (r) {
 });
 
 /// A page with one button that opens the customer booking sheet.
-Widget _opener({String? phone = '0521234567'}) => Scaffold(
+Widget _opener({String? phone = '0521234567', String? email}) => Scaffold(
   body: Builder(
     builder: (c) => Center(
       child: TextButton(
@@ -89,6 +89,7 @@ Widget _opener({String? phone = '0521234567'}) => Scaffold(
           customerId: 'c1',
           name: 'דנה כהן',
           phone: phone,
+          email: email,
         ),
         child: const Text('open'),
       ),
@@ -354,34 +355,41 @@ void main() {
       expect(wa.queryParameters['text'], contains('/book/i/tok'));
     });
 
-    testWidgets('day strip: the first bookable day is chosen and asked with '
-        '?date=; a closed day is shown but cannot be chosen; another day '
-        'loads its own times', (t) async {
-      daySlots(b);
-      await pumpAs(t, b, Preset.owner, _opener());
-      await t.tap(find.byKey(const Key('open')));
-      await settle(t);
-      final dates = [
-        for (final r in b.calls('GET', '/calendar/free-slots')) r.query['date'],
-      ];
-      expect(dates, [null, '2026-12-01']);
-      expect(find.byKey(const Key('customer-day-2026-12-01')), findsOneWidget);
-      // 12-02 is in the strip (between bookable days) with no times.
-      final closed = find.byKey(const Key('customer-day-2026-12-02'));
-      await t.ensureVisible(closed);
-      expect(t.widget<InkWell>(closed).onTap, isNull);
-      expect(find.byKey(const Key('customer-slot-4')), findsOneWidget);
-      final later = find.byKey(const Key('customer-day-2026-12-03'));
-      await t.ensureVisible(later);
-      await t.tap(later);
-      await settle(t);
-      expect(
-        b.last('GET', '/calendar/free-slots')!.query['date'],
-        '2026-12-03',
-      );
-      expect(find.byKey(const Key('customer-slot-1')), findsOneWidget);
-      expect(find.byKey(const Key('customer-slot-2')), findsNothing);
-    });
+    testWidgets(
+      'month calendar: the first bookable day is chosen and asked with '
+      '?date=; a closed day is shown but cannot be chosen; another day '
+      'loads its own times',
+      (t) async {
+        daySlots(b);
+        await pumpAs(t, b, Preset.owner, _opener());
+        await t.tap(find.byKey(const Key('open')));
+        await settle(t);
+        final dates = [
+          for (final r in b.calls('GET', '/calendar/free-slots'))
+            r.query['date'],
+        ];
+        expect(dates, [null, '2026-12-01']);
+        expect(
+          find.byKey(const Key('new-booking-day-2026-12-01')),
+          findsOneWidget,
+        );
+        // 12-02 (no free times) is in the month but cannot be chosen.
+        final closed = find.byKey(const Key('new-booking-day-2026-12-02'));
+        await t.ensureVisible(closed);
+        expect(t.widget<GestureDetector>(closed).onTap, isNull);
+        expect(find.byKey(const Key('customer-slot-4')), findsOneWidget);
+        final later = find.byKey(const Key('new-booking-day-2026-12-03'));
+        await t.ensureVisible(later);
+        await t.tap(later);
+        await settle(t);
+        expect(
+          b.last('GET', '/calendar/free-slots')!.query['date'],
+          '2026-12-03',
+        );
+        expect(find.byKey(const Key('customer-slot-1')), findsOneWidget);
+        expect(find.byKey(const Key('customer-slot-2')), findsNothing);
+      },
+    );
 
     testWidgets('at most 3 suggested, also across days; "קישור ליומן" sends '
         'no slots and shares when there is no phone', (t) async {
@@ -395,13 +403,18 @@ void main() {
         'whatsappText': 'קישור: https://invoice.tevel.space/book/i/tok',
         'expiresAt': null,
       }, status: 201);
-      await pumpAs(t, b, Preset.owner, _opener(phone: null));
+      await pumpAs(
+        t,
+        b,
+        Preset.owner,
+        _opener(phone: null, email: 'dana@example.com'),
+      );
       await t.tap(find.byKey(const Key('open')));
       await settle(t);
       await t.tap(find.byKey(const Key('customer-slot-0')));
       await t.tap(find.byKey(const Key('customer-slot-1')));
       await t.pump();
-      final later = find.byKey(const Key('customer-day-2026-12-03'));
+      final later = find.byKey(const Key('new-booking-day-2026-12-03'));
       await t.ensureVisible(later);
       await t.tap(later);
       await settle(t);
@@ -422,6 +435,33 @@ void main() {
       expect(shared.single, contains('/book/i/tok'));
     });
 
+    testWidgets('no phone and no e-mail: "קביעה בשמו" only, with the reason', (
+      t,
+    ) async {
+      daySlots(b);
+      await pumpAs(t, b, Preset.owner, _opener(phone: null));
+      await t.tap(find.byKey(const Key('open')));
+      await settle(t);
+      expect(find.byKey(const Key('customer-book-no-contact')), findsOneWidget);
+      expect(find.text(CalendarHe.inviteNeedsContact), findsOneWidget);
+      // Book mode from the start: the notes field and "קבע" are there.
+      expect(find.byKey(const Key('customer-book-notes')), findsOneWidget);
+      final mode = t.widget<SegmentedButton<CustomerBookingMode>>(
+        find.byKey(const Key('customer-book-mode')),
+      );
+      expect(mode.selected, {CustomerBookingMode.book});
+      expect(
+        [
+          for (final s in mode.segments)
+            if (s.enabled) s.value,
+        ],
+        [CustomerBookingMode.book],
+      );
+      await t.tap(find.text(CalendarHe.modeLinkShort));
+      await t.pump();
+      expect(find.byKey(const Key('customer-book-notes')), findsOneWidget);
+    });
+
     testWidgets('an older server (no days[]): days come from the slots', (
       t,
     ) async {
@@ -430,7 +470,10 @@ void main() {
       await t.tap(find.byKey(const Key('open')));
       await settle(t);
       expect(b.calls('GET', '/calendar/free-slots'), hasLength(1));
-      expect(find.byKey(const Key('customer-day-2026-12-01')), findsOneWidget);
+      expect(
+        find.byKey(const Key('new-booking-day-2026-12-01')),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('customer-slot-0')), findsOneWidget);
     });
 

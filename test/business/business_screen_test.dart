@@ -68,7 +68,7 @@ void main() {
         ]);
         // Nothing deleted: the rarely used rows are one tap further (§6.B).
         expect(await moreFor(Preset.owner), [
-          if (form101Released) 'employees', // 0134 טופס 101 (hidden until released)
+          'employees', // 0134 טופס 101 (owner + accountants)
           'paymentTerms', // 0110 default payment terms
           'integrations',
           'subscription',
@@ -129,7 +129,7 @@ void main() {
           'more',
         ]);
         expect(await moreFor(Preset.accountantRep), [
-          if (form101Released) 'employees', // 0134: the accountant reads the 101 forms
+          'employees', // 0134: the accountant reads the 101 forms
           'notifications',
           'desktop',
           // C5: no "יומן פעולות" — this P0 member is READ_ONLY (no audit:read).
@@ -439,6 +439,12 @@ void main() {
     await settle(tester);
     expect(hideAmounts.value, isTrue);
     await tester.runAsync(() => setHideAmounts(false));
+    // מראה: dark by default; "בהיר" switches the whole app.
+    expect(appThemeMode.value, ThemeMode.dark);
+    await tester.tap(find.text(BusinessHe.themeLight));
+    await settle(tester);
+    expect(appThemeMode.value, ThemeMode.light);
+    await tester.runAsync(() => setThemeMode(ThemeMode.dark));
 
     // The help row (0120) moved it past the lazy list.
     await tester.scrollUntilVisible(

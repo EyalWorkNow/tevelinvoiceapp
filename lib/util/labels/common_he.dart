@@ -5,6 +5,9 @@
 /// Shared action verbs and shell words. Domain wording lives in the domain
 /// file (compose_he, document_he, …).
 abstract final class CommonHe {
+  /// Under a credit note's amount in document lists (money back, not a debt).
+  static const creditMark = 'זיכוי';
+
   // Tabs (§5; tab 4 = "עסק", §19 q1).
   static const tabHome = 'בית';
   static const tabPeople = 'לקוחות';

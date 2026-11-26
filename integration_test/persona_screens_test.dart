@@ -1173,7 +1173,7 @@ Future<void> ownerCustomers() async {
     }
     await scrollTop();
     final stage = find.byTooltip('מצב הלקוח');
-    final stage2 = find.text('לקוח פעיל');
+    final stage2 = find.text('בעבודה');
     if (await tapIf(stage.evaluate().isNotEmpty ? stage : stage2, waitMs: 1500)) {
       await shot('customer-crm-stage-menu');
       await systemBack();

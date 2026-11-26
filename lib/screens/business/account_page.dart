@@ -243,6 +243,40 @@ class _AccountPageState extends State<AccountPage> {
               await Biometric.instance.setEnabled(v);
             },
           ),
+        // מראה: dark (default) / light / as the phone (owner 2026-11-26).
+        ValueListenableBuilder<ThemeMode>(
+          valueListenable: appThemeMode,
+          builder: (context, mode, _) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: Space.s),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(BusinessHe.appearance, style: AppText.body),
+                const SizedBox(height: Space.s),
+                SegmentedButton<ThemeMode>(
+                  key: const Key('account-theme'),
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(
+                      value: ThemeMode.dark,
+                      label: Text(BusinessHe.themeDark),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      label: Text(BusinessHe.themeLight),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      label: Text(BusinessHe.themeSystem),
+                    ),
+                  ],
+                  selected: {mode},
+                  onSelectionChanged: (s) => unawaited(setThemeMode(s.first)),
+                ),
+              ],
+            ),
+          ),
+        ),
         ValueListenableBuilder<bool>(
           valueListenable: hideAmounts,
           builder: (context, hidden, _) => SwitchListTile.adaptive(

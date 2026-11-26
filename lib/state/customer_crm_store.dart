@@ -12,7 +12,7 @@ enum CustomerCrmStage {
   lead('ליד חדש'),
   quoteSent('הצעת מחיר נשלחה'),
   orderApproved('הזמנה אושרה'),
-  active('לקוח פעיל');
+  active('בעבודה');
 
   const CustomerCrmStage(this.label);
 

@@ -493,7 +493,7 @@ void main() {
       // Owner 2026-11-23: terms live in the folded "פרטי הלקוח".
       await tap(tester, find.byKey(const Key('person-details')));
       expect(
-        find.text('שוטף+30 · העברה (ברירת המחדל של העסק)'),
+        find.textContaining('שוטף+30 · העברה (ברירת המחדל של העסק)'),
         findsOneWidget,
       );
       expect(find.byKey(const Key('person-timeline')), findsOneWidget);
@@ -525,6 +525,11 @@ void main() {
         'preferredPaymentMethod': 'BIT',
       });
 
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('person-timeline')),
+        -300,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tap(tester, find.byKey(const Key('person-timeline')));
       expect(find.byType(CustomerTimelineScreen), findsOneWidget);
     });
@@ -543,8 +548,25 @@ void main() {
         timeline([]);
         await pump(tester, const PersonScreen(id: 'c1'));
         await tap(tester, find.byKey(const Key('person-details')));
+        // One place for terms + reminders: the row in "פרטי הלקוח" (no
+        // separate on/off switch, nothing in "כסף ורווחיות" / "עוד").
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('person-terms')),
+            matching: find.text(CollectionHe.termsAndReminders),
+          ),
+          findsOneWidget,
+        );
+        expect(find.byKey(const Key('reminder-hold-customer')), findsNothing);
+        expect(find.byKey(const Key('person-terms-reminders')), findsNothing);
         await tap(tester, find.byKey(const Key('person-terms')));
-        expect(find.text(CollectionHe.termsAndReminders), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('terms-sheet')),
+            matching: find.text(CollectionHe.termsAndReminders),
+          ),
+          findsOneWidget,
+        );
         expect(find.byKey(const Key('terms-cadence')), findsOneWidget);
         await tap(tester, find.text(CollectionHe.cadenceLabel('WEEKLY')));
         expect(find.text(CollectionHe.cadenceHint('WEEKLY')), findsOneWidget);

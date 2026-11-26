@@ -22,10 +22,14 @@ Future<BookingAction?> showBookingDetailSheet(
   BuildContext context,
   Booking booking, {
   required bool canOpenCustomer,
+  bool inCalendar = true,
 }) => showAppSheet<BookingAction>(
   context,
-  builder: (sheet) =>
-      BookingDetailSheet(booking: booking, canOpenCustomer: canOpenCustomer),
+  builder: (sheet) => BookingDetailSheet(
+    booking: booking,
+    canOpenCustomer: canOpenCustomer,
+    inCalendar: inCalendar,
+  ),
 );
 
 class BookingDetailSheet extends StatelessWidget {
@@ -33,10 +37,15 @@ class BookingDetailSheet extends StatelessWidget {
     super.key,
     required this.booking,
     required this.canOpenCustomer,
+    this.inCalendar = true,
   });
 
   final Booking booking;
   final bool canOpenCustomer;
+
+  /// False when opened from the customer page: the move hint points to the
+  /// יומן (dragging works there).
+  final bool inCalendar;
 
   @override
   Widget build(BuildContext context) {
@@ -100,7 +109,7 @@ class BookingDetailSheet extends StatelessWidget {
                 style: AppText.body.copyWith(fontWeight: FontWeight.w600),
               ),
               subtitle: Text(
-                linked
+                b.customerId != null
                     ? [
                         b.clientPhone,
                         b.clientEmail,
@@ -208,7 +217,7 @@ class BookingDetailSheet extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: Space.m),
             child: Text(
-              CalendarHe.dragHint,
+              inCalendar ? CalendarHe.dragHint : CalendarHe.moveInCalendar,
               textAlign: TextAlign.center,
               style: AppText.caption.copyWith(fontSize: 13, color: p.muted),
             ),

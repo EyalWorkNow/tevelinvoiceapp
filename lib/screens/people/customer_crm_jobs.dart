@@ -372,9 +372,13 @@ class _CustomerCrmJobsState extends State<CustomerCrmJobs> {
                                 value: 'reopen',
                                 child: Text(CustomerCrmHe.reopen),
                               ),
-                            const PopupMenuItem(
+                            const PopupMenuDivider(),
+                            PopupMenuItem(
                               value: 'delete',
-                              child: Text(CustomerCrmHe.delete),
+                              child: Text(
+                                CustomerCrmHe.delete,
+                                style: TextStyle(color: context.palette.danger),
+                              ),
                             ),
                           ],
                         ),

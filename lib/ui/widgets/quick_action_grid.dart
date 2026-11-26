@@ -43,9 +43,14 @@ class QuickActionGrid extends StatelessWidget {
     super.key,
     required this.actions,
     required this.keyPrefix,
+    this.balanced = false,
   });
 
   final List<QuickAction> actions;
+
+  /// One-line labels and rows of near-equal length (5 → 3 + 2, 6 → 3 + 3,
+  /// 7 → 4 + 3), so nothing sits alone on a row (customer page).
+  final bool balanced;
 
   /// Each orb's key is '$keyPrefix-${action.id}'.
   final String keyPrefix;
@@ -61,12 +66,14 @@ class QuickActionGrid extends StatelessWidget {
         icon: a.orb ?? Icon(a.icon, color: a.ink, size: a.iconSize),
         color: a.color,
         labelSpacing: 5,
+        singleLineLabel: balanced,
         onPressed: a.enabled ? a.onTap : null,
       ),
     );
     final rows = <Widget>[];
-    for (var start = 0; start < actions.length; start += 4) {
-      final row = actions.skip(start).take(4).toList(growable: false);
+    final perRow = balanced ? balancedPerRow(actions.length) : 4;
+    for (var start = 0; start < actions.length; start += perRow) {
+      final row = actions.skip(start).take(perRow).toList(growable: false);
       if (rows.isNotEmpty) rows.add(const SizedBox(height: Space.xs));
       rows.add(
         Row(
@@ -80,7 +87,7 @@ class QuickActionGrid extends StatelessWidget {
                   child: orb(a),
                 ),
               ),
-            for (var empty = row.length; empty < 4; empty++)
+            for (var empty = row.length; empty < perRow; empty++)
               const Expanded(child: SizedBox()),
           ],
         ),
@@ -91,4 +98,12 @@ class QuickActionGrid extends StatelessWidget {
       children: rows,
     );
   }
+}
+
+/// Orbs per row for [count] actions: as few rows of at most 4 as possible,
+/// filled evenly (5 → 3, 6 → 3, 7 → 4, 8 → 4; ≤ 4 → one row of 4 slots).
+int balancedPerRow(int count) {
+  if (count <= 4) return 4;
+  final rows = (count + 3) ~/ 4;
+  return (count + rows - 1) ~/ rows;
 }

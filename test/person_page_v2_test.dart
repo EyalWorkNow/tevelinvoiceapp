@@ -160,7 +160,8 @@ void main() {
       );
     });
 
-    test('"עוד": fixed order, nothing from the row, ארכוב last', () {
+    test('"עוד": actions only, fixed order, nothing from the row; edit / '
+        'terms / archive live elsewhere (one place each)', () {
       final row = personRowActions(_with(owes: true));
       expect(personMoreActions(_with(owes: true), row), [
         'email',
@@ -171,9 +172,6 @@ void main() {
         'navigate',
         'statement',
         'portal',
-        'edit',
-        'terms',
-        'archive',
       ]);
       final viewer = _with(manage: false, statement: false);
       expect(
@@ -182,7 +180,7 @@ void main() {
       );
     });
 
-    test('supplier: חיוג · וואטסאפ · הוצאה · אימייל · עוד', () {
+    test('supplier: חיוג · וואטסאפ · הוצאה · אימייל (edit / archive in ⋯)', () {
       const f = PersonActionFacts(
         supplier: true,
         hasPhone: true,
@@ -192,8 +190,8 @@ void main() {
         canManage: true,
       );
       final row = personRowActions(f);
-      expect(row, ['call', 'whatsapp', 'expense', 'email', 'more']);
-      expect(personMoreActions(f, row), ['edit', 'archive']);
+      expect(row, ['call', 'whatsapp', 'expense', 'email']);
+      expect(personMoreActions(f, row), isEmpty);
     });
   });
 
@@ -411,8 +409,8 @@ void main() {
       );
     });
 
-    testWidgets('one visits list (job + meeting) with the pinned note above '
-        'the nearest; a late follow-up is the next thing; "עוד" sheet', (
+    testWidgets('one visits list (job + meeting); the pinned note shows once, '
+        'on top of the notes; a late follow-up is the next thing; "עוד"', (
       t,
     ) async {
       final n = DateTime.now();
@@ -498,14 +496,32 @@ void main() {
         find.byKey(const Key('person-visit-booking-bk1')),
       );
       final jobRow = t.getRect(find.byKey(const Key('person-visit-job-j1')));
-      final pin = t.getRect(find.byKey(const ValueKey('crm-pinned-n1')));
-      expect(pin.top, lessThan(meetRow.top));
       expect(meetRow.top, lessThan(jobRow.top));
+      // 2611 #13: no "לפני שמגיעים" box above the meetings — the note is
+      // the first row of the notes, once.
+      expect(find.byKey(const ValueKey('crm-pinned-n1')), findsNothing);
+      await t.scrollUntilVisible(
+        find.byKey(const Key('person-note-n1')),
+        200,
+        scrollable: list.first,
+      );
+      expect(find.text('קוד לשער 4590'), findsOneWidget);
+      expect(
+        t.getRect(find.byKey(const Key('person-note-n1'))).top,
+        lessThan(t.getRect(find.byKey(const Key('person-reminder-r1'))).top),
+        reason: 'the pinned note is the first row of the notes',
+      );
       expect(
         find.byKey(const Key('person-visit-booking-bk-other')),
         findsNothing,
       );
-      // "עוד": the rest, in order, "ארכוב" last.
+      await t.scrollUntilVisible(
+        find.byKey(const Key('person-action-more')),
+        -200,
+        scrollable: list.first,
+      );
+      await settle(t);
+      // "עוד": the rest (actions only), in order.
       await t.tap(find.byKey(const Key('person-action-more')));
       await settle(t);
       final ids = [
@@ -517,7 +533,7 @@ void main() {
         ))
           (w.key! as ValueKey<String>).value.substring('person-more-'.length),
       ];
-      expect(ids, ['debt', 'job', 'note', 'edit', 'terms', 'archive']);
+      expect(ids, ['debt', 'job', 'note']);
     });
 
     testWidgets('employee: a CRM the server refuses (403) hides the visits '
