@@ -13,8 +13,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
-import 'dart:typed_data';
+import 'package:flutter/services.dart';
 
 import '../../api/client.dart';
 import '../../api/customer_import_api.dart';
@@ -67,6 +66,7 @@ class PeopleScreen extends StatefulWidget {
 class _PeopleScreenState extends State<PeopleScreen> {
   final _search = TextEditingController();
   PeopleChip _chip = PeopleChip.active;
+  PeopleChip _lastStatus = PeopleChip.active;
   CustomerList? _list;
   Map<String, BigInt>? _balances;
   List<Supplier>? _suppliers;
@@ -376,6 +376,29 @@ class _PeopleScreenState extends State<PeopleScreen> {
                         ),
                       ),
                     ),
+                    if (_canAdd)
+                      FilledButton.icon(
+                        key: const Key('people-add'),
+                        onPressed: _add,
+                        icon: const Icon(Iconsax.user_add, size: 18),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(0, 36),
+                          fixedSize: const Size.fromHeight(36),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Space.m,
+                          ),
+                          shape: const StadiumBorder(),
+                          tapTargetSize: MaterialTapTargetSize.padded,
+                          textStyle: AppText.secondary.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        label: Text(
+                          _chip == PeopleChip.suppliers
+                              ? PeopleHe.addSupplier
+                              : PeopleHe.addCustomer,
+                        ),
+                      ),
                     if (_canImport)
                       // Header-sized "⋯" (the shared MoreMenu button is 46pt and
                       // would push P's list when the keyboard is up).
@@ -414,32 +437,6 @@ class _PeopleScreenState extends State<PeopleScreen> {
                   ],
                 ),
               ),
-            // Tester 2026-11-18: a clear, full-width "+ לקוח חדש" right
-            // under the title (was a small text link in the corner).
-            if (_canAdd && !_selection.active)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  Space.page,
-                  0,
-                  Space.page,
-                  Space.m,
-                ),
-                child: FilledButton.icon(
-                  key: const Key('people-add'),
-                  onPressed: _add,
-                  icon: const Icon(Iconsax.user_add, size: 20),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                    shape: const StadiumBorder(),
-                    textStyle: AppText.button,
-                  ),
-                  label: Text(
-                    _chip == PeopleChip.suppliers
-                        ? PeopleHe.addSupplier
-                        : PeopleHe.addCustomer,
-                  ),
-                ),
-              ),
             OfflineBanner(
               visible: _offline || businessContext.offline,
               onRetry: _load,
@@ -450,9 +447,19 @@ class _PeopleScreenState extends State<PeopleScreen> {
                 key: const Key('people-search'),
                 controller: _search,
                 textInputAction: TextInputAction.search,
+                textAlignVertical: TextAlignVertical.center,
                 decoration: InputDecoration(
+                  isDense: true,
+                  constraints: const BoxConstraints.tightFor(height: 40),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: Space.m,
+                  ),
                   hintText: PeopleHe.searchContacts,
-                  prefixIcon: const Icon(Iconsax.search_normal_1),
+                  prefixIcon: const Icon(Iconsax.search_normal_1, size: 18),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
                   suffixIcon: _search.text.isEmpty
                       ? null
                       : IconButton(
@@ -464,38 +471,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
                 ),
               ),
             ),
-            if (chips.length > 1) ...[
-              const SizedBox(height: Space.m),
-              ChipRow<PeopleChip>(
-                options: [
-                  for (final c in chips)
-                    ChipOption(
-                      c,
-                      switch (c) {
-                        PeopleChip.active => PeopleHe.chipActive(
-                          counts?.active ?? 0,
-                        ),
-                        PeopleChip.inactive => PeopleHe.chipInactive(
-                          counts?.inactive ?? 0,
-                        ),
-                        PeopleChip.all => PeopleHe.chipAllCustomers(
-                          counts?.all ?? 0,
-                        ),
-                        PeopleChip.debtors => PeopleHe.chipDebtors,
-                        PeopleChip.suppliers => PeopleHe.chipSuppliers,
-                      },
-                      icon: switch (c) {
-                        PeopleChip.debtors =>
-                          Icons.account_balance_wallet_outlined,
-                        PeopleChip.suppliers => Icons.local_shipping_outlined,
-                        _ => null,
-                      },
-                    ),
-                ],
-                selected: _chip,
-                onSelected: (c) => setState(() => _chip = c),
-              ),
-            ],
+            ..._filters(chips, counts),
             const SizedBox(height: Space.s),
             if (_showGroups) ...[
               GroupsStrip(
@@ -515,6 +491,73 @@ class _PeopleScreenState extends State<PeopleScreen> {
         ),
       ),
     );
+  }
+
+  bool _isStatus(PeopleChip c) =>
+      c == PeopleChip.all || c == PeopleChip.active || c == PeopleChip.inactive;
+
+  /// Level 1: לקוחות / חייבים / ספקים as one segmented control (only when there
+  /// is more than one kind). Level 2: הכול / פעילים / לא פעילים as small chips.
+  List<Widget> _filters(List<PeopleChip> chips, CustomerCounts? counts) {
+    final kinds = [PeopleChip.active, ...chips.where((c) => !_isStatus(c))];
+    final onCustomers = _isStatus(_chip);
+    return [
+      if (kinds.length > 1) ...[
+        const SizedBox(height: Space.m),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.page),
+          child: _Segmented(
+            options: [
+              for (final k in kinds)
+                (
+                  k,
+                  switch (k) {
+                    PeopleChip.debtors => PeopleHe.chipDebtors,
+                    PeopleChip.suppliers => PeopleHe.chipSuppliers,
+                    _ => PeopleHe.title,
+                  },
+                ),
+            ],
+            selected: onCustomers ? PeopleChip.active : _chip,
+            onSelected: (k) => setState(
+              () => _chip = k == PeopleChip.active ? _lastStatus : k,
+            ),
+          ),
+        ),
+      ],
+      if (onCustomers) ...[
+        const SizedBox(height: Space.s),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.page),
+          // Wraps only at large text sizes; one line otherwise.
+          child: Wrap(
+            spacing: Space.s,
+            children: [
+              for (final c in const [
+                PeopleChip.all,
+                PeopleChip.active,
+                PeopleChip.inactive,
+              ]) ...[
+                _StatusChip(
+                  key: Key('people-status-${c.name}'),
+                  label: switch (c) {
+                    PeopleChip.all => PeopleHe.chipAllCustomers(
+                      counts?.all ?? 0,
+                    ),
+                    PeopleChip.inactive => PeopleHe.chipInactive(
+                      counts?.inactive ?? 0,
+                    ),
+                    _ => PeopleHe.chipActive(counts?.active ?? 0),
+                  },
+                  selected: _chip == c,
+                  onTap: () => setState(() => _chip = _lastStatus = c),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    ];
   }
 
   Widget _body(BuildContext context, AppPalette p) {
@@ -603,6 +646,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
           dimmed: c.isArchived,
           amountLabel: owed != null ? PeopleHe.owesYou : null,
           amountMinor: owed,
+          card: true,
           onTap: selecting ? () => _toggle(c.id) : () => _open(c.id),
         );
         if (!_canGroup) return row;
@@ -795,4 +839,129 @@ class _PeopleScreenState extends State<PeopleScreen> {
       ),
     ),
   );
+}
+
+/// One full-width box; the chosen segment is filled (customers list, level 1).
+class _Segmented extends StatelessWidget {
+  const _Segmented({
+    required this.options,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<(PeopleChip, String)> options;
+  final PeopleChip selected;
+  final ValueChanged<PeopleChip> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: p.ink.withValues(alpha: .06),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          for (final (value, label) in options)
+            Expanded(
+              child: Semantics(
+                button: true,
+                selected: value == selected,
+                child: GestureDetector(
+                  key: Key('people-kind-${value.name}'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (value == selected) return;
+                    HapticFeedback.selectionClick();
+                    onSelected(value);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: value == selected
+                          ? p.ink.withValues(alpha: .14)
+                          : null,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.secondary.copyWith(
+                        color: value == selected ? p.ink : p.muted,
+                        fontWeight: value == selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A light outline chip, 32pt tall inside a 44pt tap area (level 2 filters).
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          if (selected) return;
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Container(
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: Space.m),
+            decoration: BoxDecoration(
+              color: selected ? p.accent.withValues(alpha: .16) : null,
+              borderRadius: BorderRadius.circular(Radii.chip),
+              border: Border.all(
+                color: selected ? p.accent.withValues(alpha: .6) : p.line,
+              ),
+            ),
+            child: Center(
+              widthFactor: 1,
+              child: Text(
+                label,
+                style: AppText.secondary.copyWith(
+                  fontSize: 13,
+                  color: selected ? p.ink : p.muted,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

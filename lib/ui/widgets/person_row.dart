@@ -60,7 +60,11 @@ class PersonRow extends StatelessWidget {
     this.subtitleOnLeft,
     this.onTap,
     this.dimmed = false,
+    this.card = false,
   });
+
+  /// A soft rounded card with a chevron at the row end (customers list).
+  final bool card;
 
   final String name;
 
@@ -181,16 +185,51 @@ class PersonRow extends StatelessWidget {
         if (hasAmount) '$amountLabel ${moneySpoken(context, amountMinor!)}',
       ].join(', '),
       excludeSemantics: true,
-      child: InkWell(
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: Hit.row),
+      child: card ? _card(context, content) : _plain(content),
+    );
+  }
+
+  Widget _plain(Widget content) => InkWell(
+    onTap: onTap,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: Hit.row),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.page,
+          vertical: Space.s,
+        ),
+        child: dimmed ? Opacity(opacity: .55, child: content) : content,
+      ),
+    ),
+  );
+
+  Widget _card(BuildContext context, Widget content) {
+    final p = context.palette;
+    final row = Row(
+      children: [
+        Expanded(child: content),
+        const SizedBox(width: Space.s),
+        // Mirrors in RTL: points left, "into the card".
+        Icon(Icons.chevron_right, size: 20, color: p.muted),
+      ],
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.page,
+        vertical: Space.xs,
+      ),
+      child: Material(
+        color: p.ink.withValues(alpha: .05),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: p.ink.withValues(alpha: .06)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Space.page,
-              vertical: Space.s,
-            ),
-            child: dimmed ? Opacity(opacity: .55, child: content) : content,
+            padding: const EdgeInsets.all(14),
+            child: dimmed ? Opacity(opacity: .55, child: row) : row,
           ),
         ),
       ),
